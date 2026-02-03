@@ -9,7 +9,7 @@ import { join, basename } from 'node:path';
 import { readSessionMessages, getSessionInfo } from '../parser/session-reader.js';
 import { assembleTurns } from '../parser/turn-assembler.js';
 import { chunkTurns, resetChunkCounter } from '../parser/chunker.js';
-import type { Chunk, SessionInfo } from '../parser/types.js';
+import type { Chunk, RenderMode, SessionInfo } from '../parser/types.js';
 
 export interface CorpusConfig {
   /** Paths to session JSONL files. */
@@ -20,6 +20,8 @@ export interface CorpusConfig {
   maxTokensPerChunk?: number;
   /** Include thinking blocks. Default: true. */
   includeThinking?: boolean;
+  /** Render mode for chunking. Default: 'full'. */
+  renderMode?: RenderMode;
 }
 
 export interface Corpus {
@@ -68,6 +70,7 @@ export async function buildCorpus(config: CorpusConfig): Promise<Corpus> {
     maxChunksPerSession = 30,
     maxTokensPerChunk = 4096,
     includeThinking = true,
+    renderMode = 'full',
   } = config;
 
   resetChunkCounter();
@@ -86,6 +89,7 @@ export async function buildCorpus(config: CorpusConfig): Promise<Corpus> {
       sessionId: info.sessionId,
       sessionSlug: info.slug,
       includeThinking,
+      renderMode,
     });
 
     const sampled = sampleUniformByCodeRatio(chunks, maxChunksPerSession);
