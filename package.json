@@ -1,0 +1,27 @@
+{
+  "name": "semansiation",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build-corpus": "tsx scripts/build-corpus.ts",
+    "benchmark": "tsx scripts/run-benchmark.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.4.1",
+    "hdbscan-ts": "^1.0.0",
+    "onnxruntime-node": "^1.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

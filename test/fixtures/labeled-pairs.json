@@ -1,0 +1,20 @@
+{
+  "pairs": [
+    {
+      "chunkIdA": "sess-001-chunk-1",
+      "chunkIdB": "sess-001-chunk-2",
+      "label": "related",
+      "confidence": "high",
+      "source": "same-session-adjacent"
+    },
+    {
+      "chunkIdA": "sess-001-chunk-1",
+      "chunkIdB": "sess-002-chunk-1",
+      "label": "unrelated",
+      "confidence": "high",
+      "source": "cross-project-random"
+    }
+  ],
+  "generatedAt": "2026-01-15T10:00:00.000Z",
+  "chunkCount": 4
+}

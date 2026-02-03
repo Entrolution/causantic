@@ -1,0 +1,40 @@
+# Claude Code
+.claude/
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.local
+
+# Data (local memory stores)
+*.lance/
+*.kuzu/
+*.db
+
+# Test corpus (generated from local sessions)
+test/fixtures/corpus/
+
+# Benchmark results
+benchmark-results/
