@@ -967,19 +967,9 @@ Simple temporal distance (logical clock position) is a poor proxy for relevance 
 
 Temporal proximity says [5] is closest to [4] (git). But causal/semantic relevance says [5] relates to [1,2]. The git tangent is noise.
 
-**Solution**: Use a **vector clock** where each dimension represents a semantic cluster, tracking causal ordering across independent semantic domains:
+**Solution**: Model causality directly via **normalised edge weights on the directed graph**. Each D→T→D transition (see [D-T-D Model](#the-d-t-d-model-data-transformation-data)) creates all-pairs edges between chunks in adjacent data blobs. Edge weights accumulate with repeated co-occurrence and decay over time. Causal distance between any two clusters is the path attenuation through the graph — no separate ordering mechanism needed.
 
-```
-Semantic Clusters: [error-handling, testing, git, async]
-
-Chunk arrives touching [error-handling, async]:
-  Before: error-handling=[3], testing=[2], git=[5], async=[1]
-  After:  error-handling=[4], testing=[2], git=[5], async=[2]
-
-The "causal frontier" for this chunk is [4,2,5,2]
-```
-
-Distance between chunks is measured per-cluster, not globally.
+The graph's edge weights encode both recency (via decay) and causal strength (via accumulation). Clusters that frequently appear in cause-effect relationships develop strong direct edges; clusters separated by many intermediate steps are connected only by attenuated multi-hop paths that naturally fade.
 
 ### Directed Causal Graph
 
@@ -1160,9 +1150,9 @@ function buildContext(
 4. **Decay creates simplification** — indirect paths fade faster, graph self-prunes
 5. **Intent-aware retrieval** — context depends on whether you're debugging or planning
 
-### Vector Clock Tick Semantics: The D-T-D Model
+### The D-T-D Model (Data-Transformation-Data)
 
-The vector clock formalism above defines *what* the clock tracks (per-cluster causal ordering) but not *when* it ticks. This section defines the ticking semantics grounded in the structure of conversational data.
+This section defines *when* causal edges are created, grounded in the structure of conversational data.
 
 #### Data-Transformation-Data Alternation
 
@@ -1196,17 +1186,50 @@ No causal edges               All-pairs causal edges
 within a blob                 across the transformation
 ```
 
-#### All-Pairs Signaling (Maximum Entropy)
+#### All-Pairs Edge Creation (Maximum Entropy)
 
-For D₁ → T → D₂, the causal signal is modeled as **one message from each chunk in D₁ to each chunk in D₂**. This is a maximum entropy approach:
+For D₁ → T → D₂, causal edges are created as **one edge from each chunk in D₁ to each chunk in D₂**. This is a maximum entropy approach:
 
 - We cannot reliably determine which specific chunk in D₁ caused which specific chunk in D₂ without deep semantic analysis
 - Even an associatively "weak" chunk in D₁ may have changed the entire output — thoughts are information-dense and not necessarily stable under perturbation
 - **Analogy**: Mathematical notation can change meaning completely with a single symbol change, while spoken language is more resilient but less information-dense. Session data is closer to mathematical notation in its sensitivity.
 
-Each of these all-pairs signals is what the vector clock **ticks through**. If D₁ has *m* chunks touching cluster X, and D₂ has *n* chunks touching cluster Y, then cluster Y's clock entry advances by *m × n* ticks from X's perspective.
+Each of these all-pairs edges **boosts the weight** on the corresponding cluster-to-cluster link in the causal graph. If D₁ has *m* chunks and D₂ has *n* chunks, a single transformation creates *m × n* edge boosts. In practice, typical data blobs contain 3-8 chunks, so the cross product is 9-64 edges per transformation — manageable.
 
-In practice, typical data blobs contain 3-8 chunks, so the cross product is 9-64 edges per transformation — manageable.
+#### Edge Weight Normalisation
+
+Edge weights are normalised in the **direction of traversal** to ensure conservation of causal influence:
+
+**Forward traversal** (cause → effect): Each cause chunk's outgoing edges are normalised so they sum to 1. This evenly distributes causal impact across effect nodes.
+
+**Reverse traversal** (effect → cause): Each effect chunk's reverse edges are normalised so they sum to 1. This evenly distributes explanatory weight back across cause nodes.
+
+```
+FORWARD NORMALISATION (D₁ has 2 chunks, D₂ has 3 chunks):
+
+  c₁ ──1/3──▶ c₃
+  c₁ ──1/3──▶ c₄       Each cause chunk distributes 1.0
+  c₁ ──1/3──▶ c₅       total weight across its effects
+
+  c₂ ──1/3──▶ c₃
+  c₂ ──1/3──▶ c₄       Total weight arriving at each
+  c₂ ──1/3──▶ c₅       effect chunk: 2/3
+
+REVERSE NORMALISATION (same graph, traversed backwards):
+
+  c₃ ──1/2──▶ c₁       Each effect chunk distributes 1.0
+  c₃ ──1/2──▶ c₂       total weight across its causes
+
+  c₄ ──1/2──▶ c₁       Total weight arriving at each
+  c₄ ──1/2──▶ c₂       cause chunk: 3/2
+
+  c₅ ──1/2──▶ c₁
+  c₅ ──1/2──▶ c₂
+```
+
+This normalisation interacts naturally with the existing path attenuation and decay mechanisms. Multi-hop paths still attenuate as the product of edge weights along the path, and decay still causes indirect paths to fade faster than direct ones.
+
+**Key insight**: This direct edge-weight approach makes vector clocks unnecessary. The original motivation for vector clocks was tracking causal distance across independent semantic domains — but that information is already encoded in the graph's edge weights and path attenuation. Edge accumulation encodes frequency of co-occurrence, decay encodes recency, and path products encode causal distance. The graph *is* the clock.
 
 #### Mapping to Session Data
 
@@ -1227,7 +1250,7 @@ A multi-turn exchange is: `D_user₁ → T → D_asst₁ → T_human → D_user�
 The human transformation T_human between D_assistant and D_user_next raises a question: is the new prompt a **causal continuation** of the preceding output, or does it signal a **new thread of thought**?
 
 This matters because:
-- **Continuation**: The all-pairs causal edges should connect D_assistant chunks to D_user_next chunks (the clock ticks normally)
+- **Continuation**: The all-pairs causal edges should connect D_assistant chunks to D_user_next chunks (normal edge creation)
 - **Topic switch**: The new prompt starts a fresh causal chain; connecting it to the preceding output would create false causal links
 
 **Detection approach** — a hybrid of embedding distance and lexical heuristics:
@@ -1245,31 +1268,33 @@ This is a concrete classification problem that can be benchmarked using the exis
 
 #### Agent Briefing and Debriefing
 
-The D-T-D model extends naturally to multi-agent scenarios via standard vector clock inter-process communication semantics:
+The D-T-D model extends naturally to multi-agent scenarios. Each agent has its own D-T-D chain, with causal edges created at the briefing and debriefing boundaries:
 
 ```
 PARENT AGENT
     D_parent₁ (decides to spawn agents)
          │
-    T (Task invocations = briefing signals)
+    T (Task invocations = briefing)
          │
     ┌────┴────┐
     ▼         ▼
  AGENT A    AGENT B
  D-T-D-T-D  D-T-D-T-D    (each has own sequential D-T-D chain)
     │         │
-    T (results returned = debriefing signals)
+    T (results returned = debriefing)
     │         │
     └────┬────┘
          │
     D_parent₂ (merge point — causally after all agent work)
 ```
 
-- **Briefing** = inter-process send: parent's causal frontier flows into each agent. The agent's vector clock inherits the parent's position at spawn time.
-- **Agent execution** = isolated D-T-D chain: each agent ticks its own clusters independently. Concurrent agents are causally incomparable (standard vector clock semantics).
-- **Debriefing** = inter-process receive: each agent's final state flows back to parent. Parent's clock advances past all agents' final positions at the merge point.
+- **Briefing**: All-pairs edges from D_parent₁ chunks to each agent's first D chunks. The parent's context causally precedes the agent's work.
+- **Agent execution**: Each agent builds its own D-T-D chain with edges between its own data blobs. No edges are created between concurrent agents — they are causally independent.
+- **Debriefing**: All-pairs edges from each agent's final D chunks to D_parent₂ chunks. The merge point is causally after all parallel work.
 
-This reuses the existing parallelism detection infrastructure (agentId, parentToolUseID, timestamp overlap) already documented below.
+Concurrent agents' chunks never appear together in a D₁→D₂ pair, so no edges form between them — causal independence falls out naturally from the edge creation rule without needing any special concurrency mechanism.
+
+This reuses the existing parallelism detection infrastructure (agentId, parentToolUseID, timestamp overlap) documented below.
 
 ### Parallel Agents and True Concurrency
 
@@ -1298,24 +1323,16 @@ Parent Context
 ```
 
 **Causal relationships:**
-- `a1 < a2 < a3` — sequential within Agent A
-- `b1 < b2 < b3` — sequential within Agent B
-- `a1 ∥ b1` — **concurrent** (neither caused the other)
-- `merge > a3` AND `merge > b3` — merge is causally after all parallel work
+- `a1 < a2 < a3` — sequential within Agent A (D-T-D edges within agent)
+- `b1 < b2 < b3` — sequential within Agent B (D-T-D edges within agent)
+- `a1 ∥ b1` — **concurrent** (no edges between them — they never appear in the same D₁→D₂ pair)
+- `merge > a3` AND `merge > b3` — merge is causally after all parallel work (edges from final agent chunks to merge point)
 
-**Vector clocks handle this naturally:**
+**The D-T-D edge creation rule handles concurrency naturally:**
 
-```typescript
-// After a1 (Agent A touches [testing])
-vectorClock = { testing: 5, refactoring: 3, debugging: 7, logging: 2 }
+Edges are only created between chunks in adjacent D blobs across a transformation. Since parallel agents never share a D-T-D transition, no edges form between them. Their causal independence is a direct consequence of the edge creation rule — no special concurrency mechanism is needed.
 
-// After b1 (Agent B also touches [testing], concurrently)
-// From B's perspective, it doesn't know about a1
-// Both increment [testing], but their chunks are incomparable
-
-// The key: a1 and b1 don't have a happened-before relationship
-// Neither should decay relative to the other's tick
-```
+If both agents touch the same cluster (e.g., `[testing]`), they each build separate edges to/from that cluster's nodes. These edges accumulate independently and decay independently. When the parent resumes at the merge point, all agent final chunks create edges to the parent's next data blob, reunifying the causal streams.
 
 **Implementation considerations:**
 
@@ -1324,23 +1341,12 @@ vectorClock = { testing: 5, refactoring: 3, debugging: 7, logging: 2 }
    - Session metadata should indicate parent session
    - Chunks from sibling agents are concurrent
 
-2. **Clock partitioning options**:
+2. **Edge creation at boundaries**:
+   - **Briefing**: All-pairs edges from parent's pre-spawn D chunks to each agent's first D chunks
+   - **Execution**: Each agent builds edges within its own D-T-D chain only
+   - **Debriefing**: All-pairs edges from each agent's final D chunks to parent's post-merge D chunks
 
-   | Approach | Description | Trade-off |
-   |----------|-------------|-----------|
-   | **Shared clock** | All agents tick the same cluster entries | Simpler, but concurrent chunks appear sequential |
-   | **Agent-scoped clocks** | Each agent has its own vector clock, merge on join | Preserves true concurrency, more complex |
-   | **Hybrid** | Shared clock + concurrency annotations | Middle ground |
-
-3. **Merge semantics**: When parallel results converge:
-   - Merge point is causally after all parallel chunks
-   - Should edges form from parallel chunks to merge context?
-   - How to represent "these happened in parallel" vs "these happened in sequence"?
-
-4. **Same-cluster concurrency**: If both agents touch `[testing]`:
-   - With shared clock: both ticks are ordered (arbitrarily)
-   - With agent-scoped clocks: ticks are concurrent, merged at join
-   - Decay calculation needs to respect which agent's work is being evaluated
+3. **Same-cluster concurrency**: If both agents touch `[testing]`, their edges to `[testing]` nodes accumulate independently — no conflict, no ordering needed
 
 ### Findings: Parallelism Detection from Claude Data
 
@@ -1456,11 +1462,11 @@ function detectConcurrency(progressEvents: ProgressEvent[]): Map<string, AgentCo
   return agents;
 }
 
-// For vector clock: concurrent agents' chunks are incomparable
-function assignChunkCausality(chunk: Chunk, agentContext: AgentContext): void {
-  // Chunks from this agent are sequential (respect parentUuid chain)
-  // Chunks from concurrent agents are incomparable (∥ relation)
-  // Chunks after merge point are causally after all parallel work
+// Edge creation follows D-T-D boundaries
+function createAgentEdges(agentContext: AgentContext, graph: CausalGraph): void {
+  // Within agent: D-T-D edges between adjacent data blobs
+  // No edges to concurrent agents — they share no D-T-D transitions
+  // At merge point: edges from agent's final chunks to parent's next D
 }
 ```
 
@@ -1468,14 +1474,14 @@ function assignChunkCausality(chunk: Chunk, agentContext: AgentContext): void {
 
 **We have sufficient data to implement proper causal tracking of parallel agents.** The recommended approach:
 
-1. **Agent-scoped sub-clocks**: Each agent maintains its own sequence within the vector clock
+1. **D-T-D edge creation**: Each agent builds edges within its own D-T-D chain; no cross-agent edges during execution
 2. **Concurrency detection**: Use timestamp overlap to identify parallel agents
-3. **Merge handling**: When parent resumes, create causal edges from all parallel chunks to merge context
-4. **Separate ingestion**: Process each subagent transcript independently, then reconcile at merge points
+3. **Briefing/debriefing edges**: Create all-pairs edges at spawn (parent→agent) and merge (agent→parent) boundaries
+4. **Separate ingestion**: Process each subagent transcript independently, create cross-boundary edges at merge points
 
 ### Agent Specialization and Causal Isolation
 
-Vector clocks aren't just a technical solution for parallelism — they enable a powerful architectural pattern: **specialist agents with causally isolated semantic contexts**.
+The D-T-D edge creation rule naturally produces **specialist agents with causally isolated semantic contexts**.
 
 ```
 AGENT SPECIALIZATION WITH CAUSAL ISOLATION
@@ -1491,8 +1497,8 @@ Parent Context
     │         semantic         semantic         semantic
     │         context          context          context
     │              │                │                │
-    │         ticks clusters   ticks clusters   ticks clusters
-    │         it touches       it touches       it touches
+    │         edges within      edges within      edges within
+    │         own D-T-D chain  own D-T-D chain  own D-T-D chain
     │              │                │                │
     │              ▼                ▼                ▼
     └─── debriefing ◄─────────────────────────────────┘
@@ -1503,18 +1509,18 @@ Parent Context
 
 | Without Causal Isolation | With Causal Isolation |
 |--------------------------|----------------------|
-| All agents share one global clock | Each agent has scoped clock entries |
-| Testing agent's work "ages" refactoring memories | Specialists age independently |
-| Intermediate reasoning conflated | Detailed work preserved in own timeline |
+| All agents' edges mixed into one graph | Each agent's edges form a distinct subgraph |
+| Testing agent's edges interfere with refactoring edges | Specialists' edge weights accumulate independently |
+| Intermediate reasoning conflated | Detailed work preserved in own causal chain |
 | Query results mix all specialist contexts | Can query specialist context specifically |
 
 **Briefing and debriefing as causal boundaries:**
 
-- **Briefing** (task assignment): Parent's causal frontier flows *into* the specialist. The specialist's clock inherits the parent's position at spawn time.
+- **Briefing** (task assignment): All-pairs edges from parent's D chunks to specialist's first D chunks. The specialist's causal chain begins from the parent's context.
 
-- **Execution** (specialist work): Specialist builds its own semantic context, ticking clusters it touches. This work is **causally isolated** from sibling specialists — they can't observe each other's intermediate steps.
+- **Execution** (specialist work): Specialist builds edges within its own D-T-D chain only. This work is **causally isolated** from sibling specialists — no edges form between concurrent agents.
 
-- **Debriefing** (result return): Specialist's conclusions flow *back* to parent. The parent's clock advances past all parallel specialists' final positions. This is the **causal merge point**.
+- **Debriefing** (result return): All-pairs edges from specialist's final D chunks back to parent's next D. This is the **causal merge point**.
 
 **Queryability benefits:**
 
@@ -1522,15 +1528,15 @@ Parent Context
 // Query the testing specialist's semantic context specifically
 const testingContext = await recall({
   query: "test failure patterns",
-  agentScope: "testing-agent-a1517fe",  // Scope to specialist
+  agentScope: "testing-agent-a1517fe",  // Scope to specialist's subgraph
   direction: "reverse"  // What led to these failures?
 });
 
-// Query across all specialists (merged view)
+// Query across all specialists (merged view — follow edges past merge point)
 const mergedContext = await recall({
   query: "test failure patterns",
   agentScope: "all",
-  asOf: mergePointClock  // After debriefing
+  direction: "reverse"
 });
 ```
 
@@ -1539,13 +1545,13 @@ const mergedContext = await recall({
 - They share context at handoffs (briefings, standups, reviews)
 - Each specialist's detailed knowledge is preserved but not forced into shared timeline
 
-**Key principle**: Specialist semantic work should not be unnecessarily conflated with other agents beyond briefing and debriefing points. Vector clocks make this natural.
+**Key principle**: Specialist semantic work should not be unnecessarily conflated with other agents beyond briefing and debriefing points. The D-T-D edge creation rule makes this natural — no edges form between agents that never share a D-T-D transition.
 
 ### Memory Portability via Specialist Isolation
 
 Causal isolation of specialist contexts enables an interesting capability: **portable specialist memory**.
 
-Because a specialist agent's semantic context is self-contained (its own cluster assignments, edge weights, and causal timeline), it can potentially be:
+Because a specialist agent's semantic context is self-contained (its own cluster assignments, edge weights, and causal subgraph), it can potentially be:
 
 1. **Exported**: Extract a specialist's semantic subgraph
 2. **Transferred**: Move to a different project with similar patterns
@@ -1563,13 +1569,13 @@ Because a specialist agent's semantic context is self-contained (its own cluster
 
 - **Causal isolation**: Specialist memory isn't entangled with project-specific parent context
 - **Cluster-level portability**: Semantic clusters like `[jest-mocking]` or `[async-error-handling]` are meaningful across projects
-- **Relative clock positions**: Can remap clock values during import (like rebasing in git)
+- **Edge-weight portability**: Can rescale edge weights during import to match target graph's weight distribution
 
 **Challenges to address:**
 
 1. **Cluster alignment**: Target project's clusters may not match source exactly — need semantic similarity matching
 2. **Edge relevance**: Some edges may not make sense in new context — need filtering/reweighting
-3. **Clock reconciliation**: How to integrate imported clock entries with existing vector clock
+3. **Weight reconciliation**: How to integrate imported edge weights with existing graph weights
 4. **Provenance tracking**: Should imported memories be marked as "transferred" vs "native"?
 
 This is speculative but worth exploring — no existing memory system offers this kind of modular, portable specialist knowledge.
@@ -1810,11 +1816,11 @@ Chunk arrives
   │
   ├─► If closest exemplar is within threshold:
   │     └─► Assign to that cluster
-  │     └─► Tick that cluster's vector clock entry
+  │     └─► Create D-T-D edges to/from co-occurring clusters
   │
   └─► If beyond threshold from ALL exemplars:
         └─► Chunk becomes a new exemplar
-        └─► New entry added to vector clock
+        └─► New cluster node added to graph
 ```
 
 ### Exemplar-Based Matching
@@ -1845,12 +1851,12 @@ function assignChunk(
   if (bestMatch) {
     // Assign to existing cluster
     bestMatch.cluster.members.push(chunk.ref);
-    tickVectorClock(bestMatch.cluster.id);
+    boostEdges(bestMatch.cluster.id);  // D-T-D edge weight accumulation
     return { cluster: bestMatch.cluster, isNewExemplar: false };
   } else {
     // Create new cluster with chunk as exemplar
     const newCluster = createCluster(chunk);
-    addVectorClockEntry(newCluster.id);
+    addClusterNode(newCluster.id);
     return { cluster: newCluster, isNewExemplar: true };
   }
 }
@@ -1885,7 +1891,7 @@ function clusterThreshold(cluster: SemanticCluster): number {
 
 **The Problem**: A chunk like "dog sleeping on bed" might semantically belong to both `[dog]` and `[bed]` clusters. Naively, this requires:
 - Multi-cluster assignment
-- Weighted vector clock ticks across clusters
+- Weighted edge boosts across clusters
 - Complex bookkeeping
 
 **The Solution**: Don't try to decompose into primitive invariants. Instead, treat unique **sets** of semantic invariants as distinct clusters:
@@ -1903,7 +1909,7 @@ Chunk: "dog sleeping on bed"
   → Beyond threshold from [dog] exemplars (not purely about dogs)
   → Beyond threshold from [bed] exemplars (not purely about beds)
   → Becomes new exemplar → new cluster [dog, bed]
-  → Clean single assignment, single vector clock entry
+  → Clean single assignment, single cluster node in graph
 ```
 
 The clusters that **actually emerge** reflect reality:
@@ -1916,7 +1922,7 @@ The clusters that **actually emerge** reflect reality:
 1. **No boolean algebra** — don't decompose/recompose semantic primitives
 2. **Single assignment** — each chunk belongs to exactly one cluster
 3. **Compound clusters are semantically real** — "dog on bed" IS a distinct concept worth tracking
-4. **Simple vector clock** — one entry per cluster, no weighted multi-ticks
+4. **Simple graph structure** — one node per cluster, edges created by D-T-D transitions
 5. **No empty combinations** — intersection clusters only exist if content exists there
 
 **Trade-off**: Potentially more clusters, but in practice:
@@ -1937,9 +1943,8 @@ interface SemanticCluster {
 }
 
 // Increment on each chunk assignment
-function tickVectorClock(clusterId: ClusterId): void {
+function onChunkAssigned(clusterId: ClusterId): void {
   const cluster = getCluster(clusterId);
-  cluster.vectorClock[clusterId]++;
   cluster.activityCount++;
 }
 
@@ -1968,12 +1973,12 @@ function onClusterRefreshed(cluster: SemanticCluster): void {
 │                                                                  │
 │  BIRTH: Chunk beyond threshold from all exemplars               │
 │    └─► New cluster created with chunk as sole exemplar          │
-│    └─► New vector clock entry                                   │
+│    └─► New node added to causal graph                           │
 │    └─► Bootstrap threshold (DEFAULT_THRESHOLD)                  │
 │                                                                  │
 │  GROWTH: Chunks within threshold of cluster's exemplars         │
 │    └─► Chunk assigned to cluster                                │
-│    └─► Vector clock ticked                                      │
+│    └─► D-T-D edges boosted                                     │
 │    └─► Activity counter incremented                             │
 │    └─► Centroid updated                                         │
 │    └─► Threshold may expand (based on extent)                   │
@@ -2056,38 +2061,21 @@ These provide complementary views (semantic similarity vs structural connectivit
 
 ### Temporal Decay Models
 
-#### Vector Clock for Causal Decay
+#### Edge-Weight Decay via D-T-D Transitions
 
-A simple global logical clock is insufficient — it treats all semantic domains as evolving together, when in reality they're causally independent:
+A simple global logical clock is insufficient — it treats all semantic domains as evolving together, when in reality they're causally independent. The D-T-D model solves this naturally: edges only decay relative to *their own cluster's activity*, because edge weights are boosted by D-T-D transitions touching that cluster. A flurry of `[git]` activity creates and boosts `[git]`-related edges without affecting `[error-handling]` edges at all — they simply aren't part of those D-T-D transitions.
 
-```
-GLOBAL CLOCK (rejected):
-  Session 47 → all edges decay relative to 47
-  Problem: A flurry of [git] activity ages unrelated [error-handling] memories
-
-VECTOR CLOCK (adopted):
-  [error-handling]=12, [testing]=8, [git]=15, [async]=4
-
-  Chunk touching [error-handling, async]:
-    → Tick [error-handling] to 13, [async] to 5
-    → Edge FROM [error-handling] decays relative to clock[error-handling]
-    → [git] proceeds on its own timeline, unaffected
-```
-
-Each semantic cluster has its own clock entry. Decay flows along causal lines within semantic domains, not global time.
+Decay is driven by edge age relative to ongoing activity on the same cluster pair. Edges that are repeatedly reinforced by new D-T-D transitions stay strong; edges that stop being reinforced fade.
 
 #### Multi-Lifespan Decay (from sbxmlpoc)
 
-Based on prior art, use **multiple decay triples** with the **vector clock**:
+Based on prior art, use **multiple decay triples** on each edge:
 
 ```typescript
-// Vector clock: one entry per semantic cluster
-type VectorClock = Map<ClusterId, number>;
-
 interface DecayingTriple {
   initialValue: number;
-  creationClock: number;  // Clock value of SOURCE cluster at creation
-  lifespan: number;       // In cluster-tick units
+  creationTime: number;   // Logical time at creation (D-T-D transition count)
+  lifespan: number;       // In transition units
 }
 
 interface AssociationWeight {
@@ -2095,31 +2083,28 @@ interface AssociationWeight {
   baseValue: number;  // Permanent component
 }
 
-// Lifespan constants (in cluster ticks, not global sessions)
+// Lifespan constants (in D-T-D transition units)
 const IMMEDIATE = 1;
 const SHORT_TERM = 5;
 const MEDIUM_TERM = 20;
 const LONG_TERM = 100;
 
-// Decay is relative to the SOURCE cluster's clock
+// Decay is relative to the number of transitions that have occurred
 function getValue(
   weight: AssociationWeight,
-  sourceClusterId: ClusterId,
-  vectorClock: VectorClock
+  currentTransitionCount: number
 ): number {
-  const currentClock = vectorClock.get(sourceClusterId) ?? 0;
   const tripleSum = weight.triples.reduce((sum, t) => {
-    const elapsed = currentClock - t.creationClock;
+    const elapsed = currentTransitionCount - t.creationTime;
     const decayed = Math.max(0, t.initialValue - elapsed / t.lifespan);
     return sum + decayed;
   }, 0);
   return tripleSum + weight.baseValue;
 }
 
-function boost(weight: AssociationWeight, lifespan: number): AssociationWeight {
+function boost(weight: AssociationWeight, lifespan: number, now: number): AssociationWeight {
   const existing = weight.triples.find(t => t.lifespan === lifespan);
   if (existing) {
-    // Boost existing triple
     return {
       ...weight,
       triples: weight.triples.map(t =>
@@ -2127,10 +2112,9 @@ function boost(weight: AssociationWeight, lifespan: number): AssociationWeight {
       )
     };
   } else {
-    // Create new triple
     return {
       ...weight,
-      triples: [...weight.triples, { initialValue: 1, creationClock: now(), lifespan }]
+      triples: [...weight.triples, { initialValue: 1, creationTime: now, lifespan }]
     };
   }
 }
@@ -2203,9 +2187,9 @@ def reinforce_edge(edge: Edge,
 ┌──────────────────────────────────────────────────────────────┐
 │                  MEMORY DYNAMICS                              │
 ├──────────────────────────────────────────────────────────────┤
-│  MULTI-LIFESPAN DECAY (vector clock based):                 │
-│    Vector clock: one entry per semantic cluster             │
-│    Edge decay relative to SOURCE cluster's clock entry      │
+│  MULTI-LIFESPAN DECAY (D-T-D transition based):             │
+│    Edge weights boosted by all-pairs D-T-D transitions     │
+│    Edge decay relative to transition count                  │
 │    Each triple: max(0, initialValue - elapsed/lifespan)     │
 │    Lifespans: IMMEDIATE(1), SHORT(5), MEDIUM(20), LONG(100) │
 │                                                              │
@@ -2311,7 +2295,7 @@ def reinforce_edge(edge: Edge,
 | Feature | Implementation | Research Basis |
 |---------|----------------|----------------|
 | **Causal directed graph** | Forward (predictive) + reverse (explanatory) edges | Causal inference theory |
-| **Vector clock per cluster** | Decay flows along causal lines, not global time; one entry per semantic cluster | Distributed systems / Lamport clocks |
+| **D-T-D edge-weight accumulation** | All-pairs edges between adjacent data blobs; normalised weights encode causal distance directly in the graph | D-T-D model / causal inference |
 | **Path attenuation** | Influence = Σ paths, each path = ∏ edge weights | Perturbation theory / Feynman diagrams |
 | Multi-lifespan decay | Multiple decay triples per edge (1/5/20/100 cluster ticks) | sbxmlpoc PoC |
 | Hierarchical clusters | Lattice structure with parent/child clusters | sbxmlpoc marginalisation |
@@ -2360,7 +2344,7 @@ def reinforce_edge(edge: Edge,
 
 1. ~~**Chunking strategy**: Sentence-level? Paragraph? Turn-based? Code-block aware?~~ **RESOLVED**: Turn-based, code-block-aware chunking implemented and validated. Thinking blocks should be excluded before embedding (+0.063 AUC). See [benchmark results](embedding-benchmark-results.md#follow-up-experiments).
 2. **Decay parameters**: What lifespan values (in cluster ticks) work best? Start with 1/5/20/100?
-3. ~~**Vector clock tick granularity**: Tick per chunk? Per message? Per session touching the cluster?~~ **RESOLVED**: The D-T-D model defines ticking semantics. Ticks occur on inter-blob causal signals: all-pairs edges from each chunk in D₁ to each chunk in D₂ across a transformation. Intra-blob relationships are associative, not causal. See [Vector Clock Tick Semantics](#vector-clock-tick-semantics-the-d-t-d-model).
+3. ~~**Vector clock tick granularity**: Tick per chunk? Per message? Per session touching the cluster?~~ **RESOLVED**: Vector clocks eliminated entirely. The D-T-D model creates all-pairs edges directly between chunks in adjacent data blobs. Edge weight accumulation and decay encode causal distance — the graph *is* the clock. See [The D-T-D Model](#the-d-t-d-model-data-transformation-data).
 4. **Linear vs exponential decay**: sbxmlpoc used linear; exponential may be more biologically accurate
 5. ~~**Cold start**: How to bootstrap useful clusters without history?~~ **RESOLVED**: Not a real problem. Within a session, the full conversation is in context until compaction — the memory system has no role until then. Across sessions, the first session runs normally, gets indexed at SessionEnd, and memory is available for subsequent sessions. There is no gap that needs filling.
 6. **Cross-project memory**: Share associations across projects or isolate?
@@ -2381,9 +2365,9 @@ def reinforce_edge(edge: Edge,
 
 1. ~~**Parallelism detection**: What metadata in Claude's JSONL identifies parallel agent execution?~~ **RESOLVED**: Progress events with `agentId`, `parentToolUseID`, and timestamps allow detection of parallel execution via overlapping time ranges.
 2. ~~**Session relationships**: How are parent/child/sibling sessions represented in the data?~~ **RESOLVED**: `parentToolUseID` links agent to Task call; same `sessionId` ties all together; sibling agents share parent.
-3. ~~**Clock partitioning**: Shared clock (simpler) vs agent-scoped clocks (preserves concurrency)?~~ **RESOLVED**: Agent-scoped clocks, following standard vector clock inter-process communication semantics. Briefing = send (parent frontier flows into agent), debriefing = receive (agent final state flows back to parent). See [Agent Briefing and Debriefing](#agent-briefing-and-debriefing).
-4. ~~**Merge point handling**: How to represent the causal join when parallel results converge?~~ **RESOLVED**: The parent's D_parent₂ (first data blob after all agents return) is the merge point. Parent's clock advances past all agents' final positions. Standard vector clock merge semantics.
-5. **Concurrent same-cluster ticks**: If parallel agents both touch `[testing]`, how to handle decay? Agent-scoped sub-clocks within cluster?
+3. ~~**Clock partitioning**: Shared clock (simpler) vs agent-scoped clocks (preserves concurrency)?~~ **RESOLVED**: Vector clocks eliminated. Each agent builds edges within its own D-T-D chain; concurrency is a natural consequence of the edge creation rule (no edges between agents that share no D-T-D transitions). See [Agent Briefing and Debriefing](#agent-briefing-and-debriefing).
+4. ~~**Merge point handling**: How to represent the causal join when parallel results converge?~~ **RESOLVED**: All-pairs edges from each agent's final D chunks to the parent's next D chunks (first data blob after all agents return).
+5. ~~**Concurrent same-cluster ticks**: If parallel agents both touch `[testing]`, how to handle decay?~~ **RESOLVED**: No conflict. Each agent's edges accumulate independently on the same cluster nodes. No clocks to partition — edge weights on the shared graph handle this naturally.
 6. ~~**Subagent transcript access**: Can we access parallel agent transcripts, or only the parent's view?~~ **RESOLVED**: Full transcripts at `<sessionId>/subagents/agent-<agentId>.jsonl`.
 7. **Nested parallelism**: What if a subagent spawns its own parallel subagents? Likely recursive structure, needs verification.
 
@@ -2441,7 +2425,7 @@ def reinforce_edge(edge: Edge,
 
 ### Causal & Temporal Theory
 
-- [Time, Clocks, and the Ordering of Events (Lamport)](https://lamport.azurewebsites.net/pubs/time-clocks.pdf) - Vector clocks
+- [Time, Clocks, and the Ordering of Events (Lamport)](https://lamport.azurewebsites.net/pubs/time-clocks.pdf) - Inspiration for causal ordering (vector clocks considered but superseded by D-T-D edge-weight model)
 - [Transfer Entropy](https://en.wikipedia.org/wiki/Transfer_entropy) - Directional information flow
 - [Granger Causality](https://en.wikipedia.org/wiki/Granger_causality) - Predictive causality
 - [Perturbation Theory](https://en.wikipedia.org/wiki/Perturbation_theory) - Path summation convergence analogy
