@@ -1160,6 +1160,117 @@ function buildContext(
 4. **Decay creates simplification** — indirect paths fade faster, graph self-prunes
 5. **Intent-aware retrieval** — context depends on whether you're debugging or planning
 
+### Vector Clock Tick Semantics: The D-T-D Model
+
+The vector clock formalism above defines *what* the clock tracks (per-cluster causal ordering) but not *when* it ticks. This section defines the ticking semantics grounded in the structure of conversational data.
+
+#### Data-Transformation-Data Alternation
+
+A thread of sequential thought follows an alternating pattern:
+
+```
+... D₁ - T - D₂ - T - D₃ - T - D₄ ...
+```
+
+Where:
+- **D** (Data) = an observable output blob — one or more chunks constituting a coherent response or prompt
+- **T** (Transformation) = a processing step that is not directly observable — Claude's inference, or a human's thinking before typing
+
+Each D is composed of one or more chunks. Each T is a causal boundary between data blobs.
+
+#### Intra-Blob vs Inter-Blob Relationships
+
+Within a single data blob D, multiple chunks may exist (e.g., a long assistant response split across several chunks). These chunks **appear simultaneously** — they are the output of a single transformation. The relationship between them is **associative** (0th-order co-occurrence), not causal. One chunk within D did not cause another chunk within D.
+
+Across a transformation D₁ → T → D₂, the relationship is **causal**. The content of D₁ (plus the transformation T) produced D₂.
+
+```
+WITHIN D (associative):        ACROSS T (causal):
+┌─────────────┐                ┌──────┐      ┌──────┐
+│  chunk a    │                │ D₁   │      │ D₂   │
+│  chunk b    │  co-occurred   │  c₁  │─────▶│  c₃  │
+│  chunk c    │                │  c₂  │─╲  ╱▶│  c₄  │
+└─────────────┘                └──────┘  ╲╱  └──────┘
+                                          ╳
+No causal edges               All-pairs causal edges
+within a blob                 across the transformation
+```
+
+#### All-Pairs Signaling (Maximum Entropy)
+
+For D₁ → T → D₂, the causal signal is modeled as **one message from each chunk in D₁ to each chunk in D₂**. This is a maximum entropy approach:
+
+- We cannot reliably determine which specific chunk in D₁ caused which specific chunk in D₂ without deep semantic analysis
+- Even an associatively "weak" chunk in D₁ may have changed the entire output — thoughts are information-dense and not necessarily stable under perturbation
+- **Analogy**: Mathematical notation can change meaning completely with a single symbol change, while spoken language is more resilient but less information-dense. Session data is closer to mathematical notation in its sensitivity.
+
+Each of these all-pairs signals is what the vector clock **ticks through**. If D₁ has *m* chunks touching cluster X, and D₂ has *n* chunks touching cluster Y, then cluster Y's clock entry advances by *m × n* ticks from X's perspective.
+
+In practice, typical data blobs contain 3-8 chunks, so the cross product is 9-64 edges per transformation — manageable.
+
+#### Mapping to Session Data
+
+| Session Element | D-T-D Role | Observable? |
+|----------------|------------|-------------|
+| User prompt | D (data blob) | Yes — text in JSONL |
+| Claude's inference | T (transformation) | No — internal processing |
+| Assistant response | D (data blob) | Yes — text in JSONL |
+| Human thinking before next prompt | T (transformation) | No — unobservable |
+| Tool execution + result | T→D (transformation producing data) | Partially — result is observable |
+
+A single conversational turn maps to: `D_user → T_claude → D_assistant`.
+
+A multi-turn exchange is: `D_user₁ → T → D_asst₁ → T_human → D_user₂ → T → D_asst₂ → ...`
+
+#### Human Topic Continuity Detection
+
+The human transformation T_human between D_assistant and D_user_next raises a question: is the new prompt a **causal continuation** of the preceding output, or does it signal a **new thread of thought**?
+
+This matters because:
+- **Continuation**: The all-pairs causal edges should connect D_assistant chunks to D_user_next chunks (the clock ticks normally)
+- **Topic switch**: The new prompt starts a fresh causal chain; connecting it to the preceding output would create false causal links
+
+**Detection approach** — a hybrid of embedding distance and lexical heuristics:
+
+1. **Embedding distance**: Compute angular distance between the new user prompt embedding and the preceding assistant output chunk embeddings. A continuation should have low distance to at least some chunks; a topic switch should be distant from all of them.
+
+2. **Lexical signals**: Detect explicit discontinuity markers:
+   - "Actually, let's...", "Switching to...", "New topic:..."
+   - References to completely different files/modules than the preceding output
+   - Prompt structure that ignores the assistant's output entirely
+
+3. **Combined classifier**: Embedding distance provides the primary signal; lexical heuristics handle edge cases where distance alone is ambiguous (e.g., the user references the same codebase but a completely different concern).
+
+This is a concrete classification problem that can be benchmarked using the existing embedding infrastructure and session data.
+
+#### Agent Briefing and Debriefing
+
+The D-T-D model extends naturally to multi-agent scenarios via standard vector clock inter-process communication semantics:
+
+```
+PARENT AGENT
+    D_parent₁ (decides to spawn agents)
+         │
+    T (Task invocations = briefing signals)
+         │
+    ┌────┴────┐
+    ▼         ▼
+ AGENT A    AGENT B
+ D-T-D-T-D  D-T-D-T-D    (each has own sequential D-T-D chain)
+    │         │
+    T (results returned = debriefing signals)
+    │         │
+    └────┬────┘
+         │
+    D_parent₂ (merge point — causally after all agent work)
+```
+
+- **Briefing** = inter-process send: parent's causal frontier flows into each agent. The agent's vector clock inherits the parent's position at spawn time.
+- **Agent execution** = isolated D-T-D chain: each agent ticks its own clusters independently. Concurrent agents are causally incomparable (standard vector clock semantics).
+- **Debriefing** = inter-process receive: each agent's final state flows back to parent. Parent's clock advances past all agents' final positions at the merge point.
+
+This reuses the existing parallelism detection infrastructure (agentId, parentToolUseID, timestamp overlap) already documented below.
+
 ### Parallel Agents and True Concurrency
 
 Claude Code can spawn parallel agents via the Task tool, each with their own context. This creates **true concurrency** — chunks from parallel agents sit outside each other's causal horizons.
@@ -2247,11 +2358,11 @@ def reinforce_edge(edge: Edge,
 
 ### Technical
 
-1. **Chunking strategy**: Sentence-level? Paragraph? Turn-based? Code-block aware?
+1. ~~**Chunking strategy**: Sentence-level? Paragraph? Turn-based? Code-block aware?~~ **RESOLVED**: Turn-based, code-block-aware chunking implemented and validated. Thinking blocks should be excluded before embedding (+0.063 AUC). See [benchmark results](embedding-benchmark-results.md#follow-up-experiments).
 2. **Decay parameters**: What lifespan values (in cluster ticks) work best? Start with 1/5/20/100?
-3. **Vector clock tick granularity**: Tick per chunk? Per message? Per session touching the cluster?
+3. ~~**Vector clock tick granularity**: Tick per chunk? Per message? Per session touching the cluster?~~ **RESOLVED**: The D-T-D model defines ticking semantics. Ticks occur on inter-blob causal signals: all-pairs edges from each chunk in D₁ to each chunk in D₂ across a transformation. Intra-blob relationships are associative, not causal. See [Vector Clock Tick Semantics](#vector-clock-tick-semantics-the-d-t-d-model).
 4. **Linear vs exponential decay**: sbxmlpoc used linear; exponential may be more biologically accurate
-5. **Cold start**: How to bootstrap useful clusters without history?
+5. ~~**Cold start**: How to bootstrap useful clusters without history?~~ **RESOLVED**: Not a real problem. Within a session, the full conversation is in context until compaction — the memory system has no role until then. Across sessions, the first session runs normally, gets indexed at SessionEnd, and memory is available for subsequent sessions. There is no gap that needs filling.
 6. **Cross-project memory**: Share associations across projects or isolate?
 7. **Cluster hierarchy depth**: How many levels of abstraction?
 8. **Long inactivity handling**: If a cluster isn't touched for months, should wall time eventually factor in?
@@ -2264,13 +2375,14 @@ def reinforce_edge(edge: Edge,
 4. **Signal threshold**: What `minSignal` cutoff for negligible paths? 0.01? 0.001?
 5. **Intent detection**: How to infer whether user needs explanatory vs predictive context?
 6. **Edge initialisation**: When a new cluster pair first co-occurs, what initial weights?
+7. **Human topic continuity detection**: Classify whether a user prompt is a causal continuation of the preceding assistant output or a new thread of thought. Proposed approach: hybrid of embedding distance + lexical heuristics. Needs benchmarking. See [Human Topic Continuity Detection](#human-topic-continuity-detection).
 
 ### Parallel Agents & Concurrency
 
 1. ~~**Parallelism detection**: What metadata in Claude's JSONL identifies parallel agent execution?~~ **RESOLVED**: Progress events with `agentId`, `parentToolUseID`, and timestamps allow detection of parallel execution via overlapping time ranges.
 2. ~~**Session relationships**: How are parent/child/sibling sessions represented in the data?~~ **RESOLVED**: `parentToolUseID` links agent to Task call; same `sessionId` ties all together; sibling agents share parent.
-3. **Clock partitioning**: Shared clock (simpler) vs agent-scoped clocks (preserves concurrency)? Leaning toward agent-scoped given data availability.
-4. **Merge point handling**: How to represent the causal join when parallel results converge? Need to identify when parent transcript resumes.
+3. ~~**Clock partitioning**: Shared clock (simpler) vs agent-scoped clocks (preserves concurrency)?~~ **RESOLVED**: Agent-scoped clocks, following standard vector clock inter-process communication semantics. Briefing = send (parent frontier flows into agent), debriefing = receive (agent final state flows back to parent). See [Agent Briefing and Debriefing](#agent-briefing-and-debriefing).
+4. ~~**Merge point handling**: How to represent the causal join when parallel results converge?~~ **RESOLVED**: The parent's D_parent₂ (first data blob after all agents return) is the merge point. Parent's clock advances past all agents' final positions. Standard vector clock merge semantics.
 5. **Concurrent same-cluster ticks**: If parallel agents both touch `[testing]`, how to handle decay? Agent-scoped sub-clocks within cluster?
 6. ~~**Subagent transcript access**: Can we access parallel agent transcripts, or only the parent's view?~~ **RESOLVED**: Full transcripts at `<sessionId>/subagents/agent-<agentId>.jsonl`.
 7. **Nested parallelism**: What if a subagent spawns its own parallel subagents? Likely recursive structure, needs verification.
