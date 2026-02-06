@@ -198,3 +198,6 @@ export function getPresetModel(id: string): DecayModelConfig | undefined {
 export function getPresetModelIds(): string[] {
   return PRESET_MODELS.map((m) => m.id);
 }
+
+/** Alias for PRESET_MODELS */
+export const DECAY_MODEL_PRESETS = PRESET_MODELS;

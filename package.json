@@ -14,7 +14,8 @@
     "benchmark": "tsx scripts/run-benchmark.ts",
     "experiments": "tsx scripts/run-experiments.ts",
     "topic-continuity": "tsx scripts/run-topic-continuity.ts",
-    "edge-decay-sim": "tsx scripts/run-edge-decay-sim.ts"
+    "edge-decay-sim": "tsx scripts/run-edge-decay-sim.ts",
+    "edge-decay-experiments": "tsx scripts/run-edge-decay-experiments.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.4.1",
