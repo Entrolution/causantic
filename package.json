@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "build-corpus": "tsx scripts/build-corpus.ts",
     "benchmark": "tsx scripts/run-benchmark.ts",
-    "experiments": "tsx scripts/run-experiments.ts"
+    "experiments": "tsx scripts/run-experiments.ts",
+    "topic-continuity": "tsx scripts/run-topic-continuity.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.4.1",
