@@ -91,6 +91,8 @@ export {
   evaluateTimeOffsetCorrelation,
   formatRetrievalRankingTable,
   formatTimeOffsetTable,
+  filterLongRangeReferences,
+  type ReferenceFilterOptions,
 } from './retrieval-ranking.js';
 
 // Experiment runner
