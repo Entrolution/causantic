@@ -7,9 +7,11 @@ import type { SessionReferences, EdgeDecayExperimentResults } from './reference-
 import { extractReferences, computeReferenceStats, type SessionSource } from './reference-extractor.js';
 import {
   compareRetrievalRanking,
+  compareForwardPrediction,
   evaluateTimeOffsetCorrelation,
   formatRetrievalRankingTable,
   formatTimeOffsetTable,
+  formatDirectionalComparison,
   filterLongRangeReferences,
   type ReferenceFilterOptions,
 } from './retrieval-ranking.js';
@@ -23,6 +25,8 @@ export interface ExperimentOptions {
   runTimeOffsetCorrelation?: boolean;
   /** Whether to run stratified analysis by context distance. */
   runStratifiedAnalysis?: boolean;
+  /** Whether to run forward prediction experiment (directional comparison). */
+  runDirectionalAnalysis?: boolean;
   /** Verbose output. */
   verbose?: boolean;
 }
@@ -105,11 +109,45 @@ export async function runEdgeDecayExperiments(
     console.log('\n--- Running retrieval ranking experiment ---');
   }
 
-  // Run retrieval ranking
+  // Run backward retrieval ranking
+  if (verbose) {
+    console.log('  (Backward: Given current turn, which past turns are relevant?)');
+  }
   const retrievalResults = compareRetrievalRanking(sessionRefs, decayModels, verbose);
 
   if (verbose) {
     console.log('\n' + formatRetrievalRankingTable(retrievalResults));
+  }
+
+  // Run forward prediction experiment
+  let forwardResults: typeof retrievalResults | undefined;
+  if (options.runDirectionalAnalysis !== false) {
+    if (verbose) {
+      console.log('\n--- Running forward prediction experiment ---');
+      console.log('  (Forward: Given current turn, which future turns will reference it?)');
+    }
+
+    forwardResults = compareForwardPrediction(sessionRefs, decayModels, verbose);
+
+    if (verbose) {
+      // Show forward results table
+      const lines: string[] = [];
+      lines.push('\n' + '='.repeat(90));
+      lines.push('  FORWARD PREDICTION (Mean Reciprocal Rank)');
+      lines.push('='.repeat(90));
+      const sorted = [...forwardResults].sort((a, b) => b.mrr - a.mrr);
+      lines.push('Model                     | MRR        | Queries    | Rank@1');
+      lines.push('-'.repeat(60));
+      for (const r of sorted) {
+        const pct = r.queryCount > 0 ? ((r.rankDistribution.rank1 / r.queryCount) * 100).toFixed(0) : '0';
+        lines.push(`${r.modelName.padEnd(25)} | ${r.mrr.toFixed(3).padEnd(10)} | ${r.queryCount.toString().padEnd(10)} | ${r.rankDistribution.rank1} (${pct}%)`);
+      }
+      lines.push('='.repeat(90));
+      console.log(lines.join('\n'));
+
+      // Show directional comparison
+      console.log('\n' + formatDirectionalComparison(retrievalResults, forwardResults));
+    }
   }
 
   // Run time-offset correlation

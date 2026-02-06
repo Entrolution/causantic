@@ -496,3 +496,274 @@ export function formatTimeOffsetTable(
 
   return lines.join('\n');
 }
+
+// ============================================================
+// FORWARD QUERY EVALUATION
+// ============================================================
+//
+// Forward queries ask: "Given this turn, which FUTURE turns will reference it?"
+// This is a prediction task - we don't know what's coming.
+// Hypothesis: Exponential decay better models prediction uncertainty.
+
+/**
+ * Build a map from source turn to future turns that reference it.
+ * This is the reverse of the backward reference map.
+ *
+ * Backward: userTurnIndex → referencedTurnIndex (what past turns did I reference?)
+ * Forward: referencedTurnIndex → userTurnIndex (what future turns will reference me?)
+ */
+function buildForwardReferenceMap(
+  references: TurnReference[],
+): Map<number, Set<number>> {
+  const map = new Map<number, Set<number>>();
+
+  for (const ref of references) {
+    // Key is the referenced turn (source), value is set of future turns that reference it
+    if (!map.has(ref.referencedTurnIndex)) {
+      map.set(ref.referencedTurnIndex, new Set());
+    }
+    map.get(ref.referencedTurnIndex)!.add(ref.userTurnIndex);
+  }
+
+  return map;
+}
+
+/**
+ * Build time gap map for forward queries.
+ * Maps source turn → future turn → time gap.
+ */
+function buildForwardTimeGapMap(
+  references: TurnReference[],
+): Map<number, Map<number, number>> {
+  const map = new Map<number, Map<number, number>>();
+
+  for (const ref of references) {
+    if (!map.has(ref.referencedTurnIndex)) {
+      map.set(ref.referencedTurnIndex, new Map());
+    }
+    map.get(ref.referencedTurnIndex)!.set(ref.userTurnIndex, ref.timeGapMs);
+  }
+
+  return map;
+}
+
+/**
+ * Evaluate forward prediction for a single source turn.
+ * Given turn T, predict which future turns will reference it.
+ */
+function evaluateForwardQuery(
+  sourceTurnIndex: number,
+  candidateFutureTurns: number[],
+  actualReferencingTurns: Set<number>,
+  timeGaps: Map<number, number>,
+  decayModel: DecayModelConfig,
+): QueryEvaluation {
+  // Score each candidate future turn
+  const candidates: CandidateTurn[] = candidateFutureTurns.map(futureTurnIndex => {
+    const timeGapMs = timeGaps.get(futureTurnIndex) ?? 0;
+    const decayWeight = calculateWeight(decayModel, timeGapMs);
+    const isRelevant = actualReferencingTurns.has(futureTurnIndex);
+
+    return {
+      turnIndex: futureTurnIndex,
+      timeGapMs,
+      decayWeight,
+      isRelevant,
+    };
+  });
+
+  // Sort by decay weight (descending) - higher weight = more likely to reference
+  candidates.sort((a, b) => b.decayWeight - a.decayWeight);
+
+  // Find rank of first relevant (actually referencing) turn
+  let firstRelevantRank = 0;
+  for (let i = 0; i < candidates.length; i++) {
+    if (candidates[i].isRelevant) {
+      firstRelevantRank = i + 1;
+      break;
+    }
+  }
+
+  const reciprocalRank = firstRelevantRank > 0 ? 1 / firstRelevantRank : 0;
+
+  return {
+    queryTurnIndex: sourceTurnIndex,
+    relevantTurns: [...actualReferencingTurns],
+    rankedCandidates: candidates,
+    reciprocalRank,
+    firstRelevantRank,
+  };
+}
+
+/**
+ * Run forward prediction experiment for a single decay model.
+ *
+ * For each turn that gets referenced by future turns:
+ * - Predict which future turns will reference it (using decay weights)
+ * - Measure if actual referencing turns rank highly
+ */
+export function evaluateForwardPrediction(
+  sessions: SessionReferences[],
+  decayModel: DecayModelConfig,
+): RetrievalRankingResult {
+  const evaluations: QueryEvaluation[] = [];
+  let totalRR = 0;
+  let queriesWithRelevant = 0;
+  const rankDistribution = {
+    rank1: 0,
+    rank2_5: 0,
+    rank6_10: 0,
+    rank11_plus: 0,
+  };
+
+  for (const session of sessions) {
+    const forwardMap = buildForwardReferenceMap(session.references);
+    const timeGapMap = buildForwardTimeGapMap(session.references);
+
+    // For each source turn that has future references
+    for (const [sourceTurnIndex, referencingTurns] of forwardMap) {
+      if (referencingTurns.size === 0) continue;
+
+      // Candidates are all turns after the source
+      const candidateFutureTurns = Array.from(
+        { length: session.turnCount - sourceTurnIndex - 1 },
+        (_, i) => sourceTurnIndex + 1 + i
+      );
+
+      if (candidateFutureTurns.length === 0) continue;
+
+      // Get time gaps for this source turn
+      const timeGaps = timeGapMap.get(sourceTurnIndex) ?? new Map();
+
+      // Estimate time gaps for candidates without explicit references
+      for (const futureIdx of candidateFutureTurns) {
+        if (!timeGaps.has(futureIdx)) {
+          // Find a reference with known time gap to estimate
+          const knownRef = session.references.find(
+            r => r.referencedTurnIndex === sourceTurnIndex && r.userTurnIndex !== futureIdx
+          );
+          if (knownRef) {
+            const refTurnDist = knownRef.userTurnIndex - sourceTurnIndex;
+            const thisTurnDist = futureIdx - sourceTurnIndex;
+            const estimatedGap = (knownRef.timeGapMs / refTurnDist) * thisTurnDist;
+            timeGaps.set(futureIdx, estimatedGap);
+          } else {
+            // Default to 5 minutes per turn distance
+            timeGaps.set(futureIdx, (futureIdx - sourceTurnIndex) * 5 * MS_PER_MINUTE);
+          }
+        }
+      }
+
+      const evaluation = evaluateForwardQuery(
+        sourceTurnIndex,
+        candidateFutureTurns,
+        referencingTurns,
+        timeGaps,
+        decayModel,
+      );
+
+      evaluations.push(evaluation);
+      totalRR += evaluation.reciprocalRank;
+
+      if (evaluation.firstRelevantRank > 0) {
+        queriesWithRelevant++;
+
+        if (evaluation.firstRelevantRank === 1) {
+          rankDistribution.rank1++;
+        } else if (evaluation.firstRelevantRank <= 5) {
+          rankDistribution.rank2_5++;
+        } else if (evaluation.firstRelevantRank <= 10) {
+          rankDistribution.rank6_10++;
+        } else {
+          rankDistribution.rank11_plus++;
+        }
+      }
+    }
+  }
+
+  const mrr = evaluations.length > 0 ? totalRR / evaluations.length : 0;
+
+  return {
+    modelId: decayModel.id,
+    modelName: decayModel.name,
+    mrr,
+    queryCount: evaluations.length,
+    queriesWithRelevant,
+    rankDistribution,
+    evaluations,
+  };
+}
+
+/**
+ * Run forward prediction experiment for multiple decay models.
+ */
+export function compareForwardPrediction(
+  sessions: SessionReferences[],
+  decayModels: DecayModelConfig[],
+  verbose: boolean = true,
+): RetrievalRankingResult[] {
+  const results: RetrievalRankingResult[] = [];
+
+  for (const model of decayModels) {
+    if (verbose) {
+      console.log(`  Evaluating ${model.name}...`);
+    }
+
+    const result = evaluateForwardPrediction(sessions, model);
+    results.push(result);
+
+    if (verbose) {
+      console.log(`    MRR: ${result.mrr.toFixed(3)}, Queries: ${result.queryCount}`);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Format comparison of backward vs forward results.
+ */
+export function formatDirectionalComparison(
+  backwardResults: RetrievalRankingResult[],
+  forwardResults: RetrievalRankingResult[],
+): string {
+  const lines: string[] = [];
+
+  lines.push('='.repeat(100));
+  lines.push('  DIRECTIONAL COMPARISON: Backward (Retrieval) vs Forward (Prediction)');
+  lines.push('='.repeat(100));
+
+  const header = [
+    'Model'.padEnd(25),
+    'Backward MRR'.padEnd(14),
+    'Forward MRR'.padEnd(14),
+    'Δ'.padEnd(10),
+    'Better For'.padEnd(15),
+  ].join(' | ');
+
+  lines.push(header);
+  lines.push('-'.repeat(100));
+
+  // Match results by model ID
+  for (const backward of backwardResults) {
+    const forward = forwardResults.find(f => f.modelId === backward.modelId);
+    if (!forward) continue;
+
+    const delta = forward.mrr - backward.mrr;
+    const betterFor = delta > 0.01 ? 'Forward' : delta < -0.01 ? 'Backward' : 'Similar';
+
+    const row = [
+      backward.modelName.slice(0, 25).padEnd(25),
+      backward.mrr.toFixed(3).padEnd(14),
+      forward.mrr.toFixed(3).padEnd(14),
+      (delta >= 0 ? '+' : '') + delta.toFixed(3).padEnd(9),
+      betterFor.padEnd(15),
+    ].join(' | ');
+
+    lines.push(row);
+  }
+
+  lines.push('='.repeat(100));
+
+  return lines.join('\n');
+}

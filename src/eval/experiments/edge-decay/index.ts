@@ -88,9 +88,12 @@ export {
 export {
   evaluateRetrievalRanking,
   compareRetrievalRanking,
+  evaluateForwardPrediction,
+  compareForwardPrediction,
   evaluateTimeOffsetCorrelation,
   formatRetrievalRankingTable,
   formatTimeOffsetTable,
+  formatDirectionalComparison,
   filterLongRangeReferences,
   type ReferenceFilterOptions,
 } from './retrieval-ranking.js';
