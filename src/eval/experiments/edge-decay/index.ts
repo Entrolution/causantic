@@ -63,3 +63,38 @@ export {
   computeAUC,
   generateAUCTable,
 } from './simulate.js';
+
+// Reference extraction
+export type {
+  TurnReference,
+  SessionReferences,
+  CandidateTurn,
+  QueryEvaluation,
+  RetrievalRankingResult,
+  TimeOffsetBin,
+  TimeOffsetCorrelationResult,
+  EdgeDecayExperimentResults,
+  ReferenceType,
+} from './reference-types.js';
+
+export {
+  extractSessionReferences,
+  extractReferences,
+  computeReferenceStats,
+  type SessionSource,
+} from './reference-extractor.js';
+
+// Retrieval ranking experiment
+export {
+  evaluateRetrievalRanking,
+  compareRetrievalRanking,
+  evaluateTimeOffsetCorrelation,
+  formatRetrievalRankingTable,
+  formatTimeOffsetTable,
+} from './retrieval-ranking.js';
+
+// Experiment runner
+export {
+  runEdgeDecayExperiments,
+  type ExperimentOptions,
+} from './run-experiments.js';
