@@ -20,6 +20,61 @@ import type {
 import { MS_PER_MINUTE, MS_PER_HOUR, MS_PER_DAY } from './types.js';
 
 /**
+ * Options for filtering references to focus on long-range retrieval.
+ */
+export interface ReferenceFilterOptions {
+  /** Minimum turn distance to include (e.g., 2 = skip immediately previous) */
+  minTurnDistance?: number;
+  /** Minimum time gap in ms to include (e.g., 5 * MS_PER_MINUTE) */
+  minTimeGapMs?: number;
+  /** Exclude 'adjacent' reference type (low confidence recency) */
+  excludeAdjacent?: boolean;
+  /** Only include high confidence references */
+  highConfidenceOnly?: boolean;
+}
+
+/**
+ * Filter references to focus on long-range retrieval scenarios.
+ * This simulates what the memory system actually needs to retrieve —
+ * context that's NOT in Claude's immediate context window.
+ */
+export function filterLongRangeReferences(
+  sessions: SessionReferences[],
+  options: ReferenceFilterOptions = {},
+): SessionReferences[] {
+  const {
+    minTurnDistance = 1,
+    minTimeGapMs = 0,
+    excludeAdjacent = false,
+    highConfidenceOnly = false,
+  } = options;
+
+  return sessions.map(session => {
+    const filteredRefs = session.references.filter(ref => {
+      // Check turn distance
+      const turnDistance = ref.userTurnIndex - ref.referencedTurnIndex;
+      if (turnDistance < minTurnDistance) return false;
+
+      // Check time gap
+      if (ref.timeGapMs < minTimeGapMs) return false;
+
+      // Exclude adjacent type if requested
+      if (excludeAdjacent && ref.referenceType === 'adjacent') return false;
+
+      // High confidence only
+      if (highConfidenceOnly && ref.confidence !== 'high') return false;
+
+      return true;
+    });
+
+    return {
+      ...session,
+      references: filteredRefs,
+    };
+  });
+}
+
+/**
  * Build a map from query turn to its referenced turns.
  */
 function buildReferenceMap(

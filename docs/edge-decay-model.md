@@ -300,10 +300,10 @@ How do we measure whether a decay curve "works"?
 
 1. ~~**Simulate decay curves**: Visualize composite curves for different tier configurations~~ ✓ Done
 2. ~~**Design experiments**: Test which decay profiles best predict relevance in real sessions~~ ✓ Done
-3. **Implement reference extractor**: Parse sessions to identify turn-to-turn references
-4. **Run experiments**: Execute relevance decay validation on real session data
+3. ~~**Implement reference extractor**: Parse sessions to identify turn-to-turn references~~ ✓ Done
+4. ~~**Run experiments**: Execute relevance decay validation on real session data~~ ✓ Done
 5. **Implement prototype**: Add decay calculation to D-T-D graph implementation
-6. **Iterate on parameters**: Tune based on empirical results
+6. **Iterate on parameters**: Tune based on empirical results (delayed linear or multi-linear slow recommended)
 
 ---
 
@@ -430,6 +430,84 @@ From `npm run edge-decay-sim`:
 | Power Law (α=1) | 1.8 | 0.9 | 0.07 | 0.01 | never |
 
 The Multi-Linear (Slow) model maintains the most "memory" over time (highest AUC), which may be appropriate for knowledge-building sessions but excessive for ephemeral task execution.
+
+---
+
+## Experiment Results (Comprehensive)
+
+**Run**: 2026-02-06, 75 sessions, 3,209 turns, 9,361 references
+
+### Key Insight: Context Window Matters
+
+The critical finding is that **optimal decay model depends on what context Claude already has**. For immediate retrieval (previous turn), recency dominates. But for long-range retrieval (what the memory system actually needs), slower decay with hold periods wins.
+
+### Stratified Analysis by Context Distance
+
+| Context Boundary | Best Model | MRR | Rank@1 |
+|------------------|------------|-----|--------|
+| All references (baseline) | Exponential | 0.961 | 95% |
+| **Beyond immediate (>1 turn)** | **Delayed Linear** | **0.680** | 55% |
+| **Beyond recent (>3 turns)** | **Delayed Linear** | **0.549** | 42% |
+| **Beyond session (>30 min)** | **Multi-Linear (Default)** | **0.397** | 18% |
+| **Long-range (>5 turns, high conf)** | **Delayed Linear** | **0.420** | 29% |
+
+### Model Comparison for Long-Range Retrieval (>3 turns)
+
+| Model | MRR | vs Exponential |
+|-------|-----|----------------|
+| **Delayed Linear** | **0.549** | **+45%** |
+| Multi-Linear (Slow) | 0.538 | +42% |
+| Multi-Linear (Default) | 0.412 | +9% |
+| Simple Linear | 0.382 | +1% |
+| Exponential | 0.378 | baseline |
+
+### Why Hold Periods Matter
+
+The **hold period** is the key differentiator for long-range retrieval:
+
+1. **Exponential decay drops too quickly** — by the time context is outside Claude's window, the weight is near zero
+2. **Delayed Linear maintains weight** during hold period, then decays linearly to death
+3. **Multi-Linear (Slow) distributes weight** across multiple timescales, keeping some relevance even for old context
+
+### Recommended Configuration
+
+For the memory system's primary use case (retrieving context beyond Claude's immediate window):
+
+```typescript
+// Recommended: Delayed Linear with extended hold
+const MEMORY_RETRIEVAL_CONFIG: DecayModelConfig = {
+  type: 'delayed-linear',
+  initialWeight: 1.0,
+  holdPeriodMs: 30 * MS_PER_MINUTE,  // Full weight for 30 min
+  decayRate: 1.0 / (4 * MS_PER_HOUR), // Then decay over 4 hours
+};
+
+// Alternative: Multi-Linear for topology management
+const TOPOLOGY_CONFIG: DecayModelConfig = {
+  type: 'multi-linear',
+  tiers: [
+    { name: 'session', initialWeight: 0.6, holdPeriodMs: 30 * MS_PER_MINUTE, decayRatePerMs: 0.6 / (2 * MS_PER_HOUR) },
+    { name: 'project', initialWeight: 0.4, holdPeriodMs: 4 * MS_PER_HOUR, decayRatePerMs: 0.4 / (24 * MS_PER_HOUR) },
+  ],
+};
+```
+
+### Reference Type Distribution
+
+| Type | Count | % |
+|------|-------|---|
+| file-path | 4,172 | 44.6% |
+| adjacent (weak) | 2,263 | 24.2% |
+| code-entity | 2,118 | 22.6% |
+| explicit-backref | 601 | 6.4% |
+| error-fragment | 207 | 2.2% |
+
+### Conclusions
+
+1. **For retrieval ranking**: Use delayed linear or multi-linear slow — hold periods significantly improve long-range MRR
+2. **For topology management**: Multi-linear provides deterministic death times without arbitrary thresholds
+3. **Exponential is suboptimal** for memory systems — it decays too quickly for long-range retrieval
+4. **The 30-minute hold period** aligns well with typical session boundaries
 
 ---
 
