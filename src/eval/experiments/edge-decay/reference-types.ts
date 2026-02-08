@@ -29,7 +29,8 @@ export type ReferenceType =
   | 'code-entity'        // User mentions function/variable name from earlier code
   | 'explicit-backref'   // User uses explicit backreference ("the error", "that function")
   | 'tool-output'        // User references output from a specific tool use
-  | 'adjacent';          // Default: immediate previous turn (weak reference)
+  | 'adjacent'           // Default: immediate previous turn (weak reference)
+  | 'cross-session';     // Reference across session boundaries (continuation)
 
 /**
  * All references extracted from a session.

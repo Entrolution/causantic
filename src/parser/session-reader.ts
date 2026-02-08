@@ -4,9 +4,10 @@
  * Filters out noise types (progress, file-history-snapshot) early.
  */
 
-import { createReadStream } from 'node:fs';
+import { createReadStream, existsSync, readdirSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
+import { dirname, join } from 'node:path';
 import type { RawMessage, RawMessageType, SessionInfo } from './types.js';
 
 const NOISE_TYPES: Set<RawMessageType> = new Set([
@@ -99,4 +100,78 @@ export async function getSessionInfo(filePath: string): Promise<SessionInfo> {
     endTime,
     filePath,
   };
+}
+
+/**
+ * Information about a discovered sub-agent.
+ */
+export interface SubAgentInfo {
+  /** Unique identifier for this sub-agent */
+  agentId: string;
+  /** Path to the sub-agent's JSONL file */
+  filePath: string;
+}
+
+/**
+ * Discover sub-agent JSONL files associated with a session.
+ * Sub-agent files are stored in a 'subagents' directory next to the main session file,
+ * with naming pattern: agent-<agentId>.jsonl or <agentId>.jsonl
+ *
+ * @param sessionPath - Path to the main session JSONL file
+ * @returns Array of discovered sub-agents
+ */
+export async function discoverSubAgents(sessionPath: string): Promise<SubAgentInfo[]> {
+  const sessionDir = dirname(sessionPath);
+
+  // Extract session ID from filename (e.g., "abc123.jsonl" -> "abc123")
+  const sessionFileName = sessionPath.split('/').pop() ?? '';
+  const sessionId = sessionFileName.replace('.jsonl', '');
+
+  // Subagents are in a sibling directory named after the session ID
+  // Structure: <project>/<session-id>.jsonl and <project>/<session-id>/subagents/
+  const subagentsDir = join(sessionDir, sessionId, 'subagents');
+
+  if (!existsSync(subagentsDir)) {
+    return [];
+  }
+
+  const subAgents: SubAgentInfo[] = [];
+
+  try {
+    const files = readdirSync(subagentsDir);
+
+    for (const file of files) {
+      if (!file.endsWith('.jsonl')) continue;
+
+      // Extract agent ID from filename
+      // Patterns: agent-<agentId>.jsonl or <agentId>.jsonl
+      let agentId: string;
+      if (file.startsWith('agent-')) {
+        agentId = file.slice(6, -6); // Remove 'agent-' prefix and '.jsonl' suffix
+      } else {
+        agentId = file.slice(0, -6); // Remove '.jsonl' suffix
+      }
+
+      subAgents.push({
+        agentId,
+        filePath: join(subagentsDir, file),
+      });
+    }
+  } catch (error) {
+    // Directory exists but can't be read - log and continue
+    console.warn(`Warning: Could not read subagents directory: ${subagentsDir}`);
+  }
+
+  return subAgents;
+}
+
+/**
+ * Check if a session has any sub-agents.
+ *
+ * @param sessionPath - Path to the main session JSONL file
+ * @returns true if sub-agents exist
+ */
+export async function hasSubAgents(sessionPath: string): Promise<boolean> {
+  const subAgents = await discoverSubAgents(sessionPath);
+  return subAgents.length > 0;
 }

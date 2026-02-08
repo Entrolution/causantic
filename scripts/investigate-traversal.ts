@@ -1,0 +1,277 @@
+/**
+ * Thorough investigation of graph traversal contribution.
+ */
+
+import { vectorStore } from '../src/storage/vector-store.js';
+import { getChunkById } from '../src/storage/chunk-store.js';
+import { getOutgoingEdges } from '../src/storage/edge-store.js';
+import { Embedder } from '../src/models/embedder.js';
+import { getModel } from '../src/models/model-registry.js';
+import { traverseMultiple } from '../src/retrieval/traverser.js';
+import { getReferenceClock } from '../src/storage/clock-store.js';
+import { hopCount, deserialize } from '../src/temporal/vector-clock.js';
+import { getDb, closeDb } from '../src/storage/db.js';
+
+const TEST_QUERIES = [
+  'vector clock decay curves',
+  'HDBSCAN clustering algorithm',
+  'file path reference parsing',
+  'sub-agent brief debrief edges',
+  'semantic embedding retrieval',
+  'MCP server implementation',
+  'TypeScript error handling',
+  'database schema migration',
+  'git commit workflow',
+  'API authentication tokens',
+];
+
+interface QueryResult {
+  query: string;
+  vectorCount: number;
+  backwardAdded: number;
+  forwardAdded: number;
+  avgBackwardEdgesPerChunk: number;
+  avgForwardEdgesPerChunk: number;
+  avgHopDistance: number;
+  chunksWithBackEdges: number;
+  chunksWithFwdEdges: number;
+}
+
+async function analyzeQuery(embedder: Embedder, query: string): Promise<QueryResult> {
+  const { embedding } = await embedder.embed(query, true);
+  const vectorResults = await vectorStore.search(embedding, 10);
+  
+  const vectorChunkIds = new Set(vectorResults.map(r => r.id));
+  
+  // Analyze edge density on vector results
+  let totalBackEdges = 0;
+  let totalFwdEdges = 0;
+  let chunksWithBack = 0;
+  let chunksWithFwd = 0;
+  let totalHopDist = 0;
+  let hopCount_n = 0;
+  
+  for (const r of vectorResults) {
+    const chunk = getChunkById(r.id);
+    const backEdges = getOutgoingEdges(r.id, 'backward');
+    const fwdEdges = getOutgoingEdges(r.id, 'forward');
+    
+    totalBackEdges += backEdges.length;
+    totalFwdEdges += fwdEdges.length;
+    if (backEdges.length > 0) chunksWithBack++;
+    if (fwdEdges.length > 0) chunksWithFwd++;
+    
+    // Calculate hop distances
+    if (chunk) {
+      const refClock = getReferenceClock(chunk.sessionSlug);
+      for (const e of [...backEdges, ...fwdEdges]) {
+        if (e.vectorClock) {
+          const edgeClock = deserialize(e.vectorClock);
+          const hops = hopCount(edgeClock, refClock);
+          totalHopDist += Math.abs(hops);
+          hopCount_n++;
+        }
+      }
+    }
+  }
+  
+  // Get reference clock for traversal
+  const firstChunk = getChunkById(vectorResults[0]?.id);
+  const projectSlug = firstChunk?.sessionSlug || '';
+  const referenceClock = getReferenceClock(projectSlug);
+  
+  const startIds = vectorResults.map(r => r.id);
+  const startWeights = vectorResults.map(r => Math.max(0, 1 - r.distance));
+  
+  // Traverse
+  const backwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
+    direction: 'backward',
+    referenceClock,
+    maxDepth: 5,
+    minWeight: 0.01,
+  });
+  
+  const forwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
+    direction: 'forward',
+    referenceClock,
+    maxDepth: 5,
+    minWeight: 0.01,
+  });
+  
+  const backwardAdded = backwardResult.chunks.filter(c => !vectorChunkIds.has(c.chunkId)).length;
+  const forwardAdded = forwardResult.chunks.filter(c => !vectorChunkIds.has(c.chunkId)).length;
+  
+  return {
+    query,
+    vectorCount: vectorResults.length,
+    backwardAdded,
+    forwardAdded,
+    avgBackwardEdgesPerChunk: totalBackEdges / vectorResults.length,
+    avgForwardEdgesPerChunk: totalFwdEdges / vectorResults.length,
+    avgHopDistance: hopCount_n > 0 ? totalHopDist / hopCount_n : 0,
+    chunksWithBackEdges: chunksWithBack,
+    chunksWithFwdEdges: chunksWithFwd,
+  };
+}
+
+async function globalEdgeAnalysis() {
+  const db = getDb();
+  
+  console.log('\n' + '='.repeat(80));
+  console.log('GLOBAL EDGE ANALYSIS');
+  console.log('='.repeat(80));
+  
+  // Edge counts
+  const edgeCounts = db.prepare(`
+    SELECT edge_type, COUNT(*) as count FROM edges GROUP BY edge_type
+  `).all() as Array<{edge_type: string, count: number}>;
+  
+  console.log('\nEdge counts:');
+  for (const e of edgeCounts) {
+    console.log('  ' + e.edge_type + ': ' + e.count);
+  }
+  
+  // Chunks with edges
+  const chunkEdgeDist = db.prepare(`
+    SELECT 
+      back_count,
+      COUNT(*) as chunks
+    FROM (
+      SELECT 
+        c.id,
+        (SELECT COUNT(*) FROM edges WHERE source_chunk_id = c.id AND edge_type = 'backward') as back_count
+      FROM chunks c
+    )
+    GROUP BY back_count
+    ORDER BY back_count
+    LIMIT 10
+  `).all() as Array<{back_count: number, chunks: number}>;
+  
+  console.log('\nBackward edge distribution (edges per chunk):');
+  for (const d of chunkEdgeDist) {
+    console.log('  ' + d.back_count + ' edges: ' + d.chunks + ' chunks');
+  }
+  
+  // Reference type distribution
+  const refTypes = db.prepare(`
+    SELECT reference_type, COUNT(*) as count 
+    FROM edges 
+    WHERE reference_type IS NOT NULL
+    GROUP BY reference_type
+    ORDER BY count DESC
+  `).all() as Array<{reference_type: string, count: number}>;
+  
+  console.log('\nEdge reference types:');
+  for (const r of refTypes) {
+    console.log('  ' + r.reference_type + ': ' + r.count);
+  }
+  
+  // Hop distance distribution (sample)
+  console.log('\nHop distance analysis (sample of 1000 edges):');
+  const hopDist = db.prepare(`
+    WITH ref AS (
+      SELECT project_slug, 
+             CAST(json_extract(clock_data, '$.ui') AS INTEGER) as ref_ui
+      FROM vector_clocks 
+      WHERE id LIKE 'project:%'
+    ),
+    edges_sample AS (
+      SELECT e.*, c.session_slug
+      FROM edges e
+      JOIN chunks c ON e.source_chunk_id = c.id
+      WHERE e.vector_clock IS NOT NULL
+      LIMIT 1000
+    )
+    SELECT 
+      CASE 
+        WHEN abs(ref.ref_ui - CAST(json_extract(e.vector_clock, '$.ui') AS INTEGER)) <= 5 THEN '0-5'
+        WHEN abs(ref.ref_ui - CAST(json_extract(e.vector_clock, '$.ui') AS INTEGER)) <= 10 THEN '6-10'
+        WHEN abs(ref.ref_ui - CAST(json_extract(e.vector_clock, '$.ui') AS INTEGER)) <= 20 THEN '11-20'
+        WHEN abs(ref.ref_ui - CAST(json_extract(e.vector_clock, '$.ui') AS INTEGER)) <= 50 THEN '21-50'
+        ELSE '50+'
+      END as hop_range,
+      e.edge_type,
+      COUNT(*) as count
+    FROM edges_sample e
+    LEFT JOIN ref ON e.session_slug = ref.project_slug
+    GROUP BY hop_range, e.edge_type
+    ORDER BY hop_range, e.edge_type
+  `).all() as Array<{hop_range: string, edge_type: string, count: number}>;
+  
+  for (const h of hopDist) {
+    console.log('  ' + h.hop_range + ' hops (' + h.edge_type + '): ' + h.count);
+  }
+}
+
+async function main() {
+  console.log('='.repeat(80));
+  console.log('GRAPH TRAVERSAL INVESTIGATION');
+  console.log('='.repeat(80));
+  
+  const embedder = new Embedder();
+  await embedder.load(getModel('jina-small'));
+  
+  console.log('\nRunning ' + TEST_QUERIES.length + ' test queries...\n');
+  
+  const results: QueryResult[] = [];
+  
+  for (const query of TEST_QUERIES) {
+    process.stdout.write('Testing: ' + query.slice(0, 40) + '... ');
+    const result = await analyzeQuery(embedder, query);
+    results.push(result);
+    console.log('done');
+  }
+  
+  // Print results table
+  console.log('\n' + '='.repeat(80));
+  console.log('QUERY RESULTS');
+  console.log('='.repeat(80));
+  console.log('\nQuery                              | Vec | +Back | +Fwd | Back/Ch | Fwd/Ch | AvgHop');
+  console.log('-'.repeat(90));
+  
+  for (const r of results) {
+    const queryShort = r.query.slice(0, 34).padEnd(34);
+    console.log(
+      queryShort + ' | ' +
+      String(r.vectorCount).padStart(3) + ' | ' +
+      String(r.backwardAdded).padStart(5) + ' | ' +
+      String(r.forwardAdded).padStart(4) + ' | ' +
+      r.avgBackwardEdgesPerChunk.toFixed(1).padStart(7) + ' | ' +
+      r.avgForwardEdgesPerChunk.toFixed(1).padStart(6) + ' | ' +
+      r.avgHopDistance.toFixed(1).padStart(6)
+    );
+  }
+  
+  // Summary statistics
+  console.log('\n' + '='.repeat(80));
+  console.log('SUMMARY STATISTICS');
+  console.log('='.repeat(80));
+  
+  const totalBackward = results.reduce((s, r) => s + r.backwardAdded, 0);
+  const totalForward = results.reduce((s, r) => s + r.forwardAdded, 0);
+  const totalVector = results.reduce((s, r) => s + r.vectorCount, 0);
+  const avgBackEdges = results.reduce((s, r) => s + r.avgBackwardEdgesPerChunk, 0) / results.length;
+  const avgFwdEdges = results.reduce((s, r) => s + r.avgForwardEdgesPerChunk, 0) / results.length;
+  const queriesWithBackward = results.filter(r => r.backwardAdded > 0).length;
+  const queriesWithForward = results.filter(r => r.forwardAdded > 0).length;
+  
+  console.log('\nAcross ' + results.length + ' queries:');
+  console.log('  Total chunks from vector search: ' + totalVector);
+  console.log('  Total chunks from backward:      ' + totalBackward + ' (' + (totalBackward/totalVector*100).toFixed(1) + '% increase)');
+  console.log('  Total chunks from forward:       ' + totalForward + ' (' + (totalForward/totalVector*100).toFixed(1) + '% increase)');
+  console.log('  Combined graph contribution:     ' + (totalBackward + totalForward) + ' (' + ((totalBackward+totalForward)/totalVector*100).toFixed(1) + '% increase)');
+  console.log('');
+  console.log('  Queries with backward additions: ' + queriesWithBackward + '/' + results.length);
+  console.log('  Queries with forward additions:  ' + queriesWithForward + '/' + results.length);
+  console.log('');
+  console.log('  Avg backward edges per chunk:    ' + avgBackEdges.toFixed(2));
+  console.log('  Avg forward edges per chunk:     ' + avgFwdEdges.toFixed(2));
+  
+  // Global analysis
+  await globalEdgeAnalysis();
+  
+  await embedder.dispose();
+  closeDb();
+}
+
+main().catch(console.error);

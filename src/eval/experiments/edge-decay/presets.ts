@@ -201,3 +201,57 @@ export function getPresetModelIds(): string[] {
 
 /** Alias for PRESET_MODELS */
 export const DECAY_MODEL_PRESETS = PRESET_MODELS;
+
+// ============================================================
+// Phase 0.2: Hold Period Variants for Parameter Sweep
+// ============================================================
+
+/**
+ * Hold period variants for finding optimal hold duration.
+ * All use same decay rate after hold period ends.
+ */
+export const HOLD_PERIOD_VARIANTS: DecayModelConfig[] = [
+  {
+    id: 'delayed-linear-15min',
+    name: 'Delayed Linear (15min)',
+    description: 'Linear decay with 15-minute hold period',
+    type: 'delayed-linear',
+    initialWeight: 1.0,
+    holdPeriodMs: 15 * MS_PER_MINUTE,
+    decayRate: 1.0 / (2 * MS_PER_HOUR),
+  },
+  {
+    id: 'delayed-linear-30min',
+    name: 'Delayed Linear (30min)',
+    description: 'Linear decay with 30-minute hold period',
+    type: 'delayed-linear',
+    initialWeight: 1.0,
+    holdPeriodMs: 30 * MS_PER_MINUTE,
+    decayRate: 1.0 / (2 * MS_PER_HOUR),
+  },
+  {
+    id: 'delayed-linear-45min',
+    name: 'Delayed Linear (45min)',
+    description: 'Linear decay with 45-minute hold period',
+    type: 'delayed-linear',
+    initialWeight: 1.0,
+    holdPeriodMs: 45 * MS_PER_MINUTE,
+    decayRate: 1.0 / (2 * MS_PER_HOUR),
+  },
+  {
+    id: 'delayed-linear-60min',
+    name: 'Delayed Linear (60min)',
+    description: 'Linear decay with 60-minute hold period',
+    type: 'delayed-linear',
+    initialWeight: 1.0,
+    holdPeriodMs: 60 * MS_PER_MINUTE,
+    decayRate: 1.0 / (2 * MS_PER_HOUR),
+  },
+];
+
+/**
+ * Get hold period variant models for parameter sweep.
+ */
+export function getHoldPeriodVariants(): DecayModelConfig[] {
+  return HOLD_PERIOD_VARIANTS;
+}

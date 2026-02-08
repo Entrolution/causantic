@@ -80,6 +80,8 @@ export interface RawMessage {
   messageId?: string;
   snapshot?: Record<string, unknown>;
   isSnapshotUpdate?: boolean;
+  // v2: Sub-agent support
+  agentId?: string;
 }
 
 // ── Parsed / assembled types ────────────────────────────

@@ -15,14 +15,30 @@
     "experiments": "tsx scripts/run-experiments.ts",
     "topic-continuity": "tsx scripts/run-topic-continuity.ts",
     "edge-decay-sim": "tsx scripts/run-edge-decay-sim.ts",
-    "edge-decay-experiments": "tsx scripts/run-edge-decay-experiments.ts"
+    "edge-decay-experiments": "tsx scripts/run-edge-decay-experiments.ts",
+    "cluster-threshold": "tsx scripts/run-cluster-threshold.ts",
+    "hold-period-sweep": "tsx scripts/run-hold-period-sweep.ts",
+    "noncoding-validation": "tsx scripts/run-noncoding-validation.ts",
+    "vector-decay-sweep": "tsx scripts/run-vector-decay-sweep.ts",
+    "hop-decay-shapes": "tsx src/eval/experiments/vector-decay-shapes/run-experiment.ts",
+    "ingest": "tsx scripts/ingest.ts",
+    "batch-ingest": "tsx scripts/batch-ingest.ts",
+    "verify-clocks": "tsx scripts/verify-clocks.ts",
+    "recluster": "tsx scripts/recluster.ts",
+    "recluster-fast": "tsx scripts/recluster-fast.ts",
+    "refresh-clusters": "tsx scripts/refresh-clusters.ts",
+    "recall": "tsx scripts/recall.ts",
+    "mcp-server": "tsx scripts/mcp-server.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
     "@huggingface/transformers": "^3.4.1",
+    "better-sqlite3": "^9.4.0",
     "hdbscan-ts": "^1.0.0",
     "onnxruntime-node": "^1.21.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
