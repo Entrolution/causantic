@@ -6,6 +6,20 @@ Long-term memory system for Claude Code using causal graphs and vector clocks.
 
 Entropic Causal Memory (ECM) provides persistent, semantically-aware memory for Claude Code sessions. It captures conversation context, builds causal relationships between chunks of dialogue, and enables intelligent retrieval of relevant historical context.
 
+### Why "Entropic"?
+
+The name reflects a core design principle: **memory decay flows along causal lines, not along a global clock**.
+
+Like thermodynamic entropy, information relevance degrades along causal pathways. ECM measures distance in "hops" (D-T-D transitions) rather than wall-clock time. This means:
+
+- Returning to a topic after days still shows high relevance if causally connected
+- Interleaved work maintains proper causal ordering
+- Edge weight decay implements **causal compression** — older, causally-distant information naturally fades while proximate context is preserved
+
+The graph structure itself encodes temporal dynamics: edge accumulation reflects co-occurrence frequency, decay reflects causal recency, and path products encode causal distance. The graph *is* the clock.
+
+See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explanation.
+
 ### Key Features
 
 - **Causal Graph**: Tracks relationships between conversation chunks using vector clocks for logical ordering

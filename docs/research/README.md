@@ -47,6 +47,12 @@ Among tested models, jina-small provides the best balance of embedding quality a
 
 ## Design Rationale
 
+### Why "Entropic"?
+
+The name reflects a thermodynamic inspiration: memory decay flows along causal lines, not along a global clock. Like entropy, information relevance degrades along causal pathways. Edge weight decay implements **causal compression** — the graph naturally sheds causally-distant information while preserving causally-proximate context.
+
+See [approach/why-entropic.md](approach/why-entropic.md).
+
 ### Why Causal Graphs?
 
 Unlike simple vector databases, ECM tracks *relationships* between memory chunks:
