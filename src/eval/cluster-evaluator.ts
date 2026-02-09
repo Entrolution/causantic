@@ -8,7 +8,7 @@
  * to clustering on angular distance.
  */
 
-import { HDBSCAN } from 'hdbscan-ts';
+import { HDBSCAN } from '../clusters/hdbscan.js';
 
 export interface ClusterResult {
   /** Cluster label per point (-1 = noise). */
@@ -46,7 +46,7 @@ export function clusterEmbeddings(
     minSamples: minSamples ?? minClusterSize,
   });
 
-  const labels = hdbscan.fit(embeddings);
+  const labels = hdbscan.fitSync(embeddings);
 
   // Compute stats
   const uniqueClusters = new Set(labels.filter((l: number) => l >= 0));
