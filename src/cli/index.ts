@@ -15,6 +15,77 @@ import { getClusterCount } from '../storage/cluster-store.js';
 
 const VERSION = '0.1.0';
 
+/** Magic bytes for encrypted archives */
+const ENCRYPTED_MAGIC = Buffer.from('ECM\x00');
+
+/**
+ * Prompt for password with hidden input.
+ * Falls back to visible input if raw mode is not available.
+ */
+async function promptPassword(prompt: string): Promise<string> {
+  const readline = await import('node:readline');
+
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    // Check if we can use raw mode for hidden input
+    if (process.stdin.isTTY && typeof process.stdin.setRawMode === 'function') {
+      process.stdout.write(prompt);
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+
+      let password = '';
+      const onData = (char: Buffer) => {
+        const c = char.toString();
+        if (c === '\n' || c === '\r') {
+          process.stdin.setRawMode!(false);
+          process.stdin.removeListener('data', onData);
+          process.stdin.pause();
+          console.log(''); // newline
+          rl.close();
+          resolve(password);
+        } else if (c === '\u0003') {
+          // Ctrl+C
+          process.stdin.setRawMode!(false);
+          process.exit(0);
+        } else if (c === '\u007F' || c === '\b') {
+          // Backspace
+          password = password.slice(0, -1);
+        } else if (c.charCodeAt(0) >= 32) {
+          // Printable character
+          password += c;
+        }
+      };
+      process.stdin.on('data', onData);
+    } else {
+      // Fallback to visible input (non-TTY environments)
+      rl.question(prompt, (answer) => {
+        rl.close();
+        resolve(answer);
+      });
+    }
+  });
+}
+
+/**
+ * Check if a file is an encrypted ECM archive.
+ */
+async function isEncryptedArchive(filePath: string): Promise<boolean> {
+  const fs = await import('node:fs');
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const header = Buffer.alloc(4);
+    fs.readSync(fd, header, 0, 4, 0);
+    fs.closeSync(fd);
+    return header.equals(ENCRYPTED_MAGIC);
+  } catch {
+    return false;
+  }
+}
+
 interface Command {
   name: string;
   description: string;
@@ -26,7 +97,7 @@ const commands: Command[] = [
   {
     name: 'init',
     description: 'Initialize ECM (setup wizard)',
-    usage: 'ecm init [--skip-mcp]',
+    usage: 'ecm init [--skip-mcp] [--skip-encryption]',
     handler: async (args) => {
       const skipMcp = args.includes('--skip-mcp');
       const fs = await import('node:fs');
@@ -66,17 +137,65 @@ const commands: Command[] = [
         console.log(`✓ Directory exists: ${vectorsDir}`);
       }
 
-      // Step 3: Initialize database
+      // Step 3: Ask about encryption (before database init)
+      const skipEncryption = args.includes('--skip-encryption');
+      let encryptionEnabled = false;
+
+      if (!skipEncryption && process.stdin.isTTY) {
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+
+        console.log('');
+        console.log('Enable database encryption?');
+        console.log('Protects conversation data, embeddings, and work patterns.');
+
+        const encryptAnswer = await new Promise<string>((resolve) => {
+          rl.question('[Y/n] ', (ans) => {
+            rl.close();
+            resolve(ans.toLowerCase() || 'y');
+          });
+        });
+
+        if (encryptAnswer === 'y' || encryptAnswer === 'yes') {
+          const { generatePassword } = await import('../storage/encryption.js');
+          const { storeDbKey } = await import('../storage/db.js');
+
+          console.log('');
+          console.log('Generating encryption key...');
+
+          const key = generatePassword(32);
+          await storeDbKey(key);
+
+          // Write config with encryption enabled
+          const configPath = path.join(ecmDir, 'config.json');
+          const encryptionConfig = {
+            encryption: {
+              enabled: true,
+              cipher: 'chacha20',
+              keySource: 'keychain',
+            },
+          };
+          fs.writeFileSync(configPath, JSON.stringify(encryptionConfig, null, 2));
+
+          console.log('✓ Key stored in system keychain');
+          console.log('✓ Encryption enabled with ChaCha20-Poly1305');
+          encryptionEnabled = true;
+        }
+      }
+
+      // Step 4: Initialize database
       try {
         const db = getDb();
         db.prepare('SELECT 1').get();
-        console.log('✓ Database initialized');
+        console.log('✓ Database initialized' + (encryptionEnabled ? ' (encrypted)' : ''));
       } catch (error) {
         console.log(`✗ Database error: ${(error as Error).message}`);
         process.exit(1);
       }
 
-      // Step 4: Detect Claude Code config path
+      // Step 5: Detect Claude Code config path
       let claudeConfigPath: string | null = null;
       const platform = os.platform();
 
@@ -91,7 +210,7 @@ const commands: Command[] = [
       console.log('');
       console.log(`Claude Code config: ${claudeConfigPath}`);
 
-      // Step 5: Offer to configure MCP
+      // Step 6: Offer to configure MCP
       if (!skipMcp) {
         const configExists = fs.existsSync(claudeConfigPath);
 
@@ -138,7 +257,7 @@ const commands: Command[] = [
         }
       }
 
-      // Step 6: Health check
+      // Step 7: Health check
       console.log('');
       console.log('Running health check...');
 
@@ -206,8 +325,8 @@ const commands: Command[] = [
         console.log('Usage: ecm batch-ingest <directory>');
         process.exit(2);
       }
-      const { batchIngest } = await import('../ingest/batch-ingest.js');
-      const result = await batchIngest([args[0]], {});
+      const { batchIngestDirectory } = await import('../ingest/batch-ingest.js');
+      const result = await batchIngestDirectory(args[0], {});
       console.log(`Batch ingestion complete: ${result.successCount} sessions processed.`);
     },
   },
@@ -447,18 +566,284 @@ const commands: Command[] = [
     },
   },
   {
+    name: 'encryption',
+    description: 'Manage database encryption',
+    usage: 'ecm encryption <setup|status|rotate-key|backup-key|restore-key|audit>',
+    handler: async (args) => {
+      const subcommand = args[0];
+      const config = loadConfig();
+
+      switch (subcommand) {
+        case 'setup': {
+          const { generatePassword } = await import('../storage/encryption.js');
+          const { storeDbKey } = await import('../storage/db.js');
+          const fs = await import('node:fs');
+          const path = await import('node:path');
+          const os = await import('node:os');
+
+          // Check for existing unencrypted database
+          const dbPath = path.join(os.homedir(), '.ecm', 'memory.db');
+          if (fs.existsSync(dbPath)) {
+            // Check if database is unencrypted by looking for SQLite header
+            const header = Buffer.alloc(16);
+            const fd = fs.openSync(dbPath, 'r');
+            fs.readSync(fd, header, 0, 16, 0);
+            fs.closeSync(fd);
+
+            const sqliteHeader = 'SQLite format 3';
+            if (header.toString('utf-8', 0, 15) === sqliteHeader) {
+              console.error('Warning: Existing unencrypted database detected!');
+              console.error('');
+              console.error('The database at ~/.ecm/memory.db is not encrypted.');
+              console.error('Enabling encryption will make it unreadable.');
+              console.error('');
+              console.error('Options:');
+              console.error('  1. Export data first:');
+              console.error('     npx ecm export --output backup.json --no-encrypt');
+              console.error('     rm ~/.ecm/memory.db');
+              console.error('     npx ecm encryption setup');
+              console.error('     npx ecm init');
+              console.error('     npx ecm import backup.json');
+              console.error('');
+              console.error('  2. Start fresh (lose existing data):');
+              console.error('     rm ~/.ecm/memory.db');
+              console.error('     npx ecm encryption setup');
+              console.error('');
+              process.exit(1);
+            }
+          }
+
+          console.log('Setting up database encryption...');
+          console.log('');
+
+          // Generate a strong random key
+          const key = generatePassword(32);
+
+          // Store in keychain
+          await storeDbKey(key);
+          console.log('✓ Encryption key stored in system keychain');
+
+          // Update or create config file
+          const configPath = path.join(os.homedir(), '.ecm', 'config.json');
+          let existingConfig: Record<string, unknown> = {};
+
+          if (fs.existsSync(configPath)) {
+            try {
+              existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            } catch {
+              // Start fresh
+            }
+          }
+
+          existingConfig.encryption = {
+            enabled: true,
+            cipher: 'chacha20',
+            keySource: 'keychain',
+          };
+
+          const configDir = path.dirname(configPath);
+          if (!fs.existsSync(configDir)) {
+            fs.mkdirSync(configDir, { recursive: true });
+          }
+          fs.writeFileSync(configPath, JSON.stringify(existingConfig, null, 2));
+          console.log('✓ Updated ~/.ecm/config.json');
+
+          console.log('');
+          console.log('Encryption enabled with ChaCha20-Poly1305.');
+          console.log('');
+          console.log('IMPORTANT: Back up your encryption key:');
+          console.log('  npx ecm encryption backup-key ~/ecm-key-backup.enc');
+          console.log('');
+          console.log('If you lose the key, your data cannot be recovered.');
+          break;
+        }
+
+        case 'status': {
+          const enabled = config.encryption?.enabled ?? false;
+          const cipher = config.encryption?.cipher ?? 'chacha20';
+          const keySource = config.encryption?.keySource ?? 'keychain';
+          const auditLog = config.encryption?.auditLog ?? false;
+
+          console.log('Database Encryption Status:');
+          console.log(`  Enabled: ${enabled ? 'yes' : 'no'}`);
+          if (enabled) {
+            console.log(`  Cipher: ${cipher}`);
+            console.log(`  Key source: ${keySource}`);
+            console.log(`  Audit logging: ${auditLog ? 'yes' : 'no'}`);
+          }
+          break;
+        }
+
+        case 'rotate-key': {
+          if (!config.encryption?.enabled) {
+            console.error('Error: Encryption is not enabled.');
+            console.log('Run "ecm encryption setup" first.');
+            process.exit(1);
+          }
+
+          const { getDbKeyAsync, storeDbKey } = await import('../storage/db.js');
+          const { generatePassword } = await import('../storage/encryption.js');
+          const { logAudit } = await import('../storage/audit-log.js');
+
+          // Get current key
+          const currentKey = await getDbKeyAsync();
+          if (!currentKey) {
+            console.error('Error: Could not retrieve current encryption key.');
+            process.exit(1);
+          }
+
+          console.log('Rotating database encryption key...');
+          console.log('');
+
+          // Generate new key
+          const newKey = generatePassword(32);
+
+          // Re-key the database
+          try {
+            const db = getDb();
+            db.pragma(`rekey = '${newKey}'`);
+            await storeDbKey(newKey);
+            logAudit('key-rotate', 'Encryption key rotated');
+            console.log('✓ Encryption key rotated successfully');
+            console.log('');
+            console.log('Remember to update your key backup:');
+            console.log('  npx ecm encryption backup-key ~/ecm-key-backup.enc');
+          } catch (error) {
+            console.error(`Error rotating key: ${(error as Error).message}`);
+            process.exit(1);
+          }
+          break;
+        }
+
+        case 'backup-key': {
+          const outputPath = args[1] ?? 'ecm-key-backup.enc';
+          const { getDbKeyAsync } = await import('../storage/db.js');
+          const { encryptString } = await import('../storage/encryption.js');
+          const fs = await import('node:fs');
+
+          const key = await getDbKeyAsync();
+          if (!key) {
+            console.error('Error: No encryption key found.');
+            console.log('Run "ecm encryption setup" first.');
+            process.exit(1);
+          }
+
+          const backupPassword = await promptPassword('Enter backup password: ');
+          if (!backupPassword) {
+            console.error('Error: Backup password required.');
+            process.exit(2);
+          }
+          const confirm = await promptPassword('Confirm backup password: ');
+          if (backupPassword !== confirm) {
+            console.error('Error: Passwords do not match.');
+            process.exit(2);
+          }
+
+          // Encrypt the key with the backup password
+          const encryptedKey = encryptString(key, backupPassword);
+          fs.writeFileSync(outputPath, encryptedKey);
+
+          console.log(`✓ Key backed up to: ${outputPath}`);
+          console.log('');
+          console.log('Store this file securely. You will need the backup password to restore.');
+          break;
+        }
+
+        case 'restore-key': {
+          const inputPath = args[1];
+          if (!inputPath) {
+            console.error('Error: Backup file path required');
+            console.log('Usage: ecm encryption restore-key <backup-file>');
+            process.exit(2);
+          }
+
+          const fs = await import('node:fs');
+          const { decryptString } = await import('../storage/encryption.js');
+          const { storeDbKey } = await import('../storage/db.js');
+
+          if (!fs.existsSync(inputPath)) {
+            console.error(`Error: File not found: ${inputPath}`);
+            process.exit(1);
+          }
+
+          const encryptedKey = fs.readFileSync(inputPath, 'utf-8');
+          const backupPassword = await promptPassword('Enter backup password: ');
+
+          try {
+            const key = decryptString(encryptedKey, backupPassword);
+            await storeDbKey(key);
+            console.log('✓ Key restored successfully');
+          } catch {
+            console.error('Error: Failed to decrypt. Wrong password?');
+            process.exit(1);
+          }
+          break;
+        }
+
+        case 'audit': {
+          const { readAuditLog, formatAuditEntries } = await import('../storage/audit-log.js');
+          const limit = args[1] ? parseInt(args[1], 10) : 10;
+
+          const entries = readAuditLog(limit);
+          if (entries.length === 0) {
+            console.log('No audit entries found.');
+            console.log('');
+            console.log('To enable audit logging, add to config:');
+            console.log('  { "encryption": { "auditLog": true } }');
+          } else {
+            console.log(`Last ${entries.length} audit entries:`);
+            console.log('');
+            console.log(formatAuditEntries(entries));
+          }
+          break;
+        }
+
+        default:
+          console.error('Error: Unknown subcommand');
+          console.log('Usage: ecm encryption <setup|status|rotate-key|backup-key|restore-key|audit>');
+          process.exit(2);
+      }
+    },
+  },
+  {
     name: 'export',
     description: 'Export memory data',
     usage: 'ecm export --output <path> [--no-encrypt]',
     handler: async (args) => {
       const { exportArchive } = await import('../storage/archive.js');
       const outputIndex = args.indexOf('--output');
-      const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : 'ecm-backup.json';
+      const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : 'ecm-backup.ecm';
       const noEncrypt = args.includes('--no-encrypt');
+
+      let password: string | undefined;
+      if (!noEncrypt) {
+        // Try environment variable first
+        password = process.env.ECM_EXPORT_PASSWORD;
+
+        // If no env var and TTY available, prompt interactively
+        if (!password && process.stdin.isTTY) {
+          password = await promptPassword('Enter encryption password: ');
+          if (!password) {
+            console.error('Error: Password required for encrypted export.');
+            console.log('Use --no-encrypt for unencrypted export.');
+            process.exit(2);
+          }
+          const confirm = await promptPassword('Confirm password: ');
+          if (password !== confirm) {
+            console.error('Error: Passwords do not match.');
+            process.exit(2);
+          }
+        } else if (!password) {
+          // Non-TTY without env var - require explicit --no-encrypt
+          console.error('Error: No password provided for encrypted export.');
+          console.log('Set ECM_EXPORT_PASSWORD environment variable or use --no-encrypt.');
+          process.exit(2);
+        }
+      }
 
       await exportArchive({
         outputPath,
-        password: noEncrypt ? undefined : process.env.ECM_EXPORT_PASSWORD,
+        password,
       });
       console.log(`Exported to ${outputPath}`);
     },
@@ -473,11 +858,33 @@ const commands: Command[] = [
         process.exit(2);
       }
       const { importArchive } = await import('../storage/archive.js');
+      const inputPath = args[0];
       const merge = args.includes('--merge');
 
+      // Check if file is encrypted
+      const encrypted = await isEncryptedArchive(inputPath);
+
+      let password: string | undefined;
+      if (encrypted) {
+        // Try environment variable first
+        password = process.env.ECM_EXPORT_PASSWORD;
+
+        // If no env var and TTY available, prompt interactively
+        if (!password && process.stdin.isTTY) {
+          password = await promptPassword('Enter decryption password: ');
+          if (!password) {
+            console.error('Error: Password required for encrypted archive.');
+            process.exit(2);
+          }
+        } else if (!password) {
+          console.error('Error: Archive is encrypted. Set ECM_EXPORT_PASSWORD environment variable.');
+          process.exit(2);
+        }
+      }
+
       await importArchive({
-        inputPath: args[0],
-        password: process.env.ECM_EXPORT_PASSWORD,
+        inputPath,
+        password,
         merge,
       });
       console.log('Import complete.');

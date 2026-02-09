@@ -50,6 +50,12 @@ export interface ExternalConfig {
     clusterRefreshModel?: string;
     refreshRateLimitPerMin?: number;
   };
+  encryption?: {
+    enabled?: boolean;
+    cipher?: 'chacha20' | 'sqlcipher';
+    keySource?: 'keychain' | 'env' | 'prompt';
+    auditLog?: boolean;
+  };
 }
 
 /** Default external config values */
@@ -85,6 +91,12 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   llm: {
     clusterRefreshModel: 'claude-3-haiku-20240307',
     refreshRateLimitPerMin: 30,
+  },
+  encryption: {
+    enabled: false,
+    cipher: 'chacha20',
+    keySource: 'keychain',
+    auditLog: false,
   },
 };
 
@@ -199,6 +211,24 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.ECM_LLM_REFRESH_RATE_LIMIT) {
     config.llm = config.llm ?? {};
     config.llm.refreshRateLimitPerMin = parseInt(process.env.ECM_LLM_REFRESH_RATE_LIMIT, 10);
+  }
+
+  // Encryption
+  if (process.env.ECM_ENCRYPTION_ENABLED) {
+    config.encryption = config.encryption ?? {};
+    config.encryption.enabled = process.env.ECM_ENCRYPTION_ENABLED === 'true';
+  }
+  if (process.env.ECM_ENCRYPTION_CIPHER) {
+    config.encryption = config.encryption ?? {};
+    config.encryption.cipher = process.env.ECM_ENCRYPTION_CIPHER as 'chacha20' | 'sqlcipher';
+  }
+  if (process.env.ECM_ENCRYPTION_KEY_SOURCE) {
+    config.encryption = config.encryption ?? {};
+    config.encryption.keySource = process.env.ECM_ENCRYPTION_KEY_SOURCE as 'keychain' | 'env' | 'prompt';
+  }
+  if (process.env.ECM_ENCRYPTION_AUDIT_LOG) {
+    config.encryption = config.encryption ?? {};
+    config.encryption.auditLog = process.env.ECM_ENCRYPTION_AUDIT_LOG === 'true';
   }
 
   return config;

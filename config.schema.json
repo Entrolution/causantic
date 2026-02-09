@@ -164,6 +164,35 @@
         }
       },
       "additionalProperties": false
+    },
+    "encryption": {
+      "type": "object",
+      "description": "Database encryption settings",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable database encryption at rest"
+        },
+        "cipher": {
+          "type": "string",
+          "enum": ["chacha20", "sqlcipher"],
+          "default": "chacha20",
+          "description": "Encryption cipher (chacha20 is 2-3x faster on ARM)"
+        },
+        "keySource": {
+          "type": "string",
+          "enum": ["keychain", "env", "prompt"],
+          "default": "keychain",
+          "description": "Where to get encryption key: keychain (OS secret store), env (ECM_DB_KEY), prompt (CLI only)"
+        },
+        "auditLog": {
+          "type": "boolean",
+          "default": false,
+          "description": "Log database access attempts to ~/.ecm/audit.log"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false
