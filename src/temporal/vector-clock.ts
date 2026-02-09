@@ -76,16 +76,21 @@ export function merge(a: VectorClock, b: VectorClock): VectorClock {
  * Calculate the hop count (logical distance) between an edge's clock
  * and the current reference clock.
  *
- * The hop count is the sum of differences for each agent. This represents
- * how many D-T-D cycles have occurred since the edge was created.
+ * Only entries present in both clocks contribute to the sum:
+ * - Agents that didn't exist at edge creation (not in edgeClock) are skipped
+ * - Agents that have since terminated (not in refClock) contribute 0
+ *
+ * This represents how many D-T-D cycles have occurred in the thought streams
+ * that were active when the edge was created and still exist now.
  *
  * @param edgeClock - Vector clock stamped on the edge
  * @param refClock - Current reference clock for the project
- * @returns Total hop count (sum of per-agent differences)
+ * @returns Total hop count (sum of per-agent differences for shared entries)
  */
 export function hopCount(edgeClock: VectorClock, refClock: VectorClock): number {
   let hops = 0;
   for (const agentId of Object.keys(edgeClock)) {
+    // refClock[agentId] ?? 0: if agent terminated, contributes 0
     hops += Math.max(0, (refClock[agentId] ?? 0) - edgeClock[agentId]);
   }
   return hops;
