@@ -56,6 +56,10 @@ export interface ExternalConfig {
     keySource?: 'keychain' | 'env' | 'prompt';
     auditLog?: boolean;
   };
+  vectors?: {
+    /** TTL in days for vectors. Vectors accessed within this period are kept. Default: 90 */
+    ttlDays?: number;
+  };
 }
 
 /** Default external config values */
@@ -97,6 +101,9 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
     cipher: 'chacha20',
     keySource: 'keychain',
     auditLog: false,
+  },
+  vectors: {
+    ttlDays: 90,
   },
 };
 
@@ -229,6 +236,12 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.ECM_ENCRYPTION_AUDIT_LOG) {
     config.encryption = config.encryption ?? {};
     config.encryption.auditLog = process.env.ECM_ENCRYPTION_AUDIT_LOG === 'true';
+  }
+
+  // Vectors
+  if (process.env.ECM_VECTORS_TTL_DAYS) {
+    config.vectors = config.vectors ?? {};
+    config.vectors.ttlDays = parseInt(process.env.ECM_VECTORS_TTL_DAYS, 10);
   }
 
   return config;

@@ -152,9 +152,9 @@ const commands: Command[] = [
         console.log('Protects conversation data, embeddings, and work patterns.');
 
         const encryptAnswer = await new Promise<string>((resolve) => {
-          rl.question('[Y/n] ', (ans) => {
+          rl.question('[y/N] ', (ans) => {
             rl.close();
-            resolve(ans.toLowerCase() || 'y');
+            resolve(ans.toLowerCase() || 'n');
           });
         });
 
@@ -420,20 +420,7 @@ const commands: Command[] = [
               console.log('');
               console.log('Running post-ingestion processing...');
 
-              // Clustering
-              process.stdout.write('  Building clusters...');
-              try {
-                const clusterResult = await runTask('update-clusters');
-                if (clusterResult.success) {
-                  console.log(' done');
-                } else {
-                  console.log(` warning: ${clusterResult.message}`);
-                }
-              } catch (err) {
-                console.log(` error: ${(err as Error).message}`);
-              }
-
-              // Graph pruning
+              // Graph pruning first (removes dead edges and orphan nodes)
               process.stdout.write('  Pruning graph...');
               try {
                 const pruneResult = await runTask('prune-graph');
@@ -441,6 +428,19 @@ const commands: Command[] = [
                   console.log(' done');
                 } else {
                   console.log(` warning: ${pruneResult.message}`);
+                }
+              } catch (err) {
+                console.log(` error: ${(err as Error).message}`);
+              }
+
+              // Clustering (groups chunks by topic)
+              process.stdout.write('  Building clusters...');
+              try {
+                const clusterResult = await runTask('update-clusters');
+                if (clusterResult.success) {
+                  console.log(' done');
+                } else {
+                  console.log(` warning: ${clusterResult.message}`);
                 }
               } catch (err) {
                 console.log(` error: ${(err as Error).message}`);

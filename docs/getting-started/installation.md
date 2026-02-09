@@ -71,8 +71,8 @@ During setup, ECM will detect existing Claude Code sessions in `~/.claude/projec
 For large session histories, the initial import may take a few minutes.
 
 After importing sessions, ECM automatically:
+- **Prunes graph**: Removes dead edges and orphan nodes
 - **Builds clusters**: Groups related chunks by topic using HDBSCAN
-- **Prunes graph**: Removes stale edges and orphan nodes
 
 ### Cluster Labeling (Optional)
 
