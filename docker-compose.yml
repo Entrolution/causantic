@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  ecm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: entropic-causal-memory
+    volumes:
+      # Persist memory data
+      - ecm-data:/data/ecm
+      # Mount Claude projects for ingestion (read-only)
+      - ~/.claude/projects:/claude-projects:ro
+    environment:
+      - ECM_STORAGE_DB_PATH=/data/ecm/memory.db
+      - ECM_STORAGE_VECTOR_PATH=/data/ecm/vectors
+      # Optional: Anthropic API key for cluster label refresh
+      # - ECM_ANTHROPIC_KEY=${ECM_ANTHROPIC_KEY}
+    ports:
+      # HTTP port for web dashboard (when implemented)
+      - "3000:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('./dist/storage/db.js').getDatabase().prepare('SELECT 1').get()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Maintenance daemon (runs scheduled tasks)
+  ecm-maintenance:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecm-maintenance
+    volumes:
+      - ecm-data:/data/ecm
+      - ~/.claude/projects:/claude-projects:ro
+    environment:
+      - ECM_STORAGE_DB_PATH=/data/ecm/memory.db
+      - ECM_STORAGE_VECTOR_PATH=/data/ecm/vectors
+    command: ["node", "dist/cli/index.js", "maintenance", "daemon"]
+    restart: unless-stopped
+    depends_on:
+      - ecm
+
+volumes:
+  ecm-data:
+    driver: local

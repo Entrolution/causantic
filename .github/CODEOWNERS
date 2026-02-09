@@ -1,0 +1,10 @@
+# Default owners for everything in the repo
+* @Entrolution/maintainers
+
+# Core modules
+/src/storage/ @Entrolution/maintainers
+/src/retrieval/ @Entrolution/maintainers
+/src/mcp/ @Entrolution/maintainers
+
+# Documentation
+/docs/ @Entrolution/maintainers

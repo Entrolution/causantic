@@ -1,0 +1,63 @@
+# Quick Start
+
+Get ECM up and running with Claude Code in 5 minutes.
+
+## Step 1: Install ECM
+
+```bash
+npm install entropic-causal-memory
+pip install hdbscan numpy
+```
+
+## Step 2: Ingest Your Sessions
+
+ECM needs to analyze your existing Claude Code sessions to build its memory:
+
+```bash
+# Ingest all sessions from your Claude Code projects
+npx ecm batch-ingest ~/.claude/projects
+```
+
+This creates:
+- A SQLite database at `~/.ecm/memory.db`
+- A vector store at `~/.ecm/vectors/`
+
+## Step 3: Configure Claude Code
+
+Add ECM as an MCP server in your Claude Code configuration:
+
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": ["ecm", "serve"]
+    }
+  }
+}
+```
+
+## Step 4: Test the Integration
+
+Restart Claude Code and try:
+
+```
+You: What did we work on last week in the auth module?
+Claude: [Uses memory tools to recall relevant context]
+```
+
+## What's Happening
+
+1. **Hooks** capture context at session start and before compaction
+2. **Ingestion** parses sessions into semantic chunks
+3. **Embeddings** enable similarity search
+4. **Graph** tracks causal relationships between chunks
+5. **MCP Tools** let Claude query the memory
+
+## Next Steps
+
+- [Configuration](configuration.md) - Customize decay curves, thresholds, etc.
+- [How It Works](../guides/how-it-works.md) - Understand the architecture
+- [MCP Tools](../reference/mcp-tools.md) - Learn about recall, explain, and predict

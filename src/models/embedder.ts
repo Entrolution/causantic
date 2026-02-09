@@ -35,7 +35,8 @@ export class Embedder {
     const heapBefore = process.memoryUsage().heapUsed;
     const start = performance.now();
 
-    this.pipe = await pipeline('feature-extraction', config.hfId, {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.pipe = await (pipeline as any)('feature-extraction', config.hfId, {
       dtype: 'fp32',
     }) as FeatureExtractionPipeline;
     this.config = config;
