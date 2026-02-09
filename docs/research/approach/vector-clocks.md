@@ -49,19 +49,20 @@ When sub-agents spawn, they inherit the parent's clock. When they complete (debr
 
 ## Hop Distance
 
-Logical distance is the sum of per-agent differences between an edge's clock and the current reference clock:
+Logical distance is the sum of per-agent differences between an edge's clock and the current reference clock. **Only entries present in both clocks contribute to the sum** - agents that didn't exist at edge creation or have since terminated contribute zero:
 
 ```typescript
 function hopCount(edgeClock: VectorClock, refClock: VectorClock): number {
   let hops = 0;
   for (const agentId of Object.keys(edgeClock)) {
+    // Only agents in edgeClock are considered; if also in refClock, count the difference
     hops += Math.max(0, (refClock[agentId] ?? 0) - edgeClock[agentId]);
   }
   return hops;
 }
 ```
 
-This measures "semantic distance" - how many D-T-D cycles have occurred across all thought streams since the edge was created.
+This measures "semantic distance" - how many D-T-D cycles have occurred in the thought streams that were **active when the edge was created and still exist now**.
 
 ## Decay Based on Hops
 
