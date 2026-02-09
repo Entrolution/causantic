@@ -62,15 +62,23 @@ Weight: 0.9 (mostly dead)  Weight: 0.8 (still relevant)
 
 ### The Vector Clock Connection
 
-ECM's vector clocks capture "happens-before" relationships:
+ECM's vector clocks capture "happens-before" relationships across parallel thought streams:
 
 ```typescript
 interface VectorClock {
-  ui: number;     // UI interactions
-  human: number;  // Human messages
-  file: number;   // File operations
+  [agentId: string]: number;  // One entry per thought stream
+}
+
+// Example with main agent and two sub-agents:
+{
+  "ui": 5,              // Main UI agent: 5 D-T-D cycles
+  "human": 3,           // Human input cycles
+  "agent-abc123": 2,    // Sub-agent thought stream
+  "agent-def456": 1     // Another sub-agent thought stream
 }
 ```
+
+D-T-D (Data-Transformation-Data) abstractly represents any `f(input) → output` step - whether that's Claude reasoning, human thinking, or tool execution. Each thought stream gets its own vector clock entry. When a sub-agent spawns, it inherits the parent's clock; when it completes, its clock merges back. This enables accurate hop distance calculation even with parallel processing.
 
 Hops are measured by vector clock distance, not wall time.
 

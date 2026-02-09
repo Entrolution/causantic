@@ -16,7 +16,7 @@ ECM was developed through systematic experimentation on real Claude Code session
 
 **Result**: 0.998 AUC with lexical features
 
-The D-T-D (Decision-Thought-Do) boundary detection achieves near-perfect accuracy for identifying session transitions. See [experiments/topic-continuity.md](experiments/topic-continuity.md).
+The D-T-D (Data-Transformation-Data) boundary detection achieves near-perfect accuracy for identifying session transitions. See [experiments/topic-continuity.md](experiments/topic-continuity.md).
 
 ### Clustering Threshold
 

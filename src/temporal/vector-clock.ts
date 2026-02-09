@@ -1,15 +1,24 @@
 /**
  * Vector clock implementation for D-T-D memory graph.
  *
+ * D-T-D = Data-Transformation-Data: an abstract representation of any
+ * processing step as f(input) → output. The "T" can be any transformation:
+ * Claude reasoning, human thinking, tool execution, etc.
+ *
+ * This representation is conducive to graph-based reasoning without getting
+ * bogged down in compositional semantics, input/output types, or arities.
+ *
  * Vector clocks capture logical causal distance (D-T-D hop count) instead of
  * physical time. This is more meaningful for memory retrieval - especially
- * with parallel sub-agents.
+ * with parallel thought streams that progress independently.
  *
  * Semantics:
  * - Domain: Per-project (each project has its own clock set)
- * - Entries: Per-agent (main UI agent, human, each sub-agent)
- * - Tick: Each D-T-D cycle (turn) increments that agent's clock entry
- * - Reference clock: Element-wise max of all agent clocks
+ * - Entries: Per thought stream (main agent, human, each sub-agent)
+ * - Tick: Each D-T-D cycle increments that stream's clock entry
+ * - Reference clock: Element-wise max of all stream clocks
+ * - Sub-agent spawn: Inherits parent clock
+ * - Sub-agent debrief: Merges back via element-wise max
  */
 
 /**
