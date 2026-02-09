@@ -214,7 +214,20 @@ const commands: Command[] = [
             const config = JSON.parse(configContent);
 
             if (config.mcpServers?.memory) {
-              console.log('✓ ECM already configured in Claude Code');
+              // Check if using npx (broken with nvm) and offer to fix
+              if (config.mcpServers.memory.command === 'npx') {
+                const nodeBin = process.execPath;
+                const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/index.js';
+
+                config.mcpServers.memory = {
+                  command: nodeBin,
+                  args: [cliEntry, 'serve'],
+                };
+                fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
+                console.log('✓ Updated ECM config to use absolute paths');
+              } else {
+                console.log('✓ ECM already configured in Claude Code');
+              }
             } else {
               // Ask user if they want to add MCP config
               const rl = readline.createInterface({
@@ -230,13 +243,18 @@ const commands: Command[] = [
               });
 
               if (answer === 'y' || answer === 'yes') {
+                // Use absolute paths to avoid nvm/fnm shell wrapper issues
+                const nodeBin = process.execPath;
+                const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/index.js';
+
                 config.mcpServers = config.mcpServers || {};
                 config.mcpServers.memory = {
-                  command: 'npx',
-                  args: ['ecm', 'serve'],
+                  command: nodeBin,
+                  args: [cliEntry, 'serve'],
                 };
                 fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
                 console.log('✓ Added ECM to Claude Code config');
+                console.log(`  Node: ${nodeBin}`);
                 console.log('  Restart Claude Code to activate');
               }
             }
@@ -246,6 +264,140 @@ const commands: Command[] = [
         } else {
           console.log('⚠ Claude Code config not found');
           console.log('  Create it manually or install Claude Code first');
+        }
+      }
+
+      // Step 6b: Patch project-level .mcp.json files
+      // Claude Code projects with their own .mcp.json don't inherit global mcpServers,
+      // so ECM must be added to each project's .mcp.json individually.
+      if (!skipMcp && process.stdin.isTTY) {
+        const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
+        if (fs.existsSync(claudeProjectsDir)) {
+          const nodeBin = process.execPath;
+          const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/index.js';
+          const memoryServerConfig = {
+            command: nodeBin,
+            args: [cliEntry, 'serve'],
+          };
+
+          // Find project dirs that have .mcp.json but no memory server
+          const projectsToFix: Array<{ name: string; mcpPath: string }> = [];
+          try {
+            const entries = fs.readdirSync(claudeProjectsDir, { withFileTypes: true });
+            for (const entry of entries) {
+              if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+
+              // Decode project path from dir name: -Users-gvn-Dev-Foo → /Users/gvn/Dev/Foo
+              const projectPath = '/' + entry.name.replace(/^-/, '').replace(/-/g, '/');
+              const mcpPath = path.join(projectPath, '.mcp.json');
+
+              if (!fs.existsSync(mcpPath)) continue;
+
+              try {
+                const mcpContent = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
+                if (mcpContent.mcpServers && !mcpContent.mcpServers.memory) {
+                  const readableName = projectPath.replace(new RegExp(`^/Users/${os.userInfo().username}/`), '~/');
+                  projectsToFix.push({ name: readableName, mcpPath });
+                }
+              } catch {
+                // Skip unparseable files
+              }
+            }
+          } catch {
+            // Skip if can't read projects dir
+          }
+
+          if (projectsToFix.length > 0) {
+            console.log('');
+            console.log(`Found ${projectsToFix.length} project(s) with .mcp.json missing ECM:`);
+            for (const p of projectsToFix) {
+              console.log(`  ${p.name}`);
+            }
+
+            const rl = readline.createInterface({
+              input: process.stdin,
+              output: process.stdout,
+            });
+
+            const fixAnswer = await new Promise<string>((resolve) => {
+              rl.question('Add ECM memory server to these projects? [Y/n] ', (ans) => {
+                rl.close();
+                resolve(ans.toLowerCase() || 'y');
+              });
+            });
+
+            if (fixAnswer === 'y' || fixAnswer === 'yes') {
+              let patched = 0;
+              for (const p of projectsToFix) {
+                try {
+                  const mcpContent = JSON.parse(fs.readFileSync(p.mcpPath, 'utf-8'));
+                  mcpContent.mcpServers.memory = memoryServerConfig;
+                  fs.writeFileSync(p.mcpPath, JSON.stringify(mcpContent, null, 2) + '\n');
+                  patched++;
+                } catch {
+                  console.log(`  ⚠ Could not patch ${p.name}`);
+                }
+              }
+              if (patched > 0) {
+                console.log(`✓ Added ECM to ${patched} project .mcp.json file(s)`);
+              }
+            }
+          }
+        }
+      }
+
+      // Step 6c: Add memory tool instructions to global CLAUDE.md
+      // Without these instructions, Claude Code won't proactively use the ECM MCP tools.
+      if (!skipMcp) {
+        const claudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
+        const ECM_START = '<!-- ECM_MEMORY_START -->';
+        const ECM_END = '<!-- ECM_MEMORY_END -->';
+        const memoryInstructions = `${ECM_START}
+## Memory (Entropic Causal Memory)
+
+You have access to a long-term memory system via the \`memory\` MCP server. Use it to recall past work, decisions, and context across sessions.
+
+**When to use memory tools:**
+- When asked about recent or past work (e.g., "What did we work on?", "What was decided about X?")
+- When starting a task in an unfamiliar area — check if past sessions covered it
+- When you encounter an error or pattern that might have been solved before
+- When the user references something from a previous session
+
+**Tools:**
+- \`recall\` — Look up specific context from past sessions. Use \`range: "short"\` for recent work, \`range: "long"\` for historical context.
+- \`explain\` — Understand the history behind a topic or decision. Defaults to long-range retrieval.
+- \`predict\` — Proactively surface relevant past context based on the current discussion.
+
+**Guidelines:**
+- Prefer \`recall\` for direct questions about past work
+- Prefer \`explain\` when the user asks "why" or "how did we get here"
+- Use \`predict\` at the start of complex tasks to surface relevant background
+- Always try memory tools before saying "I don't have context from previous sessions"
+${ECM_END}`;
+
+        try {
+          let claudeMd = '';
+          if (fs.existsSync(claudeMdPath)) {
+            claudeMd = fs.readFileSync(claudeMdPath, 'utf-8');
+          }
+
+          if (claudeMd.includes(ECM_START)) {
+            // Replace existing section
+            const startIdx = claudeMd.indexOf(ECM_START);
+            const endIdx = claudeMd.indexOf(ECM_END);
+            if (endIdx > startIdx) {
+              claudeMd = claudeMd.slice(0, startIdx) + memoryInstructions + claudeMd.slice(endIdx + ECM_END.length);
+              fs.writeFileSync(claudeMdPath, claudeMd);
+              console.log('✓ Updated memory instructions in CLAUDE.md');
+            }
+          } else {
+            // Append to file
+            const separator = claudeMd.length > 0 && !claudeMd.endsWith('\n\n') ? '\n' : '';
+            fs.writeFileSync(claudeMdPath, claudeMd + separator + memoryInstructions + '\n');
+            console.log('✓ Added memory instructions to CLAUDE.md');
+          }
+        } catch {
+          console.log('⚠ Could not update CLAUDE.md');
         }
       }
 
@@ -359,22 +511,69 @@ const commands: Command[] = [
             console.log('Skipping session import.');
           }
 
+          // Spinner utilities for progress display
+          const spinFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+          let spinIdx = 0;
+          let spinTimer: ReturnType<typeof setInterval> | null = null;
+          let currentSpinText = '';
+
+          const writeLine = (text: string) => {
+            if (process.stdout.isTTY) {
+              process.stdout.write('\r\x1b[K' + text);
+            }
+          };
+
+          const startSpinner = (text: string) => {
+            if (!process.stdout.isTTY) return;
+            currentSpinText = text;
+            spinIdx = 0;
+            writeLine(`${spinFrames[0]} ${currentSpinText}`);
+            spinTimer = setInterval(() => {
+              spinIdx = (spinIdx + 1) % spinFrames.length;
+              writeLine(`${spinFrames[spinIdx]} ${currentSpinText}`);
+            }, 80);
+          };
+
+          const stopSpinner = (doneText?: string) => {
+            if (spinTimer) {
+              clearInterval(spinTimer);
+              spinTimer = null;
+            }
+            if (process.stdout.isTTY) {
+              process.stdout.write('\r\x1b[K');
+            }
+            if (doneText) {
+              console.log(doneText);
+            }
+          };
+
           if (projectsToIngest.length > 0) {
+            const { detectDevice } = await import('../models/device-detector.js');
+            const { setLogLevel } = await import('../utils/logger.js');
+            const detectedDevice = detectDevice();
             console.log('');
+            const availableHint = detectedDevice.available?.length
+              ? ` (${detectedDevice.available.join(', ')} available)`
+              : '';
+            console.log(`\u2713 Inference: ${detectedDevice.label}${availableHint}`);
             console.log(`Importing ${projectsToIngest.length} project(s)...`);
             console.log('');
 
+            // Suppress info logs during ingestion to avoid polluting spinner display
+            setLogLevel('warn');
+
             const { discoverSessions, batchIngest } = await import('../ingest/batch-ingest.js');
+            const { Embedder } = await import('../models/embedder.js');
+            const { getModel } = await import('../models/model-registry.js');
+
+            // Single shared embedder across all projects
+            const sharedEmbedder = new Embedder();
+            await sharedEmbedder.load(getModel('jina-small'), { device: detectedDevice.device });
 
             let totalIngested = 0;
+            let totalSkipped = 0;
             let totalChunks = 0;
-            let lastLine = '';
-
-            const clearLine = () => {
-              if (lastLine && process.stdout.isTTY) {
-                process.stdout.write('\r' + ' '.repeat(lastLine.length) + '\r');
-              }
-            };
+            let totalEdges = 0;
 
             // Process each project individually for better progress display
             for (const projectPath of projectsToIngest) {
@@ -391,59 +590,75 @@ const commands: Command[] = [
                 continue;
               }
 
+              startSpinner(`${shortName}: 0/${sessions.length} sessions`);
+
               const result = await batchIngest(sessions, {
+                embeddingDevice: detectedDevice.device,
+                embedder: sharedEmbedder,
                 progressCallback: (progress) => {
-                  clearLine();
-                  lastLine = `  ${shortName}: ${progress.done}/${progress.total} sessions, ${progress.totalChunks} chunks`;
-                  process.stdout.write(lastLine);
+                  currentSpinText = `${shortName}: ${progress.done}/${progress.total} sessions, ${progress.totalChunks} chunks`;
                 },
               });
 
-              clearLine();
+              stopSpinner();
               if (result.successCount > 0) {
-                console.log(`  ✓ ${shortName}: ${result.successCount} sessions, ${result.totalChunks} chunks`);
+                console.log(`  \u2713 ${shortName}: ${result.successCount} sessions, ${result.totalChunks} chunks, ${result.totalEdges} edges`);
+              } else if (result.skippedCount > 0) {
+                console.log(`  \u2713 ${shortName}: ${result.skippedCount} sessions (already ingested)`);
               }
 
               totalIngested += result.successCount;
+              totalSkipped += result.skippedCount;
               totalChunks += result.totalChunks;
+              totalEdges += result.totalEdges;
             }
 
-            if (totalIngested === 0) {
+            // Clean up shared embedder and restore log level
+            await sharedEmbedder.dispose();
+            setLogLevel('info');
+
+            if (totalIngested === 0 && totalSkipped === 0) {
               console.log('  No sessions found to import.');
+            } else if (totalIngested === 0) {
+              console.log('');
+              console.log(`\u2713 All ${totalSkipped} sessions already ingested`);
             } else {
               console.log('');
-              console.log(`✓ Total: ${totalIngested} sessions, ${totalChunks} chunks`);
+              const skippedSuffix = totalSkipped > 0 ? `, ${totalSkipped} skipped` : '';
+              console.log(`\u2713 Total: ${totalIngested} sessions, ${totalChunks} chunks, ${totalEdges} edges${skippedSuffix}`);
             }
 
-            // Run post-ingestion maintenance tasks
-            if (totalChunks > 0) {
+            // Run post-ingestion maintenance tasks if there are chunks in the DB
+            // (either newly created or from a previous ingestion)
+            const existingChunks = getChunkCount();
+            if (existingChunks > 0) {
               console.log('');
               console.log('Running post-ingestion processing...');
 
+              // Suppress logs during post-processing to keep spinner clean
+              const { setLogLevel: setPostLogLevel } = await import('../utils/logger.js');
+              setPostLogLevel('warn');
+
               // Graph pruning first (removes dead edges and orphan nodes)
-              process.stdout.write('  Pruning graph...');
+              startSpinner('Pruning graph...');
               try {
                 const pruneResult = await runTask('prune-graph');
-                if (pruneResult.success) {
-                  console.log(' done');
-                } else {
-                  console.log(` warning: ${pruneResult.message}`);
-                }
+                stopSpinner(pruneResult.success
+                  ? '  \u2713 Graph pruned'
+                  : `  \u26a0 Pruning: ${pruneResult.message}`);
               } catch (err) {
-                console.log(` error: ${(err as Error).message}`);
+                stopSpinner(`  \u2717 Pruning error: ${(err as Error).message}`);
               }
 
               // Clustering (groups chunks by topic)
-              process.stdout.write('  Building clusters...');
+              startSpinner('Building clusters...');
               try {
                 const clusterResult = await runTask('update-clusters');
-                if (clusterResult.success) {
-                  console.log(' done');
-                } else {
-                  console.log(` warning: ${clusterResult.message}`);
-                }
+                stopSpinner(clusterResult.success
+                  ? '  \u2713 Clusters built'
+                  : `  \u26a0 Clustering: ${clusterResult.message}`);
               } catch (err) {
-                console.log(` error: ${(err as Error).message}`);
+                stopSpinner(`  \u2717 Clustering error: ${(err as Error).message}`);
               }
 
               // Ask about Claude API key for cluster labeling
@@ -475,16 +690,14 @@ const commands: Command[] = [
                   // Set environment variable for the current process and run labeling
                   process.env.ANTHROPIC_API_KEY = apiKey;
 
-                  process.stdout.write('  Labeling clusters...');
+                  startSpinner('Labeling clusters...');
                   try {
                     const labelResult = await runTask('refresh-labels');
-                    if (labelResult.success) {
-                      console.log(' done');
-                    } else {
-                      console.log(` warning: ${labelResult.message}`);
-                    }
+                    stopSpinner(labelResult.success
+                      ? '  \u2713 Clusters labeled'
+                      : `  \u26a0 Labeling: ${labelResult.message}`);
                   } catch (err) {
-                    console.log(` error: ${(err as Error).message}`);
+                    stopSpinner(`  \u2717 Labeling error: ${(err as Error).message}`);
                   }
                 } else if (apiKey) {
                   console.log('⚠ Invalid API key format (should start with sk-ant-)');
@@ -493,6 +706,8 @@ const commands: Command[] = [
                   console.log('  Skipping cluster labeling.');
                 }
               }
+
+              setPostLogLevel('info');
             }
           }
         }
