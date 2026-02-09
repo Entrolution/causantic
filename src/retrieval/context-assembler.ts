@@ -36,6 +36,8 @@ export interface RetrievalRequest {
   currentSessionId?: string;
   /** Project slug for clock lookup (optional, enables vector clock decay) */
   projectSlug?: string;
+  /** Filter results to specific project(s). Omit to search all projects. */
+  projectFilter?: string | string[];
   /** Query time for decay calculation (default: now) */
   queryTime?: number;
   /** Maximum tokens in response */
@@ -96,6 +98,7 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     query,
     currentSessionId,
     projectSlug,
+    projectFilter,
     queryTime = Date.now(),
     maxTokens = config.mcpMaxResponseTokens,
     mode,
@@ -103,15 +106,21 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     vectorSearchLimit = 20,
   } = request;
 
+  // If projectFilter is a single string, also use it for clock lookup
+  const effectiveProjectSlug = projectSlug ??
+    (typeof projectFilter === 'string' ? projectFilter : undefined);
+
   // Get reference clock for vector clock-based decay (if project slug provided)
-  const referenceClock = projectSlug ? getReferenceClock(projectSlug) : undefined;
+  const referenceClock = effectiveProjectSlug ? getReferenceClock(effectiveProjectSlug) : undefined;
 
   // 1. Embed query
   const embedder = await getEmbedder();
   const queryResult = await embedder.embed(query, true); // isQuery = true
 
-  // 2. Find similar chunks via vector search
-  const similar = await vectorStore.search(queryResult.embedding, vectorSearchLimit);
+  // 2. Find similar chunks via vector search (project-filtered or global)
+  const similar = projectFilter
+    ? await vectorStore.searchByProject(queryResult.embedding, projectFilter, vectorSearchLimit)
+    : await vectorStore.search(queryResult.embedding, vectorSearchLimit);
 
   if (similar.length === 0) {
     return {

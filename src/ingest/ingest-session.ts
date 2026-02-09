@@ -15,6 +15,7 @@ import {
   getSessionInfo,
   discoverSubAgents,
   streamSessionMessages,
+  deriveProjectSlug,
   type SubAgentInfo,
 } from '../parser/session-reader.js';
 import { assembleTurns, assembleTurnsFromStream } from '../parser/turn-assembler.js';
@@ -149,7 +150,8 @@ export async function ingestSession(
 
   // Get session info
   const info = await getSessionInfo(sessionPath);
-  const projectSlug = info.slug;
+  const projectSlug = deriveProjectSlug(info);
+  const projectPath = info.cwd || '';
 
   // Get file stats for mtime check
   const fileStats = await stat(sessionPath);
@@ -164,7 +166,7 @@ export async function ingestSession(
     if (fileStats.mtime <= lastIngestMtime) {
       return {
         sessionId: info.sessionId,
-        sessionSlug: info.slug,
+        sessionSlug: projectSlug,
         chunkCount: 0,
         edgeCount: 0,
         crossSessionEdges: 0,
@@ -181,7 +183,7 @@ export async function ingestSession(
   if (skipIfExists && !checkpoint && isSessionIngested(info.sessionId)) {
     return {
       sessionId: info.sessionId,
-      sessionSlug: info.slug,
+      sessionSlug: projectSlug,
       chunkCount: 0,
       edgeCount: 0,
       crossSessionEdges: 0,
@@ -221,7 +223,7 @@ export async function ingestSession(
     }
     return {
       sessionId: info.sessionId,
-      sessionSlug: info.slug,
+      sessionSlug: projectSlug,
       chunkCount: 0,
       edgeCount: 0,
       crossSessionEdges: 0,
@@ -293,7 +295,7 @@ export async function ingestSession(
               maxTokens: maxTokensPerChunk,
               includeThinking,
               sessionId: info.sessionId,
-              sessionSlug: info.slug,
+              sessionSlug: projectSlug,
               agentId: subAgent.agentId,
               initialClock: subClock,
               onTick: (c) => { subClock = c; },
@@ -303,13 +305,13 @@ export async function ingestSession(
               maxTokens: maxTokensPerChunk,
               includeThinking,
               sessionId: info.sessionId,
-              sessionSlug: info.slug,
+              sessionSlug: projectSlug,
             }).map(c => c as ChunkWithClock);
 
         if (subChunks.length === 0) continue;
 
         // Store sub-agent chunks
-        const subChunkInputs = subChunks.map((chunk) => chunkWithClockToInput(chunk));
+        const subChunkInputs = subChunks.map((chunk) => ({ ...chunkWithClockToInput(chunk), projectPath }));
         const subChunkIds = insertChunks(subChunkInputs);
 
         // Embed with caching and true batch embedding
@@ -359,7 +361,7 @@ export async function ingestSession(
           maxTokens: maxTokensPerChunk,
           includeThinking,
           sessionId: info.sessionId,
-          sessionSlug: info.slug,
+          sessionSlug: projectSlug,
           agentId: MAIN_AGENT_ID,
           initialClock: mainClock,
           onTick: (c) => { mainClock = c; },
@@ -369,13 +371,13 @@ export async function ingestSession(
           maxTokens: maxTokensPerChunk,
           includeThinking,
           sessionId: info.sessionId,
-          sessionSlug: info.slug,
+          sessionSlug: projectSlug,
         }).map(c => c as ChunkWithClock);
 
     if (mainChunks.length === 0) {
       return {
         sessionId: info.sessionId,
-        sessionSlug: info.slug,
+        sessionSlug: projectSlug,
         chunkCount: totalChunkCount,
         edgeCount: totalEdgeCount,
         crossSessionEdges: 0,
@@ -389,7 +391,7 @@ export async function ingestSession(
     }
 
     // Store main chunks
-    const mainChunkInputs = mainChunks.map((chunk) => chunkWithClockToInput(chunk));
+    const mainChunkInputs = mainChunks.map((chunk) => ({ ...chunkWithClockToInput(chunk), projectPath }));
     const mainChunkIds = insertChunks(mainChunkInputs);
 
     // Embed with caching and true batch embedding
@@ -477,7 +479,7 @@ export async function ingestSession(
     if (useIncrementalIngestion) {
       saveCheckpoint({
         sessionId: info.sessionId,
-        projectSlug: info.slug,
+        projectSlug,
         lastTurnIndex: startTurnIndex + turnsToProcess.length - 1,
         lastChunkId: mainChunkIds[mainChunkIds.length - 1],
         vectorClock: JSON.stringify(mainClock),
@@ -488,13 +490,13 @@ export async function ingestSession(
     // 5. Link cross-sessions if requested
     let crossSessionEdges = 0;
     if (linkCrossSessions) {
-      const linkResult = await linkCrossSession(info.sessionId, info.slug);
+      const linkResult = await linkCrossSession(info.sessionId, projectSlug);
       crossSessionEdges = linkResult.edgeCount;
     }
 
     return {
       sessionId: info.sessionId,
-      sessionSlug: info.slug,
+      sessionSlug: projectSlug,
       chunkCount: totalChunkCount,
       edgeCount: totalEdgeCount,
       crossSessionEdges,

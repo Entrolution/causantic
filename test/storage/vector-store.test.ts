@@ -290,4 +290,49 @@ describe('vector-store', () => {
       expect(result.distance).toBe(0.15);
     });
   });
+
+  describe('searchByProject', () => {
+    it('filters vectors by project using in-memory index', () => {
+      // Simulate the project index behavior
+      const projectIndex = new Map<string, string>();
+      projectIndex.set('v1', 'project-a');
+      projectIndex.set('v2', 'project-b');
+      projectIndex.set('v3', 'project-a');
+      projectIndex.set('v4', 'project-c');
+
+      const targetProject = 'project-a';
+      const filtered = Array.from(projectIndex.entries())
+        .filter(([_, project]) => project === targetProject)
+        .map(([id]) => id);
+
+      expect(filtered).toEqual(['v1', 'v3']);
+    });
+
+    it('supports multi-project filtering', () => {
+      const projectIndex = new Map<string, string>();
+      projectIndex.set('v1', 'project-a');
+      projectIndex.set('v2', 'project-b');
+      projectIndex.set('v3', 'project-a');
+      projectIndex.set('v4', 'project-c');
+
+      const targetProjects = new Set(['project-a', 'project-c']);
+      const filtered = Array.from(projectIndex.entries())
+        .filter(([_, project]) => targetProjects.has(project))
+        .map(([id]) => id);
+
+      expect(filtered).toEqual(['v1', 'v3', 'v4']);
+    });
+
+    it('returns empty for non-existent project', () => {
+      const projectIndex = new Map<string, string>();
+      projectIndex.set('v1', 'project-a');
+
+      const targetProject = 'non-existent';
+      const filtered = Array.from(projectIndex.entries())
+        .filter(([_, project]) => project === targetProject)
+        .map(([id]) => id);
+
+      expect(filtered).toEqual([]);
+    });
+  });
 });

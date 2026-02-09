@@ -89,6 +89,8 @@ export interface StoredChunk {
   vectorClock: VectorClock | null;
   /** Nesting depth: 0=main, 1=sub-agent, 2=nested sub-agent */
   spawnDepth: number;
+  /** Full cwd path for project disambiguation (optional) */
+  projectPath: string | null;
 }
 
 /**
@@ -124,6 +126,8 @@ export interface ChunkInput {
   vectorClock?: VectorClock;
   /** Spawn depth (optional, defaults to 0) */
   spawnDepth?: number;
+  /** Full cwd path for project disambiguation */
+  projectPath?: string;
 }
 
 /**

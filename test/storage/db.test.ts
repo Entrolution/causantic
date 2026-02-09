@@ -32,7 +32,8 @@ function createTestDb(): Database.Database {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       agent_id TEXT,
       vector_clock TEXT,
-      spawn_depth INTEGER DEFAULT 0
+      spawn_depth INTEGER DEFAULT 0,
+      project_path TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_chunks_session ON chunks(session_id);
@@ -84,7 +85,7 @@ function createTestDb(): Database.Database {
 
     CREATE INDEX IF NOT EXISTS idx_vector_clocks_project ON vector_clocks(project_slug);
 
-    INSERT OR REPLACE INTO schema_version (version) VALUES (2);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (4);
   `);
 
   return db;
@@ -153,9 +154,15 @@ describe('database', () => {
       expect(names).toContain('clock_data');
     });
 
-    it('has schema version 2', () => {
+    it('has schema version 4', () => {
       const row = db.prepare('SELECT MAX(version) as version FROM schema_version').get() as { version: number };
-      expect(row.version).toBe(2);
+      expect(row.version).toBe(4);
+    });
+
+    it('has project_path column on chunks', () => {
+      const columns = db.prepare("PRAGMA table_info(chunks)").all() as { name: string }[];
+      const names = columns.map((c) => c.name);
+      expect(names).toContain('project_path');
     });
   });
 

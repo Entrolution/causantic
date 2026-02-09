@@ -213,13 +213,23 @@ const commands: Command[] = [
             const configContent = fs.readFileSync(claudeConfigPath, 'utf-8');
             const config = JSON.parse(configContent);
 
-            if (config.mcpServers?.memory) {
+            const ECM_SERVER_KEY = 'entropic-causal-memory';
+
+            // Migrate old 'memory' key → 'entropic-causal-memory'
+            if (config.mcpServers?.memory && !config.mcpServers[ECM_SERVER_KEY]) {
+              config.mcpServers[ECM_SERVER_KEY] = config.mcpServers.memory;
+              delete config.mcpServers.memory;
+              fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
+              console.log('✓ Migrated ECM config: memory → entropic-causal-memory');
+            }
+
+            if (config.mcpServers?.[ECM_SERVER_KEY]) {
               // Check if using npx (broken with nvm) and offer to fix
-              if (config.mcpServers.memory.command === 'npx') {
+              if (config.mcpServers[ECM_SERVER_KEY].command === 'npx') {
                 const nodeBin = process.execPath;
                 const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/index.js';
 
-                config.mcpServers.memory = {
+                config.mcpServers[ECM_SERVER_KEY] = {
                   command: nodeBin,
                   args: [cliEntry, 'serve'],
                 };
@@ -248,7 +258,7 @@ const commands: Command[] = [
                 const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/index.js';
 
                 config.mcpServers = config.mcpServers || {};
-                config.mcpServers.memory = {
+                config.mcpServers[ECM_SERVER_KEY] = {
                   command: nodeBin,
                   args: [cliEntry, 'serve'],
                 };
@@ -280,8 +290,10 @@ const commands: Command[] = [
             args: [cliEntry, 'serve'],
           };
 
-          // Find project dirs that have .mcp.json but no memory server
-          const projectsToFix: Array<{ name: string; mcpPath: string }> = [];
+          const ECM_KEY = 'entropic-causal-memory';
+
+          // Find project dirs that have .mcp.json but no ECM server (or old 'memory' key)
+          const projectsToFix: Array<{ name: string; mcpPath: string; needsMigrate: boolean }> = [];
           try {
             const entries = fs.readdirSync(claudeProjectsDir, { withFileTypes: true });
             for (const entry of entries) {
@@ -295,9 +307,16 @@ const commands: Command[] = [
 
               try {
                 const mcpContent = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
-                if (mcpContent.mcpServers && !mcpContent.mcpServers.memory) {
+                if (!mcpContent.mcpServers) continue;
+
+                if (mcpContent.mcpServers.memory && !mcpContent.mcpServers[ECM_KEY]) {
+                  // Has old 'memory' key, needs migration
                   const readableName = projectPath.replace(new RegExp(`^/Users/${os.userInfo().username}/`), '~/');
-                  projectsToFix.push({ name: readableName, mcpPath });
+                  projectsToFix.push({ name: readableName, mcpPath, needsMigrate: true });
+                } else if (!mcpContent.mcpServers[ECM_KEY]) {
+                  // Missing entirely
+                  const readableName = projectPath.replace(new RegExp(`^/Users/${os.userInfo().username}/`), '~/');
+                  projectsToFix.push({ name: readableName, mcpPath, needsMigrate: false });
                 }
               } catch {
                 // Skip unparseable files
@@ -308,10 +327,18 @@ const commands: Command[] = [
           }
 
           if (projectsToFix.length > 0) {
+            const migrateCount = projectsToFix.filter((p) => p.needsMigrate).length;
+            const addCount = projectsToFix.length - migrateCount;
             console.log('');
-            console.log(`Found ${projectsToFix.length} project(s) with .mcp.json missing ECM:`);
+            if (migrateCount > 0 && addCount > 0) {
+              console.log(`Found ${addCount} project(s) missing ECM and ${migrateCount} to migrate:`);
+            } else if (migrateCount > 0) {
+              console.log(`Found ${migrateCount} project(s) with old 'memory' key to migrate:`);
+            } else {
+              console.log(`Found ${addCount} project(s) with .mcp.json missing ECM:`);
+            }
             for (const p of projectsToFix) {
-              console.log(`  ${p.name}`);
+              console.log(`  ${p.name}${p.needsMigrate ? ' (migrate)' : ''}`);
             }
 
             const rl = readline.createInterface({
@@ -320,7 +347,7 @@ const commands: Command[] = [
             });
 
             const fixAnswer = await new Promise<string>((resolve) => {
-              rl.question('Add ECM memory server to these projects? [Y/n] ', (ans) => {
+              rl.question('Add/migrate ECM server in these projects? [Y/n] ', (ans) => {
                 rl.close();
                 resolve(ans.toLowerCase() || 'y');
               });
@@ -331,7 +358,12 @@ const commands: Command[] = [
               for (const p of projectsToFix) {
                 try {
                   const mcpContent = JSON.parse(fs.readFileSync(p.mcpPath, 'utf-8'));
-                  mcpContent.mcpServers.memory = memoryServerConfig;
+                  if (p.needsMigrate) {
+                    mcpContent.mcpServers[ECM_KEY] = mcpContent.mcpServers.memory;
+                    delete mcpContent.mcpServers.memory;
+                  } else {
+                    mcpContent.mcpServers[ECM_KEY] = memoryServerConfig;
+                  }
                   fs.writeFileSync(p.mcpPath, JSON.stringify(mcpContent, null, 2) + '\n');
                   patched++;
                 } catch {
@@ -339,7 +371,7 @@ const commands: Command[] = [
                 }
               }
               if (patched > 0) {
-                console.log(`✓ Added ECM to ${patched} project .mcp.json file(s)`);
+                console.log(`✓ Updated ECM in ${patched} project .mcp.json file(s)`);
               }
             }
           }
@@ -355,7 +387,7 @@ const commands: Command[] = [
         const memoryInstructions = `${ECM_START}
 ## Memory (Entropic Causal Memory)
 
-You have access to a long-term memory system via the \`memory\` MCP server. Use it to recall past work, decisions, and context across sessions.
+You have access to a long-term memory system via the \`entropic-causal-memory\` MCP server. Use it to recall past work, decisions, and context across sessions.
 
 **When to use memory tools:**
 - When asked about recent or past work (e.g., "What did we work on?", "What was decided about X?")
@@ -364,15 +396,18 @@ You have access to a long-term memory system via the \`memory\` MCP server. Use 
 - When the user references something from a previous session
 
 **Tools:**
-- \`recall\` — Look up specific context from past sessions. Use \`range: "short"\` for recent work, \`range: "long"\` for historical context.
-- \`explain\` — Understand the history behind a topic or decision. Defaults to long-range retrieval.
-- \`predict\` — Proactively surface relevant past context based on the current discussion.
+- \`recall\` — Look up specific context from past sessions. Use \`range: "short"\` for recent work, \`range: "long"\` for historical context. Use \`project\` to filter by project.
+- \`explain\` — Understand the history behind a topic or decision. Defaults to long-range retrieval. Use \`project\` to filter by project.
+- \`predict\` — Proactively surface relevant past context based on the current discussion. Use \`project\` to filter by project.
+- \`list-projects\` — List all projects in memory with chunk counts and date ranges. Use to discover available project names for filtering.
 
 **Guidelines:**
 - Prefer \`recall\` for direct questions about past work
 - Prefer \`explain\` when the user asks "why" or "how did we get here"
 - Use \`predict\` at the start of complex tasks to surface relevant background
 - Always try memory tools before saying "I don't have context from previous sessions"
+- Use \`list-projects\` to discover available projects, then filter with \`project\` parameter
+- Example: \`recall\` with \`project: "my-project"\` for project-scoped search
 ${ECM_END}`;
 
         try {

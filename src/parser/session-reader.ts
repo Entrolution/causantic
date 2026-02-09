@@ -7,7 +7,7 @@
 import { createReadStream, existsSync, readdirSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import type { RawMessage, RawMessageType, SessionInfo } from './types.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -189,4 +189,59 @@ export async function discoverSubAgents(sessionPath: string): Promise<SubAgentIn
 export async function hasSubAgents(sessionPath: string): Promise<boolean> {
   const subAgents = await discoverSubAgents(sessionPath);
   return subAgents.length > 0;
+}
+
+/**
+ * Derive a human-readable project slug from session info.
+ *
+ * Fallback chain:
+ * 1. basename(info.cwd) — most reliable (e.g., "apolitical-assistant")
+ * 2. info.slug — forward-compatibility if Claude Code starts populating it
+ * 3. '' — final fallback
+ *
+ * Note: directory name decoding (`-Users-gvn-Dev-Foo` → `/Users/gvn/Dev/Foo`)
+ * is NOT used because hyphens in project names make it ambiguous.
+ * `cwd` from JSONL is the source of truth.
+ *
+ * @param info - Session metadata
+ * @param knownSlugs - Optional map of slug → cwd for collision detection.
+ *   If two projects share the same basename (e.g., ~/Work/api and ~/Personal/api),
+ *   the last two path components are used instead: "Work/api" vs "Personal/api".
+ */
+export function deriveProjectSlug(
+  info: SessionInfo,
+  knownSlugs?: Map<string, string>,
+): string {
+  if (info.cwd) {
+    let slug = basename(info.cwd);
+
+    // Check for collision: same basename but different cwd
+    if (knownSlugs) {
+      const existingCwd = knownSlugs.get(slug);
+      if (existingCwd && existingCwd !== info.cwd) {
+        // Disambiguate using last two path components
+        slug = twoComponentSlug(info.cwd);
+      }
+    }
+
+    return slug;
+  }
+
+  if (info.slug) {
+    return info.slug;
+  }
+
+  return '';
+}
+
+/**
+ * Build a slug from the last two path components.
+ * e.g., "/Users/gvn/Work/api" → "Work/api"
+ */
+function twoComponentSlug(cwd: string): string {
+  const parts = cwd.split('/').filter(Boolean);
+  if (parts.length >= 2) {
+    return parts.slice(-2).join('/');
+  }
+  return parts[parts.length - 1] ?? '';
 }

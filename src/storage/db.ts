@@ -5,9 +5,10 @@
  */
 
 import Database from 'better-sqlite3-multiple-ciphers';
-import { readFileSync, existsSync, mkdirSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { execSync } from 'child_process';
-import { dirname, join } from 'path';
+import { basename, dirname, join } from 'path';
+import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import { resolvePath } from '../config/memory-config.js';
 import { loadConfig } from '../config/loader.js';
@@ -350,6 +351,9 @@ function runMigrations(database: Database.Database): void {
   if (currentVersion < 3) {
     migrateToV3(database);
   }
+  if (currentVersion < 4) {
+    migrateToV4(database);
+  }
 }
 
 /**
@@ -449,6 +453,196 @@ function migrateToV3(database: Database.Database): void {
 
   // Update schema version
   database.exec(`INSERT OR REPLACE INTO schema_version (version) VALUES (3)`);
+}
+
+/**
+ * Migrate from v3 to v4 (add project labels and project_path).
+ *
+ * - Adds project_path column to chunks table
+ * - Walks ~/.claude/projects/ to discover JSONL files and extract cwd/sessionId
+ * - Backfills session_slug and project_path for existing chunks
+ * - Re-keys vector_clocks with correct project slugs
+ * - Updates ingestion_checkpoints.project_slug
+ */
+function migrateToV4(database: Database.Database): void {
+  // 1. Add project_path column to chunks table
+  try {
+    database.exec('ALTER TABLE chunks ADD COLUMN project_path TEXT');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column')) {
+      throw error;
+    }
+  }
+
+  // 2. Walk ~/.claude/projects/ to discover JSONL files and build session→project map
+  const claudeProjectsDir = join(homedir(), '.claude', 'projects');
+  const sessionProjectMap = new Map<string, { slug: string; cwd: string }>();
+
+  if (existsSync(claudeProjectsDir)) {
+    // Collect all slug→cwd mappings to detect collisions
+    const slugToCwds = new Map<string, Set<string>>();
+
+    try {
+      const projectDirs = readdirSync(claudeProjectsDir, { withFileTypes: true });
+
+      for (const dir of projectDirs) {
+        if (!dir.isDirectory()) continue;
+
+        const projectDir = join(claudeProjectsDir, dir.name);
+        const files = readdirSync(projectDir, { withFileTypes: true });
+
+        for (const file of files) {
+          if (!file.isFile() || !file.name.endsWith('.jsonl')) continue;
+
+          const filePath = join(projectDir, file.name);
+          const info = extractSessionInfoFromFile(filePath);
+          if (!info) continue;
+
+          const slug = info.cwd ? basename(info.cwd) : '';
+          if (slug && info.cwd) {
+            const cwds = slugToCwds.get(slug) ?? new Set();
+            cwds.add(info.cwd);
+            slugToCwds.set(slug, cwds);
+          }
+
+          sessionProjectMap.set(info.sessionId, { slug, cwd: info.cwd });
+        }
+      }
+    } catch {
+      // Can't read projects dir — continue without backfill
+    }
+
+    // Detect collisions: slugs used by multiple cwds need disambiguation
+    const collisionSlugs = new Set<string>();
+    for (const [slug, cwds] of slugToCwds) {
+      if (cwds.size > 1) {
+        collisionSlugs.add(slug);
+      }
+    }
+
+    // Disambiguate colliding slugs using last two path components
+    if (collisionSlugs.size > 0) {
+      for (const [sessionId, info] of sessionProjectMap) {
+        if (collisionSlugs.has(info.slug) && info.cwd) {
+          const parts = info.cwd.split('/').filter(Boolean);
+          if (parts.length >= 2) {
+            info.slug = parts.slice(-2).join('/');
+          }
+          sessionProjectMap.set(sessionId, info);
+        }
+      }
+    }
+  }
+
+  // 3. Backfill chunks that have empty session_slug
+  const updateChunk = database.prepare(
+    'UPDATE chunks SET session_slug = ?, project_path = ? WHERE session_id = ? AND (session_slug = \'\' OR session_slug IS NULL OR project_path IS NULL)'
+  );
+
+  const backfillChunks = database.transaction(() => {
+    for (const [sessionId, info] of sessionProjectMap) {
+      if (info.slug) {
+        updateChunk.run(info.slug, info.cwd, sessionId);
+      }
+    }
+  });
+  backfillChunks();
+
+  // 4. Update ingestion_checkpoints.project_slug
+  const updateCheckpoint = database.prepare(
+    'UPDATE ingestion_checkpoints SET project_slug = ? WHERE session_id = ? AND (project_slug = \'\' OR project_slug IS NULL)'
+  );
+
+  const backfillCheckpoints = database.transaction(() => {
+    for (const [sessionId, info] of sessionProjectMap) {
+      if (info.slug) {
+        updateCheckpoint.run(info.slug, sessionId);
+      }
+    }
+  });
+  backfillCheckpoints();
+
+  // 5. Re-key vector_clocks: old keys use empty slug "project:"
+  //    Replace with per-project clocks
+  try {
+    const emptyClockRows = database.prepare(
+      "SELECT id, clock_data FROM vector_clocks WHERE project_slug = ''"
+    ).all() as Array<{ id: string; clock_data: string }>;
+
+    if (emptyClockRows.length > 0) {
+      // Get distinct project slugs from updated chunks
+      const distinctSlugs = database.prepare(
+        "SELECT DISTINCT session_slug FROM chunks WHERE session_slug != ''"
+      ).all() as Array<{ session_slug: string }>;
+
+      // For each distinct slug, create a clock entry copying from the empty-slug one
+      const insertClock = database.prepare(
+        'INSERT OR REPLACE INTO vector_clocks (id, project_slug, clock_data, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)'
+      );
+
+      const rekeyClocks = database.transaction(() => {
+        for (const emptyRow of emptyClockRows) {
+          for (const { session_slug } of distinctSlugs) {
+            // Reconstruct the key pattern: "project:<slug>" or "agent:<slug>:<agentId>"
+            const parts = emptyRow.id.split(':');
+            let newId: string;
+            if (parts[0] === 'project') {
+              newId = `project:${session_slug}`;
+            } else if (parts[0] === 'agent') {
+              const agentId = parts.slice(2).join(':');
+              newId = `agent:${session_slug}:${agentId}`;
+            } else {
+              continue;
+            }
+
+            insertClock.run(newId, session_slug, emptyRow.clock_data);
+          }
+        }
+
+        // Delete old empty-slug entries
+        database.prepare("DELETE FROM vector_clocks WHERE project_slug = ''").run();
+      });
+      rekeyClocks();
+    }
+  } catch {
+    // vector_clocks table may not exist yet in some edge cases
+  }
+
+  // 6. Update schema version
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (4)');
+}
+
+/**
+ * Extract sessionId and cwd from first few lines of a JSONL file.
+ * Reads only the first 10 lines for performance.
+ */
+function extractSessionInfoFromFile(filePath: string): { sessionId: string; cwd: string } | null {
+  try {
+    const content = readFileSync(filePath, { encoding: 'utf-8' });
+    const lines = content.split('\n');
+    const limit = Math.min(lines.length, 10);
+
+    let sessionId = '';
+    let cwd = '';
+
+    for (let i = 0; i < limit; i++) {
+      if (!lines[i].trim()) continue;
+      try {
+        const parsed = JSON.parse(lines[i]);
+        if (!sessionId && parsed.sessionId) sessionId = parsed.sessionId;
+        if (!cwd && parsed.cwd) cwd = parsed.cwd;
+        if (sessionId && cwd) break;
+      } catch {
+        continue;
+      }
+    }
+
+    if (!sessionId) return null;
+    return { sessionId, cwd };
+  } catch {
+    return null;
+  }
 }
 
 /**

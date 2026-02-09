@@ -252,6 +252,95 @@ describe('chunk-store', () => {
     });
   });
 
+  describe('getChunkIdsByProject', () => {
+    it('returns chunk IDs for a given project slug', () => {
+      insertTestChunk(db, createSampleChunk({ id: 'c1', sessionSlug: 'project-a' }));
+      insertTestChunk(db, createSampleChunk({ id: 'c2', sessionSlug: 'project-a' }));
+      insertTestChunk(db, createSampleChunk({ id: 'c3', sessionSlug: 'project-b' }));
+
+      const ids = db.prepare('SELECT id FROM chunks WHERE session_slug = ?')
+        .all('project-a') as { id: string }[];
+      expect(ids.map(r => r.id)).toEqual(['c1', 'c2']);
+    });
+
+    it('returns empty array for unknown project', () => {
+      const ids = db.prepare('SELECT id FROM chunks WHERE session_slug = ?')
+        .all('unknown') as { id: string }[];
+      expect(ids).toEqual([]);
+    });
+  });
+
+  describe('getDistinctProjects', () => {
+    it('returns distinct projects with chunk counts', () => {
+      insertTestChunk(db, createSampleChunk({ id: 'c1', sessionSlug: 'project-a', startTime: '2024-01-01T00:00:00Z' }));
+      insertTestChunk(db, createSampleChunk({ id: 'c2', sessionSlug: 'project-a', startTime: '2024-06-01T00:00:00Z' }));
+      insertTestChunk(db, createSampleChunk({ id: 'c3', sessionSlug: 'project-b', startTime: '2024-03-01T00:00:00Z' }));
+
+      const rows = db.prepare(`
+        SELECT
+          session_slug AS slug,
+          COUNT(*) AS chunkCount,
+          MIN(start_time) AS firstSeen,
+          MAX(start_time) AS lastSeen
+        FROM chunks
+        WHERE session_slug != ''
+        GROUP BY session_slug
+        ORDER BY lastSeen DESC
+      `).all() as Array<{
+        slug: string;
+        chunkCount: number;
+        firstSeen: string;
+        lastSeen: string;
+      }>;
+
+      expect(rows.length).toBe(2);
+
+      const projectA = rows.find(r => r.slug === 'project-a');
+      expect(projectA).toBeDefined();
+      expect(projectA!.chunkCount).toBe(2);
+      expect(projectA!.firstSeen).toBe('2024-01-01T00:00:00Z');
+      expect(projectA!.lastSeen).toBe('2024-06-01T00:00:00Z');
+    });
+
+    it('excludes empty slugs', () => {
+      insertTestChunk(db, createSampleChunk({ id: 'c1', sessionSlug: '' }));
+      insertTestChunk(db, createSampleChunk({ id: 'c2', sessionSlug: 'real-project' }));
+
+      const rows = db.prepare(`
+        SELECT session_slug AS slug, COUNT(*) AS chunkCount
+        FROM chunks
+        WHERE session_slug != ''
+        GROUP BY session_slug
+      `).all() as Array<{ slug: string; chunkCount: number }>;
+
+      expect(rows.length).toBe(1);
+      expect(rows[0].slug).toBe('real-project');
+    });
+  });
+
+  describe('project_path column', () => {
+    it('stores and retrieves project_path', () => {
+      insertTestChunk(db, createSampleChunk({
+        id: 'c1',
+        projectPath: '/Users/gvn/Dev/my-project',
+      }));
+
+      const row = db.prepare('SELECT project_path FROM chunks WHERE id = ?').get('c1') as {
+        project_path: string | null;
+      };
+      expect(row.project_path).toBe('/Users/gvn/Dev/my-project');
+    });
+
+    it('defaults to null when not provided', () => {
+      insertTestChunk(db, createSampleChunk({ id: 'c1' }));
+
+      const row = db.prepare('SELECT project_path FROM chunks WHERE id = ?').get('c1') as {
+        project_path: string | null;
+      };
+      expect(row.project_path).toBeNull();
+    });
+  });
+
   describe('vector clock serialization', () => {
     it('round-trips vector clock data', () => {
       const originalClock = { ui: 10, human: 5, subagent: 3 };

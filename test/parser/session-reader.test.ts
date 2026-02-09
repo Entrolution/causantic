@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
-import { readSession, readSessionMessages, getSessionInfo } from '../../src/parser/session-reader.js';
+import { readSession, readSessionMessages, getSessionInfo, deriveProjectSlug } from '../../src/parser/session-reader.js';
+import type { SessionInfo } from '../../src/parser/types.js';
 
 const FIXTURE = join(import.meta.dirname, '..', 'fixtures', 'sample-session.jsonl');
 
@@ -53,5 +54,63 @@ describe('getSessionInfo', () => {
     expect(info.messageCount).toBeGreaterThan(0);
     expect(info.startTime).toBeTruthy();
     expect(info.endTime).toBeTruthy();
+  });
+});
+
+describe('deriveProjectSlug', () => {
+  function makeInfo(overrides: Partial<SessionInfo> = {}): SessionInfo {
+    return {
+      sessionId: 'test-session',
+      slug: '',
+      cwd: '',
+      messageCount: 10,
+      startTime: '2024-01-01T00:00:00Z',
+      endTime: '2024-01-01T00:01:00Z',
+      filePath: '/path/to/file.jsonl',
+      ...overrides,
+    };
+  }
+
+  it('derives slug from cwd basename', () => {
+    const info = makeInfo({ cwd: '/Users/gvn/Dev/Apolitical/apolitical-assistant' });
+    expect(deriveProjectSlug(info)).toBe('apolitical-assistant');
+  });
+
+  it('falls back to info.slug when cwd is empty', () => {
+    const info = makeInfo({ slug: 'my-project' });
+    expect(deriveProjectSlug(info)).toBe('my-project');
+  });
+
+  it('returns empty string when both cwd and slug are empty', () => {
+    const info = makeInfo();
+    expect(deriveProjectSlug(info)).toBe('');
+  });
+
+  it('prefers cwd over slug', () => {
+    const info = makeInfo({ cwd: '/path/to/my-app', slug: 'different-slug' });
+    expect(deriveProjectSlug(info)).toBe('my-app');
+  });
+
+  it('disambiguates when knownSlugs has collision', () => {
+    const knownSlugs = new Map<string, string>();
+    knownSlugs.set('api', '/Users/gvn/Work/api');
+
+    const info = makeInfo({ cwd: '/Users/gvn/Personal/api' });
+    const slug = deriveProjectSlug(info, knownSlugs);
+    expect(slug).toBe('Personal/api');
+  });
+
+  it('does not disambiguate when same cwd', () => {
+    const knownSlugs = new Map<string, string>();
+    knownSlugs.set('api', '/Users/gvn/Work/api');
+
+    const info = makeInfo({ cwd: '/Users/gvn/Work/api' });
+    const slug = deriveProjectSlug(info, knownSlugs);
+    expect(slug).toBe('api');
+  });
+
+  it('handles single-component path', () => {
+    const info = makeInfo({ cwd: '/root' });
+    expect(deriveProjectSlug(info)).toBe('root');
   });
 });
