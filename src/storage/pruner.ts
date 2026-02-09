@@ -15,6 +15,9 @@ import { vectorStore } from './vector-store.js';
 import { getReferenceClock } from './clock-store.js';
 import { calculateDirectionalDecayWeight, type EdgeDirection } from './decay.js';
 import { deserialize } from '../temporal/vector-clock.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('pruner');
 
 /**
  * Pruner class for managing lazy deletion of dead edges and orphaned chunks.
@@ -73,7 +76,7 @@ class Pruner {
     this.flushTimeout = setTimeout(() => {
       this.flushTimeout = null;
       this.flush().catch((err) => {
-        console.error('Pruner flush error:', err);
+        log.error('Pruner flush error', { error: err instanceof Error ? err.message : String(err) });
       });
     }, this.flushDelayMs);
   }
@@ -202,7 +205,7 @@ class Pruner {
         this.fullPruneProgress.error = err.message;
         this.fullPruneProgress.completedAt = Date.now();
       }
-      console.error('Full prune error:', err);
+      log.error('Full prune error', { error: err instanceof Error ? err.message : String(err) });
     });
 
     return this.fullPruneProgress;

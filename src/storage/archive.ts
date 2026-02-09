@@ -7,6 +7,9 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { encrypt, decrypt, serializeEncrypted, deserializeEncrypted } from './encryption.js';
 import { getDb } from './db.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('archive');
 
 /** Archive format version */
 const ARCHIVE_VERSION = '1.0';
@@ -223,7 +226,7 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
     writeFileSync(options.outputPath, jsonData);
   }
 
-  console.log(`Exported ${chunks.length} chunks, ${edges.length} edges, ${clusters.length} clusters`);
+  log.info('Export completed', { chunks: chunks.length, edges: edges.length, clusters: clusters.length });
 }
 
 /**
@@ -320,7 +323,7 @@ export async function importArchive(options: ImportOptions): Promise<void> {
 
   transaction();
 
-  console.log(`Imported ${archive.chunks.length} chunks, ${archive.edges.length} edges, ${archive.clusters.length} clusters`);
+  log.info('Import completed', { chunks: archive.chunks.length, edges: archive.edges.length, clusters: archive.clusters.length });
 }
 
 /**

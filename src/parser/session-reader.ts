@@ -9,6 +9,9 @@ import { stat } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { dirname, join } from 'node:path';
 import type { RawMessage, RawMessageType, SessionInfo } from './types.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('session-reader');
 
 const NOISE_TYPES: Set<RawMessageType> = new Set([
   'progress',
@@ -159,7 +162,7 @@ export async function discoverSubAgents(sessionPath: string): Promise<SubAgentIn
     }
   } catch (error) {
     // Directory exists but can't be read - log and continue
-    console.warn(`Warning: Could not read subagents directory: ${subagentsDir}`);
+    log.warn(`Could not read subagents directory: ${subagentsDir}`);
   }
 
   return subAgents;

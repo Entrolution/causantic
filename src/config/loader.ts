@@ -12,6 +12,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolvePath } from './memory-config.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('config-loader');
 
 /** External config file structure (matches config.schema.json) */
 export interface ExternalConfig {
@@ -98,7 +101,7 @@ function loadConfigFile(path: string): ExternalConfig | null {
     const content = readFileSync(resolvedPath, 'utf-8');
     return JSON.parse(content) as ExternalConfig;
   } catch (error) {
-    console.warn(`Warning: Failed to parse config file ${path}:`, error);
+    log.warn(`Failed to parse config file ${path}`, { error: (error as Error).message });
     return null;
   }
 }

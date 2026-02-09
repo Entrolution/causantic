@@ -11,6 +11,9 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { resolvePath } from '../config/memory-config.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('scheduler');
 
 /** Cron-style schedule expression */
 export type CronSchedule = string;
@@ -61,7 +64,7 @@ function shouldRunNow(schedule: CronSchedule, lastRun: Date | null): boolean {
   const parts = schedule.split(' ');
 
   if (parts.length !== 5) {
-    console.warn(`Invalid cron schedule: ${schedule}`);
+    log.warn(`Invalid cron schedule: ${schedule}`);
     return false;
   }
 
@@ -375,13 +378,13 @@ export async function runTask(name: string): Promise<MaintenanceResult> {
     };
   }
 
-  console.log(`Running maintenance task: ${task.name}`);
+  log.info(`Running maintenance task: ${task.name}`);
   const startTime = new Date();
 
   try {
     const result = await task.handler();
     recordRun(task.name, result, startTime);
-    console.log(`Task ${task.name}: ${result.message} (${result.duration}ms)`);
+    log.info(`Task ${task.name}: ${result.message}`, { durationMs: result.duration });
     return result;
   } catch (error) {
     const result: MaintenanceResult = {
@@ -390,7 +393,7 @@ export async function runTask(name: string): Promise<MaintenanceResult> {
       message: `Task failed: ${(error as Error).message}`,
     };
     recordRun(task.name, result, startTime);
-    console.error(`Task ${task.name} failed:`, error);
+    log.error(`Task ${task.name} failed`, { error: (error as Error).message });
     return result;
   }
 }
@@ -435,7 +438,7 @@ export function getStatus(): Array<{
  * Checks every minute for tasks that should run.
  */
 export async function runDaemon(signal?: AbortSignal): Promise<void> {
-  console.log('Starting maintenance daemon...');
+  log.info('Starting maintenance daemon...');
 
   const checkAndRun = async (): Promise<void> => {
     const state = loadState();
@@ -466,7 +469,7 @@ export async function runDaemon(signal?: AbortSignal): Promise<void> {
   if (signal) {
     signal.addEventListener('abort', () => {
       clearInterval(interval);
-      console.log('Maintenance daemon stopped.');
+      log.info('Maintenance daemon stopped.');
     });
   }
 

@@ -8,6 +8,9 @@ import { getConfig } from '../config/memory-config.js';
 import { getClusterById, upsertCluster, getStaleClusters } from '../storage/cluster-store.js';
 import { getChunksByIds } from '../storage/chunk-store.js';
 import type { StoredCluster, StoredChunk } from '../storage/types.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('cluster-refresh');
 
 /**
  * Result of cluster refresh.
@@ -153,7 +156,7 @@ export class ClusterRefresher {
         const result = await this.refreshCluster(cluster.id, options);
         results.push(result);
       } catch (error) {
-        console.error(`Failed to refresh cluster ${cluster.id}:`, error);
+        log.error(`Failed to refresh cluster ${cluster.id}`, { error: (error as Error).message });
       }
     }
 
@@ -172,7 +175,7 @@ export class ClusterRefresher {
         const result = await this.refreshCluster(cluster.id, options);
         results.push(result);
       } catch (error) {
-        console.error(`Failed to refresh cluster ${cluster.id}:`, error);
+        log.error(`Failed to refresh cluster ${cluster.id}`, { error: (error as Error).message });
       }
     }
 
