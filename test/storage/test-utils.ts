@@ -23,7 +23,7 @@
  * ```
  */
 
-import Database from 'better-sqlite3';
+import Database from 'better-sqlite3-multiple-ciphers';
 import { setDb, resetDb } from '../../src/storage/db.js';
 
 /**

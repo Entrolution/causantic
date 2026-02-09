@@ -1,17 +1,61 @@
 /**
  * SQLite database connection and migrations.
+ *
+ * Supports optional encryption using better-sqlite3-multiple-ciphers.
  */
 
-import Database from 'better-sqlite3';
+import Database from 'better-sqlite3-multiple-ciphers';
 import { readFileSync, existsSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { resolvePath } from '../config/memory-config.js';
+import { loadConfig } from '../config/loader.js';
+import { createSecretStore } from '../utils/secret-store.js';
+import { withSecureBufferSync } from '../utils/secure-buffer.js';
+import { logAudit } from './audit-log.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+/** Key name in secret store for database encryption */
+const DB_KEY_NAME = 'ecm-db-key';
+
 let db: Database.Database | null = null;
 let customDb: Database.Database | null = null;
+
+/** Cached encryption key (only set when keySource is not 'prompt') */
+let cachedDbKey: string | null = null;
+
+/** Service name for keychain storage */
+const KEYCHAIN_SERVICE = 'entropic-causal-memory';
+
+/**
+ * Get key from OS keychain synchronously.
+ * Supports macOS Keychain and Linux secret-tool.
+ */
+function getKeyFromKeychainSync(): string | null {
+  try {
+    if (process.platform === 'darwin') {
+      // macOS Keychain
+      const result = execSync(
+        `security find-generic-password -a "${DB_KEY_NAME}" -s "${KEYCHAIN_SERVICE}" -w 2>/dev/null`,
+        { encoding: 'utf-8' }
+      );
+      return result.trim() || null;
+    } else if (process.platform === 'linux') {
+      // Linux secret-tool
+      const result = execSync(
+        `secret-tool lookup service "${KEYCHAIN_SERVICE}" account "${DB_KEY_NAME}" 2>/dev/null`,
+        { encoding: 'utf-8' }
+      );
+      return result.trim() || null;
+    }
+    return null;
+  } catch {
+    // Key not found or keychain not available
+    return null;
+  }
+}
 
 /**
  * Set a custom database instance (for testing).
@@ -50,9 +94,136 @@ export function resetDb(): void {
     customDb = null;
   }
   if (db) {
+    logAudit('close', 'Database closed');
     db.close();
     db = null;
   }
+  cachedDbKey = null;
+}
+
+/**
+ * Get the database encryption key synchronously.
+ * Returns undefined if encryption is disabled or key is not available.
+ */
+function getDbKeySync(): string | undefined {
+  const config = loadConfig();
+  if (!config.encryption?.enabled) {
+    return undefined;
+  }
+
+  // Return cached key if available
+  if (cachedDbKey) {
+    return cachedDbKey;
+  }
+
+  const keySource = config.encryption.keySource ?? 'keychain';
+
+  switch (keySource) {
+    case 'env': {
+      const key = process.env.ECM_DB_KEY;
+      if (key) {
+        cachedDbKey = key;
+        logAudit('key-access', 'Key retrieved from environment');
+      }
+      return key;
+    }
+    case 'keychain': {
+      // Try to load from OS keychain synchronously
+      const keychainKey = getKeyFromKeychainSync();
+      if (keychainKey) {
+        cachedDbKey = keychainKey;
+        logAudit('key-access', 'Key retrieved from keychain');
+        return keychainKey;
+      }
+      // Fallback to env if keychain key not available
+      const envKey = process.env.ECM_DB_KEY;
+      if (envKey) {
+        cachedDbKey = envKey;
+        logAudit('key-access', 'Key retrieved from environment (keychain fallback)');
+        return envKey;
+      }
+      return undefined;
+    }
+    case 'prompt':
+      // Prompt is only available in CLI context, not here
+      throw new Error(
+        'Database encryption with keySource=prompt requires running ecm init or ecm encryption unlock first'
+      );
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Get the database encryption key asynchronously.
+ * Use this for initial setup or when async is acceptable.
+ */
+export async function getDbKeyAsync(): Promise<string | undefined> {
+  const config = loadConfig();
+  if (!config.encryption?.enabled) {
+    return undefined;
+  }
+
+  const keySource = config.encryption.keySource ?? 'keychain';
+
+  switch (keySource) {
+    case 'env': {
+      const key = process.env.ECM_DB_KEY;
+      if (key) {
+        cachedDbKey = key;
+        logAudit('key-access', 'Key retrieved from environment');
+      }
+      return key;
+    }
+    case 'keychain': {
+      const store = createSecretStore();
+      const key = await store.get(DB_KEY_NAME);
+      if (key) {
+        cachedDbKey = key;
+        logAudit('key-access', 'Key retrieved from keychain');
+      }
+      return key ?? undefined;
+    }
+    case 'prompt':
+      // Must be handled by caller
+      return undefined;
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Set the cached database key.
+ * Used by CLI commands that prompt for the key.
+ */
+export function setDbKey(key: string): void {
+  cachedDbKey = key;
+}
+
+/**
+ * Store the database key in the secret store.
+ */
+export async function storeDbKey(key: string): Promise<void> {
+  const store = createSecretStore();
+  await store.set(DB_KEY_NAME, key);
+  cachedDbKey = key;
+  logAudit('key-access', 'Key stored in keychain');
+}
+
+/**
+ * Apply encryption to a database connection.
+ */
+function applyEncryption(database: Database.Database, key: string): void {
+  const config = loadConfig();
+  const cipher = config.encryption?.cipher ?? 'chacha20';
+
+  withSecureBufferSync(key, (secureKey) => {
+    // Set cipher before key
+    database.pragma(`cipher = '${cipher}'`);
+    database.pragma(`key = '${secureKey.toString()}'`);
+  });
+
+  logAudit('open', `Database opened with ${cipher} encryption`);
 }
 
 /**
@@ -62,6 +233,11 @@ export function resetDb(): void {
  * 1. Custom database set via `setDb()` (for testing)
  * 2. Existing singleton connection
  * 3. New connection to the configured path
+ *
+ * When encryption is enabled:
+ * - Retrieves key from configured source (keychain, env, or cached)
+ * - Applies cipher pragma before key pragma
+ * - Logs access attempt to audit log if enabled
  */
 export function getDb(dbPath?: string): Database.Database {
   // Return custom database if set (for testing)
@@ -73,7 +249,8 @@ export function getDb(dbPath?: string): Database.Database {
     return db;
   }
 
-  const resolvedPath = resolvePath(dbPath ?? '~/.semansiation/memory.db');
+  const config = loadConfig();
+  const resolvedPath = resolvePath(dbPath ?? config.storage?.dbPath ?? '~/.ecm/memory.db');
 
   // Ensure directory exists
   const dir = dirname(resolvedPath);
@@ -82,6 +259,22 @@ export function getDb(dbPath?: string): Database.Database {
   }
 
   db = new Database(resolvedPath);
+
+  // Apply encryption if configured
+  if (config.encryption?.enabled) {
+    const key = getDbKeySync();
+    if (key) {
+      applyEncryption(db, key);
+    } else {
+      logAudit('failed', 'No encryption key available');
+      throw new Error(
+        'Database encryption is enabled but no key is available. ' +
+        'Run "ecm encryption setup" or set ECM_DB_KEY environment variable.'
+      );
+    }
+  } else {
+    logAudit('open', 'Database opened (unencrypted)');
+  }
 
   // Enable foreign keys
   db.pragma('foreign_keys = ON');
