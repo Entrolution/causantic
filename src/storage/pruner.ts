@@ -359,7 +359,10 @@ export interface FullPruneProgress {
   error: string | null;
 }
 
-// Singleton instance
+// Export class for testing (allows creating fresh instances)
+export { Pruner };
+
+// Singleton instance for production use
 export const pruner = new Pruner();
 
 /**

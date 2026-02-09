@@ -11,11 +11,64 @@ import { resolvePath } from '../config/memory-config.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let db: Database.Database | null = null;
+let customDb: Database.Database | null = null;
+
+/**
+ * Set a custom database instance (for testing).
+ *
+ * When set, `getDb()` will return this instance instead of creating a new one.
+ * Use `resetDb()` to clear the custom instance.
+ *
+ * @example
+ * ```typescript
+ * import { setDb, resetDb } from './db.js';
+ *
+ * beforeEach(() => {
+ *   const testDb = new Database(':memory:');
+ *   // ... run migrations ...
+ *   setDb(testDb);
+ * });
+ *
+ * afterEach(() => {
+ *   resetDb();
+ * });
+ * ```
+ */
+export function setDb(database: Database.Database): void {
+  customDb = database;
+}
+
+/**
+ * Reset the database to default behavior.
+ *
+ * Clears any custom database set via `setDb()` and closes the current
+ * singleton connection. The next call to `getDb()` will create a new
+ * connection.
+ */
+export function resetDb(): void {
+  if (customDb) {
+    customDb = null;
+  }
+  if (db) {
+    db.close();
+    db = null;
+  }
+}
 
 /**
  * Initialize and return the database connection.
+ *
+ * Returns (in priority order):
+ * 1. Custom database set via `setDb()` (for testing)
+ * 2. Existing singleton connection
+ * 3. New connection to the configured path
  */
 export function getDb(dbPath?: string): Database.Database {
+  // Return custom database if set (for testing)
+  if (customDb) {
+    return customDb;
+  }
+
   if (db) {
     return db;
   }

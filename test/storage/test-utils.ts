@@ -1,9 +1,30 @@
 /**
  * Test utilities for storage layer tests.
  * Provides in-memory database setup that matches production schema.
+ *
+ * ## Usage with DI
+ *
+ * For integration tests that need to use actual store modules:
+ *
+ * ```typescript
+ * import { beforeEach, afterEach } from 'vitest';
+ * import { createTestDb, setupTestDb, teardownTestDb } from './test-utils.js';
+ *
+ * let db: Database.Database;
+ *
+ * beforeEach(() => {
+ *   db = createTestDb();
+ *   setupTestDb(db);  // Sets db for all store modules
+ * });
+ *
+ * afterEach(() => {
+ *   teardownTestDb(db);  // Closes db and resets singleton
+ * });
+ * ```
  */
 
 import Database from 'better-sqlite3';
+import { setDb, resetDb } from '../../src/storage/db.js';
 
 /**
  * Create an in-memory SQLite database with the full ECM schema.
@@ -230,4 +251,33 @@ export function assignChunkToCluster(db: Database.Database, chunkId: string, clu
     VALUES (?, ?, ?)
   `);
   stmt.run(chunkId, clusterId, distance);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DI Helpers for Integration Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Set up a test database for use with store modules.
+ *
+ * Injects the database into the global singleton, so that all store
+ * modules (chunk-store, edge-store, etc.) will use this database.
+ *
+ * @param db - In-memory database created with `createTestDb()`
+ */
+export function setupTestDb(db: Database.Database): void {
+  setDb(db);
+}
+
+/**
+ * Tear down the test database.
+ *
+ * Closes the database and resets the singleton so subsequent tests
+ * get a fresh state.
+ *
+ * @param db - Database to close
+ */
+export function teardownTestDb(db: Database.Database): void {
+  db.close();
+  resetDb();
 }

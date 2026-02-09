@@ -63,7 +63,8 @@ import type { VectorSearchResult } from './types.js';
  * Thread safety: Single-threaded (Node.js). For concurrent access, use
  * the singleton `vectorStore` export which ensures consistent state.
  */
-class VectorStore {
+// Export class for testing (allows creating fresh instances)
+export class VectorStore {
   private vectors: Map<string, number[]> = new Map();
   private loaded = false;
 
