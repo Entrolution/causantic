@@ -4,7 +4,7 @@ This document details the experiments for detecting topic/session boundaries in 
 
 ## Hypothesis
 
-Topic transitions in conversation sessions can be detected using lexical and structural features, enabling accurate D-T-D (Decision-Thought-Do) chunking.
+Topic transitions in conversation sessions can be detected using lexical and structural features, enabling accurate D-T-D (Data-Transformation-Data) chunking.
 
 ## Methodology
 
@@ -116,15 +116,15 @@ function shouldChunk(prevTurn: Turn, currTurn: Turn): boolean {
 
 ### D-T-D Pattern
 
-The Decision-Thought-Do pattern helps identify logical boundaries:
+D-T-D (Data-Transformation-Data) abstractly represents any processing step as `f(input) → output`:
 
 ```
-Decision: User states intent ("Let's add auth")
-Thought:  Claude analyzes ("I'll need to...")
-Do:       Actions taken (file edits, commands)
+D = Data (input)
+T = Transformation (any processing - Claude, human, tool)
+D = Data (output)
 ```
 
-Chunks are aligned to D-T-D boundaries for semantic coherence.
+This representation is useful for graph reasoning without getting into compositional semantics or type systems. Chunks are aligned to D-T-D boundaries for semantic coherence - each complete cycle represents one logical unit of work, regardless of what performed the transformation.
 
 ## Reproducibility
 

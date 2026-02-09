@@ -30,13 +30,25 @@ Edge types include:
 Instead of wall-clock time, ECM uses **vector clocks** to track logical ordering:
 
 ```
-D-T-D Semantics:
-D = Human input (Decision)
-T = Claude's response (Thought)
-D = Tool execution (Do)
+D-T-D Semantics (Data-Transformation-Data):
+D = Data (input)
+T = Transformation (any processing step)
+D = Data (output)
 ```
 
-This enables "hop distance" calculations that reflect semantic distance rather than time elapsed.
+D-T-D abstractly represents any `f(input) → output` operation - whether that's Claude reasoning, human thinking, or tool execution. This representation works well for graph-based reasoning without getting bogged down in type systems or composition semantics.
+
+Each thought stream has its own vector clock entry:
+
+```typescript
+{
+  "ui": 5,           // Main agent: 5 D-T-D cycles
+  "human": 3,        // Human thinking/input cycles
+  "agent-abc": 2     // Sub-agent thought stream
+}
+```
+
+This enables "hop distance" calculations that reflect semantic distance rather than time elapsed. Parallel thought streams are tracked independently, then merged when they complete.
 
 ### Temporal Decay
 

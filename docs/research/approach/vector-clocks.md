@@ -19,36 +19,49 @@ Using wall-clock time, the Tuesday work appears "old" even though it's a direct 
 
 ## D-T-D Semantics
 
-ECM uses D-T-D (Decision-Thought-Do) vector clocks:
+ECM uses D-T-D (Data-Transformation-Data) vector clocks. D-T-D is an abstract representation of any processing step as `f(input) → output`:
 
 ```
-D = Human input (Decision to do something)
-T = Claude's response (Thought/reasoning)
-D = Tool execution (Doing the action)
+D = Data (input)
+T = Transformation (any processing: Claude reasoning, human thinking, tool execution)
+D = Data (output)
 ```
 
-Each transition increments a component of the vector clock:
+This abstraction is conducive to graph-based reasoning without getting bogged down in compositional semantics, input/output types, or arities. Any transformation that takes data and produces data is a D-T-D cycle.
+
+Each thought stream (main agent, human, or sub-agent) maintains its own clock entry. The vector clock maps stream IDs to their D-T-D cycle counts:
 
 ```typescript
+interface VectorClock {
+  [agentId: string]: number;  // One entry per thought stream
+}
+
+// Example with parallel sub-agents:
 {
-  ui: 5,      // 5 human inputs so far
-  human: 3,   // 3 distinct decisions
-  tool: 12    // 12 tool executions
+  "ui": 5,              // Main UI agent: 5 D-T-D cycles
+  "human": 3,           // Human message count
+  "agent-abc123": 2,    // Sub-agent for file exploration
+  "agent-def456": 4     // Sub-agent for code refactoring
 }
 ```
+
+When sub-agents spawn, they inherit the parent's clock. When they complete (debrief), their clock merges back via element-wise max.
 
 ## Hop Distance
 
-Logical distance is calculated as the difference in vector clock values:
+Logical distance is the sum of per-agent differences between an edge's clock and the current reference clock:
 
 ```typescript
-function hopDistance(a: VectorClock, b: VectorClock): number {
-  // Sum of component differences
-  return Math.abs(a.ui - b.ui) + Math.abs(a.human - b.human) + Math.abs(a.tool - b.tool);
+function hopCount(edgeClock: VectorClock, refClock: VectorClock): number {
+  let hops = 0;
+  for (const agentId of Object.keys(edgeClock)) {
+    hops += Math.max(0, (refClock[agentId] ?? 0) - edgeClock[agentId]);
+  }
+  return hops;
 }
 ```
 
-This measures "semantic distance" - how many logical steps separate two chunks.
+This measures "semantic distance" - how many D-T-D cycles have occurred across all thought streams since the edge was created.
 
 ## Decay Based on Hops
 
