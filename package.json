@@ -72,7 +72,7 @@
     "docs:build": "typedoc --out docs/api src/index.ts --name 'Entropic Causal Memory API' --readme none --excludePrivate --excludeInternal"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.20.0",
+    "@anthropic-ai/sdk": "^0.74.0",
     "@huggingface/transformers": "^3.4.1",
     "better-sqlite3": "^12.6.2",
     "hdbscan-ts": "^1.0.0",
