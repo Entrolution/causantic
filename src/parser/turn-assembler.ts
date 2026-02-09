@@ -113,6 +113,20 @@ function buildToolExchanges(messages: RawMessage[]): ToolExchange[] {
 }
 
 /**
+ * Assemble raw messages from an async stream into conversational turns.
+ * For memory-efficient processing of large sessions.
+ */
+export async function assembleTurnsFromStream(
+  messages: AsyncGenerator<RawMessage> | AsyncIterable<RawMessage>,
+): Promise<Turn[]> {
+  const collected: RawMessage[] = [];
+  for await (const msg of messages) {
+    collected.push(msg);
+  }
+  return assembleTurns(collected);
+}
+
+/**
  * Assemble raw messages into conversational turns.
  */
 export function assembleTurns(messages: RawMessage[]): Turn[] {

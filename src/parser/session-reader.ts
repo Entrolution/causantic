@@ -74,6 +74,18 @@ export async function readSessionMessages(
 }
 
 /**
+ * Stream session messages as an async generator.
+ * Alias for readSession that's explicit about streaming behavior.
+ * Use this for memory-efficient processing of large session files.
+ */
+export async function* streamSessionMessages(
+  filePath: string,
+  options: ReadOptions = {},
+): AsyncGenerator<RawMessage> {
+  yield* readSession(filePath, options);
+}
+
+/**
  * Extract session metadata without loading all messages into memory.
  */
 export async function getSessionInfo(filePath: string): Promise<SessionInfo> {

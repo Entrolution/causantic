@@ -1,6 +1,7 @@
 /**
  * Batch ingestion with parallelism and progress tracking.
  * Ingests entire corpus with resumption support.
+ * Uses memory-based concurrency calculation for optimal performance.
  */
 
 import { readdir, stat } from 'fs/promises';
@@ -31,8 +32,6 @@ export interface BatchProgress {
  * Options for batch ingestion.
  */
 export interface BatchIngestOptions {
-  /** Number of concurrent workers. Default: 1 (sequential for memory). */
-  concurrency?: number;
   /** Progress callback (called after each session completes). */
   progressCallback?: (progress: BatchProgress) => void;
   /** Session ID to resume from (skip sessions before this). */
@@ -43,6 +42,14 @@ export interface BatchIngestOptions {
   skipExisting?: boolean;
   /** Link cross-sessions after batch. Default: true. */
   linkCrossSessions?: boolean;
+  /** Use incremental ingestion (resume from checkpoints). Default: true. */
+  useIncrementalIngestion?: boolean;
+  /** Use embedding cache. Default: true. */
+  useEmbeddingCache?: boolean;
+  /** Override embedding device ('auto' | 'coreml' | 'cuda' | 'cpu' | 'wasm'). */
+  embeddingDevice?: string;
+  /** Shared embedder instance (avoids reloading model per batch). */
+  embedder?: Embedder;
 }
 
 /**
@@ -145,12 +152,14 @@ export async function batchIngest(
   const startTime = Date.now();
 
   const {
-    concurrency = 1, // Sequential by default to avoid memory issues
     progressCallback,
     resumeFrom,
     embeddingModel = 'jina-small',
     skipExisting = true,
     linkCrossSessions = true,
+    useIncrementalIngestion = true,
+    useEmbeddingCache = true,
+    embeddingDevice,
   } = options;
 
   // Filter to sessions after resumeFrom
@@ -165,15 +174,21 @@ export async function batchIngest(
   const results: IngestResult[] = [];
   const errors: Array<{ path: string; error: string }> = [];
 
-  // Create shared embedder for all sessions
-  const embedder = new Embedder();
-  await embedder.load(getModel(embeddingModel));
+  // Use provided embedder or create one — avoids reloading model per batch
+  const embedder = options.embedder ?? new Embedder();
+  const ownsEmbedder = !options.embedder;
+  if (!embedder.currentModel || embedder.currentModel.id !== embeddingModel) {
+    await embedder.load(getModel(embeddingModel), { device: embeddingDevice });
+  }
 
   const ingestOptions: IngestOptions = {
     embeddingModel,
     skipIfExists: skipExisting,
     linkCrossSessions: false, // We'll do this after all sessions
     embedder,
+    useIncrementalIngestion,
+    useEmbeddingCache,
+    embeddingDevice,
   };
 
   // Track running totals for progress
@@ -181,71 +196,29 @@ export async function batchIngest(
   let runningSuccess = 0;
 
   try {
-    if (concurrency === 1) {
-      // Sequential processing
-      for (let i = 0; i < toProcess.length; i++) {
-        const path = toProcess[i];
+    // Process sessions sequentially (parallelism is inside each session via pool)
+    for (let i = 0; i < toProcess.length; i++) {
+      const path = toProcess[i];
 
-        try {
-          const result = await ingestSession(path, ingestOptions);
-          results.push(result);
-          runningChunks += result.chunkCount;
-          if (!result.skipped) {
-            runningSuccess++;
-          }
-        } catch (err) {
-          const message = err instanceof Error ? err.message : String(err);
-          errors.push({ path, error: message });
+      try {
+        const result = await ingestSession(path, ingestOptions);
+        results.push(result);
+        runningChunks += result.chunkCount;
+        if (!result.skipped) {
+          runningSuccess++;
         }
-
-        // Call progress callback after each session
-        progressCallback?.({
-          done: i + 1,
-          total: toProcess.length,
-          current: path,
-          totalChunks: runningChunks,
-          successCount: runningSuccess,
-        });
-      }
-    } else {
-      // Parallel processing with limited concurrency
-      const queue = [...toProcess];
-      let completed = 0;
-
-      async function processNext(): Promise<void> {
-        while (queue.length > 0) {
-          const path = queue.shift()!;
-
-          try {
-            const result = await ingestSession(path, ingestOptions);
-            results.push(result);
-            runningChunks += result.chunkCount;
-            if (!result.skipped) {
-              runningSuccess++;
-            }
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            errors.push({ path, error: message });
-          }
-
-          completed++;
-
-          // Call progress callback after each session
-          progressCallback?.({
-            done: completed,
-            total: toProcess.length,
-            current: path,
-            totalChunks: runningChunks,
-            successCount: runningSuccess,
-          });
-        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        errors.push({ path, error: message });
       }
 
-      // Start concurrent workers
-      const workers = Array(Math.min(concurrency, queue.length))
-        .fill(null)
-        .map(() => processNext());
-      await Promise.all(workers);
+      progressCallback?.({
+        done: i + 1,
+        total: toProcess.length,
+        current: path,
+        totalChunks: runningChunks,
+        successCount: runningSuccess,
+      });
     }
 
     // Link cross-sessions after all sessions are ingested
@@ -273,7 +246,9 @@ export async function batchIngest(
       errors,
     };
   } finally {
-    await embedder.dispose();
+    if (ownsEmbedder) {
+      await embedder.dispose();
+    }
   }
 }
 

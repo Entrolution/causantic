@@ -76,11 +76,34 @@ CREATE TABLE IF NOT EXISTS vector_clocks (
 );
 CREATE INDEX IF NOT EXISTS idx_vector_clocks_project ON vector_clocks(project_slug);
 
+-- Ingestion checkpoints for incremental ingestion
+CREATE TABLE IF NOT EXISTS ingestion_checkpoints (
+  session_id TEXT PRIMARY KEY,
+  project_slug TEXT NOT NULL,
+  last_turn_index INTEGER NOT NULL,
+  last_chunk_id TEXT,
+  vector_clock TEXT,
+  file_mtime TEXT,              -- ISO timestamp of file mtime at last ingest
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_ingestion_checkpoints_project ON ingestion_checkpoints(project_slug);
+
+-- Embedding cache for content-hash based caching
+CREATE TABLE IF NOT EXISTS embedding_cache (
+  content_hash TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  embedding BLOB NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  hit_count INTEGER DEFAULT 0,
+  PRIMARY KEY (content_hash, model_id)
+);
+CREATE INDEX IF NOT EXISTS idx_embedding_cache_model ON embedding_cache(model_id);
+
 -- Schema version for migrations
 CREATE TABLE IF NOT EXISTS schema_version (
   version INTEGER PRIMARY KEY,
   applied_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert initial version if not exists (v2 adds vector clock support)
-INSERT OR IGNORE INTO schema_version (version) VALUES (2);
+-- Insert initial version if not exists (v3 adds ingestion checkpoints and embedding cache)
+INSERT OR IGNORE INTO schema_version (version) VALUES (3);
