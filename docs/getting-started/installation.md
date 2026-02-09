@@ -37,12 +37,36 @@ Run the setup wizard to initialize ECM:
 npx ecm init
 ```
 
-This will:
+The interactive setup wizard will:
 1. Create the `~/.ecm/` directory structure
-2. Initialize the database
-3. Detect your Claude Code configuration path
-4. Offer to configure MCP integration
-5. Run a health check
+2. Offer to enable database encryption (recommended)
+3. Initialize the database
+4. Detect your Claude Code configuration path
+5. Offer to configure MCP integration
+6. Run a health check
+7. Offer to import existing Claude Code sessions
+
+### Setup Options
+
+```bash
+# Full interactive setup (recommended)
+npx ecm init
+
+# Skip specific steps
+npx ecm init --skip-encryption  # Skip encryption prompt
+npx ecm init --skip-mcp         # Skip MCP configuration
+npx ecm init --skip-ingest      # Skip session import
+```
+
+### Session Import
+
+During setup, ECM will detect existing Claude Code sessions in `~/.claude/projects/` and offer to import them:
+
+- **All projects**: Import everything at once
+- **Select specific**: Choose which projects to import by number
+- **Skip**: Import later with `npx ecm batch-ingest`
+
+For large session histories, the initial import may take a few minutes.
 
 ## Verify Installation
 
