@@ -27,15 +27,25 @@ Graph traversal from vector search results can find additional relevant context 
 
 ## Results
 
-### Sum-Product Traversal (maxDepth=20)
+### Cross-Project Experiment (492 queries, 25 sessions)
+
+| Metric | Value |
+|--------|-------|
+| Weighted Average Augmentation | **4.65×** |
+| Median | 4.54× |
+| Range | 3.60× - 5.87× |
+| Total Chunks | 6,243 |
+| Total Queries | 492 |
+
+**Key Finding**: Graph-augmented retrieval consistently provides 4-6× the context vs vector search alone, with even the worst-performing session achieving 3.60× augmentation.
+
+### Single-Project Baseline (10 queries)
 
 | Metric | Vector-Only | Graph-Augmented | Improvement |
 |--------|-------------|-----------------|-------------|
 | Augmentation | 1.0x | 3.88x | +288% |
 | Avg Chunks Added | 10 | 28.8 | +188% |
 | Paths Explored | — | 239 | — |
-
-**Key Finding**: The sum-product algorithm with full decay range (maxDepth=20) achieves 3.88x augmentation.
 
 ### Depth Sweep Results
 

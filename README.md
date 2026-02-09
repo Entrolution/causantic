@@ -3,7 +3,8 @@
 Long-term memory system for Claude Code using causal graphs and vector clocks.
 
 <p align="center">
-<strong>3.88× the relevant context</strong> vs semantic embedding alone
+<strong>4.65× the relevant context</strong> vs semantic embedding alone<br/>
+<sub>Median 4.54× across 492 queries • Range 3.60× - 5.87×</sub>
 </p>
 
 ## Overview
@@ -12,7 +13,7 @@ Entropic Causal Memory (ECM) provides persistent, semantically-aware memory for 
 
 **What makes this different:**
 - **Bidirectional retrieval**: Queries traverse both backward (what led here?) and forward (what followed?) along causal paths — not just similarity matching
-- **3.88× context retrieval**: Graph traversal finds nearly 4× the relevant chunks compared to vector search alone
+- **4.65× context retrieval**: Graph traversal finds nearly 5× the relevant chunks compared to vector search alone
 - **Causal, not temporal**: Distance measured in logical hops (D-T-D transitions), not wall-clock time
 
 ### Why "Entropic"?
