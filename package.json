@@ -76,13 +76,13 @@
     "hop-decay-shapes": "tsx src/eval/experiments/vector-decay-shapes/run-experiment.ts",
     "build-corpus": "tsx scripts/build/build-corpus.ts",
     "benchmark": "tsx scripts/build/run-benchmark.ts",
+    "benchmark:hdbscan": "tsx scripts/benchmarks/hdbscan-benchmark.ts",
     "docs:build": "typedoc --out docs/api src/index.ts --name 'Entropic Causal Memory API' --readme none --excludePrivate --excludeInternal"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",
     "@huggingface/transformers": "^3.4.1",
     "better-sqlite3": "^12.6.2",
-    "hdbscan-ts": "^1.0.0",
     "onnxruntime-node": "^1.24.1"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@
  * Cluster management: HDBSCAN clustering and chunk assignment.
  */
 
-import { HDBSCAN } from 'hdbscan-ts';
+import { HDBSCAN } from './hdbscan.js';
 import { vectorStore } from '../storage/vector-store.js';
 import {
   upsertCluster,
@@ -91,7 +91,7 @@ export class ClusterManager {
       minSamples: minClusterSize,
     });
 
-    const labels = hdbscan.fit(embeddings);
+    const labels = hdbscan.fitSync(embeddings);
 
     // Group by cluster
     const clusterMembers = new Map<number, Array<{ id: string; embedding: number[] }>>();
