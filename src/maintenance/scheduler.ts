@@ -5,6 +5,7 @@
  * - scan-projects: Discover and ingest new sessions
  * - update-clusters: Re-run HDBSCAN clustering
  * - prune-graph: Remove dead edges and orphan nodes
+ * - cleanup-vectors: Remove expired orphaned vectors (TTL-based)
  * - refresh-labels: Update cluster descriptions (optional, requires API key)
  */
 
@@ -316,6 +317,33 @@ async function vacuumHandler(): Promise<MaintenanceResult> {
   }
 }
 
+async function cleanupVectorsHandler(): Promise<MaintenanceResult> {
+  const startTime = Date.now();
+
+  try {
+    const { vectorStore } = await import('../storage/vector-store.js');
+    const { loadConfig } = await import('../config/loader.js');
+
+    const config = loadConfig();
+    const ttlDays = config.vectors?.ttlDays ?? 90;
+
+    const deletedCount = await vectorStore.cleanupExpired(ttlDays);
+
+    return {
+      success: true,
+      duration: Date.now() - startTime,
+      message: `Cleaned up ${deletedCount} expired orphaned vectors`,
+      details: { deletedCount, ttlDays },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      duration: Date.now() - startTime,
+      message: `Vector cleanup failed: ${(error as Error).message}`,
+    };
+  }
+}
+
 /**
  * Available maintenance tasks.
  */
@@ -340,6 +368,13 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
     schedule: '0 3 * * *', // Daily at 3am
     requiresApiKey: false,
     handler: pruneGraphHandler,
+  },
+  {
+    name: 'cleanup-vectors',
+    description: 'Remove expired orphaned vectors (TTL-based)',
+    schedule: '30 3 * * *', // Daily at 3:30am (after prune-graph)
+    requiresApiKey: false,
+    handler: cleanupVectorsHandler,
   },
   {
     name: 'refresh-labels',

@@ -135,15 +135,18 @@ class Pruner {
 
   /**
    * Delete an orphaned chunk and its associated data.
+   * Vectors are marked as orphaned (not deleted) for TTL-based cleanup.
    */
   private async deleteOrphanedChunk(chunkId: string): Promise<void> {
     // Remove cluster assignments
     removeChunkAssignments(chunkId);
 
-    // Remove vector
-    await vectorStore.delete(chunkId);
+    // Mark vector as orphaned (starts TTL countdown)
+    // The vector will be cleaned up later if not accessed within the TTL period.
+    // This allows semantic search to find old context that may still be relevant.
+    await vectorStore.markOrphaned(chunkId);
 
-    // Remove chunk
+    // Remove chunk from chunks table
     deleteChunk(chunkId);
   }
 

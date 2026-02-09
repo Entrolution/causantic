@@ -347,6 +347,9 @@ function runMigrations(database: Database.Database): void {
   if (currentVersion < 2) {
     migrateToV2(database);
   }
+  if (currentVersion < 3) {
+    migrateToV3(database);
+  }
 }
 
 /**
@@ -405,6 +408,47 @@ function migrateToV2(database: Database.Database): void {
 
   // Update schema version
   database.exec(`INSERT OR REPLACE INTO schema_version (version) VALUES (2)`);
+}
+
+/**
+ * Migrate from v2 to v3 (add ingestion checkpoints and embedding cache).
+ */
+function migrateToV3(database: Database.Database): void {
+  // Create ingestion_checkpoints table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ingestion_checkpoints (
+      session_id TEXT PRIMARY KEY,
+      project_slug TEXT NOT NULL,
+      last_turn_index INTEGER NOT NULL,
+      last_chunk_id TEXT,
+      vector_clock TEXT,
+      file_mtime TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ingestion_checkpoints_project ON ingestion_checkpoints(project_slug)
+  `);
+
+  // Create embedding_cache table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS embedding_cache (
+      content_hash TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      embedding BLOB NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      hit_count INTEGER DEFAULT 0,
+      PRIMARY KEY (content_hash, model_id)
+    )
+  `);
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_embedding_cache_model ON embedding_cache(model_id)
+  `);
+
+  // Update schema version
+  database.exec(`INSERT OR REPLACE INTO schema_version (version) VALUES (3)`);
 }
 
 /**

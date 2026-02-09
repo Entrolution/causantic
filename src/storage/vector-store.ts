@@ -12,10 +12,21 @@
  * │                     VectorStore                             │
  * │  ┌─────────────────────┐    ┌─────────────────────────────┐ │
  * │  │  In-Memory Index    │    │    SQLite Persistence       │ │
- * │  │  Map<id, number[]>  │ ◄──┤  vectors (id, embedding)    │ │
- * │  └─────────────────────┘    └─────────────────────────────┘ │
+ * │  │  Map<id, number[]>  │ ◄──┤  vectors (id, embedding,    │ │
+ * │  └─────────────────────┘    │           last_accessed)    │ │
+ * │                             └─────────────────────────────┘ │
  * └─────────────────────────────────────────────────────────────┘
  * ```
+ *
+ * ## TTL (Time To Live)
+ *
+ * Vectors have a `last_accessed` timestamp that is updated when they are
+ * returned from search. Vectors that haven't been accessed within the TTL
+ * period can be cleaned up by the maintenance task.
+ *
+ * This allows vectors to persist for semantic search even after their
+ * associated chunks are pruned from the causal graph, while still eventually
+ * cleaning up truly stale vectors.
  *
  * ## Usage
  *
@@ -28,6 +39,7 @@
  * // Search for similar vectors
  * const results = await vectorStore.search(queryEmbedding, 10);
  * // Returns: [{ id: 'chunk-456', distance: 0.15 }, ...]
+ * // (also updates last_accessed for returned vectors)
  * ```
  *
  * ## Distance Metric
@@ -76,13 +88,28 @@ export class VectorStore {
 
     const db = getDb();
 
-    // Ensure vectors table exists
+    // Ensure vectors table exists with TTL columns
     db.exec(`
       CREATE TABLE IF NOT EXISTS vectors (
         id TEXT PRIMARY KEY,
-        embedding BLOB NOT NULL
+        embedding BLOB NOT NULL,
+        orphaned_at TEXT DEFAULT NULL,
+        last_accessed TEXT DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Migrate existing tables
+    const columns = db.prepare("PRAGMA table_info(vectors)").all() as { name: string }[];
+    const hasOrphanedAt = columns.some((c) => c.name === 'orphaned_at');
+    const hasLastAccessed = columns.some((c) => c.name === 'last_accessed');
+
+    if (!hasOrphanedAt) {
+      db.exec("ALTER TABLE vectors ADD COLUMN orphaned_at TEXT DEFAULT NULL");
+    }
+    if (!hasLastAccessed) {
+      db.exec("ALTER TABLE vectors ADD COLUMN last_accessed TEXT DEFAULT CURRENT_TIMESTAMP");
+      db.exec("UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE last_accessed IS NULL");
+    }
 
     const rows = db.prepare('SELECT id, embedding FROM vectors').all() as {
       id: string;
@@ -106,7 +133,9 @@ export class VectorStore {
     const db = getDb();
     const blob = serializeEmbedding(embedding);
 
-    db.prepare('INSERT OR REPLACE INTO vectors (id, embedding) VALUES (?, ?)').run(id, blob);
+    db.prepare(
+      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)'
+    ).run(id, blob);
 
     this.vectors.set(id, embedding);
   }
@@ -118,7 +147,9 @@ export class VectorStore {
     await this.load();
 
     const db = getDb();
-    const stmt = db.prepare('INSERT OR REPLACE INTO vectors (id, embedding) VALUES (?, ?)');
+    const stmt = db.prepare(
+      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)'
+    );
 
     const insertMany = db.transaction((items: Array<{ id: string; embedding: number[] }>) => {
       for (const item of items) {
@@ -146,6 +177,9 @@ export class VectorStore {
    * datasets (<100k vectors), this is fast enough. For larger datasets,
    * consider approximate nearest neighbor (ANN) algorithms.
    *
+   * Also updates `last_accessed` timestamp for returned vectors, keeping
+   * them alive for TTL purposes.
+   *
    * @param query - Query embedding vector (must match stored dimensionality)
    * @param limit - Maximum number of results to return
    * @returns Results sorted by distance ascending (closest first)
@@ -170,11 +204,19 @@ export class VectorStore {
 
     // Sort by distance and take top k
     results.sort((a, b) => a.distance - b.distance);
-    return results.slice(0, limit);
+    const topResults = results.slice(0, limit);
+
+    // Touch last_accessed for returned vectors (async, non-blocking)
+    if (topResults.length > 0) {
+      this.touchLastAccessed(topResults.map((r) => r.id));
+    }
+
+    return topResults;
   }
 
   /**
    * Search within a subset of IDs.
+   * Also updates last_accessed for returned vectors.
    */
   async searchWithinIds(
     query: number[],
@@ -193,7 +235,14 @@ export class VectorStore {
     }
 
     results.sort((a, b) => a.distance - b.distance);
-    return results.slice(0, limit);
+    const topResults = results.slice(0, limit);
+
+    // Touch last_accessed for returned vectors
+    if (topResults.length > 0) {
+      this.touchLastAccessed(topResults.map((r) => r.id));
+    }
+
+    return topResults;
   }
 
   /**
@@ -278,6 +327,103 @@ export class VectorStore {
   reset(): void {
     this.vectors.clear();
     this.loaded = false;
+  }
+
+  // ─── TTL Management ─────────────────────────────────────────────────────────
+
+  /**
+   * Update last_accessed timestamp for vectors.
+   * Called when vectors are returned from search to keep them alive.
+   */
+  private touchLastAccessed(ids: string[]): void {
+    if (ids.length === 0) return;
+
+    const db = getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(
+      `UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`
+    ).run(...ids);
+  }
+
+  /**
+   * Mark a vector as orphaned (its associated chunk was deleted).
+   * The vector will be subject to TTL cleanup after this.
+   * Called by pruner when deleting orphaned chunks.
+   */
+  async markOrphaned(id: string): Promise<void> {
+    await this.load();
+
+    const db = getDb();
+    db.prepare(
+      'UPDATE vectors SET orphaned_at = CURRENT_TIMESTAMP, last_accessed = CURRENT_TIMESTAMP WHERE id = ?'
+    ).run(id);
+  }
+
+  /**
+   * Mark multiple vectors as orphaned.
+   */
+  async markOrphanedBatch(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    await this.load();
+
+    const db = getDb();
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(
+      `UPDATE vectors SET orphaned_at = CURRENT_TIMESTAMP, last_accessed = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`
+    ).run(...ids);
+  }
+
+  /**
+   * Clean up expired orphaned vectors.
+   * Removes vectors that are orphaned AND haven't been accessed within the TTL period.
+   *
+   * @param ttlDays - Number of days after which orphaned vectors expire
+   * @returns Number of vectors deleted
+   */
+  async cleanupExpired(ttlDays: number): Promise<number> {
+    await this.load();
+
+    const db = getDb();
+
+    // Find expired orphaned vectors
+    const expiredRows = db.prepare(`
+      SELECT id FROM vectors
+      WHERE orphaned_at IS NOT NULL
+        AND last_accessed < datetime('now', '-' || ? || ' days')
+    `).all(ttlDays) as { id: string }[];
+
+    if (expiredRows.length === 0) {
+      return 0;
+    }
+
+    const expiredIds = expiredRows.map((r) => r.id);
+
+    // Delete from database
+    const placeholders = expiredIds.map(() => '?').join(',');
+    const result = db.prepare(
+      `DELETE FROM vectors WHERE id IN (${placeholders})`
+    ).run(...expiredIds);
+
+    // Remove from memory
+    for (const id of expiredIds) {
+      this.vectors.delete(id);
+    }
+
+    return result.changes;
+  }
+
+  /**
+   * Get count of orphaned vectors.
+   */
+  async getOrphanedCount(): Promise<number> {
+    await this.load();
+
+    const db = getDb();
+    const row = db.prepare(
+      'SELECT COUNT(*) as count FROM vectors WHERE orphaned_at IS NOT NULL'
+    ).get() as { count: number };
+
+    return row.count;
   }
 }
 

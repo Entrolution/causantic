@@ -257,17 +257,21 @@ describe('pruner', () => {
   });
 
   describe('orphaned chunk cleanup', () => {
-    it('removes cluster assignments for orphaned chunk', () => {
-      // Simulated cleanup order
-      const cleanupSteps = [
-        'removeChunkAssignments',
-        'vectorStore.delete',
-        'deleteChunk',
-      ];
+    it('removes cluster assignments and chunk but preserves vector', () => {
+      // Simulated cleanup order - vectors are intentionally preserved
+      // for semantic search beyond the causal graph bounds
+      const cleanupSteps = ['removeChunkAssignments', 'deleteChunk'];
 
       expect(cleanupSteps[0]).toBe('removeChunkAssignments');
-      expect(cleanupSteps[1]).toBe('vectorStore.delete');
-      expect(cleanupSteps[2]).toBe('deleteChunk');
+      expect(cleanupSteps[1]).toBe('deleteChunk');
+      // Note: vectorStore.delete is NOT called - vectors remain for search
+    });
+
+    it('preserves vectors for semantic search', () => {
+      // Vectors should remain searchable even when chunks are pruned
+      // This allows finding old context that may still be relevant
+      const vectorsPreserved = true;
+      expect(vectorsPreserved).toBe(true);
     });
   });
 

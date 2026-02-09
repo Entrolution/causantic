@@ -22,15 +22,23 @@ describe('batch-ingest', () => {
     it('supports progress callback', () => {
       let progressCalled = false;
       const options: BatchIngestOptions = {
-        progressCallback: (done, total, current) => {
+        progressCallback: (progress) => {
           progressCalled = true;
-          expect(typeof done).toBe('number');
-          expect(typeof total).toBe('number');
-          expect(typeof current).toBe('string');
+          expect(typeof progress.done).toBe('number');
+          expect(typeof progress.total).toBe('number');
+          expect(typeof progress.current).toBe('string');
+          expect(typeof progress.totalChunks).toBe('number');
+          expect(typeof progress.successCount).toBe('number');
         },
       };
 
-      options.progressCallback!(5, 10, '/path/to/session.jsonl');
+      options.progressCallback!({
+        done: 5,
+        total: 10,
+        current: '/path/to/session.jsonl',
+        totalChunks: 150,
+        successCount: 5,
+      });
       expect(progressCalled).toBe(true);
     });
 
@@ -356,21 +364,48 @@ describe('batch-ingest', () => {
   });
 
   describe('progress tracking', () => {
-    it('reports progress with done/total/current', () => {
-      const progressUpdates: Array<{ done: number; total: number; current: string }> = [];
-
-      const callback = (done: number, total: number, current: string) => {
-        progressUpdates.push({ done, total, current });
-      };
+    it('reports progress with done/total/current/chunks', () => {
+      const progressUpdates: Array<{
+        done: number;
+        total: number;
+        current: string;
+        totalChunks: number;
+        successCount: number;
+      }> = [];
 
       const paths = ['/a', '/b', '/c'];
+      let runningChunks = 0;
+      let runningSuccess = 0;
+
       for (let i = 0; i < paths.length; i++) {
-        callback(i, paths.length, paths[i]);
+        // Simulate processing each session
+        runningChunks += 10; // 10 chunks per session
+        runningSuccess++;
+
+        progressUpdates.push({
+          done: i + 1,
+          total: paths.length,
+          current: paths[i],
+          totalChunks: runningChunks,
+          successCount: runningSuccess,
+        });
       }
 
       expect(progressUpdates.length).toBe(3);
-      expect(progressUpdates[0]).toEqual({ done: 0, total: 3, current: '/a' });
-      expect(progressUpdates[2]).toEqual({ done: 2, total: 3, current: '/c' });
+      expect(progressUpdates[0]).toEqual({
+        done: 1,
+        total: 3,
+        current: '/a',
+        totalChunks: 10,
+        successCount: 1,
+      });
+      expect(progressUpdates[2]).toEqual({
+        done: 3,
+        total: 3,
+        current: '/c',
+        totalChunks: 30,
+        successCount: 3,
+      });
     });
   });
 });

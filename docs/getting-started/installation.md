@@ -45,6 +45,8 @@ The interactive setup wizard will:
 5. Offer to configure MCP integration
 6. Run a health check
 7. Offer to import existing Claude Code sessions
+8. Build topic clusters from imported sessions
+9. Offer to configure Anthropic API key for cluster labeling
 
 ### Setup Options
 
@@ -67,6 +69,22 @@ During setup, ECM will detect existing Claude Code sessions in `~/.claude/projec
 - **Skip**: Import later with `npx ecm batch-ingest`
 
 For large session histories, the initial import may take a few minutes.
+
+After importing sessions, ECM automatically:
+- **Prunes graph**: Removes dead edges and orphan nodes
+- **Builds clusters**: Groups related chunks by topic using HDBSCAN
+
+### Cluster Labeling (Optional)
+
+ECM can use Claude Haiku to generate human-readable descriptions for topic clusters. This requires an Anthropic API key.
+
+During setup, you'll be prompted to add your API key. The key is stored securely in your system keychain (macOS Keychain / Linux libsecret).
+
+You can add or update the API key later:
+```bash
+npx ecm config set-key anthropic-api-key
+npx ecm maintenance run refresh-labels
+```
 
 ## Verify Installation
 
