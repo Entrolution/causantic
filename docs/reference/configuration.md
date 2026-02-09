@@ -24,7 +24,7 @@ Controls decay for backward (historical) edges.
 | `diesAtHops` | `integer` | `10` | Hops at which weight reaches zero (1-100) |
 | `holdHops` | `integer` | `0` | Hops at full weight before decay (0-50) |
 
-**Research finding**: Linear decay at 10 hops achieves MRR=0.688, a 35% improvement over exponential decay.
+**Research finding**: Linear decay at 10 hops achieves MRR=0.688 (1.35× vs exponential decay).
 
 ### `decay.forward`
 
@@ -36,7 +36,7 @@ Controls decay for forward (predictive) edges.
 | `diesAtHops` | `integer` | `20` | Hops at which weight reaches zero (1-100) |
 | `holdHops` | `integer` | `5` | Hops at full weight before decay (0-50) |
 
-**Research finding**: Delayed linear (5-hop hold, dies at 20) achieves MRR=0.849, a 271% improvement over exponential decay.
+**Research finding**: Delayed linear (5-hop hold, dies at 20) achieves MRR=0.849 (3.71× vs exponential decay).
 
 ## Clustering Settings
 

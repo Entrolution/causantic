@@ -4,16 +4,12 @@ This guide covers installing Entropic Causal Memory (ECM) and its dependencies.
 
 ## Prerequisites
 
-### Required
-
 - **Node.js 20+**: ECM requires Node.js version 20 or later
-- **Python 3.8+**: Required for fast HDBSCAN clustering
 
 ### Verify Prerequisites
 
 ```bash
 node --version  # Should be v20.x or higher
-python3 --version  # Should be 3.8 or higher
 ```
 
 ## Installation
@@ -33,15 +29,20 @@ npm install
 npm run build
 ```
 
-## Python Dependencies
+## Setup
 
-ECM uses Python's HDBSCAN implementation for clustering, which is significantly faster than the JavaScript alternative.
+Run the setup wizard to initialize ECM:
 
 ```bash
-pip install hdbscan numpy
+npx ecm init
 ```
 
-Without Python HDBSCAN, ECM falls back to a JavaScript implementation that is approximately 220x slower.
+This will:
+1. Create the `~/.ecm/` directory structure
+2. Initialize the database
+3. Detect your Claude Code configuration path
+4. Offer to configure MCP integration
+5. Run a health check
 
 ## Verify Installation
 

@@ -7,36 +7,54 @@ Long-term memory system for Claude Code using causal graphs and vector clocks.
 <sub>Median 4.54× across 492 queries • Range 3.60× - 5.87×</sub>
 </p>
 
+## Why ECM?
+
+Most AI memory systems use vector embeddings for similarity search. ECM does too — but adds a **causal graph** that tracks *relationships* between memory chunks. This fundamentally changes what you can retrieve.
+
+| | Vector Search Only | ECM |
+|---|---|---|
+| **Finds similar content** | ✓ | ✓ |
+| **Finds related context** | ✗ | ✓ (causal edges) |
+| **Temporal awareness** | Wall-clock decay | Logical hop decay |
+| **Context retrieval** | 1× | **4.65×** |
+| **Handles project switches** | Breaks continuity | Preserves causality |
+| **Bidirectional queries** | Forward only | Backward + Forward |
+
+### Key Differentiators
+
+**1. Causal Graphs, Not Just Vectors**
+
+Vector search finds chunks that *look similar*. ECM also finds chunks that are *causally related* — the debugging session that led to a fix, the error message that triggered investigation, the test that validated a change.
+
+**2. Hop-Based Decay, Not Wall-Clock Time**
+
+Returning to a project after a weekend shouldn't make yesterday's work seem "old." ECM measures distance in logical hops (D-T-D transitions), not elapsed time. Monday's work and Tuesday's continuation are 1 hop apart — regardless of the 24-hour gap.
+
+**3. Bidirectional Traversal**
+
+Query backward ("what context led to this?") and forward ("what typically follows this?") with direction-specific decay curves optimized for each use case.
+
+**4. Sum-Product Semantics**
+
+Weights multiply along paths and accumulate across paths — a principled approach (inspired by Feynman path integrals) that handles graph cycles naturally and provides meaningful ranking without arbitrary thresholds.
+
 ## Overview
 
-Entropic Causal Memory (ECM) provides persistent, semantically-aware memory for Claude Code sessions. It captures conversation context, builds causal relationships between chunks of dialogue, and enables intelligent retrieval of relevant historical context.
-
-**What makes this different:**
-- **Bidirectional retrieval**: Queries traverse both backward (what led here?) and forward (what followed?) along causal paths — not just similarity matching
-- **4.65× context retrieval**: Graph traversal finds nearly 5× the relevant chunks compared to vector search alone
-- **Causal, not temporal**: Distance measured in logical hops (D-T-D transitions), not wall-clock time
+Entropic Causal Memory provides persistent, semantically-aware memory for Claude Code sessions. It captures conversation context, builds causal relationships between chunks of dialogue, and enables intelligent retrieval of relevant historical context.
 
 ### Why "Entropic"?
 
-The name reflects how **discrimination degrades along causal paths**.
-
-When traversing the graph from a query point, edge weights multiply along each path. As you move farther from the query (more hops), these products converge toward zero — you lose the ability to discriminate between distant nodes. This is entropy: the loss of discriminative information along causal lines.
-
-- **Near the query**: Weights are differentiated, nodes can be meaningfully ranked
-- **Far from the query**: Weights converge to zero, all distant nodes look equally irrelevant
-- **Causal, not temporal**: Entropy flows through D-T-D transitions (hops), not wall-clock time
-
-This implements **causal compression** — the graph naturally sheds the ability to distinguish causally-distant information while preserving discrimination for causally-proximate context.
+The name reflects how **discrimination degrades along causal paths**. When traversing the graph, edge weights multiply — and since weights are < 1, products converge toward zero. You lose the ability to discriminate between distant nodes. This is entropy flowing along causal lines, implementing natural **causal compression**.
 
 See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explanation.
 
 ### Key Features
 
-- **Bidirectional Traversal**: Query backward (what context led here?) and forward (what typically follows?) along causal paths
-- **Causal Graph**: Tracks relationships between conversation chunks using vector clocks for logical ordering
-- **Semantic Search**: Find relevant context using embedding-based similarity search
-- **HDBSCAN Clustering**: Automatically groups related topics for better organization
-- **Temporal Decay**: Weights fade based on logical distance, not wall-clock time
+- **Causal Graph**: Tracks relationships between chunks using 9 edge types with evidence-based weights
+- **Vector Clocks**: Measures logical distance in D-T-D hops, not wall-clock time
+- **Bidirectional Traversal**: Query backward (causes) and forward (consequences) with direction-specific decay
+- **Semantic Search**: Embedding-based similarity search augmented by graph traversal
+- **HDBSCAN Clustering**: Groups related topics for coherent retrieval
 - **MCP Integration**: Works with Claude Code via Model Context Protocol
 - **Hook System**: Automatically captures context at session start and before compaction
 
@@ -45,7 +63,6 @@ See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explana
 ### Prerequisites
 
 - Node.js 20+
-- Python 3.8+ with pip (for fast clustering)
 
 ### Installation
 
@@ -53,8 +70,8 @@ See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explana
 # Install the package
 npm install entropic-causal-memory
 
-# Install Python dependencies (optional but recommended - 220x faster clustering)
-pip install hdbscan numpy
+# Initialize ECM (creates directories, verifies setup)
+npx ecm init
 ```
 
 ### Basic Usage
@@ -198,12 +215,15 @@ npx ecm maintenance daemon
 
 ## Research
 
-This project is built on extensive experimentation:
+This project is built on extensive experimentation across 75 sessions and 492 queries:
 
-- **Topic Continuity**: 0.998 AUC for session boundary detection
-- **Clustering**: F1=0.940 at angular threshold 0.09
-- **Graph Traversal**: 221% context augmentation with lazy pruning
-- **Embedding Model**: Jina-small selected after benchmark comparison
+| Experiment | Result | Comparison |
+|------------|--------|------------|
+| Graph Traversal | **4.65×** context | vs vector-only |
+| Forward Decay | **3.71×** MRR | vs time-based decay |
+| Backward Decay | **1.35×** MRR | vs time-based decay |
+| Topic Detection | 0.998 AUC | near-perfect accuracy |
+| Clustering | F1=0.940 | 100% precision |
 
 See [Research Documentation](docs/research/) for detailed findings.
 

@@ -6,7 +6,7 @@ Get ECM up and running with Claude Code in 5 minutes.
 
 ```bash
 npm install entropic-causal-memory
-pip install hdbscan numpy
+npx ecm init
 ```
 
 ## Step 2: Ingest Your Sessions

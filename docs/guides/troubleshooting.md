@@ -4,22 +4,6 @@ Common issues and solutions for ECM.
 
 ## Installation Issues
 
-### "Python HDBSCAN not found"
-
-ECM falls back to JavaScript HDBSCAN if Python isn't available, but this is much slower.
-
-**Solution**:
-```bash
-pip install hdbscan numpy
-```
-
-If using a virtual environment:
-```bash
-# Ensure the right Python is in PATH
-which python3
-pip3 install hdbscan numpy
-```
-
 ### "Node.js version too old"
 
 ECM requires Node.js 20+.
@@ -83,12 +67,7 @@ npx ecm stats
 npx ecm maintenance run prune-graph
 ```
 
-**Cause 2**: Using JavaScript HDBSCAN instead of Python.
-```bash
-pip install hdbscan numpy
-```
-
-**Cause 3**: Large database needs optimization.
+**Cause 2**: Large database needs optimization.
 ```bash
 npx ecm maintenance run vacuum
 ```
