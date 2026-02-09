@@ -97,7 +97,7 @@ const commands: Command[] = [
   {
     name: 'init',
     description: 'Initialize ECM (setup wizard)',
-    usage: 'ecm init [--skip-mcp] [--skip-encryption]',
+    usage: 'ecm init [--skip-mcp] [--skip-encryption] [--skip-ingest]',
     handler: async (args) => {
       const skipMcp = args.includes('--skip-mcp');
       const fs = await import('node:fs');
@@ -271,13 +271,148 @@ const commands: Command[] = [
         console.log(`⚠ Vector store: ${(error as Error).message}`);
       }
 
+      // Step 8: Offer to ingest existing Claude sessions
+      const skipIngest = args.includes('--skip-ingest');
+      const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
+
+      if (!skipIngest && process.stdin.isTTY && fs.existsSync(claudeProjectsDir)) {
+        console.log('');
+        console.log('Existing Claude Code sessions found.');
+
+        // Discover projects
+        const projectDirs: Array<{ name: string; path: string; sessionCount: number }> = [];
+        try {
+          const entries = fs.readdirSync(claudeProjectsDir, { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isDirectory() && !entry.name.startsWith('.')) {
+              const projectPath = path.join(claudeProjectsDir, entry.name);
+              // Count session files
+              const files = fs.readdirSync(projectPath);
+              const sessionCount = files.filter((f: string) =>
+                f.endsWith('.jsonl') &&
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(f)
+              ).length;
+              if (sessionCount > 0) {
+                // Convert path format to readable name
+                const readableName = entry.name
+                  .replace(/^-/, '')
+                  .replace(/-/g, '/')
+                  .replace(/^Users\/[^/]+\//, '~/');
+                projectDirs.push({ name: readableName, path: projectPath, sessionCount });
+              }
+            }
+          }
+        } catch {
+          // Ignore errors reading projects
+        }
+
+        if (projectDirs.length > 0) {
+          // Sort by session count descending
+          projectDirs.sort((a, b) => b.sessionCount - a.sessionCount);
+
+          const totalSessions = projectDirs.reduce((sum, p) => sum + p.sessionCount, 0);
+          console.log(`Found ${projectDirs.length} projects with ${totalSessions} total sessions.`);
+          console.log('');
+
+          const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+          });
+
+          console.log('Import existing sessions?');
+          console.log('  [A] All projects');
+          console.log('  [S] Select specific projects');
+          console.log('  [N] Skip (can run "ecm batch-ingest" later)');
+          console.log('');
+
+          const importChoice = await new Promise<string>((resolve) => {
+            rl.question('Choice [A/s/n]: ', (ans) => {
+              resolve(ans.toLowerCase() || 'a');
+            });
+          });
+
+          let projectsToIngest: string[] = [];
+
+          if (importChoice === 'a' || importChoice === 'all') {
+            projectsToIngest = projectDirs.map((p) => p.path);
+            rl.close();
+          } else if (importChoice === 's' || importChoice === 'select') {
+            console.log('');
+            console.log('Select projects to import (comma-separated numbers, or "all"):');
+            console.log('');
+            projectDirs.forEach((p, i) => {
+              console.log(`  [${i + 1}] ${p.name} (${p.sessionCount} sessions)`);
+            });
+            console.log('');
+
+            const selection = await new Promise<string>((resolve) => {
+              rl.question('Projects: ', (ans) => {
+                rl.close();
+                resolve(ans.trim());
+              });
+            });
+
+            if (selection.toLowerCase() === 'all') {
+              projectsToIngest = projectDirs.map((p) => p.path);
+            } else {
+              const indices = selection.split(',').map((s) => parseInt(s.trim(), 10) - 1);
+              for (const idx of indices) {
+                if (idx >= 0 && idx < projectDirs.length) {
+                  projectsToIngest.push(projectDirs[idx].path);
+                }
+              }
+            }
+          } else {
+            rl.close();
+            console.log('Skipping session import.');
+          }
+
+          if (projectsToIngest.length > 0) {
+            console.log('');
+            console.log(`Importing ${projectsToIngest.length} project(s)...`);
+            console.log('This may take a few minutes for large session histories.');
+            console.log('');
+
+            const { batchIngestDirectory } = await import('../ingest/batch-ingest.js');
+
+            let totalIngested = 0;
+            let totalChunks = 0;
+
+            for (const projectPath of projectsToIngest) {
+              const projectName = path.basename(projectPath)
+                .replace(/^-/, '')
+                .replace(/-/g, '/')
+                .replace(/^Users\/[^/]+\//, '~/');
+              process.stdout.write(`  ${projectName}...`);
+
+              try {
+                const result = await batchIngestDirectory(projectPath, {});
+                totalIngested += result.successCount;
+                totalChunks += result.totalChunks;
+                console.log(` ${result.successCount} sessions, ${result.totalChunks} chunks`);
+              } catch (err) {
+                console.log(` error: ${(err as Error).message}`);
+              }
+            }
+
+            console.log('');
+            console.log(`✓ Imported ${totalIngested} sessions (${totalChunks} chunks)`);
+          }
+        }
+      }
+
       console.log('');
       console.log('Setup complete!');
       console.log('');
       console.log('Next steps:');
-      console.log('  1. npx ecm batch-ingest ~/.claude/projects');
-      console.log('  2. Restart Claude Code');
-      console.log('  3. Ask Claude: "What did we work on recently?"');
+      if (!skipIngest && process.stdin.isTTY) {
+        console.log('  1. Restart Claude Code');
+        console.log('  2. Ask Claude: "What did we work on recently?"');
+      } else {
+        console.log('  1. npx ecm batch-ingest ~/.claude/projects');
+        console.log('  2. Restart Claude Code');
+        console.log('  3. Ask Claude: "What did we work on recently?"');
+      }
     },
   },
   {
