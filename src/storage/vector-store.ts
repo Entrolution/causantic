@@ -65,6 +65,9 @@
 import { getDb, generateId } from './db.js';
 import { angularDistance } from '../utils/angular-distance.js';
 import type { VectorSearchResult } from './types.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('vector-store');
 
 /**
  * In-memory vector index backed by SQLite for persistence.
@@ -79,6 +82,8 @@ import type { VectorSearchResult } from './types.js';
 export class VectorStore {
   private vectors: Map<string, number[]> = new Map();
   private loaded = false;
+  /** chunkId → projectSlug index for project-filtered search */
+  private chunkProjectIndex: Map<string, string> = new Map();
 
   /**
    * Load vectors from database into memory.
@@ -121,6 +126,19 @@ export class VectorStore {
       this.vectors.set(row.id, embedding);
     }
 
+    // Populate chunk→project index from chunks table
+    try {
+      const chunkRows = db.prepare(
+        "SELECT id, session_slug FROM chunks WHERE session_slug != ''"
+      ).all() as Array<{ id: string; session_slug: string }>;
+
+      for (const row of chunkRows) {
+        this.chunkProjectIndex.set(row.id, row.session_slug);
+      }
+    } catch {
+      // chunks table may not exist yet (e.g., during migrations)
+    }
+
     this.loaded = true;
   }
 
@@ -138,6 +156,16 @@ export class VectorStore {
     ).run(id, blob);
 
     this.vectors.set(id, embedding);
+
+    // Update project index
+    try {
+      const row = db.prepare('SELECT session_slug FROM chunks WHERE id = ?').get(id) as { session_slug: string } | undefined;
+      if (row?.session_slug) {
+        this.chunkProjectIndex.set(id, row.session_slug);
+      }
+    } catch {
+      // chunks table may not exist
+    }
   }
 
   /**
@@ -160,6 +188,22 @@ export class VectorStore {
     });
 
     insertMany(items);
+
+    // Update project index for batch
+    try {
+      const ids = items.map(i => i.id);
+      if (ids.length > 0) {
+        const placeholders = ids.map(() => '?').join(',');
+        const rows = db.prepare(
+          `SELECT id, session_slug FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`
+        ).all(...ids) as Array<{ id: string; session_slug: string }>;
+        for (const row of rows) {
+          this.chunkProjectIndex.set(row.id, row.session_slug);
+        }
+      }
+    } catch {
+      // chunks table may not exist
+    }
   }
 
   /**
@@ -246,6 +290,52 @@ export class VectorStore {
   }
 
   /**
+   * Search for similar vectors filtered to specific project(s).
+   *
+   * Skips vectors not belonging to the specified project(s) during
+   * distance computation (more efficient than post-filtering).
+   *
+   * @param query - Query embedding vector
+   * @param projects - Single project slug or array of project slugs
+   * @param limit - Maximum results
+   * @returns Results sorted by distance ascending
+   */
+  async searchByProject(
+    query: number[],
+    projects: string | string[],
+    limit: number
+  ): Promise<VectorSearchResult[]> {
+    await this.load();
+
+    const projectSet = new Set(Array.isArray(projects) ? projects : [projects]);
+    const results: VectorSearchResult[] = [];
+
+    for (const [id, embedding] of this.vectors) {
+      const project = this.chunkProjectIndex.get(id);
+      if (!project || !projectSet.has(project)) continue;
+
+      const distance = angularDistance(query, embedding);
+      results.push({ id, distance });
+    }
+
+    results.sort((a, b) => a.distance - b.distance);
+    const topResults = results.slice(0, limit);
+
+    if (topResults.length > 0) {
+      this.touchLastAccessed(topResults.map((r) => r.id));
+    }
+
+    return topResults;
+  }
+
+  /**
+   * Get the project slug for a chunk ID.
+   */
+  getChunkProject(id: string): string | undefined {
+    return this.chunkProjectIndex.get(id);
+  }
+
+  /**
    * Delete a vector.
    */
   async delete(id: string): Promise<boolean> {
@@ -326,6 +416,7 @@ export class VectorStore {
    */
   reset(): void {
     this.vectors.clear();
+    this.chunkProjectIndex.clear();
     this.loaded = false;
   }
 

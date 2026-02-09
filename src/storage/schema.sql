@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS chunks (
   -- v2: Vector clock support
   agent_id TEXT,               -- Agent that created this chunk (null = main UI agent)
   vector_clock TEXT,           -- JSON: {"agentId": tick, ...}
-  spawn_depth INTEGER DEFAULT 0  -- Nesting level: 0=main, 1=sub-agent, 2=sub-sub-agent
+  spawn_depth INTEGER DEFAULT 0, -- Nesting level: 0=main, 1=sub-agent, 2=sub-sub-agent
+  project_path TEXT              -- Full cwd path for disambiguation
 );
 
 -- Clusters for topic grouping
@@ -105,5 +106,5 @@ CREATE TABLE IF NOT EXISTS schema_version (
   applied_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert initial version if not exists (v3 adds ingestion checkpoints and embedding cache)
-INSERT OR IGNORE INTO schema_version (version) VALUES (3);
+-- Insert initial version if not exists (v4 adds project_path column)
+INSERT OR IGNORE INTO schema_version (version) VALUES (4);

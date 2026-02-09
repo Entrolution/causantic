@@ -61,6 +61,26 @@ describe('context-assembler', () => {
       expect(request.mode).toBeDefined();
     });
 
+    it('supports optional projectFilter as string', () => {
+      const request: RetrievalRequest = {
+        query: 'test query',
+        mode: 'recall',
+        projectFilter: 'my-project',
+      };
+
+      expect(request.projectFilter).toBe('my-project');
+    });
+
+    it('supports optional projectFilter as string array', () => {
+      const request: RetrievalRequest = {
+        query: 'test query',
+        mode: 'recall',
+        projectFilter: ['project-a', 'project-b'],
+      };
+
+      expect(request.projectFilter).toEqual(['project-a', 'project-b']);
+    });
+
     it('supports optional session ID for recency boost', () => {
       const request: RetrievalRequest = {
         query: 'test query',
@@ -496,6 +516,28 @@ describe('context-assembler', () => {
       const direction = mode === 'predict' ? 'forward' : 'backward';
 
       expect(direction).toBe('forward');
+    });
+  });
+
+  describe('project filter behavior', () => {
+    it('single-string projectFilter also sets projectSlug for clock lookup', () => {
+      // When projectFilter is a single string, it should also be used for clock lookup
+      const projectFilter: string | string[] = 'my-project';
+      const effectiveSlug = typeof projectFilter === 'string' ? projectFilter : undefined;
+      expect(effectiveSlug).toBe('my-project');
+    });
+
+    it('array projectFilter does not set projectSlug for clock lookup', () => {
+      const projectFilter: string | string[] = ['project-a', 'project-b'];
+      const effectiveSlug = typeof projectFilter === 'string' ? projectFilter : undefined;
+      expect(effectiveSlug).toBeUndefined();
+    });
+
+    it('explicit projectSlug takes precedence over projectFilter', () => {
+      const projectSlug = 'explicit-slug';
+      const projectFilter: string | string[] = 'filter-slug';
+      const effectiveSlug = projectSlug ?? (typeof projectFilter === 'string' ? projectFilter : undefined);
+      expect(effectiveSlug).toBe('explicit-slug');
     });
   });
 

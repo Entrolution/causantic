@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { ToolDefinition } from '../../src/mcp/tools.js';
-import { getTool, tools, recallTool, explainTool, predictTool } from '../../src/mcp/tools.js';
+import { getTool, tools, recallTool, explainTool, predictTool, listProjectsTool } from '../../src/mcp/tools.js';
 
 describe('mcp-tools', () => {
   describe('ToolDefinition interface', () => {
@@ -97,9 +97,44 @@ describe('mcp-tools', () => {
     });
   });
 
+  describe('listProjectsTool', () => {
+    it('has correct name', () => {
+      expect(listProjectsTool.name).toBe('list-projects');
+    });
+
+    it('has description', () => {
+      expect(listProjectsTool.description).toBeTruthy();
+      expect(listProjectsTool.description).toContain('projects');
+    });
+
+    it('requires no parameters', () => {
+      expect(listProjectsTool.inputSchema.required).toEqual([]);
+    });
+  });
+
+  describe('project parameter', () => {
+    it('recall has optional project parameter', () => {
+      expect(recallTool.inputSchema.properties.project).toBeTruthy();
+      expect(recallTool.inputSchema.properties.project.type).toBe('string');
+      expect(recallTool.inputSchema.required).not.toContain('project');
+    });
+
+    it('explain has optional project parameter', () => {
+      expect(explainTool.inputSchema.properties.project).toBeTruthy();
+      expect(explainTool.inputSchema.properties.project.type).toBe('string');
+      expect(explainTool.inputSchema.required).not.toContain('project');
+    });
+
+    it('predict has optional project parameter', () => {
+      expect(predictTool.inputSchema.properties.project).toBeTruthy();
+      expect(predictTool.inputSchema.properties.project.type).toBe('string');
+      expect(predictTool.inputSchema.required).not.toContain('project');
+    });
+  });
+
   describe('tools array', () => {
-    it('contains all three tools', () => {
-      expect(tools.length).toBe(3);
+    it('contains all four tools', () => {
+      expect(tools.length).toBe(4);
     });
 
     it('contains recall tool', () => {
@@ -112,6 +147,10 @@ describe('mcp-tools', () => {
 
     it('contains predict tool', () => {
       expect(tools.find((t) => t.name === 'predict')).toBeTruthy();
+    });
+
+    it('contains list-projects tool', () => {
+      expect(tools.find((t) => t.name === 'list-projects')).toBeTruthy();
     });
 
     it('all tools have required fields', () => {
@@ -150,6 +189,12 @@ describe('mcp-tools', () => {
       const tool = getTool('predict');
       expect(tool).toBeTruthy();
       expect(tool?.name).toBe('predict');
+    });
+
+    it('returns list-projects tool by name', () => {
+      const tool = getTool('list-projects');
+      expect(tool).toBeTruthy();
+      expect(tool?.name).toBe('list-projects');
     });
 
     it('returns undefined for unknown tool', () => {
@@ -233,7 +278,7 @@ describe('mcp-tools', () => {
         inputSchema: t.inputSchema,
       }));
 
-      expect(toolList.length).toBe(3);
+      expect(toolList.length).toBe(4);
       expect(toolList[0]).not.toHaveProperty('handler'); // Handler not included
       expect(toolList[0]).toHaveProperty('name');
       expect(toolList[0]).toHaveProperty('description');

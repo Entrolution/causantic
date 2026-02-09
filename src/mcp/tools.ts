@@ -4,6 +4,7 @@
 
 import { recall, explain, predict } from '../retrieval/context-assembler.js';
 import { getConfig } from '../config/memory-config.js';
+import { getDistinctProjects } from '../storage/chunk-store.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 
 /**
@@ -50,17 +51,23 @@ export const recallTool: ToolDefinition = {
         type: 'string',
         description: 'Time range hint: "short" for recent context (last few turns), "long" for historical/cross-session context. Default: "short".',
       },
+      project: {
+        type: 'string',
+        description: 'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
+      },
     },
     required: ['query'],
   },
   handler: async (args) => {
     const query = args.query as string;
     const range = (args.range as 'short' | 'long') || 'short';
+    const project = args.project as string | undefined;
     const config = getConfig();
 
     const response = await recall(query, {
       maxTokens: config.mcpMaxResponseTokens,
       range,
+      projectFilter: project,
     });
 
     return formatResponse(response);
@@ -85,17 +92,23 @@ export const explainTool: ToolDefinition = {
         type: 'string',
         description: 'Time range: "short" for recent context, "long" for full history. Default: "long".',
       },
+      project: {
+        type: 'string',
+        description: 'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
+      },
     },
     required: ['topic'],
   },
   handler: async (args) => {
     const topic = args.topic as string;
     const range = (args.range as 'short' | 'long') || 'long'; // Default to long for explain
+    const project = args.project as string | undefined;
     const config = getConfig();
 
     const response = await explain(topic, {
       maxTokens: config.mcpMaxResponseTokens,
       range,
+      projectFilter: project,
     });
 
     return formatResponse(response);
@@ -116,15 +129,21 @@ export const predictTool: ToolDefinition = {
         type: 'string',
         description: 'Current context or topic being discussed.',
       },
+      project: {
+        type: 'string',
+        description: 'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
+      },
     },
     required: ['context'],
   },
   handler: async (args) => {
     const context = args.context as string;
+    const project = args.project as string | undefined;
     const config = getConfig();
 
     const response = await predict(context, {
       maxTokens: Math.floor(config.mcpMaxResponseTokens / 2), // Smaller for predictions
+      projectFilter: project,
     });
 
     if (response.chunks.length === 0) {
@@ -137,9 +156,39 @@ export const predictTool: ToolDefinition = {
 };
 
 /**
+ * List projects tool: discover available projects for filtering.
+ */
+export const listProjectsTool: ToolDefinition = {
+  name: 'list-projects',
+  description:
+    'List all projects in memory with chunk counts and date ranges. Use to discover available project names for filtering recall/explain/predict.',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+    required: [],
+  },
+  handler: async () => {
+    const projects = getDistinctProjects();
+
+    if (projects.length === 0) {
+      return 'No projects found in memory.';
+    }
+
+    const lines = projects.map((p) => {
+      const first = new Date(p.firstSeen).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      const last = new Date(p.lastSeen).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      const range = first === last ? first : `${first} – ${last}`;
+      return `- ${p.slug} (${p.chunkCount} chunks, ${range})`;
+    });
+
+    return `Projects in memory:\n${lines.join('\n')}`;
+  },
+};
+
+/**
  * All available tools.
  */
-export const tools: ToolDefinition[] = [recallTool, explainTool, predictTool];
+export const tools: ToolDefinition[] = [recallTool, explainTool, predictTool, listProjectsTool];
 
 /**
  * Get tool by name.

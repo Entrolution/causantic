@@ -56,7 +56,8 @@ export function createTestDb(): Database.Database {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       agent_id TEXT,
       vector_clock TEXT,
-      spawn_depth INTEGER DEFAULT 0
+      spawn_depth INTEGER DEFAULT 0,
+      project_path TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_chunks_session ON chunks(session_id);
@@ -113,7 +114,7 @@ export function createTestDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_vector_clocks_project ON vector_clocks(project_slug);
 
     -- Set schema version
-    INSERT OR REPLACE INTO schema_version (version) VALUES (2);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (4);
   `);
 
   return db;
@@ -136,6 +137,7 @@ export function createSampleChunk(overrides: Partial<{
   agentId: string | null;
   vectorClock: Record<string, number> | null;
   spawnDepth: number;
+  projectPath: string | null;
 }> = {}) {
   return {
     id: overrides.id ?? `chunk-${crypto.randomUUID().slice(0, 8)}`,
@@ -151,6 +153,7 @@ export function createSampleChunk(overrides: Partial<{
     agentId: overrides.agentId ?? null,
     vectorClock: overrides.vectorClock ?? null,
     spawnDepth: overrides.spawnDepth ?? 0,
+    projectPath: overrides.projectPath ?? null,
   };
 }
 
@@ -162,8 +165,8 @@ export function insertTestChunk(db: Database.Database, chunk: ReturnType<typeof 
     INSERT INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, vector_clock, spawn_depth
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, vector_clock, spawn_depth, project_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -179,7 +182,8 @@ export function insertTestChunk(db: Database.Database, chunk: ReturnType<typeof 
     chunk.approxTokens,
     chunk.agentId,
     chunk.vectorClock ? JSON.stringify(chunk.vectorClock) : null,
-    chunk.spawnDepth
+    chunk.spawnDepth,
+    chunk.projectPath
   );
 
   return chunk.id;

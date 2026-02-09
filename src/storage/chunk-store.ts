@@ -17,8 +17,8 @@ export function insertChunk(chunk: ChunkInput): string {
     INSERT INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, vector_clock, spawn_depth
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, vector_clock, spawn_depth, project_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -34,8 +34,11 @@ export function insertChunk(chunk: ChunkInput): string {
     chunk.approxTokens,
     chunk.agentId ?? null,
     chunk.vectorClock ? serialize(chunk.vectorClock) : null,
-    chunk.spawnDepth ?? 0
+    chunk.spawnDepth ?? 0,
+    chunk.projectPath ?? null
   );
+
+  invalidateProjectsCache();
 
   return id;
 }
@@ -51,8 +54,8 @@ export function insertChunks(chunks: ChunkInput[]): string[] {
     INSERT INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, vector_clock, spawn_depth
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, vector_clock, spawn_depth, project_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertMany = db.transaction((chunks: ChunkInput[]) => {
@@ -71,13 +74,15 @@ export function insertChunks(chunks: ChunkInput[]): string[] {
         chunk.approxTokens,
         chunk.agentId ?? null,
         chunk.vectorClock ? serialize(chunk.vectorClock) : null,
-        chunk.spawnDepth ?? 0
+        chunk.spawnDepth ?? 0,
+        chunk.projectPath ?? null
       );
       ids.push(id);
     }
   });
 
   insertMany(chunks);
+  invalidateProjectsCache();
   return ids;
 }
 
@@ -216,6 +221,66 @@ export function getChunkCount(): number {
   return row.count;
 }
 
+/**
+ * Get chunk IDs for a specific project slug.
+ */
+export function getChunkIdsByProject(projectSlug: string): string[] {
+  const db = getDb();
+  const rows = db
+    .prepare('SELECT id FROM chunks WHERE session_slug = ?')
+    .all(projectSlug) as { id: string }[];
+  return rows.map((r) => r.id);
+}
+
+/**
+ * Project summary info.
+ */
+export interface ProjectInfo {
+  slug: string;
+  chunkCount: number;
+  firstSeen: string;
+  lastSeen: string;
+}
+
+/** Cached project list — invalidated on chunk insert. */
+let cachedProjects: ProjectInfo[] | null = null;
+
+/**
+ * Invalidate the projects cache. Called after chunk inserts.
+ */
+export function invalidateProjectsCache(): void {
+  cachedProjects = null;
+}
+
+/**
+ * Get distinct projects with chunk counts and date ranges.
+ * Results are cached at module level; cache invalidated on chunk insert.
+ */
+export function getDistinctProjects(): ProjectInfo[] {
+  if (cachedProjects) return cachedProjects;
+
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT
+      session_slug AS slug,
+      COUNT(*) AS chunkCount,
+      MIN(start_time) AS firstSeen,
+      MAX(start_time) AS lastSeen
+    FROM chunks
+    WHERE session_slug != ''
+    GROUP BY session_slug
+    ORDER BY lastSeen DESC
+  `).all() as Array<{
+    slug: string;
+    chunkCount: number;
+    firstSeen: string;
+    lastSeen: string;
+  }>;
+
+  cachedProjects = rows;
+  return rows;
+}
+
 // Internal types and helpers
 
 interface DbChunkRow {
@@ -234,6 +299,8 @@ interface DbChunkRow {
   agent_id: string | null;
   vector_clock: string | null;
   spawn_depth: number | null;
+  // v4: Project path
+  project_path: string | null;
 }
 
 function rowToChunk(row: DbChunkRow): StoredChunk {
@@ -252,5 +319,6 @@ function rowToChunk(row: DbChunkRow): StoredChunk {
     agentId: row.agent_id,
     vectorClock: row.vector_clock ? deserialize(row.vector_clock) : null,
     spawnDepth: row.spawn_depth ?? 0,
+    projectPath: row.project_path,
   };
 }
