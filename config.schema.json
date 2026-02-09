@@ -193,6 +193,33 @@
         }
       },
       "additionalProperties": false
+    },
+    "vectors": {
+      "type": "object",
+      "description": "Vector storage settings",
+      "properties": {
+        "ttlDays": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3650,
+          "default": 90,
+          "description": "TTL in days for vectors. Vectors accessed within this period are kept."
+        }
+      },
+      "additionalProperties": false
+    },
+    "embedding": {
+      "type": "object",
+      "description": "Embedding inference settings",
+      "properties": {
+        "device": {
+          "type": "string",
+          "enum": ["auto", "coreml", "cuda", "cpu", "wasm"],
+          "default": "auto",
+          "description": "Device for embedding inference. 'auto' detects hardware capabilities."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

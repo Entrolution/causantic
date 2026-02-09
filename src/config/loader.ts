@@ -60,6 +60,10 @@ export interface ExternalConfig {
     /** TTL in days for vectors. Vectors accessed within this period are kept. Default: 90 */
     ttlDays?: number;
   };
+  embedding?: {
+    /** Device for embedding inference: 'auto' | 'coreml' | 'cuda' | 'cpu' | 'wasm'. Default: 'auto'. */
+    device?: string;
+  };
 }
 
 /** Default external config values */
@@ -104,6 +108,9 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   },
   vectors: {
     ttlDays: 90,
+  },
+  embedding: {
+    device: 'auto',
   },
 };
 
@@ -242,6 +249,12 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.ECM_VECTORS_TTL_DAYS) {
     config.vectors = config.vectors ?? {};
     config.vectors.ttlDays = parseInt(process.env.ECM_VECTORS_TTL_DAYS, 10);
+  }
+
+  // Embedding
+  if (process.env.ECM_EMBEDDING_DEVICE) {
+    config.embedding = config.embedding ?? {};
+    config.embedding.device = process.env.ECM_EMBEDDING_DEVICE;
   }
 
   return config;
