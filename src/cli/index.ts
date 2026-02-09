@@ -196,16 +196,8 @@ const commands: Command[] = [
       }
 
       // Step 5: Detect Claude Code config path
-      let claudeConfigPath: string | null = null;
-      const platform = os.platform();
-
-      if (platform === 'darwin') {
-        claudeConfigPath = path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
-      } else if (platform === 'win32') {
-        claudeConfigPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json');
-      } else {
-        claudeConfigPath = path.join(os.homedir(), '.config', 'claude', 'claude_desktop_config.json');
-      }
+      // Claude Code uses ~/.claude/settings.json (cross-platform)
+      const claudeConfigPath = path.join(os.homedir(), '.claude', 'settings.json');
 
       console.log('');
       console.log(`Claude Code config: ${claudeConfigPath}`);
@@ -370,33 +362,138 @@ const commands: Command[] = [
           if (projectsToIngest.length > 0) {
             console.log('');
             console.log(`Importing ${projectsToIngest.length} project(s)...`);
-            console.log('This may take a few minutes for large session histories.');
             console.log('');
 
-            const { batchIngestDirectory } = await import('../ingest/batch-ingest.js');
+            const { discoverSessions, batchIngest } = await import('../ingest/batch-ingest.js');
 
             let totalIngested = 0;
             let totalChunks = 0;
+            let lastLine = '';
 
+            const clearLine = () => {
+              if (lastLine && process.stdout.isTTY) {
+                process.stdout.write('\r' + ' '.repeat(lastLine.length) + '\r');
+              }
+            };
+
+            // Process each project individually for better progress display
             for (const projectPath of projectsToIngest) {
               const projectName = path.basename(projectPath)
                 .replace(/^-/, '')
                 .replace(/-/g, '/')
                 .replace(/^Users\/[^/]+\//, '~/');
-              process.stdout.write(`  ${projectName}...`);
 
+              // Get short name for display (last path component)
+              const shortName = projectName.split('/').pop() || projectName;
+
+              const sessions = await discoverSessions(projectPath);
+              if (sessions.length === 0) {
+                continue;
+              }
+
+              const result = await batchIngest(sessions, {
+                progressCallback: (progress) => {
+                  clearLine();
+                  lastLine = `  ${shortName}: ${progress.done}/${progress.total} sessions, ${progress.totalChunks} chunks`;
+                  process.stdout.write(lastLine);
+                },
+              });
+
+              clearLine();
+              if (result.successCount > 0) {
+                console.log(`  ✓ ${shortName}: ${result.successCount} sessions, ${result.totalChunks} chunks`);
+              }
+
+              totalIngested += result.successCount;
+              totalChunks += result.totalChunks;
+            }
+
+            if (totalIngested === 0) {
+              console.log('  No sessions found to import.');
+            } else {
+              console.log('');
+              console.log(`✓ Total: ${totalIngested} sessions, ${totalChunks} chunks`);
+            }
+
+            // Run post-ingestion maintenance tasks
+            if (totalChunks > 0) {
+              console.log('');
+              console.log('Running post-ingestion processing...');
+
+              // Clustering
+              process.stdout.write('  Building clusters...');
               try {
-                const result = await batchIngestDirectory(projectPath, {});
-                totalIngested += result.successCount;
-                totalChunks += result.totalChunks;
-                console.log(` ${result.successCount} sessions, ${result.totalChunks} chunks`);
+                const clusterResult = await runTask('update-clusters');
+                if (clusterResult.success) {
+                  console.log(' done');
+                } else {
+                  console.log(` warning: ${clusterResult.message}`);
+                }
               } catch (err) {
                 console.log(` error: ${(err as Error).message}`);
               }
-            }
 
-            console.log('');
-            console.log(`✓ Imported ${totalIngested} sessions (${totalChunks} chunks)`);
+              // Graph pruning
+              process.stdout.write('  Pruning graph...');
+              try {
+                const pruneResult = await runTask('prune-graph');
+                if (pruneResult.success) {
+                  console.log(' done');
+                } else {
+                  console.log(` warning: ${pruneResult.message}`);
+                }
+              } catch (err) {
+                console.log(` error: ${(err as Error).message}`);
+              }
+
+              // Ask about Claude API key for cluster labeling
+              console.log('');
+              console.log('Cluster labeling uses Claude Haiku to generate human-readable');
+              console.log('descriptions for topic clusters.');
+
+              const apiKeyRl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout,
+              });
+
+              const wantsLabeling = await new Promise<string>((resolve) => {
+                apiKeyRl.question('Add Anthropic API key for cluster labeling? [y/N] ', (ans) => {
+                  resolve(ans.toLowerCase() || 'n');
+                });
+              });
+              apiKeyRl.close();
+
+              if (wantsLabeling === 'y' || wantsLabeling === 'yes') {
+                const apiKey = await promptPassword('Enter Anthropic API key: ');
+
+                if (apiKey && apiKey.startsWith('sk-ant-')) {
+                  // Store in keychain
+                  const store = createSecretStore();
+                  await store.set('anthropic-api-key', apiKey);
+                  console.log('✓ API key stored in system keychain');
+
+                  // Set environment variable for the current process and run labeling
+                  process.env.ANTHROPIC_API_KEY = apiKey;
+
+                  process.stdout.write('  Labeling clusters...');
+                  try {
+                    const labelResult = await runTask('refresh-labels');
+                    if (labelResult.success) {
+                      console.log(' done');
+                    } else {
+                      console.log(` warning: ${labelResult.message}`);
+                    }
+                  } catch (err) {
+                    console.log(` error: ${(err as Error).message}`);
+                  }
+                } else if (apiKey) {
+                  console.log('⚠ Invalid API key format (should start with sk-ant-)');
+                  console.log('  You can add it later with: ecm config set-key anthropic-api-key');
+                } else {
+                  console.log('  Skipping cluster labeling.');
+                }
+              }
+            }
           }
         }
       }

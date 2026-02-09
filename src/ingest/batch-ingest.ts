@@ -12,13 +12,29 @@ import { ingestSession, type IngestResult, type IngestOptions } from './ingest-s
 import { linkAllSessions } from './cross-session-linker.js';
 
 /**
+ * Progress information passed to callback.
+ */
+export interface BatchProgress {
+  /** Sessions completed so far */
+  done: number;
+  /** Total sessions to process */
+  total: number;
+  /** Current session path (empty after completion) */
+  current: string;
+  /** Running total of chunks created */
+  totalChunks: number;
+  /** Running total of sessions successfully ingested */
+  successCount: number;
+}
+
+/**
  * Options for batch ingestion.
  */
 export interface BatchIngestOptions {
   /** Number of concurrent workers. Default: 1 (sequential for memory). */
   concurrency?: number;
-  /** Progress callback. */
-  progressCallback?: (done: number, total: number, current: string) => void;
+  /** Progress callback (called after each session completes). */
+  progressCallback?: (progress: BatchProgress) => void;
   /** Session ID to resume from (skip sessions before this). */
   resumeFrom?: string;
   /** Embedding model ID. Default: 'jina-small'. */
@@ -160,20 +176,36 @@ export async function batchIngest(
     embedder,
   };
 
+  // Track running totals for progress
+  let runningChunks = 0;
+  let runningSuccess = 0;
+
   try {
     if (concurrency === 1) {
       // Sequential processing
       for (let i = 0; i < toProcess.length; i++) {
         const path = toProcess[i];
-        progressCallback?.(i, toProcess.length, path);
 
         try {
           const result = await ingestSession(path, ingestOptions);
           results.push(result);
+          runningChunks += result.chunkCount;
+          if (!result.skipped) {
+            runningSuccess++;
+          }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           errors.push({ path, error: message });
         }
+
+        // Call progress callback after each session
+        progressCallback?.({
+          done: i + 1,
+          total: toProcess.length,
+          current: path,
+          totalChunks: runningChunks,
+          successCount: runningSuccess,
+        });
       }
     } else {
       // Parallel processing with limited concurrency
@@ -183,17 +215,29 @@ export async function batchIngest(
       async function processNext(): Promise<void> {
         while (queue.length > 0) {
           const path = queue.shift()!;
-          progressCallback?.(completed, toProcess.length, path);
 
           try {
             const result = await ingestSession(path, ingestOptions);
             results.push(result);
+            runningChunks += result.chunkCount;
+            if (!result.skipped) {
+              runningSuccess++;
+            }
           } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             errors.push({ path, error: message });
           }
 
           completed++;
+
+          // Call progress callback after each session
+          progressCallback?.({
+            done: completed,
+            total: toProcess.length,
+            current: path,
+            totalChunks: runningChunks,
+            successCount: runningSuccess,
+          });
         }
       }
 

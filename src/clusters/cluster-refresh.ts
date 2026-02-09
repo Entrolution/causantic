@@ -9,6 +9,7 @@ import { getClusterById, upsertCluster, getStaleClusters } from '../storage/clus
 import { getChunksByIds } from '../storage/chunk-store.js';
 import type { StoredCluster, StoredChunk } from '../storage/types.js';
 import { createLogger } from '../utils/logger.js';
+import { createSecretStore } from '../utils/secret-store.js';
 
 const log = createLogger('cluster-refresh');
 
@@ -69,9 +70,27 @@ export class ClusterRefresher {
 
   /**
    * Initialize the Anthropic client.
+   * Checks keychain for API key if not set in environment.
    */
-  private getClient(): Anthropic {
+  private async getClient(): Promise<Anthropic> {
     if (!this.client) {
+      // Check if API key is in environment
+      if (!process.env.ANTHROPIC_API_KEY) {
+        // Try to load from keychain
+        const store = createSecretStore();
+        const storedKey = await store.get('anthropic-api-key');
+        if (storedKey) {
+          process.env.ANTHROPIC_API_KEY = storedKey;
+        }
+      }
+
+      if (!process.env.ANTHROPIC_API_KEY) {
+        throw new Error(
+          'No Anthropic API key found. Set ANTHROPIC_API_KEY environment variable ' +
+          'or run "ecm config set-key anthropic-api-key" to store in keychain.'
+        );
+      }
+
       this.client = new Anthropic();
     }
     return this.client;
@@ -113,7 +132,7 @@ export class ClusterRefresher {
     await this.rateLimiter.wait();
 
     // Call Claude API
-    const client = this.getClient();
+    const client = await this.getClient();
     const response = await client.messages.create({
       model,
       max_tokens: 200,
