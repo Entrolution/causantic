@@ -2,23 +2,18 @@
 
 Long-term memory system for Claude Code using causal graphs and vector clocks.
 
-<table>
-<tr>
-<td align="center"><strong>3.88×</strong><br/><sub>Context Augmentation</sub></td>
-<td align="center"><strong>288%</strong><br/><sub>More Relevant Context</sub></td>
-<td align="center"><strong>0.940</strong><br/><sub>Cluster F1 Score</sub></td>
-<td align="center"><strong>220×</strong><br/><sub>Faster with Python HDBSCAN</sub></td>
-</tr>
-</table>
+<p align="center">
+<strong>3.88× the relevant context</strong> vs semantic embedding alone
+</p>
 
 ## Overview
 
 Entropic Causal Memory (ECM) provides persistent, semantically-aware memory for Claude Code sessions. It captures conversation context, builds causal relationships between chunks of dialogue, and enables intelligent retrieval of relevant historical context.
 
-**Key results from experiments:**
-- Graph-augmented retrieval finds **3.88× more relevant context** than vector search alone
-- Sum-product traversal with natural cycle convergence (no explicit cycle detection needed)
-- Clustering achieves **F1=0.940** (100% precision, 88.7% recall) on topic prediction
+**What makes this different:**
+- **Bidirectional retrieval**: Queries traverse both backward (what led here?) and forward (what followed?) along causal paths — not just similarity matching
+- **3.88× context retrieval**: Graph traversal finds nearly 4× the relevant chunks compared to vector search alone
+- **Causal, not temporal**: Distance measured in logical hops (D-T-D transitions), not wall-clock time
 
 ### Why "Entropic"?
 
@@ -36,6 +31,7 @@ See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explana
 
 ### Key Features
 
+- **Bidirectional Traversal**: Query backward (what context led here?) and forward (what typically follows?) along causal paths
 - **Causal Graph**: Tracks relationships between conversation chunks using vector clocks for logical ordering
 - **Semantic Search**: Find relevant context using embedding-based similarity search
 - **HDBSCAN Clustering**: Automatically groups related topics for better organization
