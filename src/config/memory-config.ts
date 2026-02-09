@@ -129,7 +129,7 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   vectorDecay: DEFAULT_VECTOR_DECAY,   // Legacy fallback only
 
   // Traversal
-  maxTraversalDepth: 5,
+  maxTraversalDepth: 20,  // Match forward decay diesAtHops
   minSignalThreshold: 0.01,
 
   // Integration

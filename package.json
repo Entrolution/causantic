@@ -60,6 +60,8 @@
     "hold-period-sweep": "tsx scripts/run-hold-period-sweep.ts",
     "noncoding-validation": "tsx scripts/run-noncoding-validation.ts",
     "vector-decay-sweep": "tsx scripts/run-vector-decay-sweep.ts",
+    "min-weight-sweep": "tsx scripts/sweep-min-weight.ts",
+    "depth-sweep": "tsx scripts/sweep-depth.ts",
     "hop-decay-shapes": "tsx src/eval/experiments/vector-decay-shapes/run-experiment.ts",
     "ingest": "tsx scripts/ingest.ts",
     "batch-ingest": "tsx scripts/batch-ingest.ts",

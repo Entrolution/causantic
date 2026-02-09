@@ -27,63 +27,66 @@ Graph traversal from vector search results can find additional relevant context 
 
 ## Results
 
-### With Lazy Pruning
+### Sum-Product Traversal (maxDepth=20)
 
 | Metric | Vector-Only | Graph-Augmented | Improvement |
 |--------|-------------|-----------------|-------------|
-| Augmentation | 1.0x | 3.21x | +221% |
-| Precision@10 | 0.72 | 0.81 | +12.5% |
-| Coverage | 0.34 | 0.78 | +129% |
+| Augmentation | 1.0x | 3.88x | +288% |
+| Avg Chunks Added | 10 | 28.8 | +188% |
+| Paths Explored | — | 239 | — |
 
-### Without Lazy Pruning
+**Key Finding**: The sum-product algorithm with full decay range (maxDepth=20) achieves 3.88x augmentation.
 
-| Metric | Vector-Only | Graph-Augmented | Improvement |
-|--------|-------------|-----------------|-------------|
-| Augmentation | 1.0x | 2.49x | +149% |
-| Precision@10 | 0.72 | 0.76 | +5.6% |
-| Coverage | 0.34 | 0.62 | +82% |
+### Depth Sweep Results
 
-**Key Finding**: Lazy pruning during traversal improves augmentation from 149% to 221%.
+| maxDepth | Chunks Added | Augmentation | Efficiency |
+|----------|--------------|--------------|------------|
+| 3 | 13.8 | 2.38x | 0.279 |
+| 5 | 20.5 | 3.05x | 0.166 |
+| 7 | 23.9 | 3.39x | 0.138 |
+| 10 | 25.7 | 3.57x | 0.122 |
+| 15 | 28.7 | 3.87x | 0.120 |
+| 20 | 28.8 | 3.88x | 0.121 |
+
+- **Diminishing returns** start at depth=15 (< 1% gain per depth unit after)
+- **Recommended**: maxDepth=20 matches forward decay (dies at 20 hops)
 
 ## Traversal Algorithm
 
+The traverser uses **sum-product rules** inspired by Feynman diagrams:
+- **Product rule**: Weights multiply along paths (w₁ × w₂ × ... × wₙ)
+- **Sum rule**: Multiple paths to a node contribute additively
+
+Cycles converge naturally since edge weights are < 1, so cyclic paths attenuate geometrically until pruned by minWeight.
+
 ```typescript
-function traverseGraph(seeds: Chunk[], config: TraversalConfig): Chunk[] {
-  const visited = new Set<string>();
-  const results: Chunk[] = [];
-  const queue: Array<{ chunk: Chunk; depth: number; weight: number }> = [];
+async function visit(chunkId: string, depth: number, pathWeight: number): Promise<void> {
+  // Prune paths that have attenuated below threshold (convergence criterion)
+  // Since edge weights are <1, cyclic paths naturally attenuate until pruned
+  if (pathWeight < minWeight) return;
+  if (depth > maxDepth) return;
 
-  // Initialize with seeds
-  for (const seed of seeds) {
-    queue.push({ chunk: seed, depth: 0, weight: 1.0 });
+  // Accumulate this path's weight contribution (sum rule)
+  const existingWeight = accumulatedWeights.get(chunkId) ?? 0;
+  accumulatedWeights.set(chunkId, existingWeight + pathWeight);
+
+  // Track minimum depth for reporting
+  const existingDepth = minDepths.get(chunkId) ?? Infinity;
+  minDepths.set(chunkId, Math.min(existingDepth, depth));
+
+  // Get weighted edges from this chunk
+  const edges = getWeightedEdges(chunkId, queryTime, decayConfig, direction, referenceClock);
+
+  for (const edge of edges) {
+    // Compute new path weight (product rule)
+    const newWeight = pathWeight * edge.weight;
+    // Recursively visit — cycles naturally attenuate via weight products <1
+    await visit(edge.targetChunkId, depth + 1, newWeight);
   }
-
-  while (queue.length > 0) {
-    const { chunk, depth, weight } = queue.shift()!;
-
-    if (visited.has(chunk.id)) continue;
-    if (depth > config.maxDepth) continue;
-    if (weight < config.minWeight) continue;
-
-    visited.add(chunk.id);
-    results.push(chunk);
-
-    // Follow edges with decay
-    for (const edge of chunk.edges) {
-      const decayedWeight = weight * computeDecay(edge);
-      if (decayedWeight >= config.minWeight) {
-        queue.push({
-          chunk: edge.target,
-          depth: depth + 1,
-          weight: decayedWeight,
-        });
-      }
-    }
-  }
-
-  return results;
 }
 ```
+
+See [Why Entropic?](/docs/research/approach/why-entropic.md) for the theoretical foundation.
 
 ## Lazy Pruning
 
@@ -114,13 +117,24 @@ File-path edges are the most valuable for finding related context.
 
 ## Configuration Impact
 
-| Config | Augmentation | Precision |
-|--------|--------------|-----------|
-| depth=3, minWeight=0.1 | 1.8x | 0.84 |
-| depth=5, minWeight=0.01 | 3.2x | 0.81 |
-| depth=7, minWeight=0.001 | 4.1x | 0.72 |
+### minWeight Sweep (fixed depth=20)
 
-Default (depth=5, minWeight=0.01) balances augmentation and precision.
+| minWeight | Chunks Added | Augmentation |
+|-----------|--------------|--------------|
+| 0.1 | 8.9 | 1.89x |
+| 0.05 | 19.9 | 2.99x |
+| 0.01 | 28.8 | 3.88x |
+| 0.005 | 28.8 | 3.88x |
+| 0.001 | 28.8 | 3.88x |
+
+**Finding**: minWeight=0.01 captures all reachable context. Lower thresholds add computational cost without benefit.
+
+### Default Configuration
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| maxDepth | 20 | Matches forward decay (dies at 20 hops) |
+| minWeight | 0.01 | Captures full context without noise |
 
 ## Reproducibility
 

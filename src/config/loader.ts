@@ -68,7 +68,7 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
     minClusterSize: 4,
   },
   traversal: {
-    maxDepth: 5,
+    maxDepth: 20,  // Match forward decay diesAtHops
     minWeight: 0.01,
   },
   tokens: {

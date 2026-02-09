@@ -49,7 +49,7 @@ Among tested models, jina-small provides the best balance of embedding quality a
 
 ### Why "Entropic"?
 
-The name reflects a thermodynamic inspiration: memory decay flows along causal lines, not along a global clock. Like entropy, information relevance degrades along causal pathways. Edge weight decay implements **causal compression** — the graph naturally sheds causally-distant information while preserving causally-proximate context.
+The name reflects how discrimination degrades along causal paths. As you traverse farther from a query point, edge weight products converge toward zero — you lose the ability to distinguish between distant nodes. This entropy flows along causal lines (D-T-D hops), not wall-clock time, implementing **causal compression**.
 
 See [approach/why-entropic.md](approach/why-entropic.md).
 

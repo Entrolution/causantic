@@ -44,18 +44,15 @@ async function main() {
   const startIds = vectorResults.map(r => r.id);
   const startWeights = vectorResults.map(r => Math.max(0, 1 - r.distance));
 
+  // Uses config defaults: maxDepth=20, minWeight=0.01
   const backwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
     direction: 'backward',
     referenceClock,
-    maxDepth: 5,
-    minWeight: 0.01,
   });
 
   const forwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
     direction: 'forward',
     referenceClock,
-    maxDepth: 5,
-    minWeight: 0.01,
   });
 
   const backwardAdditions = backwardResult.chunks.filter(c => !vectorChunkIds.has(c.chunkId));

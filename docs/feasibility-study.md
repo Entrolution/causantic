@@ -2355,7 +2355,7 @@ def reinforce_edge(edge: Edge,
 
 1. **Cluster assignment**: How to determine which clusters a chunk "touches"? Embedding similarity threshold?
 2. **Forward/reverse weight divergence**: Should they start equal and diverge, or be computed differently?
-3. **Path depth cutoff**: What `maxDepth` for traversal? 5 seems reasonable but needs tuning
+3. ~~**Path depth cutoff**: What `maxDepth` for traversal? 5 seems reasonable but needs tuning~~ **RESOLVED**: Depth sweep showed maxDepth=20 achieves 3.88x augmentation, matching forward decay (dies at 20 hops). Diminishing returns start at depth=15.
 4. **Signal threshold**: What `minSignal` cutoff for negligible paths? 0.01? 0.001?
 5. **Intent detection**: How to infer whether user needs explanatory vs predictive context?
 6. **Edge initialisation**: When a new cluster pair first co-occurs, what initial weights?

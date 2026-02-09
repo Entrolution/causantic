@@ -2,21 +2,35 @@
 
 Long-term memory system for Claude Code using causal graphs and vector clocks.
 
+<table>
+<tr>
+<td align="center"><strong>3.88×</strong><br/><sub>Context Augmentation</sub></td>
+<td align="center"><strong>288%</strong><br/><sub>More Relevant Context</sub></td>
+<td align="center"><strong>0.940</strong><br/><sub>Cluster F1 Score</sub></td>
+<td align="center"><strong>220×</strong><br/><sub>Faster with Python HDBSCAN</sub></td>
+</tr>
+</table>
+
 ## Overview
 
 Entropic Causal Memory (ECM) provides persistent, semantically-aware memory for Claude Code sessions. It captures conversation context, builds causal relationships between chunks of dialogue, and enables intelligent retrieval of relevant historical context.
 
+**Key results from experiments:**
+- Graph-augmented retrieval finds **3.88× more relevant context** than vector search alone
+- Sum-product traversal with natural cycle convergence (no explicit cycle detection needed)
+- Clustering achieves **F1=0.940** (100% precision, 88.7% recall) on topic prediction
+
 ### Why "Entropic"?
 
-The name reflects a core design principle: **memory decay flows along causal lines, not along a global clock**.
+The name reflects how **discrimination degrades along causal paths**.
 
-Like thermodynamic entropy, information relevance degrades along causal pathways. ECM measures distance in "hops" (D-T-D transitions) rather than wall-clock time. This means:
+When traversing the graph from a query point, edge weights multiply along each path. As you move farther from the query (more hops), these products converge toward zero — you lose the ability to discriminate between distant nodes. This is entropy: the loss of discriminative information along causal lines.
 
-- Returning to a topic after days still shows high relevance if causally connected
-- Interleaved work maintains proper causal ordering
-- Edge weight decay implements **causal compression** — older, causally-distant information naturally fades while proximate context is preserved
+- **Near the query**: Weights are differentiated, nodes can be meaningfully ranked
+- **Far from the query**: Weights converge to zero, all distant nodes look equally irrelevant
+- **Causal, not temporal**: Entropy flows through D-T-D transitions (hops), not wall-clock time
 
-The graph structure itself encodes temporal dynamics: edge accumulation reflects co-occurrence frequency, decay reflects causal recency, and path products encode causal distance. The graph *is* the clock.
+This implements **causal compression** — the graph naturally sheds the ability to distinguish causally-distant information while preserving discrimination for causally-proximate context.
 
 See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explanation.
 
