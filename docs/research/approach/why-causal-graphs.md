@@ -55,6 +55,40 @@ Graph traversal finds related context that vector search misses:
    - The config file involved (file-path edge)
 ```
 
+## Why Chunks, Not Clusters?
+
+An alternative design would use **clusters** (topic groupings) as nodes instead of individual chunks. This was considered but rejected.
+
+### The Problem with Cluster Nodes
+
+If clusters were nodes in the causal graph:
+
+1. **Semantic variance compounds**: Each cluster is an average of its members. As you traverse paths, the "meaning" becomes increasingly blurred.
+
+2. **Non-uniform entropy**: Dense clusters (many similar chunks) behave differently than sparse clusters (diverse chunks). This creates an additional entropic force that varies unpredictably across the graph.
+
+3. **Tuning becomes impossible**: Decay curves would need to account for cluster heterogeneity. A 3-hop path through tight clusters differs fundamentally from a 3-hop path through loose clusters.
+
+### Chunks Keep Signal Clean
+
+With chunks as nodes:
+
+- **Precise semantics**: Each node has fixed, unambiguous meaning
+- **Uniform decay**: Edge weights decay predictably based on hop distance alone
+- **No compounding variance**: The semantic content at each node doesn't blur
+
+### Best of Both Worlds
+
+The current design separates concerns:
+
+| Concern | Mechanism | Unit |
+|---------|-----------|------|
+| Causal traversal | Edge weights + decay | Chunks (precise) |
+| Topic discovery | HDBSCAN clustering | Clusters (semantic grouping) |
+| Entry point search | Vector similarity | Embeddings (similarity) |
+
+Clusters serve as a **lens for browsing and labeling** rather than a **unit of causality**. This keeps the entropic decay well-behaved while still providing topic organization.
+
 ## Edge Types
 
 ECM tracks multiple relationship types, organized by evidence strength:
