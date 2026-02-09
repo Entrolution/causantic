@@ -43,8 +43,8 @@ Graph traversal from vector search results can find additional relevant context 
 
 | Metric | Vector-Only | Graph-Augmented | Improvement |
 |--------|-------------|-----------------|-------------|
-| Augmentation | 1.0x | 3.88x | +288% |
-| Avg Chunks Added | 10 | 28.8 | +188% |
+| Augmentation | 1.0× | 3.88× | 3.88× |
+| Avg Chunks Added | 10 | 28.8 | 2.88× |
 | Paths Explored | — | 239 | — |
 
 ### Depth Sweep Results

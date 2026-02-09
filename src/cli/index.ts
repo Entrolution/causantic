@@ -24,6 +24,144 @@ interface Command {
 
 const commands: Command[] = [
   {
+    name: 'init',
+    description: 'Initialize ECM (setup wizard)',
+    usage: 'ecm init [--skip-mcp]',
+    handler: async (args) => {
+      const skipMcp = args.includes('--skip-mcp');
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const os = await import('node:os');
+      const readline = await import('node:readline');
+
+      console.log('Entropic Causal Memory - Setup');
+      console.log('==============================');
+      console.log('');
+
+      // Step 1: Check Node.js version
+      const nodeVersion = process.versions.node;
+      const majorVersion = parseInt(nodeVersion.split('.')[0], 10);
+      if (majorVersion >= 20) {
+        console.log(`✓ Node.js ${nodeVersion}`);
+      } else {
+        console.log(`✗ Node.js ${nodeVersion} (requires 20+)`);
+        process.exit(1);
+      }
+
+      // Step 2: Create directory structure
+      const ecmDir = path.join(os.homedir(), '.ecm');
+      const vectorsDir = path.join(ecmDir, 'vectors');
+
+      if (!fs.existsSync(ecmDir)) {
+        fs.mkdirSync(ecmDir, { recursive: true });
+        console.log(`✓ Created ${ecmDir}`);
+      } else {
+        console.log(`✓ Directory exists: ${ecmDir}`);
+      }
+
+      if (!fs.existsSync(vectorsDir)) {
+        fs.mkdirSync(vectorsDir, { recursive: true });
+        console.log(`✓ Created ${vectorsDir}`);
+      } else {
+        console.log(`✓ Directory exists: ${vectorsDir}`);
+      }
+
+      // Step 3: Initialize database
+      try {
+        const db = getDb();
+        db.prepare('SELECT 1').get();
+        console.log('✓ Database initialized');
+      } catch (error) {
+        console.log(`✗ Database error: ${(error as Error).message}`);
+        process.exit(1);
+      }
+
+      // Step 4: Detect Claude Code config path
+      let claudeConfigPath: string | null = null;
+      const platform = os.platform();
+
+      if (platform === 'darwin') {
+        claudeConfigPath = path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json');
+      } else if (platform === 'win32') {
+        claudeConfigPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Claude', 'claude_desktop_config.json');
+      } else {
+        claudeConfigPath = path.join(os.homedir(), '.config', 'claude', 'claude_desktop_config.json');
+      }
+
+      console.log('');
+      console.log(`Claude Code config: ${claudeConfigPath}`);
+
+      // Step 5: Offer to configure MCP
+      if (!skipMcp) {
+        const configExists = fs.existsSync(claudeConfigPath);
+
+        if (configExists) {
+          console.log('✓ Claude Code config found');
+
+          try {
+            const configContent = fs.readFileSync(claudeConfigPath, 'utf-8');
+            const config = JSON.parse(configContent);
+
+            if (config.mcpServers?.memory) {
+              console.log('✓ ECM already configured in Claude Code');
+            } else {
+              // Ask user if they want to add MCP config
+              const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout,
+              });
+
+              const answer = await new Promise<string>((resolve) => {
+                rl.question('Add ECM to Claude Code MCP config? [Y/n] ', (ans) => {
+                  rl.close();
+                  resolve(ans.toLowerCase() || 'y');
+                });
+              });
+
+              if (answer === 'y' || answer === 'yes') {
+                config.mcpServers = config.mcpServers || {};
+                config.mcpServers.memory = {
+                  command: 'npx',
+                  args: ['ecm', 'serve'],
+                };
+                fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
+                console.log('✓ Added ECM to Claude Code config');
+                console.log('  Restart Claude Code to activate');
+              }
+            }
+          } catch {
+            console.log('⚠ Could not parse Claude Code config');
+          }
+        } else {
+          console.log('⚠ Claude Code config not found');
+          console.log('  Create it manually or install Claude Code first');
+        }
+      }
+
+      // Step 6: Health check
+      console.log('');
+      console.log('Running health check...');
+
+      try {
+        const { vectorStore } = await import('../storage/vector-store.js');
+        if (vectorStore && typeof vectorStore.count === 'function') {
+          await vectorStore.count();
+        }
+        console.log('✓ Vector store OK');
+      } catch (error) {
+        console.log(`⚠ Vector store: ${(error as Error).message}`);
+      }
+
+      console.log('');
+      console.log('Setup complete!');
+      console.log('');
+      console.log('Next steps:');
+      console.log('  1. npx ecm batch-ingest ~/.claude/projects');
+      console.log('  2. Restart Claude Code');
+      console.log('  3. Ask Claude: "What did we work on recently?"');
+    },
+  },
+  {
     name: 'serve',
     description: 'Start the MCP server',
     usage: 'ecm serve [--health-check]',

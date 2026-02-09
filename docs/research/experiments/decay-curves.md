@@ -37,7 +37,7 @@ Backward edges point to historical context ("what came before").
 | Linear (dies@15) | 0.654 | 0.75 |
 | Linear (dies@20) | 0.612 | 0.72 |
 
-**Winner**: Linear decay, dies at 10 hops (+35% MRR vs exponential)
+**Winner**: Linear decay, dies at 10 hops (1.35× MRR vs exponential)
 
 ### Interpretation
 
@@ -58,7 +58,7 @@ Forward edges point to future context ("what came after").
 | Delayed (5h, dies@20) | **0.849** | **0.91** |
 | Delayed (10h, dies@20) | 0.801 | 0.87 |
 
-**Winner**: Delayed linear, 5-hop hold, dies at 20 (+271% MRR vs exponential)
+**Winner**: Delayed linear, 5-hop hold, dies at 20 (3.71× MRR vs exponential)
 
 ### Interpretation
 

@@ -28,8 +28,8 @@ HDBSCAN clustering with angular distance achieves 100% precision and 88.7% recal
 
 **Result**: Direction-specific hop decay outperforms time-based decay
 
-- Backward (historical): Linear, dies at 10 hops (MRR=0.688, +35%)
-- Forward (predictive): Delayed linear, 5-hop hold, dies at 20 (MRR=0.849, +271%)
+- Backward (historical): Linear, dies at 10 hops (MRR=0.688, 1.35× vs exponential)
+- Forward (predictive): Delayed linear, 5-hop hold, dies at 20 (MRR=0.849, 3.71× vs exponential)
 
 See [experiments/decay-curves.md](experiments/decay-curves.md).
 
@@ -88,7 +88,7 @@ Documenting failures is as important as successes:
 
 1. **Wall-clock time decay**: All historical edges appeared "dead" regardless of relevance
 2. **Single decay curve**: Forward and backward edges need different treatment
-3. **JavaScript HDBSCAN at scale**: O(n³) bug made it 220x slower than Python
+3. **hdbscan-ts at scale**: O(n²k) bug made it impractical (fixed with native implementation)
 4. **Adjacent edges as primary signal**: Too weak (0.5 weight); file-path edges (1.0) work better
 
 See [experiments/lessons-learned.md](experiments/lessons-learned.md).

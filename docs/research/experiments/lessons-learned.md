@@ -80,7 +80,7 @@ Clustering 6,000 points took 65+ minutes, making it impractical.
 
 ### Why It Failed
 
-O(n³) complexity in `findClusterContainingPoints`:
+O(n² × k) complexity due to `Array.includes()`:
 
 ```typescript
 // Problematic code in hdbscan-ts
@@ -93,20 +93,20 @@ for (const point of points) {
 }
 ```
 
-Array.includes() is O(n), nested in O(n²) loops.
+Array.includes() is O(n), nested in O(n × k) loops.
 
 ### The Fix
 
-Python bridge to Cython-accelerated HDBSCAN:
+Native TypeScript implementation with proper data structures:
 
-```typescript
-const result = execSync(
-  `python3 -c "import hdbscan; ..."`,
-  { input: JSON.stringify(embeddings) }
-);
-```
+- `Set.has()` instead of `Array.includes()` for O(1) lookups
+- Quickselect for O(n) k-th nearest neighbor
+- Union-Find with path compression
+- Parallel core distance computation
 
-Result: 17 seconds instead of 65+ minutes (220x faster).
+Result: 30 seconds instead of 65+ minutes for 6,000 points.
+
+See [HDBSCAN Implementation](../approach/hdbscan-performance.md) for details.
 
 ## Adjacent Edges as Primary Signal
 

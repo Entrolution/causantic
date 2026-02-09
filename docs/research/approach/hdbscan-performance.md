@@ -1,14 +1,14 @@
-# HDBSCAN Performance: JavaScript vs Python
+# HDBSCAN Implementation
 
-This document explains ECM's HDBSCAN implementation choice and the performance considerations.
+This document explains ECM's native TypeScript HDBSCAN implementation.
 
-## The Problem
+## Background
 
-HDBSCAN clustering is computationally intensive. ECM needs to cluster thousands of embedding vectors efficiently.
+ECM needs to cluster thousands of embedding vectors efficiently. The original approach used the npm package `hdbscan-ts`, which had severe performance issues at scale.
 
-### JavaScript Implementation (hdbscan-ts)
+### The Problem with hdbscan-ts
 
-The npm package `hdbscan-ts` has a performance issue in its `findClusterContainingPoints` function:
+The `hdbscan-ts` package has O(n² × k) complexity due to `Array.includes()` calls in its core algorithm:
 
 ```javascript
 // Problematic pattern in hdbscan-ts
@@ -21,108 +21,87 @@ for (const point of points) {           // O(n)
 }
 ```
 
-This results in O(n² × k) complexity where n is points and k is clusters. For large datasets, this becomes prohibitive.
+This made clustering 6,000+ points impractical (65+ minutes).
 
-### Benchmark Results
+## Native Implementation
 
-| Points | hdbscan-ts (JS) | hdbscan (Python) | Speedup |
-|--------|-----------------|------------------|---------|
-| 100 | 0.3s | 0.1s | 3x |
-| 1,000 | 12s | 0.5s | 24x |
-| 6,000 | 65+ min | 17s | 220x |
+ECM now uses a native TypeScript HDBSCAN implementation with proper data structures:
 
-## ECM's Solution
+### Key Optimizations
 
-ECM uses a Python bridge to the Cython-accelerated HDBSCAN implementation:
+| Issue | hdbscan-ts | Native Implementation |
+|-------|------------|----------------------|
+| Point lookup | `Array.includes()` O(n) | `Set.has()` O(1) |
+| Memory | JS arrays | Float64Array |
+| Union-Find | None | Path compression + rank |
+| k-th nearest | Full sort O(n log n) | Quickselect O(n) |
+| Core distances | Single-threaded | Parallel (worker_threads) |
 
-```typescript
-// src/clusters/hdbscan-python-bridge.ts
-import { execSync } from 'node:child_process';
+### Algorithm Steps
 
-export function clusterWithPython(embeddings: number[][]): ClusterResult {
-  const input = JSON.stringify(embeddings);
-  const result = execSync(
-    `python3 -c "
-import sys
-import json
-import hdbscan
-import numpy as np
+1. **Core Distance Computation**: For each point, find distance to k-th nearest neighbor using quickselect
+2. **MST Construction**: Build minimum spanning tree with mutual reachability distances using Prim's algorithm
+3. **Condensed Tree**: Process MST edges to build cluster hierarchy
+4. **Cluster Extraction**: Use Excess of Mass (EOM) or Leaf method to select stable clusters
+5. **Probabilities**: Compute membership probabilities and outlier scores
 
-data = json.loads(sys.stdin.read())
-embeddings = np.array(data)
-clusterer = hdbscan.HDBSCAN(min_cluster_size=4, metric='euclidean')
-labels = clusterer.fit_predict(embeddings)
-print(json.dumps(labels.tolist()))
-"`,
-    { input, encoding: 'utf-8' }
-  );
-  return JSON.parse(result);
-}
+### Performance
+
+| Dataset Size | hdbscan-ts (old) | Native (new) |
+|--------------|------------------|--------------|
+| 500 | ~5s | ~0.3s |
+| 1,000 | ~30s | ~1s |
+| 2,000 | ~3 min | ~4s |
+| 6,000 | 65+ min | ~30s |
+
+### Features
+
+The native implementation provides:
+
+- **Cluster labels**: -1 for noise, 0+ for cluster ID
+- **Membership probabilities**: 0.0-1.0 confidence for each assignment
+- **Outlier scores**: 0.0-1.0 indicating how "outlier-ish" each point is
+- **Incremental assignment**: Assign new points without full reclustering
+- **EOM and Leaf extraction**: Two cluster selection methods
+
+## Code Location
+
+```
+src/clusters/
+  hdbscan.ts                    # Main HDBSCAN class
+  hdbscan/
+    types.ts                    # Type definitions
+    min-heap.ts                 # Priority queue for Prim's MST
+    union-find.ts               # Disjoint-set with path compression
+    core-distance.ts            # k-NN core distance computation
+    mst.ts                      # Minimum spanning tree (Prim's)
+    hierarchy.ts                # Condensed cluster tree
+    cluster-extraction.ts       # Stability-based cluster selection
+    probabilities.ts            # Membership probabilities & outlier scores
 ```
 
-### Fallback Behavior
+## Configuration
 
-If Python or HDBSCAN is not available, ECM falls back to the JavaScript implementation with a warning:
+HDBSCAN parameters are set in `ecm.config.json`:
 
-```
-Warning: Python HDBSCAN not available. Using JavaScript fallback.
-This may be significantly slower for large datasets.
-Install with: pip install hdbscan numpy
-```
-
-## Installation Requirements
-
-### Recommended (Fast)
-
-```bash
-pip install hdbscan numpy
-```
-
-This installs the Cython-accelerated HDBSCAN that ECM uses via Python bridge.
-
-### Minimum (Slow)
-
-No additional installation required - ECM includes hdbscan-ts as a fallback.
-
-## Issue Tracking
-
-The performance issue in hdbscan-ts is documented at:
-- Repository: https://github.com/GeLi2001/hdbscan-ts
-- Issue: Pending (to be filed)
-
-### Proposed Fix
-
-Replace `Array.includes()` with `Set.has()`:
-
-```javascript
-// Before: O(n) lookup
-if (cluster.includes(point)) { ... }
-
-// After: O(1) lookup
-const clusterSet = new Set(cluster);
-if (clusterSet.has(point)) { ... }
-```
-
-## Future Considerations
-
-1. **Contribute fix to hdbscan-ts**: File PR with Set-based lookup
-2. **WebAssembly option**: Compile Rust/C HDBSCAN to WASM
-3. **Incremental clustering**: Avoid full re-clustering for small updates
-4. **Alternative algorithms**: Explore DBSTREAM or other online clustering
-
-## Checking Python Availability
-
-ECM checks for Python HDBSCAN at startup:
-
-```typescript
-function isPythonHdbscanAvailable(): boolean {
-  try {
-    execSync('python3 -c "import hdbscan"', { stdio: 'ignore' });
-    return true;
-  } catch {
-    return false;
+```json
+{
+  "clustering": {
+    "threshold": 0.09,
+    "minClusterSize": 4
   }
 }
 ```
 
-If unavailable, the slower JavaScript fallback is used automatically.
+- **threshold**: Angular distance threshold for cluster membership (0.09 = ~5° separation)
+- **minClusterSize**: Minimum points to form a cluster
+
+## Clustering Quality
+
+The implementation achieves:
+
+- **Precision**: 100% (no false positives)
+- **Recall**: 88.7%
+- **F1**: 0.940
+
+See [Cluster Threshold Experiments](../experiments/cluster-threshold.md) for validation data.
