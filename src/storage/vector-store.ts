@@ -1,7 +1,53 @@
 /**
- * In-memory vector store with optional persistence.
- * Start simple with in-memory + SQLite persistence.
- * Can upgrade to LanceDB if performance requires.
+ * In-memory vector store with SQLite persistence.
+ *
+ * Provides vector similarity search for chunk embeddings using angular distance.
+ * Embeddings are stored as Float32Array blobs in SQLite and loaded into memory
+ * on first access for fast brute-force search.
+ *
+ * ## Architecture
+ *
+ * ```
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │                     VectorStore                             │
+ * │  ┌─────────────────────┐    ┌─────────────────────────────┐ │
+ * │  │  In-Memory Index    │    │    SQLite Persistence       │ │
+ * │  │  Map<id, number[]>  │ ◄──┤  vectors (id, embedding)    │ │
+ * │  └─────────────────────┘    └─────────────────────────────┘ │
+ * └─────────────────────────────────────────────────────────────┘
+ * ```
+ *
+ * ## Usage
+ *
+ * ```typescript
+ * import { vectorStore } from './vector-store.js';
+ *
+ * // Insert an embedding
+ * await vectorStore.insert('chunk-123', embedding);
+ *
+ * // Search for similar vectors
+ * const results = await vectorStore.search(queryEmbedding, 10);
+ * // Returns: [{ id: 'chunk-456', distance: 0.15 }, ...]
+ * ```
+ *
+ * ## Distance Metric
+ *
+ * Uses angular distance (0 = identical, 2 = opposite):
+ * - `0.0`: Identical vectors
+ * - `0.5`: ~60° angle
+ * - `1.0`: Orthogonal (90°)
+ * - `2.0`: Opposite vectors
+ *
+ * ## Performance Notes
+ *
+ * - Initial load: O(n) to deserialize all vectors from SQLite
+ * - Insert: O(1) amortized (memory + single row insert)
+ * - Search: O(n) brute-force (sufficient for <100k vectors)
+ * - Memory: ~4KB per vector (1024 dimensions × 4 bytes)
+ *
+ * For larger scale, consider upgrading to LanceDB or FAISS.
+ *
+ * @module storage/vector-store
  */
 
 import { getDb, generateId } from './db.js';
@@ -10,6 +56,12 @@ import type { VectorSearchResult } from './types.js';
 
 /**
  * In-memory vector index backed by SQLite for persistence.
+ *
+ * Uses lazy loading — vectors are loaded from SQLite on first operation.
+ * All operations are async to support future migration to async storage backends.
+ *
+ * Thread safety: Single-threaded (Node.js). For concurrent access, use
+ * the singleton `vectorStore` export which ensures consistent state.
  */
 class VectorStore {
   private vectors: Map<string, number[]> = new Map();
@@ -88,7 +140,22 @@ class VectorStore {
 
   /**
    * Search for similar vectors using angular distance.
-   * Returns results sorted by distance (ascending).
+   *
+   * Uses brute-force search over all vectors in memory. For small to medium
+   * datasets (<100k vectors), this is fast enough. For larger datasets,
+   * consider approximate nearest neighbor (ANN) algorithms.
+   *
+   * @param query - Query embedding vector (must match stored dimensionality)
+   * @param limit - Maximum number of results to return
+   * @returns Results sorted by distance ascending (closest first)
+   *
+   * @example
+   * ```typescript
+   * const results = await vectorStore.search(queryEmbedding, 10);
+   * for (const { id, distance } of results) {
+   *   console.log(`${id}: distance=${distance.toFixed(3)}`);
+   * }
+   * ```
    */
   async search(query: number[], limit: number): Promise<VectorSearchResult[]> {
     await this.load();
@@ -213,16 +280,41 @@ class VectorStore {
   }
 }
 
-// Singleton instance
+/**
+ * Singleton vector store instance.
+ *
+ * Use this for all vector operations to ensure consistent state.
+ * The instance lazy-loads vectors from SQLite on first operation.
+ */
 export const vectorStore = new VectorStore();
 
-// Helper functions
+// ─────────────────────────────────────────────────────────────────────────────
+// Serialization helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Serialize an embedding to a Buffer for SQLite storage.
+ *
+ * Uses Float32Array for efficient storage (4 bytes per dimension).
+ * A 1024-dimension embedding uses 4KB of storage.
+ *
+ * @param embedding - Array of floating point values
+ * @returns Buffer containing Float32Array binary representation
+ */
 function serializeEmbedding(embedding: number[]): Buffer {
   const float32 = new Float32Array(embedding);
   return Buffer.from(float32.buffer);
 }
 
+/**
+ * Deserialize an embedding from a SQLite Buffer.
+ *
+ * Reconstructs the Float32Array from the raw buffer bytes,
+ * handling byte offset alignment properly.
+ *
+ * @param buffer - Buffer from SQLite BLOB column
+ * @returns Array of floating point values
+ */
 function deserializeEmbedding(buffer: Buffer): number[] {
   const float32 = new Float32Array(
     buffer.buffer,
