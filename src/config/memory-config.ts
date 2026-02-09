@@ -140,9 +140,9 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   clusterRefreshModel: 'claude-3-haiku-20240307',
   refreshRateLimitPerMin: 30,  // Haiku can handle much higher rates
 
-  // Storage - defaults to ~/.semansiation/
-  dbPath: '~/.semansiation/memory.db',
-  vectorStorePath: '~/.semansiation/vectors',
+  // Storage - defaults to ~/.ecm/
+  dbPath: '~/.ecm/memory.db',
+  vectorStorePath: '~/.ecm/vectors',
 };
 
 /**

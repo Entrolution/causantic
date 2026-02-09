@@ -2,6 +2,12 @@
  * Session start hook handler.
  * Called when a new Claude Code session starts.
  * Returns memory context summary for the project.
+ *
+ * Features:
+ * - Retry logic for transient errors
+ * - Structured JSON logging
+ * - Execution metrics
+ * - Graceful degradation on failure
  */
 
 import { getAllClusters, getClusterChunkIds } from '../storage/cluster-store.js';
@@ -9,6 +15,12 @@ import { getChunksByIds, getChunksBySessionSlug } from '../storage/chunk-store.j
 import { getConfig } from '../config/memory-config.js';
 import { approximateTokens } from '../utils/token-counter.js';
 import { initStartupPrune } from '../storage/pruner.js';
+import {
+  executeHook,
+  logHook,
+  isTransientError,
+  type HookMetrics,
+} from './hook-utils.js';
 import type { StoredCluster, StoredChunk } from '../storage/types.js';
 
 /**
@@ -21,6 +33,12 @@ export interface SessionStartOptions {
   includeRecent?: number;
   /** Number of cross-project clusters to include. Default: 2. */
   includeCrossProject?: number;
+  /** Enable retry on transient errors. Default: true */
+  enableRetry?: boolean;
+  /** Maximum retries. Default: 3 */
+  maxRetries?: number;
+  /** Return fallback on total failure. Default: true */
+  gracefulDegradation?: boolean;
 }
 
 /**
@@ -35,22 +53,19 @@ export interface SessionStartResult {
   clustersIncluded: number;
   /** Recent chunks included */
   recentChunksIncluded: number;
+  /** Hook execution metrics */
+  metrics?: HookMetrics;
+  /** Whether this is a fallback result due to error */
+  degraded?: boolean;
 }
 
 /**
- * Handle session start.
- * Generates a memory summary for the project.
- *
- * @param projectPath - Project path (used as session slug)
- * @returns Memory summary result
+ * Internal handler without retry logic.
  */
-export async function handleSessionStart(
+function internalHandleSessionStart(
   projectPath: string,
-  options: SessionStartOptions = {}
-): Promise<SessionStartResult> {
-  // Start background pruning (non-blocking, idempotent)
-  initStartupPrune();
-
+  options: SessionStartOptions
+): SessionStartResult {
   const config = getConfig();
   const {
     maxTokens = config.claudeMdBudgetTokens,
@@ -62,9 +77,23 @@ export async function handleSessionStart(
   const allClusters = getAllClusters();
   const clustersWithDesc = allClusters.filter((c) => c.description);
 
+  logHook({
+    level: 'debug',
+    hook: 'session-start',
+    event: 'clusters_loaded',
+    details: { total: allClusters.length, withDescription: clustersWithDesc.length },
+  });
+
   // Get recent chunks for this project
   const projectChunks = getChunksBySessionSlug(projectPath);
   const recentChunks = projectChunks.slice(-includeRecent);
+
+  logHook({
+    level: 'debug',
+    hook: 'session-start',
+    event: 'chunks_loaded',
+    details: { total: projectChunks.length, recent: recentChunks.length },
+  });
 
   // Build summary
   const parts: string[] = [];
@@ -122,6 +151,55 @@ export async function handleSessionStart(
     tokenCount: currentTokens,
     clustersIncluded,
     recentChunksIncluded: recentIncluded,
+  };
+}
+
+/**
+ * Handle session start.
+ * Generates a memory summary for the project.
+ *
+ * @param projectPath - Project path (used as session slug)
+ * @param options - Session start options
+ * @returns Memory summary result
+ */
+export async function handleSessionStart(
+  projectPath: string,
+  options: SessionStartOptions = {}
+): Promise<SessionStartResult> {
+  const {
+    enableRetry = true,
+    maxRetries = 3,
+    gracefulDegradation = true,
+  } = options;
+
+  // Start background pruning (non-blocking, idempotent)
+  initStartupPrune();
+
+  const fallbackResult: SessionStartResult = {
+    summary: 'Memory context temporarily unavailable.',
+    tokenCount: 0,
+    clustersIncluded: 0,
+    recentChunksIncluded: 0,
+    degraded: true,
+  };
+
+  const { result, metrics } = await executeHook(
+    'session-start',
+    async () => internalHandleSessionStart(projectPath, options),
+    {
+      retry: enableRetry
+        ? {
+            maxRetries,
+            retryOn: isTransientError,
+          }
+        : undefined,
+      fallback: gracefulDegradation ? fallbackResult : undefined,
+    }
+  );
+
+  return {
+    ...result,
+    metrics,
   };
 }
 
@@ -185,8 +263,15 @@ export async function generateMemorySection(
 ): Promise<string> {
   const result = await handleSessionStart(projectPath, options);
 
-  if (result.tokenCount === 0) {
+  if (result.tokenCount === 0 && !result.degraded) {
     return '';
+  }
+
+  if (result.degraded) {
+    return `## Memory Context
+
+*Memory system temporarily unavailable. Will be restored on next session.*
+`;
   }
 
   return `## Memory Context

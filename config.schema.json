@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Entrolution/entropic-causal-memory/main/config.schema.json",
+  "title": "Entropic Causal Memory Configuration",
+  "description": "Configuration schema for ECM (entropic-causal-memory)",
+  "type": "object",
+  "properties": {
+    "decay": {
+      "type": "object",
+      "description": "Temporal decay settings for graph edges",
+      "properties": {
+        "backward": {
+          "type": "object",
+          "description": "Decay for backward (historical) edges",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["linear", "exponential", "delayed-linear"],
+              "default": "linear",
+              "description": "Decay curve type"
+            },
+            "diesAtHops": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "description": "Number of hops at which weight reaches zero"
+            },
+            "holdHops": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50,
+              "default": 0,
+              "description": "Number of hops to hold at full weight (for delayed types)"
+            }
+          },
+          "additionalProperties": false
+        },
+        "forward": {
+          "type": "object",
+          "description": "Decay for forward (predictive) edges",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["linear", "exponential", "delayed-linear"],
+              "default": "delayed-linear",
+              "description": "Decay curve type"
+            },
+            "diesAtHops": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "description": "Number of hops at which weight reaches zero"
+            },
+            "holdHops": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50,
+              "default": 5,
+              "description": "Number of hops to hold at full weight (for delayed types)"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "clustering": {
+      "type": "object",
+      "description": "HDBSCAN clustering settings",
+      "properties": {
+        "threshold": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 0.5,
+          "default": 0.09,
+          "description": "Angular distance threshold for cluster assignment (F1=0.940 at 0.09)"
+        },
+        "minClusterSize": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 100,
+          "default": 4,
+          "description": "Minimum points required to form a cluster"
+        }
+      },
+      "additionalProperties": false
+    },
+    "traversal": {
+      "type": "object",
+      "description": "Graph traversal settings",
+      "properties": {
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "default": 5,
+          "description": "Maximum traversal depth from seed nodes"
+        },
+        "minWeight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.01,
+          "description": "Minimum edge weight to continue traversal"
+        }
+      },
+      "additionalProperties": false
+    },
+    "tokens": {
+      "type": "object",
+      "description": "Token budget settings",
+      "properties": {
+        "claudeMdBudget": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000,
+          "default": 500,
+          "description": "Token budget for CLAUDE.md memory section"
+        },
+        "mcpMaxResponse": {
+          "type": "integer",
+          "minimum": 500,
+          "maximum": 50000,
+          "default": 2000,
+          "description": "Maximum tokens for MCP tool responses"
+        }
+      },
+      "additionalProperties": false
+    },
+    "storage": {
+      "type": "object",
+      "description": "Storage paths",
+      "properties": {
+        "dbPath": {
+          "type": "string",
+          "default": "~/.ecm/memory.db",
+          "description": "Path to SQLite database file (~ expands to home)"
+        },
+        "vectorPath": {
+          "type": "string",
+          "default": "~/.ecm/vectors",
+          "description": "Path to LanceDB vector store directory"
+        }
+      },
+      "additionalProperties": false
+    },
+    "llm": {
+      "type": "object",
+      "description": "LLM settings for optional features",
+      "properties": {
+        "clusterRefreshModel": {
+          "type": "string",
+          "default": "claude-3-haiku-20240307",
+          "description": "Model to use for cluster description refresh"
+        },
+        "refreshRateLimitPerMin": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 30,
+          "description": "Rate limit for LLM refresh calls per minute"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+
+# Build output (we build in container)
+dist/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Claude Code
+.claude/
+
+# Data files (mounted as volumes)
+*.db
+*.lance/
+*.kuzu/
+
+# Test fixtures
+test/fixtures/corpus/
+benchmark-results/
+
+# Environment
+.env
+.env.local
+*.local
+
+# Documentation (not needed in image)
+docs/
+*.md
+!README.md

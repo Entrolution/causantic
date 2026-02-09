@@ -1,15 +1,20 @@
 /**
  * macOS Keychain integration for secure API key storage.
+ *
+ * @deprecated Use secret-store.ts for cross-platform support.
+ * This module is maintained for backward compatibility.
  */
 
-import { execSync } from 'child_process';
+import { execSync } from 'node:child_process';
+import { createSecretStore, getApiKey as getApiKeyFromStore } from './secret-store.js';
 
-const SERVICE_NAME = 'semansiation';
+const SERVICE_NAME = 'entropic-causal-memory';
 
 /**
  * Get a secret from the macOS Keychain.
  * @param account - The account/key name (e.g., 'ANTHROPIC_API_KEY')
  * @returns The secret value, or null if not found
+ * @deprecated Use createSecretStore().get() instead
  */
 export function getFromKeychain(account: string): string | null {
   try {
@@ -27,6 +32,7 @@ export function getFromKeychain(account: string): string | null {
  * Store a secret in the macOS Keychain.
  * @param account - The account/key name (e.g., 'ANTHROPIC_API_KEY')
  * @param secret - The secret value to store
+ * @deprecated Use createSecretStore().set() instead
  */
 export function setInKeychain(account: string, secret: string): void {
   // Delete existing entry if present (ignore errors)
@@ -49,6 +55,7 @@ export function setInKeychain(account: string, secret: string): void {
  * Delete a secret from the macOS Keychain.
  * @param account - The account/key name to delete
  * @returns true if deleted, false if not found
+ * @deprecated Use createSecretStore().delete() instead
  */
 export function deleteFromKeychain(account: string): boolean {
   try {
@@ -77,3 +84,15 @@ export function getApiKey(keyName: string): string | null {
   // Fall back to Keychain
   return getFromKeychain(keyName);
 }
+
+/**
+ * Get API key using the cross-platform secret store.
+ * @param keyName - The key name (e.g., 'anthropic')
+ * @returns The API key, or null if not found
+ */
+export async function getApiKeyAsync(keyName: string): Promise<string | null> {
+  return getApiKeyFromStore(keyName);
+}
+
+// Re-export the new API for migration
+export { createSecretStore, getApiKeyFromStore };
