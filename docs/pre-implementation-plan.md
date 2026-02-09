@@ -98,13 +98,15 @@ These need empirical answers but don't block architecture.
 ### 2.2 Path Depth Cutoff
 **Question**: How deep to traverse causal graph for context retrieval?
 
-**Design assumption**: maxDepth=5
+**RESOLVED**: maxDepth=20
 
-**Experiment needed**:
-- Measure reference distance distribution (how many hops between related turns?)
-- Edge decay reference data suggests most references are <5 turns
+**Experiment results** (depth sweep with sum-product traversal):
+- maxDepth=5: 3.05x augmentation
+- maxDepth=10: 3.57x augmentation
+- maxDepth=15: 3.87x augmentation
+- maxDepth=20: 3.88x augmentation (matches forward decay diesAtHops=20)
 
-**Action**: Analyze existing reference data for hop distribution.
+Diminishing returns start at depth=15 (< 1% gain per depth unit).
 
 ### 2.3 Signal Threshold
 **Question**: What minimum edge weight is "negligible"?

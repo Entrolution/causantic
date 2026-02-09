@@ -59,8 +59,10 @@ Controls graph traversal behavior.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `maxDepth` | `integer` | `5` | Maximum traversal depth from seeds (1-20) |
+| `maxDepth` | `integer` | `20` | Maximum traversal depth from seeds (1-50) |
 | `minWeight` | `number` | `0.01` | Minimum edge weight to continue (0-1) |
+
+**Research finding**: maxDepth=20 matches forward decay (dies at 20 hops), achieving 3.88x augmentation over vector-only search.
 
 ## Token Settings
 

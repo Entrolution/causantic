@@ -67,7 +67,7 @@ Long-range historical context for complex questions.
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `topic` | `string` | Yes | The topic to explain |
-| `depth` | `integer` | No | Traversal depth (default: 5) |
+| `depth` | `integer` | No | Traversal depth (default: 20) |
 | `includeTimeline` | `boolean` | No | Include chronological timeline (default: true) |
 
 **Response**:

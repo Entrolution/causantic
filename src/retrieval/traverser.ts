@@ -1,7 +1,14 @@
 /**
  * Graph traversal with decay-weighted edges.
- * Traverses the chunk graph following edges while applying temporal decay.
- * Supports both time-based decay (legacy) and vector clock-based decay.
+ *
+ * Uses sum-product rules analogous to Feynman path integrals:
+ * - Product: Weights multiply along each path
+ * - Sum: Multiple paths to the same node accumulate
+ * - Convergence: Cycles naturally attenuate (no explicit detection needed)
+ *
+ * Since edge weights are in (0,1], path products decrease with length.
+ * The minWeight threshold prunes paths that have attenuated below relevance,
+ * which naturally handles cycle convergence.
  */
 
 import { getWeightedEdges } from '../storage/edge-store.js';
@@ -31,8 +38,12 @@ export interface TraversalOptions {
 }
 
 /**
- * Traverse the graph from a starting chunk.
- * Follows edges while applying decay weights.
+ * Traverse the graph from a starting chunk using sum-product rules.
+ *
+ * Weights multiply along paths (product) and accumulate when multiple
+ * paths reach the same node (sum). Cycles are handled naturally by
+ * convergence — since weights are <1, cyclic paths attenuate geometrically
+ * and are pruned when they fall below minWeight.
  *
  * @param startChunkId - Starting chunk ID
  * @param queryTime - Query time in milliseconds (for decay calculation)
@@ -55,19 +66,28 @@ export async function traverse(
   // Select time-based decay config as fallback (for edges without vector clocks)
   const decayConfig = options.decayConfig ?? (direction === 'backward' ? config.shortRangeDecay : config.forwardDecay);
 
-  const visited = new Set<string>();
-  const results: WeightedChunk[] = [];
+  // Accumulate weights across all paths (sum rule)
+  const accumulatedWeights = new Map<string, number>();
+  const minDepths = new Map<string, number>();
+  let pathsExplored = 0;
 
   async function visit(chunkId: string, depth: number, pathWeight: number): Promise<void> {
-    // Check termination conditions
-    if (depth > maxDepth) return;
-    if (visited.has(chunkId)) return;
+    // Prune paths that have attenuated below threshold (convergence criterion)
+    // Since edge weights are <1, cyclic paths naturally attenuate until pruned
     if (pathWeight < minWeight) return;
+    if (depth > maxDepth) return;
 
-    visited.add(chunkId);
+    pathsExplored++;
+
+    // Accumulate this path's weight contribution (sum rule)
+    const existingWeight = accumulatedWeights.get(chunkId) ?? 0;
+    accumulatedWeights.set(chunkId, existingWeight + pathWeight);
+
+    // Track minimum depth for reporting
+    const existingDepth = minDepths.get(chunkId) ?? Infinity;
+    minDepths.set(chunkId, Math.min(existingDepth, depth));
 
     // Get weighted edges from this chunk
-    // Direction-specific decay curves are applied automatically based on edge type
     const edges = getWeightedEdges(
       chunkId,
       queryTime,
@@ -77,32 +97,35 @@ export async function traverse(
     );
 
     for (const edge of edges) {
-      // Compute new path weight
+      // Compute new path weight (product rule)
       const newWeight = pathWeight * edge.weight;
 
-      // Add to results if above threshold
-      if (newWeight >= minWeight) {
-        results.push({
-          chunkId: edge.targetChunkId,
-          weight: newWeight,
-          depth: depth + 1,
-        });
-
-        // Recursively visit
-        await visit(edge.targetChunkId, depth + 1, newWeight);
-      }
+      // Recursively visit — cycles naturally attenuate via weight products <1
+      await visit(edge.targetChunkId, depth + 1, newWeight);
     }
   }
 
   // Start traversal from the given chunk
   await visit(startChunkId, 0, 1.0);
 
+  // Convert accumulated weights to results
+  const results: WeightedChunk[] = [];
+  for (const [chunkId, weight] of accumulatedWeights) {
+    if (chunkId !== startChunkId) {  // Exclude start node from results
+      results.push({
+        chunkId,
+        weight,
+        depth: minDepths.get(chunkId) ?? 0,
+      });
+    }
+  }
+
   // Sort by weight descending
   results.sort((a, b) => b.weight - a.weight);
 
   return {
     chunks: results,
-    visited: visited.size,
+    visited: pathsExplored,
   };
 }
 

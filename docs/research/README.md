@@ -47,6 +47,12 @@ Among tested models, jina-small provides the best balance of embedding quality a
 
 ## Design Rationale
 
+### Why "Entropic"?
+
+The name reflects how discrimination degrades along causal paths. As you traverse farther from a query point, edge weight products converge toward zero — you lose the ability to distinguish between distant nodes. This entropy flows along causal lines (D-T-D hops), not wall-clock time, implementing **causal compression**.
+
+See [approach/why-entropic.md](approach/why-entropic.md).
+
 ### Why Causal Graphs?
 
 Unlike simple vector databases, ECM tracks *relationships* between memory chunks:
