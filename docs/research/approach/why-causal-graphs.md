@@ -57,14 +57,31 @@ Graph traversal finds related context that vector search misses:
 
 ## Edge Types
 
-ECM tracks multiple relationship types:
+ECM tracks multiple relationship types, organized by evidence strength:
+
+### Strong Evidence (0.9-1.0)
 
 | Type | Weight | Description |
 |------|--------|-------------|
-| `file-path` | 1.0 | References same file |
-| `topic` | 0.8 | Semantically related |
-| `adjacent` | 0.5 | Sequential in session |
-| `cross-session` | 0.6 | Related across sessions |
+| `file-path` | 1.0 | Explicit file path reference shared between chunks |
+| `explicit-backref` | 0.9 | Explicit references like "the error", "that function" |
+| `error-fragment` | 0.9 | Discussing a specific error message |
+| `brief` | 0.9 | Parent agent spawning a sub-agent |
+| `debrief` | 0.9 | Sub-agent returning results to parent |
+
+### Medium Evidence (0.7-0.8)
+
+| Type | Weight | Description |
+|------|--------|-------------|
+| `code-entity` | 0.8 | Shared function, class, or variable name |
+| `tool-output` | 0.8 | Referencing tool execution results |
+| `cross-session` | 0.7 | Continuation from a previous session |
+
+### Weak Evidence (0.5)
+
+| Type | Weight | Description |
+|------|--------|-------------|
+| `adjacent` | 0.5 | Consecutive chunks with no stronger link detected |
 
 ## Comparison
 

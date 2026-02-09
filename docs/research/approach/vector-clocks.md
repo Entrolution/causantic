@@ -47,6 +47,50 @@ interface VectorClock {
 
 When sub-agents spawn, they inherit the parent's clock. When they complete (debrief), their clock merges back via element-wise max.
 
+## Sub-Agent Edge Semantics
+
+Sub-agent spawn and return create special edge types to maintain causal continuity across parallel thought streams:
+
+### Brief Edges (Spawn)
+
+When a parent agent spawns a sub-agent, **brief edges** connect the parent's current chunk to the sub-agent's first chunk:
+
+```
+Parent Chunk (spawns sub-agent)
+    │
+    ├── backward edge ←── Sub-Agent First Chunk
+    │                         (sub-agent can recall parent context)
+    │
+    └── forward edge ──→ Sub-Agent First Chunk
+                          (parent predicts sub-agent work)
+```
+
+Brief edges have weight **0.9** (strong evidence), with a depth penalty of `0.9^depth` for nested sub-agents.
+
+### Debrief Edges (Return)
+
+When a sub-agent completes and returns to the parent, **debrief edges** connect the sub-agent's final chunk(s) to the parent's receiving chunk:
+
+```
+Sub-Agent Final Chunk
+    │
+    ├── backward edge ←── Parent Receiving Chunk
+    │                         (parent recalls sub-agent findings)
+    │
+    └── forward edge ──→ Parent Receiving Chunk
+                          (sub-agent work predicts continuation)
+```
+
+Debrief edges also have weight **0.9** with the same depth penalty.
+
+### Why This Matters
+
+Without brief/debrief edges, sub-agent work would be disconnected from the main thought stream. These edges ensure:
+
+1. **Context flows into sub-agents** - Sub-agents can retrieve what the parent was working on
+2. **Results flow back** - Parent can retrieve what sub-agents discovered
+3. **Decay works correctly** - Hop distance accounts for sub-agent D-T-D cycles
+
 ## Hop Distance
 
 Logical distance is the sum of per-agent differences between an edge's clock and the current reference clock. **Only entries present in both clocks contribute to the sum** - agents that didn't exist at edge creation or have since terminated contribute zero:
