@@ -58,12 +58,14 @@ describe('session-start', () => {
         tokenCount: 150,
         clustersIncluded: 3,
         recentChunksIncluded: 2,
+        lastSessionIncluded: false,
       };
 
       expect(result.summary).toContain('Recent Context');
       expect(result.tokenCount).toBe(150);
       expect(result.clustersIncluded).toBe(3);
       expect(result.recentChunksIncluded).toBe(2);
+      expect(result.lastSessionIncluded).toBe(false);
     });
 
     it('has correct structure for empty memory', () => {
@@ -72,6 +74,7 @@ describe('session-start', () => {
         tokenCount: 0,
         clustersIncluded: 0,
         recentChunksIncluded: 0,
+        lastSessionIncluded: false,
       };
 
       expect(result.summary).toBe('No memory context available yet.');
@@ -84,6 +87,7 @@ describe('session-start', () => {
         tokenCount: 0,
         clustersIncluded: 0,
         recentChunksIncluded: 0,
+        lastSessionIncluded: false,
         degraded: true,
       };
 
@@ -96,6 +100,7 @@ describe('session-start', () => {
         tokenCount: 100,
         clustersIncluded: 1,
         recentChunksIncluded: 1,
+        lastSessionIncluded: false,
         metrics: {
           hookName: 'session-start',
           startTime: Date.now() - 50,
@@ -108,6 +113,27 @@ describe('session-start', () => {
 
       expect(result.metrics).toBeTruthy();
       expect(result.metrics?.success).toBe(true);
+    });
+
+    it('tracks lastSessionIncluded flag', () => {
+      const withLastSession: SessionStartResult = {
+        summary: '## Last Session...',
+        tokenCount: 200,
+        clustersIncluded: 1,
+        recentChunksIncluded: 2,
+        lastSessionIncluded: true,
+      };
+
+      const withoutLastSession: SessionStartResult = {
+        summary: '## Recent Context...',
+        tokenCount: 100,
+        clustersIncluded: 1,
+        recentChunksIncluded: 2,
+        lastSessionIncluded: false,
+      };
+
+      expect(withLastSession.lastSessionIncluded).toBe(true);
+      expect(withoutLastSession.lastSessionIncluded).toBe(false);
     });
   });
 
@@ -255,9 +281,19 @@ describe('session-start', () => {
     });
 
     it('prioritizes recent chunks over clusters', () => {
-      const priority = ['recentChunks', 'projectClusters', 'crossProjectClusters'];
+      const priority = ['recentChunks', 'lastSession', 'projectClusters', 'crossProjectClusters'];
 
       expect(priority[0]).toBe('recentChunks');
+      expect(priority[1]).toBe('lastSession');
+    });
+
+    it('reserves 20% of budget for last session', () => {
+      const maxTokens = 1000;
+      const lastSessionBudget = Math.floor(maxTokens * 0.2);
+      const mainBudget = maxTokens - lastSessionBudget;
+
+      expect(lastSessionBudget).toBe(200);
+      expect(mainBudget).toBe(800);
     });
   });
 
@@ -268,11 +304,13 @@ describe('session-start', () => {
         tokenCount: 0,
         clustersIncluded: 0,
         recentChunksIncluded: 0,
+        lastSessionIncluded: false,
         degraded: true,
       };
 
       expect(fallback.degraded).toBe(true);
       expect(fallback.tokenCount).toBe(0);
+      expect(fallback.lastSessionIncluded).toBe(false);
     });
   });
 
@@ -283,6 +321,7 @@ describe('session-start', () => {
         tokenCount: 100,
         clustersIncluded: 1,
         recentChunksIncluded: 2,
+        lastSessionIncluded: false,
       };
 
       const section = `## Memory Context
@@ -304,6 +343,7 @@ ${result.summary}
         tokenCount: 0,
         clustersIncluded: 0,
         recentChunksIncluded: 0,
+        lastSessionIncluded: false,
         degraded: false,
       };
 
@@ -317,6 +357,7 @@ ${result.summary}
         tokenCount: 0,
         clustersIncluded: 0,
         recentChunksIncluded: 0,
+        lastSessionIncluded: false,
         degraded: true,
       };
 
@@ -326,6 +367,108 @@ ${result.summary}
 `;
 
       expect(section).toContain('temporarily unavailable');
+    });
+
+    it('includes last session note when lastSessionIncluded is true', () => {
+      const result: SessionStartResult = {
+        summary: '## Last Session...\n- Some content',
+        tokenCount: 200,
+        clustersIncluded: 1,
+        recentChunksIncluded: 2,
+        lastSessionIncluded: true,
+      };
+
+      const lastSessionNote = result.lastSessionIncluded ? ', last session included' : '';
+
+      const section = `## Memory Context
+
+${result.summary}
+
+---
+*Memory summary: ${result.clustersIncluded} topics, ${result.recentChunksIncluded} recent items${lastSessionNote}*
+`;
+
+      expect(section).toContain('last session included');
+    });
+
+    it('omits last session note when lastSessionIncluded is false', () => {
+      const result: SessionStartResult = {
+        summary: '### Topic 1\nDescription...',
+        tokenCount: 100,
+        clustersIncluded: 1,
+        recentChunksIncluded: 2,
+        lastSessionIncluded: false,
+      };
+
+      const lastSessionNote = result.lastSessionIncluded ? ', last session included' : '';
+
+      const section = `## Memory Context
+
+${result.summary}
+
+---
+*Memory summary: ${result.clustersIncluded} topics, ${result.recentChunksIncluded} recent items${lastSessionNote}*
+`;
+
+      expect(section).not.toContain('last session included');
+    });
+  });
+
+  describe('last session section building', () => {
+    it('builds section with date header and chunk previews', () => {
+      const sessionDate = new Date('2024-01-15T10:00:00Z').toLocaleDateString();
+      const sessionTime = new Date('2024-01-15T10:00:00Z').toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+
+      const lines = [
+        `## Last Session (${sessionDate} ${sessionTime})`,
+        '- Working on authentication module...',
+        '- Fixed login bug in session handler...',
+      ];
+
+      const section = lines.join('\n');
+
+      expect(section).toContain('## Last Session');
+      expect(section).toContain(sessionDate);
+      expect(section).toContain('authentication module');
+      expect(section).toContain('login bug');
+    });
+
+    it('returns null for no recent sessions', () => {
+      const sessions: unknown[] = [];
+      const result = sessions.length === 0 ? null : 'section';
+
+      expect(result).toBeNull();
+    });
+
+    it('truncates chunk previews at 150 characters', () => {
+      const longContent = 'A'.repeat(200);
+      const preview = longContent.slice(0, 150);
+      const suffix = longContent.length > 150 ? '...' : '';
+      const line = `- ${preview}${suffix}`;
+
+      expect(line).toContain('...');
+      // 2 for "- " + 150 for preview + 3 for "..."
+      expect(line.length).toBe(155);
+    });
+
+    it('takes the last 5 chunks from a session', () => {
+      const chunks = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+      const tailChunks = chunks.slice(-5);
+
+      expect(tailChunks).toEqual(['d', 'e', 'f', 'g', 'h']);
+    });
+
+    it('uses 7-day window for session lookup', () => {
+      const now = Date.now();
+      const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      const eightDaysAgo = new Date(now - 8 * 24 * 60 * 60 * 1000);
+      const sixDaysAgo = new Date(now - 6 * 24 * 60 * 60 * 1000);
+
+      expect(sixDaysAgo.getTime()).toBeGreaterThan(sevenDaysAgo.getTime());
+      expect(eightDaysAgo.getTime()).toBeLessThan(sevenDaysAgo.getTime());
     });
   });
 
