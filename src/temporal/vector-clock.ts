@@ -21,6 +21,10 @@
  * - Sub-agent debrief: Merges back via element-wise max
  */
 
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('vector-clock');
+
 /**
  * A vector clock maps agent IDs to their tick counts.
  */
@@ -219,7 +223,7 @@ export function deserialize(json: string | null | undefined): VectorClock {
     }
     return {};
   } catch (err) {
-    console.warn(`[vector-clock] Failed to deserialize clock: ${json}`, err);
+    log.warn(`Failed to deserialize clock: ${json}`, { error: err instanceof Error ? err.message : String(err) });
     return {};
   }
 }

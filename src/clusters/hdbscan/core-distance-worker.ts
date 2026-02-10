@@ -5,6 +5,7 @@
 
 import { parentPort, workerData } from 'worker_threads';
 import type { CoreDistanceWorkerData, CoreDistanceWorkerResult } from './types.js';
+import { quickselect } from '../../utils/array-utils.js';
 
 /**
  * Compute Euclidean distance between two points.
@@ -27,54 +28,6 @@ function angularDistance(a: number[], b: number[]): number {
     dot += a[i] * b[i];
   }
   return 1 - dot;
-}
-
-/**
- * Quickselect to find k-th smallest element.
- */
-function quickselect(arr: number[], k: number): number {
-  if (arr.length === 0) return 0;
-  if (k >= arr.length) k = arr.length - 1;
-
-  const copy = arr.slice();
-  return quickselectInPlace(copy, 0, copy.length - 1, k);
-}
-
-function quickselectInPlace(arr: number[], left: number, right: number, k: number): number {
-  if (left === right) return arr[left];
-
-  const mid = Math.floor((left + right) / 2);
-  if (arr[mid] < arr[left]) swap(arr, left, mid);
-  if (arr[right] < arr[left]) swap(arr, left, right);
-  if (arr[right] < arr[mid]) swap(arr, mid, right);
-
-  const pivotIndex = partition(arr, left, right, mid);
-
-  if (k === pivotIndex) return arr[k];
-  if (k < pivotIndex) return quickselectInPlace(arr, left, pivotIndex - 1, k);
-  return quickselectInPlace(arr, pivotIndex + 1, right, k);
-}
-
-function partition(arr: number[], left: number, right: number, pivotIndex: number): number {
-  const pivotValue = arr[pivotIndex];
-  swap(arr, pivotIndex, right);
-  let storeIndex = left;
-
-  for (let i = left; i < right; i++) {
-    if (arr[i] < pivotValue) {
-      swap(arr, i, storeIndex);
-      storeIndex++;
-    }
-  }
-
-  swap(arr, storeIndex, right);
-  return storeIndex;
-}
-
-function swap(arr: number[], i: number, j: number): void {
-  const temp = arr[i];
-  arr[i] = arr[j];
-  arr[j] = temp;
 }
 
 /**

@@ -5,6 +5,7 @@
 
 import { createHash } from 'crypto';
 import { getDb } from './db.js';
+import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
 
 /** Maximum cache entries before LRU eviction (~400MB for 1024-dim embeddings) */
 const MAX_CACHE_ENTRIES = 100_000;
@@ -212,21 +213,3 @@ export function clearCacheForModel(modelId: string): void {
   db.prepare('DELETE FROM embedding_cache WHERE model_id = ?').run(modelId);
 }
 
-/**
- * Serialize embedding to Buffer for storage.
- */
-function serializeEmbedding(embedding: number[]): Buffer {
-  return Buffer.from(new Float32Array(embedding).buffer);
-}
-
-/**
- * Deserialize embedding from Buffer.
- */
-function deserializeEmbedding(buffer: Buffer): number[] {
-  const float32 = new Float32Array(
-    buffer.buffer,
-    buffer.byteOffset,
-    buffer.length / Float32Array.BYTES_PER_ELEMENT
-  );
-  return Array.from(float32);
-}
