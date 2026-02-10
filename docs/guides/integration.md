@@ -1,10 +1,10 @@
 # Integration Guide
 
-This guide covers integrating ECM with Claude Code through hooks and MCP.
+This guide covers integrating Causantic with Claude Code through hooks and MCP.
 
 ## Hook System
 
-ECM uses Claude Code hooks to capture context at key moments:
+Causantic uses Claude Code hooks to capture context at key moments:
 
 ### session-start
 
@@ -20,7 +20,7 @@ Fires when a new Claude Code session begins.
 {
   "hooks": {
     "session-start": {
-      "command": "npx ecm hook session-start"
+      "command": "npx causantic hook session-start"
     }
   }
 }
@@ -41,7 +41,7 @@ Fires before Claude Code compacts the conversation history.
 {
   "hooks": {
     "pre-compact": {
-      "command": "npx ecm hook pre-compact"
+      "command": "npx causantic hook pre-compact"
     }
   }
 }
@@ -54,7 +54,7 @@ The MCP server exposes memory tools to Claude:
 ### Starting the Server
 
 ```bash
-npx ecm serve
+npx causantic serve
 ```
 
 ### Claude Code Configuration
@@ -66,9 +66,9 @@ Add to your Claude Code MCP config:
   "mcpServers": {
     "memory": {
       "command": "npx",
-      "args": ["ecm", "serve"],
+      "args": ["causantic", "serve"],
       "env": {
-        "ECM_STORAGE_DB_PATH": "~/.ecm/memory.db"
+        "CAUSANTIC_STORAGE_DB_PATH": "~/.causantic/memory.db"
       }
     }
   }
@@ -87,7 +87,7 @@ See [MCP Tools Reference](../reference/mcp-tools.md) for details.
 
 ## CLAUDE.md Integration
 
-ECM can automatically update your project's CLAUDE.md with a memory section:
+Causantic can automatically update your project's CLAUDE.md with a memory section:
 
 ```markdown
 ## Memory Context
@@ -107,7 +107,7 @@ The `claudemd-generator` hook updates CLAUDE.md on session start:
 {
   "hooks": {
     "session-start": {
-      "command": "npx ecm hook claudemd-generator"
+      "command": "npx causantic hook claudemd-generator"
     }
   }
 }
@@ -129,12 +129,12 @@ Control the memory section size:
 
 1. **Initial ingestion**: Run `batch-ingest` on existing sessions first
 2. **Regular maintenance**: Schedule maintenance tasks (see [Maintenance](maintenance.md))
-3. **Monitor storage**: Check `~/.ecm/` size periodically
+3. **Monitor storage**: Check `~/.causantic/` size periodically
 4. **Tune thresholds**: Adjust decay and clustering based on your workflow
 
 ## Troubleshooting
 
-- **MCP server not responding**: Check `npx ecm health`
+- **MCP server not responding**: Check `npx causantic health`
 - **Empty memory**: Verify sessions were ingested
 - **Slow queries**: Run maintenance to prune stale edges
 

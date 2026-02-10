@@ -1,14 +1,14 @@
 # Configuration Reference
 
-Complete reference for all ECM configuration options.
+Complete reference for all Causantic configuration options.
 
 ## Configuration File
 
-ECM uses JSON configuration files. Create `ecm.config.json`:
+Causantic uses JSON configuration files. Create `causantic.config.json`:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Entrolution/entropic-causal-memory/main/config.schema.json"
+  "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json"
 }
 ```
 
@@ -79,7 +79,7 @@ Controls output token budgets.
 
 ### `hybridSearch`
 
-Controls the hybrid BM25 + vector search pipeline. These settings are internal defaults and not currently exposed in `ecm.config.json` — they are configured programmatically via `MemoryConfig`.
+Controls the hybrid BM25 + vector search pipeline. These settings are internal defaults and not currently exposed in `causantic.config.json` — they are configured programmatically via `MemoryConfig`.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -106,8 +106,8 @@ Controls data storage locations.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `dbPath` | `string` | `"~/.ecm/memory.db"` | SQLite database path |
-| `vectorPath` | `string` | `"~/.ecm/vectors"` | LanceDB vector store directory |
+| `dbPath` | `string` | `"~/.causantic/memory.db"` | SQLite database path |
+| `vectorPath` | `string` | `"~/.causantic/vectors"` | LanceDB vector store directory |
 
 Paths starting with `~` expand to the user's home directory.
 
@@ -122,7 +122,7 @@ Controls optional LLM features.
 | `clusterRefreshModel` | `string` | `"claude-3-haiku-20240307"` | Model for cluster descriptions |
 | `refreshRateLimitPerMin` | `integer` | `30` | Rate limit for LLM calls (1-1000) |
 
-**Note**: LLM features are optional. ECM works without an Anthropic API key.
+**Note**: LLM features are optional. Causantic works without an Anthropic API key.
 
 ## Environment Variables
 
@@ -130,22 +130,22 @@ All settings can be overridden via environment variables:
 
 | Setting | Environment Variable |
 |---------|---------------------|
-| `decay.backward.type` | `ECM_DECAY_BACKWARD_TYPE` |
-| `decay.backward.diesAtHops` | `ECM_DECAY_BACKWARD_DIES_AT_HOPS` |
-| `decay.backward.holdHops` | `ECM_DECAY_BACKWARD_HOLD_HOPS` |
-| `decay.forward.type` | `ECM_DECAY_FORWARD_TYPE` |
-| `decay.forward.diesAtHops` | `ECM_DECAY_FORWARD_DIES_AT_HOPS` |
-| `decay.forward.holdHops` | `ECM_DECAY_FORWARD_HOLD_HOPS` |
-| `clustering.threshold` | `ECM_CLUSTERING_THRESHOLD` |
-| `clustering.minClusterSize` | `ECM_CLUSTERING_MIN_CLUSTER_SIZE` |
-| `traversal.maxDepth` | `ECM_TRAVERSAL_MAX_DEPTH` |
-| `traversal.minWeight` | `ECM_TRAVERSAL_MIN_WEIGHT` |
-| `tokens.claudeMdBudget` | `ECM_TOKENS_CLAUDE_MD_BUDGET` |
-| `tokens.mcpMaxResponse` | `ECM_TOKENS_MCP_MAX_RESPONSE` |
-| `storage.dbPath` | `ECM_STORAGE_DB_PATH` |
-| `storage.vectorPath` | `ECM_STORAGE_VECTOR_PATH` |
-| `llm.clusterRefreshModel` | `ECM_LLM_CLUSTER_REFRESH_MODEL` |
-| `llm.refreshRateLimitPerMin` | `ECM_LLM_REFRESH_RATE_LIMIT` |
+| `decay.backward.type` | `CAUSANTIC_DECAY_BACKWARD_TYPE` |
+| `decay.backward.diesAtHops` | `CAUSANTIC_DECAY_BACKWARD_DIES_AT_HOPS` |
+| `decay.backward.holdHops` | `CAUSANTIC_DECAY_BACKWARD_HOLD_HOPS` |
+| `decay.forward.type` | `CAUSANTIC_DECAY_FORWARD_TYPE` |
+| `decay.forward.diesAtHops` | `CAUSANTIC_DECAY_FORWARD_DIES_AT_HOPS` |
+| `decay.forward.holdHops` | `CAUSANTIC_DECAY_FORWARD_HOLD_HOPS` |
+| `clustering.threshold` | `CAUSANTIC_CLUSTERING_THRESHOLD` |
+| `clustering.minClusterSize` | `CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE` |
+| `traversal.maxDepth` | `CAUSANTIC_TRAVERSAL_MAX_DEPTH` |
+| `traversal.minWeight` | `CAUSANTIC_TRAVERSAL_MIN_WEIGHT` |
+| `tokens.claudeMdBudget` | `CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET` |
+| `tokens.mcpMaxResponse` | `CAUSANTIC_TOKENS_MCP_MAX_RESPONSE` |
+| `storage.dbPath` | `CAUSANTIC_STORAGE_DB_PATH` |
+| `storage.vectorPath` | `CAUSANTIC_STORAGE_VECTOR_PATH` |
+| `llm.clusterRefreshModel` | `CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL` |
+| `llm.refreshRateLimitPerMin` | `CAUSANTIC_LLM_REFRESH_RATE_LIMIT` |
 
 ## Example Configurations
 
@@ -153,7 +153,7 @@ All settings can be overridden via environment variables:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Entrolution/entropic-causal-memory/main/config.schema.json"
+  "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json"
 }
 ```
 
@@ -163,7 +163,7 @@ Uses all defaults.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Entrolution/entropic-causal-memory/main/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json",
   "decay": {
     "backward": {
       "type": "delayed-linear",
@@ -180,7 +180,7 @@ Extends backward edge lifetime for better long-range recall.
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Entrolution/entropic-causal-memory/main/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json",
   "tokens": {
     "claudeMdBudget": 1000,
     "mcpMaxResponse": 5000

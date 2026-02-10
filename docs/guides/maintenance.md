@@ -1,6 +1,6 @@
 # Maintenance Guide
 
-This guide covers maintaining your ECM installation for optimal performance.
+This guide covers maintaining your Causantic installation for optimal performance.
 
 ## Maintenance Tasks
 
@@ -9,7 +9,7 @@ This guide covers maintaining your ECM installation for optimal performance.
 Discovers new sessions and ingests changes.
 
 ```bash
-npx ecm maintenance run scan-projects
+npx causantic maintenance run scan-projects
 ```
 
 **Frequency**: Hourly (or on-demand)
@@ -24,7 +24,7 @@ npx ecm maintenance run scan-projects
 Re-runs HDBSCAN clustering on all embeddings.
 
 ```bash
-npx ecm maintenance run update-clusters
+npx causantic maintenance run update-clusters
 ```
 
 **Frequency**: Daily
@@ -39,7 +39,7 @@ npx ecm maintenance run update-clusters
 Removes dead edges and orphaned nodes.
 
 ```bash
-npx ecm maintenance run prune-graph
+npx causantic maintenance run prune-graph
 ```
 
 **Frequency**: Daily
@@ -54,7 +54,7 @@ npx ecm maintenance run prune-graph
 Updates cluster descriptions using Haiku.
 
 ```bash
-npx ecm maintenance run refresh-labels
+npx causantic maintenance run refresh-labels
 ```
 
 **Frequency**: Weekly (optional)
@@ -64,7 +64,7 @@ npx ecm maintenance run refresh-labels
 - Requires Anthropic API key
 - Improves memory summaries in CLAUDE.md
 
-**Note**: This task is optional. ECM works without cluster descriptions.
+**Note**: This task is optional. Causantic works without cluster descriptions.
 
 ## Running Maintenance
 
@@ -72,16 +72,16 @@ npx ecm maintenance run refresh-labels
 
 ```bash
 # Run a specific task
-npx ecm maintenance run prune-graph
+npx causantic maintenance run prune-graph
 
 # Run all tasks
-npx ecm maintenance run all
+npx causantic maintenance run all
 ```
 
 ### Check Status
 
 ```bash
-npx ecm maintenance status
+npx causantic maintenance status
 ```
 
 Shows last run times and next scheduled runs.
@@ -91,7 +91,7 @@ Shows last run times and next scheduled runs.
 Run maintenance as a background service:
 
 ```bash
-npx ecm maintenance daemon
+npx causantic maintenance daemon
 ```
 
 Uses cron-style scheduling:
@@ -105,13 +105,13 @@ Uses cron-style scheduling:
 ### Check Storage Size
 
 ```bash
-du -sh ~/.ecm/
+du -sh ~/.causantic/
 ```
 
 ### Database Optimization
 
 ```bash
-npx ecm maintenance run vacuum
+npx causantic maintenance run vacuum
 ```
 
 Runs SQLite VACUUM to reclaim space.
@@ -120,10 +120,10 @@ Runs SQLite VACUUM to reclaim space.
 
 ```bash
 # Export memory to JSON
-npx ecm export --output backup.ecm.json
+npx causantic export --output backup.causantic.json
 
 # Import from backup
-npx ecm import backup.ecm.json
+npx causantic import backup.causantic.json
 ```
 
 ## Monitoring
@@ -131,7 +131,7 @@ npx ecm import backup.ecm.json
 ### Health Check
 
 ```bash
-npx ecm health
+npx causantic health
 ```
 
 Checks:
@@ -143,7 +143,7 @@ Checks:
 ### Statistics
 
 ```bash
-npx ecm stats
+npx causantic stats
 ```
 
 Shows:
@@ -174,6 +174,6 @@ If memory usage is high:
 
 If expected context isn't being recalled:
 
-1. Verify session was ingested: `npx ecm list-sessions`
-2. Check chunk exists: `npx ecm search "your query"`
+1. Verify session was ingested: `npx causantic list-sessions`
+2. Check chunk exists: `npx causantic search "your query"`
 3. Adjust clustering threshold if topics aren't grouping correctly

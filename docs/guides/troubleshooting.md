@@ -1,12 +1,12 @@
 # Troubleshooting Guide
 
-Common issues and solutions for ECM.
+Common issues and solutions for Causantic.
 
 ## Installation Issues
 
 ### "Node.js version too old"
 
-ECM requires Node.js 20+.
+Causantic requires Node.js 20+.
 
 **Solution**:
 ```bash
@@ -24,13 +24,13 @@ node --version
 
 **Check 1**: Verify the server starts:
 ```bash
-npx ecm serve
+npx causantic serve
 # Should output: "MCP server started on stdio"
 ```
 
 **Check 2**: Test health endpoint:
 ```bash
-npx ecm health
+npx causantic health
 ```
 
 **Check 3**: Check Claude Code config:
@@ -39,7 +39,7 @@ npx ecm health
   "mcpServers": {
     "memory": {
       "command": "npx",
-      "args": ["ecm", "serve"]
+      "args": ["causantic", "serve"]
     }
   }
 }
@@ -52,10 +52,10 @@ npx ecm health
 **Solution**:
 ```bash
 # Ingest existing sessions
-npx ecm batch-ingest ~/.claude/projects
+npx causantic batch-ingest ~/.claude/projects
 
 # Verify ingestion
-npx ecm stats
+npx causantic stats
 ```
 
 ## Query Issues
@@ -64,29 +64,29 @@ npx ecm stats
 
 **Cause 1**: Too many edges need traversal.
 ```bash
-npx ecm maintenance run prune-graph
+npx causantic maintenance run prune-graph
 ```
 
 **Cause 2**: Large database needs optimization.
 ```bash
-npx ecm maintenance run vacuum
+npx causantic maintenance run vacuum
 ```
 
 ### "Expected context not recalled"
 
 **Check 1**: Verify the session was ingested:
 ```bash
-npx ecm list-sessions
+npx causantic list-sessions
 ```
 
 **Check 2**: Search for specific content:
 ```bash
-npx ecm search "your expected content"
+npx causantic search "your expected content"
 ```
 
 **Check 3**: Check clustering:
 ```bash
-npx ecm clusters list
+npx causantic clusters list
 ```
 
 If content is in a different cluster than expected, adjust `clustering.threshold`.
@@ -97,27 +97,27 @@ If content is in a different cluster than expected, adjust `clustering.threshold
 
 **Cause**: Multiple processes accessing the database.
 
-**Solution**: Ensure only one ECM process runs at a time:
+**Solution**: Ensure only one Causantic process runs at a time:
 ```bash
-# Kill any running ECM processes
-pkill -f "ecm serve"
+# Kill any running Causantic processes
+pkill -f "causantic serve"
 
 # Restart
-npx ecm serve
+npx causantic serve
 ```
 
 ### "Disk space running low"
 
 **Check storage**:
 ```bash
-du -sh ~/.ecm/
-du -sh ~/.ecm/memory.db
-du -sh ~/.ecm/vectors/
+du -sh ~/.causantic/
+du -sh ~/.causantic/memory.db
+du -sh ~/.causantic/vectors/
 ```
 
 **Solutions**:
-1. Run vacuum: `npx ecm maintenance run vacuum`
-2. Prune old edges: `npx ecm maintenance run prune-graph`
+1. Run vacuum: `npx causantic maintenance run vacuum`
+2. Prune old edges: `npx causantic maintenance run prune-graph`
 3. Archive old sessions if needed
 
 ## Secret Management Issues
@@ -127,17 +127,17 @@ du -sh ~/.ecm/vectors/
 **macOS**:
 ```bash
 # Set key in Keychain
-npx ecm config set-key anthropic
+npx causantic config set-key anthropic
 ```
 
 **Linux**:
 ```bash
 # Using secret-tool (GNOME)
 sudo apt install libsecret-tools
-npx ecm config set-key anthropic
+npx causantic config set-key anthropic
 
 # Or via environment variable
-export ECM_ANTHROPIC_KEY="sk-ant-..."
+export CAUSANTIC_ANTHROPIC_KEY="sk-ant-..."
 ```
 
 ### "Keychain access denied"
@@ -158,7 +158,7 @@ Verify hooks are configured:
 {
   "hooks": {
     "session-start": {
-      "command": "npx ecm hook session-start"
+      "command": "npx causantic hook session-start"
     }
   }
 }
@@ -168,18 +168,18 @@ Verify hooks are configured:
 
 **Enable debug logging**:
 ```bash
-export ECM_DEBUG=1
-npx ecm hook session-start
+export CAUSANTIC_DEBUG=1
+npx causantic hook session-start
 ```
 
 ## Getting Help
 
 If issues persist:
 
-1. Check [GitHub Issues](https://github.com/Entrolution/entropic-causal-memory/issues)
-2. Run diagnostics: `npx ecm diagnose`
+1. Check [GitHub Issues](https://github.com/Entrolution/causantic/issues)
+2. Run diagnostics: `npx causantic diagnose`
 3. Open a new issue with:
-   - ECM version: `npx ecm --version`
+   - Causantic version: `npx causantic --version`
    - Node.js version: `node --version`
    - OS and version
    - Error messages

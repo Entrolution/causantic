@@ -40,10 +40,10 @@ describe('cluster-refresh', () => {
     it('error message includes keychain instructions', () => {
       const expectedMessage =
         'No Anthropic API key found. Set ANTHROPIC_API_KEY environment variable ' +
-        'or run "ecm config set-key anthropic-api-key" to store in keychain.';
+        'or run "causantic config set-key anthropic-api-key" to store in keychain.';
 
       expect(expectedMessage).toContain('ANTHROPIC_API_KEY');
-      expect(expectedMessage).toContain('ecm config set-key');
+      expect(expectedMessage).toContain('causantic config set-key');
       expect(expectedMessage).toContain('keychain');
     });
   });

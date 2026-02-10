@@ -124,9 +124,9 @@ export class McpServer {
 
   constructor(config: McpServerConfig = {}) {
     this.config = {
-      enableLogging: config.enableLogging ?? (process.env.ECM_MCP_LOGGING === 'true'),
-      logLevel: config.logLevel ?? (process.env.ECM_MCP_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') ?? 'info',
-      authToken: config.authToken ?? process.env.ECM_MCP_AUTH_TOKEN ?? '',
+      enableLogging: config.enableLogging ?? (process.env.CAUSANTIC_MCP_LOGGING === 'true'),
+      logLevel: config.logLevel ?? (process.env.CAUSANTIC_MCP_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') ?? 'info',
+      authToken: config.authToken ?? process.env.CAUSANTIC_MCP_AUTH_TOKEN ?? '',
       enableHealthCheck: config.enableHealthCheck ?? true,
     };
   }
@@ -417,7 +417,7 @@ export class McpServer {
           tools: {},
         },
         serverInfo: {
-          name: 'entropic-causal-memory',
+          name: 'causantic',
           version: '0.1.0',
         },
       },

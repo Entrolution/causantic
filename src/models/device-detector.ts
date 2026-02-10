@@ -22,7 +22,7 @@ export interface DeviceDetectionResult {
   label: string;
   /** How this device was selected. */
   source: 'override' | 'env' | 'auto';
-  /** Optional notes (e.g. "coreml available — set ECM_EMBEDDING_DEVICE to enable"). */
+  /** Optional notes (e.g. "coreml available — set CAUSANTIC_EMBEDDING_DEVICE to enable"). */
   notes?: string;
   /** Accelerators detected as available but not activated by default. */
   available?: AvailableAccelerator[];
@@ -96,7 +96,7 @@ function autoDetect(): { device: DeviceName; notes?: string; available?: Availab
   // - CUDA: requires compatible driver/runtime, untested model combinations
   const available = detectAvailableAccelerators();
   const hints = available.length > 0
-    ? `${available.join(', ')} available — set ECM_EMBEDDING_DEVICE to enable`
+    ? `${available.join(', ')} available — set CAUSANTIC_EMBEDDING_DEVICE to enable`
     : undefined;
 
   return { device: 'cpu', notes: hints, available };
@@ -123,7 +123,7 @@ export function detectDevice(override?: string): DeviceDetectionResult {
   }
 
   // 2. Environment variable
-  const envDevice = process.env.ECM_EMBEDDING_DEVICE;
+  const envDevice = process.env.CAUSANTIC_EMBEDDING_DEVICE;
   if (envDevice && envDevice !== 'auto') {
     const device = normalizeDevice(envDevice);
     const result: DeviceDetectionResult = {

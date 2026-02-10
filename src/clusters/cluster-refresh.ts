@@ -87,7 +87,7 @@ export class ClusterRefresher {
       if (!process.env.ANTHROPIC_API_KEY) {
         throw new Error(
           'No Anthropic API key found. Set ANTHROPIC_API_KEY environment variable ' +
-          'or run "ecm config set-key anthropic-api-key" to store in keychain.'
+          'or run "causantic config set-key anthropic-api-key" to store in keychain.'
         );
       }
 

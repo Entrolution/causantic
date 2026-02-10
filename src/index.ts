@@ -1,5 +1,5 @@
 /**
- * Entropic Causal Memory
+ * Causantic
  *
  * Long-term memory system for Claude Code using causal graphs and vector clocks.
  *

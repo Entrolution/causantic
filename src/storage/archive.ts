@@ -1,5 +1,5 @@
 /**
- * Export/import functionality for ECM memory data.
+ * Export/import functionality for Causantic memory data.
  *
  * Supports encrypted and unencrypted archives.
  */
@@ -15,7 +15,7 @@ const log = createLogger('archive');
 const ARCHIVE_VERSION = '1.0';
 
 /** Magic bytes for encrypted archives */
-const ENCRYPTED_MAGIC = Buffer.from('ECM\x00');
+const ENCRYPTED_MAGIC = Buffer.from('CST\x00');
 
 /** Archive metadata */
 export interface ArchiveMetadata {
@@ -58,7 +58,7 @@ export interface ExportedCluster {
 
 /** Complete archive structure */
 export interface Archive {
-  format: 'ecm-archive';
+  format: 'causantic-archive';
   version: string;
   created: string;
   metadata: ArchiveMetadata;
@@ -195,7 +195,7 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
 
   // Build archive
   const archive: Archive = {
-    format: 'ecm-archive',
+    format: 'causantic-archive',
     version: ARCHIVE_VERSION,
     created: new Date().toISOString(),
     metadata: {
@@ -255,7 +255,7 @@ export async function importArchive(options: ImportOptions): Promise<void> {
 
   const archive = JSON.parse(jsonData) as Archive;
 
-  if (archive.format !== 'ecm-archive') {
+  if (archive.format !== 'causantic-archive') {
     throw new Error('Invalid archive format');
   }
 

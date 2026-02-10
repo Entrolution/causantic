@@ -44,7 +44,7 @@ export function Shell() {
         {/* Logo */}
         <div className="flex h-16 items-center gap-2 border-b border-border px-6">
           <Brain className="h-6 w-6 text-accent" />
-          <span className="text-lg font-bold">ECM</span>
+          <span className="text-lg font-bold">Causantic</span>
           <span className="text-sm text-muted-foreground">Dashboard</span>
         </div>
 
@@ -73,7 +73,7 @@ export function Shell() {
 
         {/* Footer */}
         <div className="border-t border-border p-4 text-xs text-muted-foreground">
-          Entropic Causal Memory
+          Causantic
         </div>
       </aside>
 

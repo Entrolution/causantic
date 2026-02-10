@@ -27,7 +27,7 @@ import Database from 'better-sqlite3-multiple-ciphers';
 import { setDb, resetDb } from '../../src/storage/db.js';
 
 /**
- * Create an in-memory SQLite database with the full ECM schema.
+ * Create an in-memory SQLite database with the full Causantic schema.
  * This matches the production schema without relying on file-based migrations.
  */
 export function createTestDb(): Database.Database {

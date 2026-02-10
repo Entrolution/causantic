@@ -1,10 +1,10 @@
 # Embedding Model Experiments
 
-This document details the experiments comparing embedding models for ECM.
+This document details the experiments comparing embedding models for Causantic.
 
 ## Hypothesis
 
-Different embedding models offer trade-offs between quality, size, and inference speed. The optimal model balances these factors for ECM's use case.
+Different embedding models offer trade-offs between quality, size, and inference speed. The optimal model balances these factors for Causantic's use case.
 
 ## Methodology
 
@@ -89,7 +89,7 @@ Rationale:
 
 ## Implementation
 
-ECM uses jina-small via Hugging Face Transformers:
+Causantic uses jina-small via Hugging Face Transformers:
 
 ```typescript
 import { pipeline } from '@huggingface/transformers';

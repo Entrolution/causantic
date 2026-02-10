@@ -1,10 +1,10 @@
 /**
- * ECM Uninstall Command
+ * Causantic Uninstall Command
  *
- * Removes all ECM artifacts: integrations (CLAUDE.md, MCP config, skills, keychain)
- * and optionally the data directory (~/.ecm/).
+ * Removes all Causantic artifacts: integrations (CLAUDE.md, MCP config, skills, keychain)
+ * and optionally the data directory (~/.causantic/).
  *
- * Usage: ecm uninstall [--force] [--keep-data] [--dry-run]
+ * Usage: causantic uninstall [--force] [--keep-data] [--dry-run]
  */
 
 import * as fs from 'node:fs';
@@ -12,13 +12,13 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as readline from 'node:readline';
 import { createSecretStore } from '../utils/secret-store.js';
-import { ECM_SKILLS } from './skill-templates.js';
+import { CAUSANTIC_SKILLS } from './skill-templates.js';
 
-const ECM_SERVER_KEY = 'entropic-causal-memory';
-const ECM_START_MARKER = '<!-- ECM_MEMORY_START -->';
-const ECM_END_MARKER = '<!-- ECM_MEMORY_END -->';
+const CAUSANTIC_SERVER_KEY = 'causantic';
+const CAUSANTIC_START_MARKER = '<!-- CAUSANTIC_MEMORY_START -->';
+const CAUSANTIC_END_MARKER = '<!-- CAUSANTIC_MEMORY_END -->';
 
-const KEYCHAIN_KEYS = ['ecm-db-key', 'anthropic-api-key'];
+const KEYCHAIN_KEYS = ['causantic-db-key', 'anthropic-api-key'];
 
 /** A single artifact that can be removed */
 export interface RemovalArtifact {
@@ -66,19 +66,19 @@ export function formatSize(bytes: number): string {
 }
 
 /**
- * Remove ECM block from CLAUDE.md content.
- * Returns the cleaned content, or null if no ECM block was found.
+ * Remove Causantic block from CLAUDE.md content.
+ * Returns the cleaned content, or null if no Causantic block was found.
  */
-export function removeEcmBlock(content: string): string | null {
-  const startIdx = content.indexOf(ECM_START_MARKER);
-  const endIdx = content.indexOf(ECM_END_MARKER);
+export function removeCausanticBlock(content: string): string | null {
+  const startIdx = content.indexOf(CAUSANTIC_START_MARKER);
+  const endIdx = content.indexOf(CAUSANTIC_END_MARKER);
 
   if (startIdx === -1 || endIdx === -1 || endIdx < startIdx) {
     return null;
   }
 
   const before = content.slice(0, startIdx);
-  const after = content.slice(endIdx + ECM_END_MARKER.length);
+  const after = content.slice(endIdx + CAUSANTIC_END_MARKER.length);
 
   // Clean up extra blank lines at the splice point
   let result = before.replace(/\n{2,}$/, '\n') + after.replace(/^\n{2,}/, '\n');
@@ -134,7 +134,7 @@ export function decodeProjectDirName(dirName: string): string {
 }
 
 /**
- * Discover project .mcp.json files that contain the ECM server entry.
+ * Discover project .mcp.json files that contain the Causantic server entry.
  * Returns array of { displayName, mcpPath }.
  */
 export function discoverProjectMcpFiles(): Array<{ displayName: string; mcpPath: string }> {
@@ -155,7 +155,7 @@ export function discoverProjectMcpFiles(): Array<{ displayName: string; mcpPath:
 
       try {
         const mcpContent = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
-        if (mcpContent.mcpServers?.[ECM_SERVER_KEY]) {
+        if (mcpContent.mcpServers?.[CAUSANTIC_SERVER_KEY]) {
           const displayName = projectPath.replace(
             new RegExp(`^/Users/${os.userInfo().username}/`),
             '~/',
@@ -180,12 +180,12 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
   const home = os.homedir();
   const artifacts: RemovalArtifact[] = [];
 
-  // 1. CLAUDE.md ECM block
+  // 1. CLAUDE.md Causantic block
   const claudeMdPath = path.join(home, '.claude', 'CLAUDE.md');
-  const hasEcmBlock = (() => {
+  const hasCausanticBlock = (() => {
     try {
       const content = fs.readFileSync(claudeMdPath, 'utf-8');
-      return content.includes(ECM_START_MARKER) && content.includes(ECM_END_MARKER);
+      return content.includes(CAUSANTIC_START_MARKER) && content.includes(CAUSANTIC_END_MARKER);
     } catch {
       return false;
     }
@@ -193,13 +193,13 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
 
   artifacts.push({
     label: '~/.claude/CLAUDE.md',
-    description: 'ECM memory block',
+    description: 'Causantic memory block',
     category: 'integration',
-    found: hasEcmBlock,
+    found: hasCausanticBlock,
     remove: async () => {
       try {
         const content = fs.readFileSync(claudeMdPath, 'utf-8');
-        const cleaned = removeEcmBlock(content);
+        const cleaned = removeCausanticBlock(content);
         if (cleaned === null) return false;
         if (cleaned === '') {
           // Don't delete the file, just empty it — user may have other content to add
@@ -215,7 +215,7 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
     verify: () => {
       try {
         const content = fs.readFileSync(claudeMdPath, 'utf-8');
-        return content.includes(ECM_START_MARKER);
+        return content.includes(CAUSANTIC_START_MARKER);
       } catch {
         return false;
       }
@@ -227,7 +227,7 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
   const hasSettingsEntry = (() => {
     try {
       const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-      return ECM_SERVER_KEY in (config.mcpServers ?? {});
+      return CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
     } catch {
       return false;
     }
@@ -238,11 +238,11 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
     description: 'MCP server entry',
     category: 'integration',
     found: hasSettingsEntry,
-    remove: async () => removeJsonKey(settingsPath, ['mcpServers', ECM_SERVER_KEY]),
+    remove: async () => removeJsonKey(settingsPath, ['mcpServers', CAUSANTIC_SERVER_KEY]),
     verify: () => {
       try {
         const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        return ECM_SERVER_KEY in (config.mcpServers ?? {});
+        return CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
       } catch {
         return false;
       }
@@ -257,11 +257,11 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
       description: 'MCP server entry',
       category: 'integration',
       found: true,
-      remove: async () => removeJsonKey(mcpPath, ['mcpServers', ECM_SERVER_KEY]),
+      remove: async () => removeJsonKey(mcpPath, ['mcpServers', CAUSANTIC_SERVER_KEY]),
       verify: () => {
         try {
           const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
-          return ECM_SERVER_KEY in (config.mcpServers ?? {});
+          return CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
         } catch {
           return false;
         }
@@ -271,7 +271,7 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
 
   // 4. Skill directories
   const skillsDir = path.join(home, '.claude', 'skills');
-  for (const skill of ECM_SKILLS) {
+  for (const skill of CAUSANTIC_SKILLS) {
     const skillDir = path.join(skillsDir, skill.dirName);
     const skillExists = fs.existsSync(skillDir);
 
@@ -313,25 +313,25 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
 
   // 6. Data directory
   if (!keepData) {
-    const ecmDir = path.join(home, '.ecm');
-    const ecmDirExists = fs.existsSync(ecmDir);
-    const dirSize = ecmDirExists ? getDirSize(ecmDir) : 0;
+    const causanticDir = path.join(home, '.causantic');
+    const causanticDirExists = fs.existsSync(causanticDir);
+    const dirSize = causanticDirExists ? getDirSize(causanticDir) : 0;
 
     artifacts.push({
-      label: '~/.ecm/',
+      label: '~/.causantic/',
       description: formatSize(dirSize),
       category: 'data',
-      found: ecmDirExists,
+      found: causanticDirExists,
       size: formatSize(dirSize),
       remove: async () => {
         try {
-          fs.rmSync(ecmDir, { recursive: true, force: true });
+          fs.rmSync(causanticDir, { recursive: true, force: true });
           return true;
         } catch {
           return false;
         }
       },
-      verify: () => fs.existsSync(ecmDir),
+      verify: () => fs.existsSync(causanticDir),
     });
   }
 
@@ -343,7 +343,7 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
  */
 export function printPreview(artifacts: RemovalArtifact[], keepData: boolean): void {
   console.log('');
-  console.log('ECM Uninstall Preview');
+  console.log('Causantic Uninstall Preview');
   console.log('');
 
   const integrations = artifacts.filter((a) => a.category === 'integration');
@@ -379,7 +379,7 @@ export function printPreview(artifacts: RemovalArtifact[], keepData: boolean): v
   }
 
   if (keepData) {
-    console.log('  Note: --keep-data specified; ~/.ecm/ will be preserved.');
+    console.log('  Note: --keep-data specified; ~/.causantic/ will be preserved.');
     console.log('');
   }
 }
@@ -411,7 +411,7 @@ export async function handleUninstall(args: string[]): Promise<void> {
   const foundArtifacts = artifacts.filter((a) => a.found);
 
   if (foundArtifacts.length === 0) {
-    console.log('Nothing to uninstall — no ECM artifacts found.');
+    console.log('Nothing to uninstall — no Causantic artifacts found.');
     return;
   }
 
@@ -426,7 +426,7 @@ export async function handleUninstall(args: string[]): Promise<void> {
 
   // 4. If not --force and not --keep-data, suggest export
   if (!force && !keepData) {
-    console.log('Back up your data first? Run: ecm export --output ~/ecm-backup.ecm');
+    console.log('Back up your data first? Run: causantic export --output ~/causantic-backup.causantic');
     console.log('');
   }
 
@@ -458,7 +458,7 @@ export async function handleUninstall(args: string[]): Promise<void> {
   }
 
   // 6. Execute removal
-  console.log('Removing ECM artifacts...');
+  console.log('Removing Causantic artifacts...');
   console.log('');
 
   for (const artifact of artifacts) {
@@ -480,10 +480,10 @@ export async function handleUninstall(args: string[]): Promise<void> {
     }
     console.log('');
   } else {
-    console.log('Clean! All ECM artifacts removed.');
+    console.log('Clean! All Causantic artifacts removed.');
     console.log('');
   }
 
   // 8. Reinstall hint
-  console.log('To reinstall: npx ecm init');
+  console.log('To reinstall: npx causantic init');
 }

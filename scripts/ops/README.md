@@ -1,6 +1,6 @@
 # Operational Scripts
 
-Core operational commands for running ECM.
+Core operational commands for running Causantic.
 
 | Script | Description | Usage |
 |--------|-------------|-------|

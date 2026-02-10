@@ -1,6 +1,6 @@
 # Decay Curve Experiments
 
-This document details the experiments that determined ECM's optimal decay curves.
+This document details the experiments that determined Causantic's optimal decay curves.
 
 ## Hypothesis
 

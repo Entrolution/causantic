@@ -4,7 +4,7 @@ import { runTask, runAllTasks, getStatus, runDaemon } from '../../maintenance/sc
 export const maintenanceCommand: Command = {
   name: 'maintenance',
   description: 'Run maintenance tasks',
-  usage: 'ecm maintenance <run|status|daemon> [task]',
+  usage: 'causantic maintenance <run|status|daemon> [task]',
   handler: async (args) => {
     const subcommand = args[0];
 
@@ -24,7 +24,7 @@ export const maintenanceCommand: Command = {
           console.log(`${taskName}: ${status} - ${result.message}`);
         } else {
           console.error('Error: Task name required');
-          console.log('Usage: ecm maintenance run <task|all>');
+          console.log('Usage: causantic maintenance run <task|all>');
           console.log('Tasks: scan-projects, update-clusters, prune-graph, refresh-labels, vacuum');
           process.exit(2);
         }
@@ -59,7 +59,7 @@ export const maintenanceCommand: Command = {
       }
       default:
         console.error('Error: Unknown subcommand');
-        console.log('Usage: ecm maintenance <run|status|daemon>');
+        console.log('Usage: causantic maintenance <run|status|daemon>');
         process.exit(2);
     }
   },

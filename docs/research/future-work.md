@@ -1,6 +1,6 @@
 # Future Work
 
-Open questions and potential improvements for ECM.
+Open questions and potential improvements for Causantic.
 
 ## High Priority
 

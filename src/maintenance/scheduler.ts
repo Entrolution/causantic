@@ -1,5 +1,5 @@
 /**
- * Maintenance task scheduler for ECM.
+ * Maintenance task scheduler for Causantic.
  *
  * Orchestrates periodic maintenance tasks. Individual task handlers
  * are in src/maintenance/tasks/ and accept dependencies as parameters.
@@ -62,7 +62,7 @@ interface SchedulerState {
   version: string;
 }
 
-const STATE_FILE_PATH = '~/.ecm/maintenance-state.json';
+const STATE_FILE_PATH = '~/.causantic/maintenance-state.json';
 const STATE_VERSION = '1.0';
 
 /**

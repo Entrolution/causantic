@@ -17,7 +17,7 @@ describe('archive', () => {
   describe('Archive interface', () => {
     it('has correct structure', () => {
       const archive: Archive = {
-        format: 'ecm-archive',
+        format: 'causantic-archive',
         version: '1.0',
         created: '2024-01-15T10:30:00Z',
         metadata: {
@@ -33,7 +33,7 @@ describe('archive', () => {
         clusters: [],
       };
 
-      expect(archive.format).toBe('ecm-archive');
+      expect(archive.format).toBe('causantic-archive');
       expect(archive.version).toBe('1.0');
       expect(archive.metadata.chunkCount).toBe(100);
     });
@@ -124,15 +124,15 @@ describe('archive', () => {
   describe('ExportOptions interface', () => {
     it('requires outputPath', () => {
       const options: ExportOptions = {
-        outputPath: '/path/to/archive.ecm',
+        outputPath: '/path/to/archive.causantic',
       };
 
-      expect(options.outputPath).toBe('/path/to/archive.ecm');
+      expect(options.outputPath).toBe('/path/to/archive.causantic');
     });
 
     it('supports optional password for encryption', () => {
       const options: ExportOptions = {
-        outputPath: '/path/to/archive.ecm',
+        outputPath: '/path/to/archive.causantic',
         password: 'secret123',
       };
 
@@ -141,7 +141,7 @@ describe('archive', () => {
 
     it('supports project filtering', () => {
       const options: ExportOptions = {
-        outputPath: '/path/to/archive.ecm',
+        outputPath: '/path/to/archive.causantic',
         projects: ['project-a', 'project-c'],
       };
 
@@ -150,7 +150,7 @@ describe('archive', () => {
 
     it('supports redaction options', () => {
       const options: ExportOptions = {
-        outputPath: '/path/to/archive.ecm',
+        outputPath: '/path/to/archive.causantic',
         redactPaths: true,
         redactCode: true,
       };
@@ -163,15 +163,15 @@ describe('archive', () => {
   describe('ImportOptions interface', () => {
     it('requires inputPath', () => {
       const options: ImportOptions = {
-        inputPath: '/path/to/archive.ecm',
+        inputPath: '/path/to/archive.causantic',
       };
 
-      expect(options.inputPath).toBe('/path/to/archive.ecm');
+      expect(options.inputPath).toBe('/path/to/archive.causantic');
     });
 
     it('supports optional password for decryption', () => {
       const options: ImportOptions = {
-        inputPath: '/path/to/archive.ecm',
+        inputPath: '/path/to/archive.causantic',
         password: 'secret123',
       };
 
@@ -180,7 +180,7 @@ describe('archive', () => {
 
     it('supports merge option', () => {
       const options: ImportOptions = {
-        inputPath: '/path/to/archive.ecm',
+        inputPath: '/path/to/archive.causantic',
         merge: true,
       };
 
@@ -252,9 +252,9 @@ describe('archive', () => {
 
   describe('encryption detection', () => {
     it('checks for magic bytes', () => {
-      const ENCRYPTED_MAGIC = Buffer.from('ECM\x00');
+      const ENCRYPTED_MAGIC = Buffer.from('CST\x00');
       const encryptedFile = Buffer.concat([ENCRYPTED_MAGIC, Buffer.from('encrypted data')]);
-      const plainFile = Buffer.from('{"format":"ecm-archive"}');
+      const plainFile = Buffer.from('{"format":"causantic-archive"}');
 
       const isEncrypted1 = encryptedFile.subarray(0, 4).equals(ENCRYPTED_MAGIC);
       const isEncrypted2 = plainFile.subarray(0, 4).equals(ENCRYPTED_MAGIC);
@@ -266,11 +266,11 @@ describe('archive', () => {
 
   describe('archive validation', () => {
     it('validates format field', () => {
-      const validArchive = { format: 'ecm-archive' };
+      const validArchive = { format: 'causantic-archive' };
       const invalidArchive = { format: 'other-format' };
 
-      expect(validArchive.format === 'ecm-archive').toBe(true);
-      expect(invalidArchive.format === 'ecm-archive').toBe(false);
+      expect(validArchive.format === 'causantic-archive').toBe(true);
+      expect(invalidArchive.format === 'causantic-archive').toBe(false);
     });
   });
 
@@ -293,7 +293,7 @@ describe('archive', () => {
   describe('JSON serialization', () => {
     it('serializes archive to JSON with formatting', () => {
       const archive: Archive = {
-        format: 'ecm-archive',
+        format: 'causantic-archive',
         version: '1.0',
         created: '2024-01-15T10:30:00Z',
         metadata: {
@@ -311,15 +311,15 @@ describe('archive', () => {
 
       const json = JSON.stringify(archive, null, 2);
 
-      expect(json).toContain('"format": "ecm-archive"');
+      expect(json).toContain('"format": "causantic-archive"');
       expect(json).toContain('\n'); // Pretty printed
     });
 
     it('parses JSON back to archive', () => {
-      const json = '{"format":"ecm-archive","version":"1.0","chunks":[],"edges":[],"clusters":[]}';
+      const json = '{"format":"causantic-archive","version":"1.0","chunks":[],"edges":[],"clusters":[]}';
       const parsed = JSON.parse(json);
 
-      expect(parsed.format).toBe('ecm-archive');
+      expect(parsed.format).toBe('causantic-archive');
     });
   });
 

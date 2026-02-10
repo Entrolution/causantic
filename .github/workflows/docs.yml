@@ -44,7 +44,7 @@ jobs:
 
           # Generate API documentation from TypeScript
           npx typedoc --out _site/api src/index.ts \
-            --name "Entropic Causal Memory API" \
+            --name "Causantic API" \
             --readme none \
             --excludePrivate \
             --excludeInternal \
@@ -56,7 +56,7 @@ jobs:
           <html>
           <head>
             <meta charset="utf-8">
-            <title>Entropic Causal Memory Documentation</title>
+            <title>Causantic Documentation</title>
             <meta http-equiv="refresh" content="0; url=getting-started/installation.html">
             <link rel="canonical" href="getting-started/installation.html">
           </head>

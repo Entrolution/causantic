@@ -3,9 +3,9 @@
  *
  * Priority (highest to lowest):
  * 1. CLI flags (passed directly)
- * 2. Environment variables (ECM_*)
- * 3. Project config file (./ecm.config.json)
- * 4. User config file (~/.ecm/config.json)
+ * 2. Environment variables (CAUSANTIC_*)
+ * 3. Project config file (./causantic.config.json)
+ * 4. User config file (~/.causantic/config.json)
  * 5. Built-in defaults
  */
 
@@ -93,8 +93,8 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
     mcpMaxResponse: 2000,
   },
   storage: {
-    dbPath: '~/.ecm/memory.db',
-    vectorPath: '~/.ecm/vectors',
+    dbPath: '~/.causantic/memory.db',
+    vectorPath: '~/.causantic/vectors',
   },
   llm: {
     clusterRefreshModel: 'claude-3-haiku-20240307',
@@ -134,127 +134,127 @@ function loadConfigFile(path: string): ExternalConfig | null {
 
 /**
  * Load config from environment variables.
- * Variables are prefixed with ECM_ and use underscores for nesting.
+ * Variables are prefixed with CAUSANTIC_ and use underscores for nesting.
  * Examples:
- *   ECM_DECAY_BACKWARD_TYPE=linear
- *   ECM_CLUSTERING_THRESHOLD=0.09
- *   ECM_STORAGE_DB_PATH=~/.ecm/memory.db
+ *   CAUSANTIC_DECAY_BACKWARD_TYPE=linear
+ *   CAUSANTIC_CLUSTERING_THRESHOLD=0.09
+ *   CAUSANTIC_STORAGE_DB_PATH=~/.causantic/memory.db
  */
 function loadEnvConfig(): ExternalConfig {
   const config: ExternalConfig = {};
 
   // Decay backward
-  if (process.env.ECM_DECAY_BACKWARD_TYPE) {
+  if (process.env.CAUSANTIC_DECAY_BACKWARD_TYPE) {
     config.decay = config.decay ?? {};
     config.decay.backward = config.decay.backward ?? {};
-    config.decay.backward.type = process.env.ECM_DECAY_BACKWARD_TYPE as 'linear' | 'exponential' | 'delayed-linear';
+    config.decay.backward.type = process.env.CAUSANTIC_DECAY_BACKWARD_TYPE as 'linear' | 'exponential' | 'delayed-linear';
   }
-  if (process.env.ECM_DECAY_BACKWARD_DIES_AT_HOPS) {
+  if (process.env.CAUSANTIC_DECAY_BACKWARD_DIES_AT_HOPS) {
     config.decay = config.decay ?? {};
     config.decay.backward = config.decay.backward ?? {};
-    config.decay.backward.diesAtHops = parseInt(process.env.ECM_DECAY_BACKWARD_DIES_AT_HOPS, 10);
+    config.decay.backward.diesAtHops = parseInt(process.env.CAUSANTIC_DECAY_BACKWARD_DIES_AT_HOPS, 10);
   }
-  if (process.env.ECM_DECAY_BACKWARD_HOLD_HOPS) {
+  if (process.env.CAUSANTIC_DECAY_BACKWARD_HOLD_HOPS) {
     config.decay = config.decay ?? {};
     config.decay.backward = config.decay.backward ?? {};
-    config.decay.backward.holdHops = parseInt(process.env.ECM_DECAY_BACKWARD_HOLD_HOPS, 10);
+    config.decay.backward.holdHops = parseInt(process.env.CAUSANTIC_DECAY_BACKWARD_HOLD_HOPS, 10);
   }
 
   // Decay forward
-  if (process.env.ECM_DECAY_FORWARD_TYPE) {
+  if (process.env.CAUSANTIC_DECAY_FORWARD_TYPE) {
     config.decay = config.decay ?? {};
     config.decay.forward = config.decay.forward ?? {};
-    config.decay.forward.type = process.env.ECM_DECAY_FORWARD_TYPE as 'linear' | 'exponential' | 'delayed-linear';
+    config.decay.forward.type = process.env.CAUSANTIC_DECAY_FORWARD_TYPE as 'linear' | 'exponential' | 'delayed-linear';
   }
-  if (process.env.ECM_DECAY_FORWARD_DIES_AT_HOPS) {
+  if (process.env.CAUSANTIC_DECAY_FORWARD_DIES_AT_HOPS) {
     config.decay = config.decay ?? {};
     config.decay.forward = config.decay.forward ?? {};
-    config.decay.forward.diesAtHops = parseInt(process.env.ECM_DECAY_FORWARD_DIES_AT_HOPS, 10);
+    config.decay.forward.diesAtHops = parseInt(process.env.CAUSANTIC_DECAY_FORWARD_DIES_AT_HOPS, 10);
   }
-  if (process.env.ECM_DECAY_FORWARD_HOLD_HOPS) {
+  if (process.env.CAUSANTIC_DECAY_FORWARD_HOLD_HOPS) {
     config.decay = config.decay ?? {};
     config.decay.forward = config.decay.forward ?? {};
-    config.decay.forward.holdHops = parseInt(process.env.ECM_DECAY_FORWARD_HOLD_HOPS, 10);
+    config.decay.forward.holdHops = parseInt(process.env.CAUSANTIC_DECAY_FORWARD_HOLD_HOPS, 10);
   }
 
   // Clustering
-  if (process.env.ECM_CLUSTERING_THRESHOLD) {
+  if (process.env.CAUSANTIC_CLUSTERING_THRESHOLD) {
     config.clustering = config.clustering ?? {};
-    config.clustering.threshold = parseFloat(process.env.ECM_CLUSTERING_THRESHOLD);
+    config.clustering.threshold = parseFloat(process.env.CAUSANTIC_CLUSTERING_THRESHOLD);
   }
-  if (process.env.ECM_CLUSTERING_MIN_CLUSTER_SIZE) {
+  if (process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE) {
     config.clustering = config.clustering ?? {};
-    config.clustering.minClusterSize = parseInt(process.env.ECM_CLUSTERING_MIN_CLUSTER_SIZE, 10);
+    config.clustering.minClusterSize = parseInt(process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE, 10);
   }
 
   // Traversal
-  if (process.env.ECM_TRAVERSAL_MAX_DEPTH) {
+  if (process.env.CAUSANTIC_TRAVERSAL_MAX_DEPTH) {
     config.traversal = config.traversal ?? {};
-    config.traversal.maxDepth = parseInt(process.env.ECM_TRAVERSAL_MAX_DEPTH, 10);
+    config.traversal.maxDepth = parseInt(process.env.CAUSANTIC_TRAVERSAL_MAX_DEPTH, 10);
   }
-  if (process.env.ECM_TRAVERSAL_MIN_WEIGHT) {
+  if (process.env.CAUSANTIC_TRAVERSAL_MIN_WEIGHT) {
     config.traversal = config.traversal ?? {};
-    config.traversal.minWeight = parseFloat(process.env.ECM_TRAVERSAL_MIN_WEIGHT);
+    config.traversal.minWeight = parseFloat(process.env.CAUSANTIC_TRAVERSAL_MIN_WEIGHT);
   }
 
   // Tokens
-  if (process.env.ECM_TOKENS_CLAUDE_MD_BUDGET) {
+  if (process.env.CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET) {
     config.tokens = config.tokens ?? {};
-    config.tokens.claudeMdBudget = parseInt(process.env.ECM_TOKENS_CLAUDE_MD_BUDGET, 10);
+    config.tokens.claudeMdBudget = parseInt(process.env.CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET, 10);
   }
-  if (process.env.ECM_TOKENS_MCP_MAX_RESPONSE) {
+  if (process.env.CAUSANTIC_TOKENS_MCP_MAX_RESPONSE) {
     config.tokens = config.tokens ?? {};
-    config.tokens.mcpMaxResponse = parseInt(process.env.ECM_TOKENS_MCP_MAX_RESPONSE, 10);
+    config.tokens.mcpMaxResponse = parseInt(process.env.CAUSANTIC_TOKENS_MCP_MAX_RESPONSE, 10);
   }
 
   // Storage
-  if (process.env.ECM_STORAGE_DB_PATH) {
+  if (process.env.CAUSANTIC_STORAGE_DB_PATH) {
     config.storage = config.storage ?? {};
-    config.storage.dbPath = process.env.ECM_STORAGE_DB_PATH;
+    config.storage.dbPath = process.env.CAUSANTIC_STORAGE_DB_PATH;
   }
-  if (process.env.ECM_STORAGE_VECTOR_PATH) {
+  if (process.env.CAUSANTIC_STORAGE_VECTOR_PATH) {
     config.storage = config.storage ?? {};
-    config.storage.vectorPath = process.env.ECM_STORAGE_VECTOR_PATH;
+    config.storage.vectorPath = process.env.CAUSANTIC_STORAGE_VECTOR_PATH;
   }
 
   // LLM
-  if (process.env.ECM_LLM_CLUSTER_REFRESH_MODEL) {
+  if (process.env.CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL) {
     config.llm = config.llm ?? {};
-    config.llm.clusterRefreshModel = process.env.ECM_LLM_CLUSTER_REFRESH_MODEL;
+    config.llm.clusterRefreshModel = process.env.CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL;
   }
-  if (process.env.ECM_LLM_REFRESH_RATE_LIMIT) {
+  if (process.env.CAUSANTIC_LLM_REFRESH_RATE_LIMIT) {
     config.llm = config.llm ?? {};
-    config.llm.refreshRateLimitPerMin = parseInt(process.env.ECM_LLM_REFRESH_RATE_LIMIT, 10);
+    config.llm.refreshRateLimitPerMin = parseInt(process.env.CAUSANTIC_LLM_REFRESH_RATE_LIMIT, 10);
   }
 
   // Encryption
-  if (process.env.ECM_ENCRYPTION_ENABLED) {
+  if (process.env.CAUSANTIC_ENCRYPTION_ENABLED) {
     config.encryption = config.encryption ?? {};
-    config.encryption.enabled = process.env.ECM_ENCRYPTION_ENABLED === 'true';
+    config.encryption.enabled = process.env.CAUSANTIC_ENCRYPTION_ENABLED === 'true';
   }
-  if (process.env.ECM_ENCRYPTION_CIPHER) {
+  if (process.env.CAUSANTIC_ENCRYPTION_CIPHER) {
     config.encryption = config.encryption ?? {};
-    config.encryption.cipher = process.env.ECM_ENCRYPTION_CIPHER as 'chacha20' | 'sqlcipher';
+    config.encryption.cipher = process.env.CAUSANTIC_ENCRYPTION_CIPHER as 'chacha20' | 'sqlcipher';
   }
-  if (process.env.ECM_ENCRYPTION_KEY_SOURCE) {
+  if (process.env.CAUSANTIC_ENCRYPTION_KEY_SOURCE) {
     config.encryption = config.encryption ?? {};
-    config.encryption.keySource = process.env.ECM_ENCRYPTION_KEY_SOURCE as 'keychain' | 'env' | 'prompt';
+    config.encryption.keySource = process.env.CAUSANTIC_ENCRYPTION_KEY_SOURCE as 'keychain' | 'env' | 'prompt';
   }
-  if (process.env.ECM_ENCRYPTION_AUDIT_LOG) {
+  if (process.env.CAUSANTIC_ENCRYPTION_AUDIT_LOG) {
     config.encryption = config.encryption ?? {};
-    config.encryption.auditLog = process.env.ECM_ENCRYPTION_AUDIT_LOG === 'true';
+    config.encryption.auditLog = process.env.CAUSANTIC_ENCRYPTION_AUDIT_LOG === 'true';
   }
 
   // Vectors
-  if (process.env.ECM_VECTORS_TTL_DAYS) {
+  if (process.env.CAUSANTIC_VECTORS_TTL_DAYS) {
     config.vectors = config.vectors ?? {};
-    config.vectors.ttlDays = parseInt(process.env.ECM_VECTORS_TTL_DAYS, 10);
+    config.vectors.ttlDays = parseInt(process.env.CAUSANTIC_VECTORS_TTL_DAYS, 10);
   }
 
   // Embedding
-  if (process.env.ECM_EMBEDDING_DEVICE) {
+  if (process.env.CAUSANTIC_EMBEDDING_DEVICE) {
     config.embedding = config.embedding ?? {};
-    config.embedding.device = process.env.ECM_EMBEDDING_DEVICE;
+    config.embedding.device = process.env.CAUSANTIC_EMBEDDING_DEVICE;
   }
 
   return config;
@@ -371,9 +371,9 @@ export interface LoadConfigOptions {
  *
  * Priority (highest to lowest):
  * 1. CLI flags (cliOverrides)
- * 2. Environment variables (ECM_*)
- * 3. Project config file (./ecm.config.json)
- * 4. User config file (~/.ecm/config.json)
+ * 2. Environment variables (CAUSANTIC_*)
+ * 3. Project config file (./causantic.config.json)
+ * 4. User config file (~/.causantic/config.json)
  * 5. Built-in defaults
  */
 export function loadConfig(options: LoadConfigOptions = {}): Required<ExternalConfig> {
@@ -383,7 +383,7 @@ export function loadConfig(options: LoadConfigOptions = {}): Required<ExternalCo
 
   // 4. User config file
   if (!options.skipUserConfig) {
-    const userConfigPath = options.userConfigPath ?? '~/.ecm/config.json';
+    const userConfigPath = options.userConfigPath ?? '~/.causantic/config.json';
     const userConfig = loadConfigFile(userConfigPath);
     if (userConfig) {
       config = deepMerge(config, userConfig);
@@ -392,7 +392,7 @@ export function loadConfig(options: LoadConfigOptions = {}): Required<ExternalCo
 
   // 3. Project config file
   if (!options.skipProjectConfig) {
-    const projectConfigPath = options.projectConfigPath ?? join(process.cwd(), 'ecm.config.json');
+    const projectConfigPath = options.projectConfigPath ?? join(process.cwd(), 'causantic.config.json');
     const projectConfig = loadConfigFile(projectConfigPath);
     if (projectConfig) {
       config = deepMerge(config, projectConfig);

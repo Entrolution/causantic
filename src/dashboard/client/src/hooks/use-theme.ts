@@ -5,7 +5,7 @@ type Theme = 'dark' | 'light';
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'dark';
-    return (localStorage.getItem('ecm-theme') as Theme) ?? 'dark';
+    return (localStorage.getItem('causantic-theme') as Theme) ?? 'dark';
   });
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export function useTheme() {
     } else {
       root.classList.remove('light');
     }
-    localStorage.setItem('ecm-theme', theme);
+    localStorage.setItem('causantic-theme', theme);
   }, [theme]);
 
   const toggle = useCallback(() => {

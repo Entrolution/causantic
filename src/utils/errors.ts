@@ -1,7 +1,7 @@
 /**
- * Standardized error types for ECM.
+ * Standardized error types for Causantic.
  *
- * All errors extend from EcmError, providing:
+ * All errors extend from CausanticError, providing:
  * - Error code for programmatic handling
  * - Cause chaining for debugging
  * - Consistent error messages
@@ -26,14 +26,14 @@
  */
 
 /**
- * Base error class for all ECM errors.
+ * Base error class for all Causantic errors.
  *
  * Provides:
  * - `code`: Programmatic error identifier (e.g., 'DB_CONNECTION_FAILED')
  * - `cause`: Original error that caused this one (for chaining)
  * - `name`: Error class name (e.g., 'StorageError')
  */
-export class EcmError extends Error {
+export class CausanticError extends Error {
   /** Error code for programmatic handling */
   readonly code: string;
 
@@ -66,7 +66,7 @@ export class EcmError extends Error {
 
     if (this.cause) {
       result += `\n  Caused by: ${this.cause.message}`;
-      if (this.cause instanceof EcmError) {
+      if (this.cause instanceof CausanticError) {
         result += ` [${this.cause.code}]`;
       }
     }
@@ -90,7 +90,7 @@ export class EcmError extends Error {
  * - `VECTOR_INSERT_FAILED`: Failed to insert vector embedding
  * - `VECTOR_SEARCH_FAILED`: Vector similarity search failed
  */
-export class StorageError extends EcmError {
+export class StorageError extends CausanticError {
   constructor(message: string, code: string, cause?: unknown) {
     super(message, code, cause);
   }
@@ -111,7 +111,7 @@ export class StorageError extends EcmError {
  * - `EDGE_DETECTION_FAILED`: Transition detection failed
  * - `BATCH_INGEST_FAILED`: Batch ingestion encountered errors
  */
-export class IngestionError extends EcmError {
+export class IngestionError extends CausanticError {
   constructor(message: string, code: string, cause?: unknown) {
     super(message, code, cause);
   }
@@ -131,7 +131,7 @@ export class IngestionError extends EcmError {
  * - `NO_EMBEDDER`: No embedder loaded for query embedding
  * - `QUERY_TIMEOUT`: Query exceeded time limit
  */
-export class RetrievalError extends EcmError {
+export class RetrievalError extends CausanticError {
   constructor(message: string, code: string, cause?: unknown) {
     super(message, code, cause);
   }
@@ -151,7 +151,7 @@ export class RetrievalError extends EcmError {
  * - `MISSING_REQUIRED`: Required field missing
  * - `INVALID_VALUE`: Field value is invalid
  */
-export class ConfigError extends EcmError {
+export class ConfigError extends CausanticError {
   constructor(message: string, code: string, cause?: unknown) {
     super(message, code, cause);
   }
@@ -170,7 +170,7 @@ export class ConfigError extends EcmError {
  * - `CENTROID_FAILED`: Centroid computation failed
  * - `ASSIGNMENT_FAILED`: Chunk assignment failed
  */
-export class ClusterError extends EcmError {
+export class ClusterError extends CausanticError {
   constructor(message: string, code: string, cause?: unknown) {
     super(message, code, cause);
   }
@@ -188,7 +188,7 @@ export class ClusterError extends EcmError {
  * - `HOOK_TIMEOUT`: Hook exceeded time limit
  * - `RETRY_EXHAUSTED`: All retry attempts failed
  */
-export class HookError extends EcmError {
+export class HookError extends CausanticError {
   constructor(message: string, code: string, cause?: unknown) {
     super(message, code, cause);
   }
@@ -199,14 +199,14 @@ export class HookError extends EcmError {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Check if an error is an ECM error with a specific code.
+ * Check if an error is a Causantic error with a specific code.
  */
 export function isErrorWithCode(error: unknown, code: string): boolean {
-  return error instanceof EcmError && error.code === code;
+  return error instanceof CausanticError && error.code === code;
 }
 
 /**
- * Check if an error is a specific type of ECM error.
+ * Check if an error is a specific type of Causantic error.
  */
 export function isStorageError(error: unknown): error is StorageError {
   return error instanceof StorageError;
@@ -233,16 +233,16 @@ export function isHookError(error: unknown): error is HookError {
 }
 
 /**
- * Wrap an unknown error in an EcmError.
+ * Wrap an unknown error in a CausanticError.
  *
- * If the error is already an EcmError, returns it unchanged.
- * Otherwise wraps it in a new EcmError with UNKNOWN code.
+ * If the error is already a CausanticError, returns it unchanged.
+ * Otherwise wraps it in a new CausanticError with UNKNOWN code.
  */
-export function wrapError(error: unknown, message?: string): EcmError {
-  if (error instanceof EcmError) {
+export function wrapError(error: unknown, message?: string): CausanticError {
+  if (error instanceof CausanticError) {
     return error;
   }
 
   const errorMessage = message ?? (error instanceof Error ? error.message : String(error));
-  return new EcmError(errorMessage, 'UNKNOWN', error);
+  return new CausanticError(errorMessage, 'UNKNOWN', error);
 }

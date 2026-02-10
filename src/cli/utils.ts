@@ -3,7 +3,7 @@
  */
 
 /** Magic bytes for encrypted archives */
-export const ENCRYPTED_MAGIC = Buffer.from('ECM\x00');
+export const ENCRYPTED_MAGIC = Buffer.from('CST\x00');
 
 /**
  * Prompt for password with hidden input.
@@ -58,7 +58,7 @@ export async function promptPassword(prompt: string): Promise<string> {
 }
 
 /**
- * Check if a file is an encrypted ECM archive.
+ * Check if a file is an encrypted Causantic archive.
  */
 export async function isEncryptedArchive(filePath: string): Promise<boolean> {
   const fs = await import('node:fs');

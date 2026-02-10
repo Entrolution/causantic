@@ -1,6 +1,6 @@
 # Traversal Algorithm Reference
 
-ECM uses a sum-product traversal algorithm inspired by Feynman path integrals to navigate the causal memory graph.
+Causantic uses a sum-product traversal algorithm inspired by Feynman path integrals to navigate the causal memory graph.
 
 ## Overview
 
@@ -216,17 +216,17 @@ interface TraversalOptions {
 ### vs. PageRank
 
 - PageRank: Iterative matrix computation, global ranking
-- ECM: Query-time traversal, local to starting points
+- Causantic: Query-time traversal, local to starting points
 
 ### vs. BFS/DFS
 
 - BFS/DFS: Unweighted, visits each node once
-- ECM: Weighted, visits nodes via multiple paths (accumulating)
+- Causantic: Weighted, visits nodes via multiple paths (accumulating)
 
 ### vs. Dijkstra
 
 - Dijkstra: Finds shortest path (min)
-- ECM: Accumulates all paths (sum-product)
+- Causantic: Accumulates all paths (sum-product)
 
 ## Example Walkthrough
 

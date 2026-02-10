@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * ECM Command-Line Interface
+ * Causantic Command-Line Interface
  *
- * Usage: npx ecm <command> [options]
+ * Usage: npx causantic <command> [options]
  */
 
 import type { Command } from './types.js';
@@ -40,9 +40,9 @@ const commands: Command[] = [
 ];
 
 function showHelp(): void {
-  console.log('Entropic Causal Memory (ECM)');
+  console.log('Causantic');
   console.log('');
-  console.log('Usage: ecm <command> [options]');
+  console.log('Usage: causantic <command> [options]');
   console.log('');
   console.log('Commands:');
   for (const cmd of commands) {
@@ -53,7 +53,7 @@ function showHelp(): void {
   console.log('  --version        Show version');
   console.log('  --help           Show help');
   console.log('');
-  console.log('Run "ecm <command> --help" for command-specific help.');
+  console.log('Run "causantic <command> --help" for command-specific help.');
 }
 
 async function main(): Promise<void> {
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
 
   // Handle global flags
   if (args.includes('--version') || args.includes('-v')) {
-    console.log(`ecm ${VERSION}`);
+    console.log(`causantic ${VERSION}`);
     return;
   }
 
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
 
   if (!command) {
     console.error(`Unknown command: ${commandName}`);
-    console.log('Run "ecm --help" for available commands.');
+    console.log('Run "causantic --help" for available commands.');
     process.exit(2);
   }
 

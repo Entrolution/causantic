@@ -1,10 +1,10 @@
 # Storage API Reference
 
-Reference documentation for ECM's storage layer APIs.
+Reference documentation for Causantic's storage layer APIs.
 
 ## Overview
 
-The storage layer provides persistence for the Entropic Causal Memory system. It consists of several stores:
+The storage layer provides persistence for the Causantic memory system. It consists of several stores:
 
 | Store | Purpose | Module |
 |-------|---------|--------|

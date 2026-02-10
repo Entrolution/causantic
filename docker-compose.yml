@@ -1,21 +1,21 @@
 version: '3.8'
 
 services:
-  ecm:
+  causantic:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: entropic-causal-memory
+    container_name: causantic
     volumes:
       # Persist memory data
-      - ecm-data:/data/ecm
+      - causantic-data:/data/causantic
       # Mount Claude projects for ingestion (read-only)
       - ~/.claude/projects:/claude-projects:ro
     environment:
-      - ECM_STORAGE_DB_PATH=/data/ecm/memory.db
-      - ECM_STORAGE_VECTOR_PATH=/data/ecm/vectors
+      - CAUSANTIC_STORAGE_DB_PATH=/data/causantic/memory.db
+      - CAUSANTIC_STORAGE_VECTOR_PATH=/data/causantic/vectors
       # Optional: Anthropic API key for cluster label refresh
-      # - ECM_ANTHROPIC_KEY=${ECM_ANTHROPIC_KEY}
+      # - CAUSANTIC_ANTHROPIC_KEY=${CAUSANTIC_ANTHROPIC_KEY}
     ports:
       # HTTP port for web dashboard (when implemented)
       - "3000:3000"
@@ -28,22 +28,22 @@ services:
       start_period: 10s
 
   # Maintenance daemon (runs scheduled tasks)
-  ecm-maintenance:
+  causantic-maintenance:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ecm-maintenance
+    container_name: causantic-maintenance
     volumes:
-      - ecm-data:/data/ecm
+      - causantic-data:/data/causantic
       - ~/.claude/projects:/claude-projects:ro
     environment:
-      - ECM_STORAGE_DB_PATH=/data/ecm/memory.db
-      - ECM_STORAGE_VECTOR_PATH=/data/ecm/vectors
+      - CAUSANTIC_STORAGE_DB_PATH=/data/causantic/memory.db
+      - CAUSANTIC_STORAGE_VECTOR_PATH=/data/causantic/vectors
     command: ["node", "dist/cli/index.js", "maintenance", "daemon"]
     restart: unless-stopped
     depends_on:
-      - ecm
+      - causantic
 
 volumes:
-  ecm-data:
+  causantic-data:
     driver: local

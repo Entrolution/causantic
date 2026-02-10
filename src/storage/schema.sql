@@ -1,4 +1,4 @@
--- D-T-D Memory System Schema
+-- Causantic Memory System Schema
 -- SQLite database for storing chunks, edges, and clusters
 
 -- Core entities: conversation chunks

@@ -1,12 +1,12 @@
 # How It Works
 
-This guide explains the architecture and design of Entropic Causal Memory.
+This guide explains the architecture and design of Causantic.
 
 ## Core Concepts
 
 ### Chunks
 
-ECM breaks Claude Code sessions into **chunks** - semantic units of conversation. Each chunk contains:
+Causantic breaks Claude Code sessions into **chunks** - semantic units of conversation. Each chunk contains:
 
 - Content (conversation text)
 - Embeddings (vector representation)
@@ -27,7 +27,7 @@ Edge types include:
 
 ### Vector Clocks
 
-Instead of wall-clock time, ECM uses **vector clocks** to track logical ordering:
+Instead of wall-clock time, Causantic uses **vector clocks** to track logical ordering:
 
 ```
 D-T-D Semantics (Data-Transformation-Data):
@@ -100,7 +100,7 @@ When Claude uses the `recall` tool:
 
 ### Hybrid Search
 
-ECM uses two complementary search strategies:
+Causantic uses two complementary search strategies:
 
 - **Vector search** finds chunks with similar semantic meaning (e.g., "auth flow" matches "login handler")
 - **BM25 keyword search** finds chunks with exact lexical matches (e.g., function names, error codes, CLI flags)
@@ -109,7 +109,7 @@ Results are fused using Reciprocal Rank Fusion, which combines ranked lists with
 
 ### Cluster-Guided Expansion
 
-After fusion, ECM expands results through cluster siblings. If a search hit belongs to a topic cluster, other chunks in that cluster are added as candidates with a reduced score. This surfaces topically related context that neither search found independently.
+After fusion, Causantic expands results through cluster siblings. If a search hit belongs to a topic cluster, other chunks in that cluster are added as candidates with a reduced score. This surfaces topically related context that neither search found independently.
 
 ### Source Attribution
 
@@ -131,12 +131,12 @@ HDBSCAN groups similar chunks into **clusters**:
 
 ## Storage
 
-ECM uses two storage backends:
+Causantic uses two storage backends:
 
 - **SQLite**: Chunks, edges, clusters, metadata
 - **LanceDB**: Vector embeddings for similarity search
 
-Default location: `~/.ecm/`
+Default location: `~/.causantic/`
 
 ## See Also
 

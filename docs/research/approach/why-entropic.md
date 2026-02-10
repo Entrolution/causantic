@@ -1,6 +1,6 @@
 # Why "Entropic"?
 
-This document explains the information-theoretic inspiration behind the name "Entropic Causal Memory."
+This document explains the information-theoretic inspiration behind the name "Causantic."
 
 ## The Core Insight
 
@@ -55,7 +55,7 @@ The compression is "causal" because it follows the graph structure, not an exter
 
 ## Sum-Product Rules
 
-ECM uses a **sum-product** calculation for node weights, analogous to Feynman path integrals in perturbation theory.
+Causantic uses a **sum-product** calculation for node weights, analogous to Feynman path integrals in perturbation theory.
 
 ### Product Along Paths
 
@@ -143,7 +143,7 @@ A key insight from the design:
 
 > Edge accumulation encodes frequency of co-occurrence, decay encodes recency, and path products encode causal distance. **The graph *is* the clock.**
 
-Traditional systems use external timestamps and apply global decay. ECM embeds temporal dynamics directly into the graph structure — entropy flows through the graph topology itself.
+Traditional systems use external timestamps and apply global decay. Causantic embeds temporal dynamics directly into the graph structure — entropy flows through the graph topology itself.
 
 | Aspect | Traditional | Entropic |
 |--------|-------------|----------|
@@ -154,14 +154,14 @@ Traditional systems use external timestamps and apply global decay. ECM embeds t
 
 ## Maximum Entropy Edge Creation
 
-When creating edges across a D-T-D transition, ECM uses a **maximum entropy** approach:
+When creating edges across a D-T-D transition, Causantic uses a **maximum entropy** approach:
 
 ```
 D₁ (m chunks) → T → D₂ (n chunks)
 Creates: m × n edges (all-pairs)
 ```
 
-We cannot reliably determine which specific input chunk caused which specific output chunk. Rather than impose false structure, ECM assumes maximum uncertainty and creates all possible causal links. The decay mechanism then naturally builds discrimination over time — frequently reinforced paths stay strong while weak associations fade.
+We cannot reliably determine which specific input chunk caused which specific output chunk. Rather than impose false structure, Causantic assumes maximum uncertainty and creates all possible causal links. The decay mechanism then naturally builds discrimination over time — frequently reinforced paths stay strong while weak associations fade.
 
 ## Practical Implications
 

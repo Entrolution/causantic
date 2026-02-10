@@ -1,11 +1,11 @@
 # MCP Tools Reference
 
-Reference documentation for ECM's MCP server tools.
+Reference documentation for Causantic's MCP server tools.
 
 ## Starting the Server
 
 ```bash
-npx ecm serve
+npx causantic serve
 ```
 
 The server communicates via stdio using the Model Context Protocol.

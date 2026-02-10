@@ -7,8 +7,8 @@ import { promptPassword } from '../utils.js';
 
 export const initCommand: Command = {
   name: 'init',
-  description: 'Initialize ECM (setup wizard)',
-  usage: 'ecm init [--skip-mcp] [--skip-encryption] [--skip-ingest]',
+  description: 'Initialize Causantic (setup wizard)',
+  usage: 'causantic init [--skip-mcp] [--skip-encryption] [--skip-ingest]',
   handler: async (args) => {
     const skipMcp = args.includes('--skip-mcp');
     const fs = await import('node:fs');
@@ -16,8 +16,8 @@ export const initCommand: Command = {
     const os = await import('node:os');
     const readline = await import('node:readline');
 
-    console.log('Entropic Causal Memory - Setup');
-    console.log('==============================');
+    console.log('Causantic - Setup');
+    console.log('=================');
     console.log('');
 
     // Step 1: Check Node.js version
@@ -31,14 +31,14 @@ export const initCommand: Command = {
     }
 
     // Step 2: Create directory structure
-    const ecmDir = path.join(os.homedir(), '.ecm');
-    const vectorsDir = path.join(ecmDir, 'vectors');
+    const causanticDir = path.join(os.homedir(), '.causantic');
+    const vectorsDir = path.join(causanticDir, 'vectors');
 
-    if (!fs.existsSync(ecmDir)) {
-      fs.mkdirSync(ecmDir, { recursive: true });
-      console.log(`\u2713 Created ${ecmDir}`);
+    if (!fs.existsSync(causanticDir)) {
+      fs.mkdirSync(causanticDir, { recursive: true });
+      console.log(`\u2713 Created ${causanticDir}`);
     } else {
-      console.log(`\u2713 Directory exists: ${ecmDir}`);
+      console.log(`\u2713 Directory exists: ${causanticDir}`);
     }
 
     if (!fs.existsSync(vectorsDir)) {
@@ -79,7 +79,7 @@ export const initCommand: Command = {
         const key = generatePassword(32);
         await storeDbKey(key);
 
-        const configPath = path.join(ecmDir, 'config.json');
+        const configPath = path.join(causanticDir, 'config.json');
         const encryptionConfig = {
           encryption: {
             enabled: true,
@@ -122,29 +122,29 @@ export const initCommand: Command = {
           const configContent = fs.readFileSync(claudeConfigPath, 'utf-8');
           const config = JSON.parse(configContent);
 
-          const ECM_SERVER_KEY = 'entropic-causal-memory';
+          const CAUSANTIC_SERVER_KEY = 'causantic';
 
-          // Migrate old 'memory' key -> 'entropic-causal-memory'
-          if (config.mcpServers?.memory && !config.mcpServers[ECM_SERVER_KEY]) {
-            config.mcpServers[ECM_SERVER_KEY] = config.mcpServers.memory;
+          // Migrate old 'memory' key -> 'causantic'
+          if (config.mcpServers?.memory && !config.mcpServers[CAUSANTIC_SERVER_KEY]) {
+            config.mcpServers[CAUSANTIC_SERVER_KEY] = config.mcpServers.memory;
             delete config.mcpServers.memory;
             fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
-            console.log('\u2713 Migrated ECM config: memory \u2192 entropic-causal-memory');
+            console.log('\u2713 Migrated config: memory \u2192 causantic');
           }
 
-          if (config.mcpServers?.[ECM_SERVER_KEY]) {
-            if (config.mcpServers[ECM_SERVER_KEY].command === 'npx') {
+          if (config.mcpServers?.[CAUSANTIC_SERVER_KEY]) {
+            if (config.mcpServers[CAUSANTIC_SERVER_KEY].command === 'npx') {
               const nodeBin = process.execPath;
               const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/../index.js';
 
-              config.mcpServers[ECM_SERVER_KEY] = {
+              config.mcpServers[CAUSANTIC_SERVER_KEY] = {
                 command: nodeBin,
                 args: [cliEntry, 'serve'],
               };
               fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
-              console.log('\u2713 Updated ECM config to use absolute paths');
+              console.log('\u2713 Updated Causantic config to use absolute paths');
             } else {
-              console.log('\u2713 ECM already configured in Claude Code');
+              console.log('\u2713 Causantic already configured in Claude Code');
             }
           } else {
             const rl = readline.createInterface({
@@ -153,7 +153,7 @@ export const initCommand: Command = {
             });
 
             const answer = await new Promise<string>((resolve) => {
-              rl.question('Add ECM to Claude Code MCP config? [Y/n] ', (ans) => {
+              rl.question('Add Causantic to Claude Code MCP config? [Y/n] ', (ans) => {
                 rl.close();
                 resolve(ans.toLowerCase() || 'y');
               });
@@ -164,12 +164,12 @@ export const initCommand: Command = {
               const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/../index.js';
 
               config.mcpServers = config.mcpServers || {};
-              config.mcpServers[ECM_SERVER_KEY] = {
+              config.mcpServers[CAUSANTIC_SERVER_KEY] = {
                 command: nodeBin,
                 args: [cliEntry, 'serve'],
               };
               fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
-              console.log('\u2713 Added ECM to Claude Code config');
+              console.log('\u2713 Added Causantic to Claude Code config');
               console.log(`  Node: ${nodeBin}`);
               console.log('  Restart Claude Code to activate');
             }
@@ -194,7 +194,7 @@ export const initCommand: Command = {
           args: [cliEntry, 'serve'],
         };
 
-        const ECM_KEY = 'entropic-causal-memory';
+        const CAUSANTIC_KEY = 'causantic';
 
         const projectsToFix: Array<{ name: string; mcpPath: string; needsMigrate: boolean }> = [];
         try {
@@ -211,10 +211,10 @@ export const initCommand: Command = {
               const mcpContent = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
               if (!mcpContent.mcpServers) continue;
 
-              if (mcpContent.mcpServers.memory && !mcpContent.mcpServers[ECM_KEY]) {
+              if (mcpContent.mcpServers.memory && !mcpContent.mcpServers[CAUSANTIC_KEY]) {
                 const readableName = projectPath.replace(new RegExp(`^/Users/${os.userInfo().username}/`), '~/');
                 projectsToFix.push({ name: readableName, mcpPath, needsMigrate: true });
-              } else if (!mcpContent.mcpServers[ECM_KEY]) {
+              } else if (!mcpContent.mcpServers[CAUSANTIC_KEY]) {
                 const readableName = projectPath.replace(new RegExp(`^/Users/${os.userInfo().username}/`), '~/');
                 projectsToFix.push({ name: readableName, mcpPath, needsMigrate: false });
               }
@@ -231,11 +231,11 @@ export const initCommand: Command = {
           const addCount = projectsToFix.length - migrateCount;
           console.log('');
           if (migrateCount > 0 && addCount > 0) {
-            console.log(`Found ${addCount} project(s) missing ECM and ${migrateCount} to migrate:`);
+            console.log(`Found ${addCount} project(s) missing Causantic and ${migrateCount} to migrate:`);
           } else if (migrateCount > 0) {
             console.log(`Found ${migrateCount} project(s) with old 'memory' key to migrate:`);
           } else {
-            console.log(`Found ${addCount} project(s) with .mcp.json missing ECM:`);
+            console.log(`Found ${addCount} project(s) with .mcp.json missing Causantic:`);
           }
           for (const p of projectsToFix) {
             console.log(`  ${p.name}${p.needsMigrate ? ' (migrate)' : ''}`);
@@ -247,7 +247,7 @@ export const initCommand: Command = {
           });
 
           const fixAnswer = await new Promise<string>((resolve) => {
-            rl.question('Add/migrate ECM server in these projects? [Y/n] ', (ans) => {
+            rl.question('Add/migrate Causantic server in these projects? [Y/n] ', (ans) => {
               rl.close();
               resolve(ans.toLowerCase() || 'y');
             });
@@ -259,10 +259,10 @@ export const initCommand: Command = {
               try {
                 const mcpContent = JSON.parse(fs.readFileSync(p.mcpPath, 'utf-8'));
                 if (p.needsMigrate) {
-                  mcpContent.mcpServers[ECM_KEY] = mcpContent.mcpServers.memory;
+                  mcpContent.mcpServers[CAUSANTIC_KEY] = mcpContent.mcpServers.memory;
                   delete mcpContent.mcpServers.memory;
                 } else {
-                  mcpContent.mcpServers[ECM_KEY] = memoryServerConfig;
+                  mcpContent.mcpServers[CAUSANTIC_KEY] = memoryServerConfig;
                 }
                 fs.writeFileSync(p.mcpPath, JSON.stringify(mcpContent, null, 2) + '\n');
                 patched++;
@@ -271,21 +271,21 @@ export const initCommand: Command = {
               }
             }
             if (patched > 0) {
-              console.log(`\u2713 Updated ECM in ${patched} project .mcp.json file(s)`);
+              console.log(`\u2713 Updated Causantic in ${patched} project .mcp.json file(s)`);
             }
           }
         }
       }
     }
 
-    // Step 6c: Install ECM skills and update CLAUDE.md reference
+    // Step 6c: Install Causantic skills and update CLAUDE.md reference
     if (!skipMcp) {
-      const { ECM_SKILLS, getMinimalClaudeMdBlock } = await import('../skill-templates.js');
+      const { CAUSANTIC_SKILLS, getMinimalClaudeMdBlock } = await import('../skill-templates.js');
 
       const skillsDir = path.join(os.homedir(), '.claude', 'skills');
       let skillsInstalled = 0;
 
-      for (const skill of ECM_SKILLS) {
+      for (const skill of CAUSANTIC_SKILLS) {
         try {
           const skillDir = path.join(skillsDir, skill.dirName);
           if (!fs.existsSync(skillDir)) {
@@ -300,12 +300,12 @@ export const initCommand: Command = {
       }
 
       if (skillsInstalled > 0) {
-        console.log(`\u2713 Installed ${skillsInstalled} ECM skills to ~/.claude/skills/`);
+        console.log(`\u2713 Installed ${skillsInstalled} Causantic skills to ~/.claude/skills/`);
       }
 
       const claudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
-      const ECM_START = '<!-- ECM_MEMORY_START -->';
-      const ECM_END = '<!-- ECM_MEMORY_END -->';
+      const CAUSANTIC_START = '<!-- CAUSANTIC_MEMORY_START -->';
+      const CAUSANTIC_END = '<!-- CAUSANTIC_MEMORY_END -->';
       const memoryInstructions = getMinimalClaudeMdBlock();
 
       try {
@@ -314,18 +314,18 @@ export const initCommand: Command = {
           claudeMd = fs.readFileSync(claudeMdPath, 'utf-8');
         }
 
-        if (claudeMd.includes(ECM_START)) {
-          const startIdx = claudeMd.indexOf(ECM_START);
-          const endIdx = claudeMd.indexOf(ECM_END);
+        if (claudeMd.includes(CAUSANTIC_START)) {
+          const startIdx = claudeMd.indexOf(CAUSANTIC_START);
+          const endIdx = claudeMd.indexOf(CAUSANTIC_END);
           if (endIdx > startIdx) {
-            claudeMd = claudeMd.slice(0, startIdx) + memoryInstructions + claudeMd.slice(endIdx + ECM_END.length);
+            claudeMd = claudeMd.slice(0, startIdx) + memoryInstructions + claudeMd.slice(endIdx + CAUSANTIC_END.length);
             fs.writeFileSync(claudeMdPath, claudeMd);
             console.log('\u2713 Updated CLAUDE.md with skill references');
           }
         } else {
           const separator = claudeMd.length > 0 && !claudeMd.endsWith('\n\n') ? '\n' : '';
           fs.writeFileSync(claudeMdPath, claudeMd + separator + memoryInstructions + '\n');
-          console.log('\u2713 Added ECM reference to CLAUDE.md');
+          console.log('\u2713 Added Causantic reference to CLAUDE.md');
         }
       } catch {
         console.log('\u26a0 Could not update CLAUDE.md');
@@ -393,7 +393,7 @@ export const initCommand: Command = {
         console.log('Import existing sessions?');
         console.log('  [A] All projects');
         console.log('  [S] Select specific projects');
-        console.log('  [N] Skip (can run "ecm batch-ingest" later)');
+        console.log('  [N] Skip (can run "causantic batch-ingest" later)');
         console.log('');
 
         const importChoice = await new Promise<string>((resolve) => {
@@ -617,7 +617,7 @@ export const initCommand: Command = {
                 }
               } else if (apiKey) {
                 console.log('\u26a0 Invalid API key format (should start with sk-ant-)');
-                console.log('  You can add it later with: ecm config set-key anthropic-api-key');
+                console.log('  You can add it later with: causantic config set-key anthropic-api-key');
               } else {
                 console.log('  Skipping cluster labeling.');
               }
@@ -637,7 +637,7 @@ export const initCommand: Command = {
       console.log('  1. Restart Claude Code');
       console.log('  2. Ask Claude: "What did we work on recently?"');
     } else {
-      console.log('  1. npx ecm batch-ingest ~/.claude/projects');
+      console.log('  1. npx causantic batch-ingest ~/.claude/projects');
       console.log('  2. Restart Claude Code');
       console.log('  3. Ask Claude: "What did we work on recently?"');
     }

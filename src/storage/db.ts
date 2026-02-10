@@ -17,7 +17,7 @@ import { logAudit } from './audit-log.js';
 import { runMigrations } from './migrations.js';
 
 /** Key name in secret store for database encryption */
-const DB_KEY_NAME = 'ecm-db-key';
+const DB_KEY_NAME = 'causantic-db-key';
 
 let db: Database.Database | null = null;
 let customDb: Database.Database | null = null;
@@ -26,7 +26,7 @@ let customDb: Database.Database | null = null;
 let cachedDbKey: string | null = null;
 
 /** Service name for keychain storage */
-const KEYCHAIN_SERVICE = 'entropic-causal-memory';
+const KEYCHAIN_SERVICE = 'causantic';
 
 /**
  * Get key from OS keychain synchronously.
@@ -92,7 +92,7 @@ function getDbKeySync(): string | undefined {
 
   switch (keySource) {
     case 'env': {
-      const key = process.env.ECM_DB_KEY;
+      const key = process.env.CAUSANTIC_DB_KEY;
       if (key) {
         cachedDbKey = key;
         logAudit('key-access', 'Key retrieved from environment');
@@ -106,7 +106,7 @@ function getDbKeySync(): string | undefined {
         logAudit('key-access', 'Key retrieved from keychain');
         return keychainKey;
       }
-      const envKey = process.env.ECM_DB_KEY;
+      const envKey = process.env.CAUSANTIC_DB_KEY;
       if (envKey) {
         cachedDbKey = envKey;
         logAudit('key-access', 'Key retrieved from environment (keychain fallback)');
@@ -116,7 +116,7 @@ function getDbKeySync(): string | undefined {
     }
     case 'prompt':
       throw new Error(
-        'Database encryption with keySource=prompt requires running ecm init or ecm encryption unlock first'
+        'Database encryption with keySource=prompt requires running causantic init or causantic encryption unlock first'
       );
     default:
       return undefined;
@@ -136,7 +136,7 @@ export async function getDbKeyAsync(): Promise<string | undefined> {
 
   switch (keySource) {
     case 'env': {
-      const key = process.env.ECM_DB_KEY;
+      const key = process.env.CAUSANTIC_DB_KEY;
       if (key) {
         cachedDbKey = key;
         logAudit('key-access', 'Key retrieved from environment');
@@ -204,7 +204,7 @@ export function getDb(dbPath?: string): Database.Database {
   }
 
   const config = loadConfig();
-  const resolvedPath = resolvePath(dbPath ?? config.storage?.dbPath ?? '~/.ecm/memory.db');
+  const resolvedPath = resolvePath(dbPath ?? config.storage?.dbPath ?? '~/.causantic/memory.db');
 
   const dir = dirname(resolvedPath);
   if (!existsSync(dir)) {
@@ -221,7 +221,7 @@ export function getDb(dbPath?: string): Database.Database {
       logAudit('failed', 'No encryption key available');
       throw new Error(
         'Database encryption is enabled but no key is available. ' +
-        'Run "ecm encryption setup" or set ECM_DB_KEY environment variable.'
+        'Run "causantic encryption setup" or set CAUSANTIC_DB_KEY environment variable.'
       );
     }
   } else {

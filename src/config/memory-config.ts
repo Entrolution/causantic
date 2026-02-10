@@ -1,5 +1,5 @@
 /**
- * Centralized configuration for the D-T-D memory system.
+ * Centralized configuration for the Causantic Memory System.
  */
 
 import type { DecayModelConfig } from '../core/decay-types.js';
@@ -176,9 +176,9 @@ export const DEFAULT_CONFIG: MemoryConfig = {
     boostFactor: 0.3,
   },
 
-  // Storage - defaults to ~/.ecm/
-  dbPath: '~/.ecm/memory.db',
-  vectorStorePath: '~/.ecm/vectors',
+  // Storage - defaults to ~/.causantic/
+  dbPath: '~/.causantic/memory.db',
+  vectorStorePath: '~/.causantic/vectors',
 };
 
 /**

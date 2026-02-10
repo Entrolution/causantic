@@ -1,6 +1,6 @@
 # Why Vector Clocks?
 
-This document explains ECM's use of vector clocks for temporal ordering.
+This document explains Causantic's use of vector clocks for temporal ordering.
 
 ## The Problem with Wall-Clock Time
 
@@ -19,7 +19,7 @@ Using wall-clock time, the Tuesday work appears "old" even though it's a direct 
 
 ## D-T-D Semantics
 
-ECM uses D-T-D (Data-Transformation-Data) vector clocks. D-T-D is an abstract representation of any processing step as `f(input) → output`:
+Causantic uses D-T-D (Data-Transformation-Data) vector clocks. D-T-D is an abstract representation of any processing step as `f(input) → output`:
 
 ```
 D = Data (input)

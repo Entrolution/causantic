@@ -5,7 +5,7 @@ import { createSecretStore } from '../../utils/secret-store.js';
 export const configCommand: Command = {
   name: 'config',
   description: 'Manage configuration',
-  usage: 'ecm config <show|validate|set-key|get-key>',
+  usage: 'causantic config <show|validate|set-key|get-key>',
   handler: async (args) => {
     const subcommand = args[0];
 
@@ -33,7 +33,7 @@ export const configCommand: Command = {
         const keyName = args[1];
         if (!keyName) {
           console.error('Error: Key name required');
-          console.log('Usage: ecm config set-key <name>');
+          console.log('Usage: causantic config set-key <name>');
           process.exit(2);
         }
         const readline = await import('node:readline');
@@ -56,7 +56,7 @@ export const configCommand: Command = {
         const keyName = args[1];
         if (!keyName) {
           console.error('Error: Key name required');
-          console.log('Usage: ecm config get-key <name>');
+          console.log('Usage: causantic config get-key <name>');
           process.exit(2);
         }
         const store = createSecretStore();
@@ -71,7 +71,7 @@ export const configCommand: Command = {
       }
       default:
         console.error('Error: Unknown subcommand');
-        console.log('Usage: ecm config <show|validate|set-key|get-key>');
+        console.log('Usage: causantic config <show|validate|set-key|get-key>');
         process.exit(2);
     }
   },

@@ -1,6 +1,6 @@
 # Why Causal Graphs?
 
-This document explains why ECM uses causal graphs rather than simpler approaches.
+This document explains why Causantic uses causal graphs rather than simpler approaches.
 
 ## The Problem with Vector-Only Search
 
@@ -91,7 +91,7 @@ Clusters serve as a **lens for browsing and labeling** rather than a **unit of c
 
 ## Edge Types
 
-ECM tracks multiple relationship types, organized by evidence strength:
+Causantic tracks multiple relationship types, organized by evidence strength:
 
 ### Strong Evidence (0.9-1.0)
 
@@ -123,7 +123,7 @@ ECM tracks multiple relationship types, organized by evidence strength:
 |----------|--------------|---------------|----------------|
 | Vector DB | Yes | No | No |
 | Graph DB | No | Yes | Partial |
-| ECM | Yes | Yes | Yes |
+| Causantic | Yes | Yes | Yes |
 
 ## Results
 

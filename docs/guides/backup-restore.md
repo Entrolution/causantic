@@ -1,6 +1,6 @@
 # Backup & Restore
 
-ECM supports encrypted exports for secure backup and migration of your memory data.
+Causantic supports encrypted exports for secure backup and migration of your memory data.
 
 ## Export Memory
 
@@ -8,7 +8,7 @@ ECM supports encrypted exports for secure backup and migration of your memory da
 
 ```bash
 # Interactive - prompts for password
-npx ecm export --output backup.ecm
+npx causantic export --output backup.causantic
 
 # Prompted for password:
 # Enter encryption password: ********
@@ -18,20 +18,20 @@ npx ecm export --output backup.ecm
 ### Unencrypted
 
 ```bash
-npx ecm export --output backup.json --no-encrypt
+npx causantic export --output backup.json --no-encrypt
 ```
 
 ### Filter by Project
 
 ```bash
-npx ecm export --output backup.ecm --projects my-project
+npx causantic export --output backup.causantic --projects my-project
 ```
 
 ### With Redaction (for sharing)
 
 ```bash
 # Redact file paths and code blocks
-npx ecm export --output backup.ecm --redact-paths --redact-code
+npx causantic export --output backup.causantic --redact-paths --redact-code
 ```
 
 ## Import Memory
@@ -40,7 +40,7 @@ npx ecm export --output backup.ecm --redact-paths --redact-code
 
 ```bash
 # Interactive - prompts for password
-npx ecm import backup.ecm
+npx causantic import backup.causantic
 
 # Prompted:
 # Enter decryption password: ********
@@ -49,7 +49,7 @@ npx ecm import backup.ecm
 ### Merge with Existing Data
 
 ```bash
-npx ecm import backup.ecm --merge
+npx causantic import backup.causantic --merge
 ```
 
 Without `--merge`, existing data is replaced.
@@ -60,10 +60,10 @@ For non-interactive environments, set the password via environment variable:
 
 ```bash
 # Export
-ECM_EXPORT_PASSWORD="your-secure-password" npx ecm export --output backup.ecm
+CAUSANTIC_EXPORT_PASSWORD="your-secure-password" npx causantic export --output backup.causantic
 
 # Import
-ECM_EXPORT_PASSWORD="your-secure-password" npx ecm import backup.ecm
+CAUSANTIC_EXPORT_PASSWORD="your-secure-password" npx causantic import backup.causantic
 ```
 
 ## What Gets Exported
@@ -77,22 +77,22 @@ ECM_EXPORT_PASSWORD="your-secure-password" npx ecm import backup.ecm
 
 ## Encryption Details
 
-ECM uses strong encryption for archive files:
+Causantic uses strong encryption for archive files:
 
 - **Algorithm**: AES-256-GCM (authenticated encryption)
 - **Key Derivation**: scrypt (N=16384, r=8, p=1)
 - **Nonce**: 12 bytes (random per encryption)
 - **Salt**: 16 bytes (unique per password)
 
-The archive format uses magic bytes (`ECM\0`) to identify encrypted files.
+The archive format uses magic bytes (`Causantic\0`) to identify encrypted files.
 
 ## File Formats
 
-### Encrypted (.ecm)
+### Encrypted (.causantic)
 
 Binary format with structure:
 ```
-[Magic: 4 bytes "ECM\0"]
+[Magic: 4 bytes "Causantic\0"]
 [Salt: 16 bytes]
 [Nonce: 12 bytes]
 [Auth Tag: 16 bytes]
@@ -104,7 +104,7 @@ Binary format with structure:
 Standard JSON with structure:
 ```json
 {
-  "format": "ecm-archive",
+  "format": "causantic-archive",
   "version": "1.0",
   "created": "2024-01-15T10:30:00Z",
   "metadata": { ... },
@@ -120,19 +120,19 @@ Standard JSON with structure:
 
 1. Export on old machine:
    ```bash
-   npx ecm export --output ~/backup.ecm
+   npx causantic export --output ~/backup.causantic
    ```
 
-2. Transfer `backup.ecm` to new machine
+2. Transfer `backup.causantic` to new machine
 
-3. Initialize ECM on new machine:
+3. Initialize Causantic on new machine:
    ```bash
-   npx ecm init
+   npx causantic init
    ```
 
 4. Import:
    ```bash
-   npx ecm import ~/backup.ecm
+   npx causantic import ~/backup.causantic
    ```
 
 ### Sharing Memory (Sanitized)
@@ -141,10 +141,10 @@ For sharing conversation patterns without sensitive data:
 
 ```bash
 # Export with redactions
-npx ecm export --output shared.ecm --redact-paths --redact-code
+npx causantic export --output shared.causantic --redact-paths --redact-code
 
 # Recipient imports
-npx ecm import shared.ecm --merge
+npx causantic import shared.causantic --merge
 ```
 
 ## Troubleshooting
@@ -153,11 +153,11 @@ npx ecm import shared.ecm --merge
 
 The file was encrypted but no password was provided. Either:
 - Run interactively and enter the password when prompted
-- Set `ECM_EXPORT_PASSWORD` environment variable
+- Set `CAUSANTIC_EXPORT_PASSWORD` environment variable
 
 ### "Invalid archive format"
 
-The file is not a valid ECM archive. Check that:
+The file is not a valid Causantic archive. Check that:
 - The file wasn't corrupted during transfer
 - It's the correct file (not a random JSON file)
 
