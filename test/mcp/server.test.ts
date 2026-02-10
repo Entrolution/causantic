@@ -302,13 +302,13 @@ describe('mcp-server', () => {
           tools: {},
         },
         serverInfo: {
-          name: 'entropic-causal-memory',
+          name: 'causantic',
           version: '0.1.0',
         },
       };
 
       expect(response.protocolVersion).toBe('2024-11-05');
-      expect(response.serverInfo.name).toBe('entropic-causal-memory');
+      expect(response.serverInfo.name).toBe('causantic');
     });
   });
 

@@ -6,7 +6,7 @@ import { getClusterCount } from '../../storage/cluster-store.js';
 export const statsCommand: Command = {
   name: 'stats',
   description: 'Show memory statistics',
-  usage: 'ecm stats [--json]',
+  usage: 'causantic stats [--json]',
   handler: async (_args) => {
     const chunks = getChunkCount();
     const edges = getEdgeCount();
@@ -24,7 +24,7 @@ export const statsCommand: Command = {
 export const healthCommand: Command = {
   name: 'health',
   description: 'Check system health',
-  usage: 'ecm health [--verbose]',
+  usage: 'causantic health [--verbose]',
   handler: async (_args) => {
     const { getDb } = await import('../../storage/db.js');
     console.log('Health Check:');

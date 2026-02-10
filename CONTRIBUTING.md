@@ -1,4 +1,4 @@
-# Contributing to Entropic Causal Memory
+# Contributing to Causantic
 
 Thank you for your interest in contributing! This document provides guidelines and information for contributors.
 
@@ -14,8 +14,8 @@ Thank you for your interest in contributing! This document provides guidelines a
 
 ```bash
 # Clone the repository
-git clone https://github.com/Entrolution/entropic-causal-memory.git
-cd entropic-causal-memory
+git clone https://github.com/Entrolution/causantic.git
+cd causantic
 
 # Install dependencies
 npm install

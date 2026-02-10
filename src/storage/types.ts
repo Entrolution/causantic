@@ -1,7 +1,7 @@
 /**
  * Types for the storage layer.
  *
- * The storage layer provides persistence for the Entropic Causal Memory system.
+ * The storage layer provides persistence for the Causantic system.
  * Key data structures include:
  * - **Chunks**: Segments of conversation with metadata and vector clocks
  * - **Edges**: Weighted directional connections between chunks

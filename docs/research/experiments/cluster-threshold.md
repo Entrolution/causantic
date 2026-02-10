@@ -1,6 +1,6 @@
 # Cluster Threshold Experiments
 
-This document details the experiments that determined ECM's optimal clustering threshold.
+This document details the experiments that determined Causantic's optimal clustering threshold.
 
 ## Hypothesis
 
@@ -75,7 +75,7 @@ Precision
 
 ## Angular Distance
 
-ECM uses angular (cosine-based) distance:
+Causantic uses angular (cosine-based) distance:
 
 ```typescript
 function angularDistance(a: number[], b: number[]): number {

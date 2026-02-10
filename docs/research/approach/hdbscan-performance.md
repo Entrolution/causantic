@@ -1,10 +1,10 @@
 # HDBSCAN Implementation
 
-This document explains ECM's native TypeScript HDBSCAN implementation.
+This document explains Causantic's native TypeScript HDBSCAN implementation.
 
 ## Background
 
-ECM needs to cluster thousands of embedding vectors efficiently. The original approach used the npm package `hdbscan-ts`, which had severe performance issues at scale.
+Causantic needs to cluster thousands of embedding vectors efficiently. The original approach used the npm package `hdbscan-ts`, which had severe performance issues at scale.
 
 ### The Problem with hdbscan-ts
 
@@ -25,7 +25,7 @@ This made clustering 6,000+ points impractical (65+ minutes).
 
 ## Native Implementation
 
-ECM now uses a native TypeScript HDBSCAN implementation with proper data structures:
+Causantic now uses a native TypeScript HDBSCAN implementation with proper data structures:
 
 ### Key Optimizations
 
@@ -82,7 +82,7 @@ src/clusters/
 
 ## Configuration
 
-HDBSCAN parameters are set in `ecm.config.json`:
+HDBSCAN parameters are set in `causantic.config.json`:
 
 ```json
 {

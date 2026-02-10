@@ -1,5 +1,5 @@
 {
-  "name": "entropic-causal-memory",
+  "name": "causantic",
   "version": "0.1.0",
   "description": "Long-term memory system for Claude Code using causal graphs and vector clocks",
   "type": "module",
@@ -7,10 +7,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Entrolution/entropic-causal-memory.git"
+    "url": "git+https://github.com/Entrolution/causantic.git"
   },
-  "bugs": "https://github.com/Entrolution/entropic-causal-memory/issues",
-  "homepage": "https://github.com/Entrolution/entropic-causal-memory#readme",
+  "bugs": "https://github.com/Entrolution/causantic/issues",
+  "homepage": "https://github.com/Entrolution/causantic#readme",
   "keywords": [
     "claude-code",
     "memory",
@@ -26,7 +26,7 @@
     "node": ">=20"
   },
   "bin": {
-    "ecm": "dist/cli/index.js"
+    "causantic": "dist/cli/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -85,7 +85,7 @@
     "build-corpus": "tsx scripts/build/build-corpus.ts",
     "benchmark": "tsx scripts/build/run-benchmark.ts",
     "benchmark:hdbscan": "tsx scripts/benchmarks/hdbscan-benchmark.ts",
-    "docs:build": "typedoc --out docs/api src/index.ts --name 'Entropic Causal Memory API' --readme none --excludePrivate --excludeInternal"
+    "docs:build": "typedoc --out docs/api src/index.ts --name 'Causantic API' --readme none --excludePrivate --excludeInternal"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

@@ -1,4 +1,4 @@
-# Entropic Causal Memory
+# Causantic
 
 Long-term memory system for Claude Code using causal graphs and vector clocks.
 
@@ -7,11 +7,11 @@ Long-term memory system for Claude Code using causal graphs and vector clocks.
 <sub>Median 4.54× across 492 queries • Range 3.60× - 5.87×</sub>
 </p>
 
-## Why ECM?
+## Why Causantic?
 
-Most AI memory systems use vector embeddings for similarity search. ECM does too — but adds a **causal graph** that tracks *relationships* between memory chunks. This fundamentally changes what you can retrieve.
+Most AI memory systems use vector embeddings for similarity search. Causantic does too — but adds a **causal graph** that tracks *relationships* between memory chunks. This fundamentally changes what you can retrieve.
 
-| | Vector Search Only | ECM |
+| | Vector Search Only | Causantic |
 |---|---|---|
 | **Finds similar content** | ✓ | ✓ |
 | **Finds lexically relevant content** | ✗ | ✓ (BM25 keyword search) |
@@ -26,19 +26,19 @@ Most AI memory systems use vector embeddings for similarity search. ECM does too
 
 **1. Hybrid BM25 + Vector Search**
 
-Vector search finds chunks that *look similar*. BM25 keyword search finds chunks with *exact lexical matches* — function names, error codes, CLI flags. ECM runs both in parallel and fuses results via Reciprocal Rank Fusion (RRF), catching what either search alone would miss.
+Vector search finds chunks that *look similar*. BM25 keyword search finds chunks with *exact lexical matches* — function names, error codes, CLI flags. Causantic runs both in parallel and fuses results via Reciprocal Rank Fusion (RRF), catching what either search alone would miss.
 
 **2. Causal Graphs, Not Just Vectors**
 
-ECM also finds chunks that are *causally related* — the debugging session that led to a fix, the error message that triggered investigation, the test that validated a change.
+Causantic also finds chunks that are *causally related* — the debugging session that led to a fix, the error message that triggered investigation, the test that validated a change.
 
 **3. Cluster-Guided Expansion**
 
-HDBSCAN clusters group semantically related chunks. During retrieval, ECM expands search results through cluster siblings — surfacing topically related context that neither vector nor keyword search found independently.
+HDBSCAN clusters group semantically related chunks. During retrieval, Causantic expands search results through cluster siblings — surfacing topically related context that neither vector nor keyword search found independently.
 
 **4. Hop-Based Decay, Not Wall-Clock Time**
 
-Returning to a project after a weekend shouldn't make yesterday's work seem "old." ECM measures distance in logical hops (D-T-D transitions), not elapsed time. Monday's work and Tuesday's continuation are 1 hop apart — regardless of the 24-hour gap.
+Returning to a project after a weekend shouldn't make yesterday's work seem "old." Causantic measures distance in logical hops (D-T-D transitions), not elapsed time. Monday's work and Tuesday's continuation are 1 hop apart — regardless of the 24-hour gap.
 
 **5. Bidirectional Traversal**
 
@@ -50,7 +50,7 @@ Weights multiply along paths and accumulate across paths — a principled approa
 
 ## Overview
 
-Entropic Causal Memory provides persistent, semantically-aware memory for Claude Code sessions. It captures conversation context, builds causal relationships between chunks of dialogue, and enables intelligent retrieval of relevant historical context.
+Causantic provides persistent, semantically-aware memory for Claude Code sessions. It captures conversation context, builds causal relationships between chunks of dialogue, and enables intelligent retrieval of relevant historical context.
 
 ### Why "Entropic"?
 
@@ -78,26 +78,26 @@ See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explana
 
 ```bash
 # Install the package
-npm install entropic-causal-memory
+npm install causantic
 
-# Initialize ECM (creates directories, verifies setup)
-npx ecm init
+# Initialize Causantic (creates directories, verifies setup)
+npx causantic init
 ```
 
 ### Basic Usage
 
 ```bash
 # Ingest a Claude Code session
-npx ecm ingest ~/.claude/projects/my-project
+npx causantic ingest ~/.claude/projects/my-project
 
 # Batch ingest all sessions
-npx ecm batch-ingest ~/.claude/projects
+npx causantic batch-ingest ~/.claude/projects
 
 # Query memory
-npx ecm recall "authentication flow"
+npx causantic recall "authentication flow"
 
 # Start the MCP server
-npx ecm serve
+npx causantic serve
 ```
 
 ### Claude Code Integration
@@ -109,7 +109,7 @@ Add to your Claude Code MCP configuration:
   "mcpServers": {
     "memory": {
       "command": "npx",
-      "args": ["ecm", "serve"]
+      "args": ["causantic", "serve"]
     }
   }
 }
@@ -174,11 +174,11 @@ Add to your Claude Code MCP configuration:
 
 ## Configuration
 
-Create `ecm.config.json` in your project root:
+Create `causantic.config.json` in your project root:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Entrolution/entropic-causal-memory/main/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json",
   "decay": {
     "backward": {
       "type": "linear",
@@ -213,13 +213,13 @@ The MCP server exposes three tools:
 
 ```bash
 # Run specific maintenance task
-npx ecm maintenance run prune-graph
+npx causantic maintenance run prune-graph
 
 # Check maintenance status
-npx ecm maintenance status
+npx causantic maintenance status
 
 # Run as background daemon
-npx ecm maintenance daemon
+npx causantic maintenance daemon
 ```
 
 ## Documentation

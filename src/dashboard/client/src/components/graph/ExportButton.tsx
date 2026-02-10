@@ -15,7 +15,7 @@ export function ExportButton({ svgRef }: ExportButtonProps) {
 
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'ecm-graph.svg';
+    link.download = 'causantic-graph.svg';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -18,8 +18,8 @@ import { join, dirname } from 'node:path';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { resolvePath } from '../config/memory-config.js';
 
-const SERVICE_NAME = 'entropic-causal-memory';
-const ENCRYPTED_FILE_PATH = '~/.ecm/.secrets.enc';
+const SERVICE_NAME = 'causantic';
+const ENCRYPTED_FILE_PATH = '~/.causantic/.secrets.enc';
 
 /** Secret store interface */
 export interface SecretStore {
@@ -180,13 +180,13 @@ class EncryptedFileStore implements SecretStore {
   private ensurePassword(): string {
     if (!this.password) {
       // Check environment variable
-      const envPassword = process.env.ECM_SECRET_PASSWORD;
+      const envPassword = process.env.CAUSANTIC_SECRET_PASSWORD;
       if (envPassword) {
         this.password = envPassword;
       } else {
         throw new Error(
           'No password set for encrypted file store. ' +
-          'Set ECM_SECRET_PASSWORD environment variable or call setPassword().'
+          'Set CAUSANTIC_SECRET_PASSWORD environment variable or call setPassword().'
         );
       }
     }
@@ -295,7 +295,7 @@ class EnvStore implements SecretStore {
   readonly type = 'environment';
   private readonly prefix: string;
 
-  constructor(prefix = 'ECM_') {
+  constructor(prefix = 'CAUSANTIC_') {
     this.prefix = prefix;
   }
 

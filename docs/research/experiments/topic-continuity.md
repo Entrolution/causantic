@@ -97,7 +97,7 @@ Boundary (high boundary score):
 
 ## Implementation
 
-ECM uses a simple lexical overlap check for chunking:
+Causantic uses a simple lexical overlap check for chunking:
 
 ```typescript
 function shouldChunk(prevTurn: Turn, currTurn: Turn): boolean {

@@ -11,7 +11,7 @@ describe('device-detector', () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
-    delete process.env.ECM_EMBEDDING_DEVICE;
+    delete process.env.CAUSANTIC_EMBEDDING_DEVICE;
   });
 
   afterEach(() => {
@@ -93,14 +93,14 @@ describe('device-detector', () => {
       const result = detectDevice('auto');
 
       expect(result.source).toBe(
-        process.env.ECM_EMBEDDING_DEVICE ? 'env' : 'auto'
+        process.env.CAUSANTIC_EMBEDDING_DEVICE ? 'env' : 'auto'
       );
     });
   });
 
   describe('environment variable override', () => {
-    it('reads ECM_EMBEDDING_DEVICE', () => {
-      process.env.ECM_EMBEDDING_DEVICE = 'cpu';
+    it('reads CAUSANTIC_EMBEDDING_DEVICE env var', () => {
+      process.env.CAUSANTIC_EMBEDDING_DEVICE = 'cpu';
 
       const result = detectDevice();
 
@@ -109,7 +109,7 @@ describe('device-detector', () => {
     });
 
     it('explicit arg takes priority over env var', () => {
-      process.env.ECM_EMBEDDING_DEVICE = 'cpu';
+      process.env.CAUSANTIC_EMBEDDING_DEVICE = 'cpu';
 
       const result = detectDevice('coreml');
 

@@ -4,16 +4,16 @@ import { promptPassword, isEncryptedArchive } from '../utils.js';
 export const exportCommand: Command = {
   name: 'export',
   description: 'Export memory data',
-  usage: 'ecm export --output <path> [--no-encrypt]',
+  usage: 'causantic export --output <path> [--no-encrypt]',
   handler: async (args) => {
     const { exportArchive } = await import('../../storage/archive.js');
     const outputIndex = args.indexOf('--output');
-    const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : 'ecm-backup.ecm';
+    const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : 'causantic-backup.causantic';
     const noEncrypt = args.includes('--no-encrypt');
 
     let password: string | undefined;
     if (!noEncrypt) {
-      password = process.env.ECM_EXPORT_PASSWORD;
+      password = process.env.CAUSANTIC_EXPORT_PASSWORD;
 
       if (!password && process.stdin.isTTY) {
         password = await promptPassword('Enter encryption password: ');
@@ -29,7 +29,7 @@ export const exportCommand: Command = {
         }
       } else if (!password) {
         console.error('Error: No password provided for encrypted export.');
-        console.log('Set ECM_EXPORT_PASSWORD environment variable or use --no-encrypt.');
+        console.log('Set CAUSANTIC_EXPORT_PASSWORD environment variable or use --no-encrypt.');
         process.exit(2);
       }
     }
@@ -45,7 +45,7 @@ export const exportCommand: Command = {
 export const importCommand: Command = {
   name: 'import',
   description: 'Import memory data',
-  usage: 'ecm import <file> [--merge]',
+  usage: 'causantic import <file> [--merge]',
   handler: async (args) => {
     if (args.length === 0) {
       console.error('Error: File path required');
@@ -59,7 +59,7 @@ export const importCommand: Command = {
 
     let password: string | undefined;
     if (encrypted) {
-      password = process.env.ECM_EXPORT_PASSWORD;
+      password = process.env.CAUSANTIC_EXPORT_PASSWORD;
 
       if (!password && process.stdin.isTTY) {
         password = await promptPassword('Enter decryption password: ');
@@ -68,7 +68,7 @@ export const importCommand: Command = {
           process.exit(2);
         }
       } else if (!password) {
-        console.error('Error: Archive is encrypted. Set ECM_EXPORT_PASSWORD environment variable.');
+        console.error('Error: Archive is encrypted. Set CAUSANTIC_EXPORT_PASSWORD environment variable.');
         process.exit(2);
       }
     }

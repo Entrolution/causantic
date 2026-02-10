@@ -1,5 +1,5 @@
 /**
- * Encryption utilities for ECM.
+ * Encryption utilities for Causantic.
  *
  * Uses AES-256-GCM for authenticated encryption with Argon2id for key derivation.
  */

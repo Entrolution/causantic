@@ -1,45 +1,45 @@
 /**
- * Tests for ECM skill templates and installation logic.
+ * Tests for Causantic skill templates and installation logic.
  */
 
 import { describe, it, expect } from 'vitest';
-import { ECM_SKILLS, getMinimalClaudeMdBlock } from '../../src/cli/skill-templates.js';
+import { CAUSANTIC_SKILLS, getMinimalClaudeMdBlock } from '../../src/cli/skill-templates.js';
 
 describe('skill-templates', () => {
-  describe('ECM_SKILLS', () => {
+  describe('CAUSANTIC_SKILLS', () => {
     it('has 5 skill templates', () => {
-      expect(ECM_SKILLS.length).toBe(5);
+      expect(CAUSANTIC_SKILLS.length).toBe(5);
     });
 
-    it('includes ecm-recall skill', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-recall');
+    it('includes causantic-recall skill', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-recall');
       expect(skill).toBeDefined();
     });
 
-    it('includes ecm-explain skill', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-explain');
+    it('includes causantic-explain skill', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-explain');
       expect(skill).toBeDefined();
     });
 
-    it('includes ecm-predict skill', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-predict');
+    it('includes causantic-predict skill', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-predict');
       expect(skill).toBeDefined();
     });
 
-    it('includes ecm-list-projects skill', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-list-projects');
+    it('includes causantic-list-projects skill', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-list-projects');
       expect(skill).toBeDefined();
     });
 
     it('all skills have unique directory names', () => {
-      const names = ECM_SKILLS.map((s) => s.dirName);
+      const names = CAUSANTIC_SKILLS.map((s) => s.dirName);
       const uniqueNames = new Set(names);
       expect(uniqueNames.size).toBe(names.length);
     });
   });
 
   describe('SKILL.md frontmatter', () => {
-    for (const skill of ECM_SKILLS) {
+    for (const skill of CAUSANTIC_SKILLS) {
       describe(skill.dirName, () => {
         it('starts with YAML frontmatter', () => {
           expect(skill.content.startsWith('---\n')).toBe(true);
@@ -62,8 +62,8 @@ describe('skill-templates', () => {
           expect(descMatch![1].trim().length).toBeGreaterThan(10);
         });
 
-        it('references entropic-causal-memory MCP server', () => {
-          expect(skill.content).toContain('entropic-causal-memory');
+        it('references causantic MCP server', () => {
+          expect(skill.content).toContain('causantic');
         });
 
         it('has markdown content after frontmatter', () => {
@@ -80,50 +80,50 @@ describe('skill-templates', () => {
   });
 
   describe('skill content specifics', () => {
-    it('ecm-recall has argument-hint', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-recall')!;
+    it('causantic-recall has argument-hint', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-recall')!;
       expect(skill.content).toContain('argument-hint:');
     });
 
-    it('ecm-explain has argument-hint', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-explain')!;
+    it('causantic-explain has argument-hint', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-explain')!;
       expect(skill.content).toContain('argument-hint:');
     });
 
-    it('ecm-predict has argument-hint', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-predict')!;
+    it('causantic-predict has argument-hint', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-predict')!;
       expect(skill.content).toContain('argument-hint:');
     });
 
-    it('ecm-recall mentions range parameter', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-recall')!;
+    it('causantic-recall mentions range parameter', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-recall')!;
       expect(skill.content).toContain('range');
       expect(skill.content).toContain('"short"');
       expect(skill.content).toContain('"long"');
     });
 
-    it('ecm-recall mentions project parameter', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-recall')!;
+    it('causantic-recall mentions project parameter', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-recall')!;
       expect(skill.content).toContain('project');
     });
 
-    it('ecm-explain references the explain MCP tool', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-explain')!;
+    it('causantic-explain references the explain MCP tool', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-explain')!;
       expect(skill.content).toContain('`explain` MCP tool');
     });
 
-    it('ecm-predict references the predict MCP tool', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-predict')!;
+    it('causantic-predict references the predict MCP tool', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-predict')!;
       expect(skill.content).toContain('`predict` MCP tool');
     });
 
-    it('ecm-list-projects references the list-projects MCP tool', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-list-projects')!;
+    it('causantic-list-projects references the list-projects MCP tool', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-list-projects')!;
       expect(skill.content).toContain('`list-projects` MCP tool');
     });
 
-    it('ecm-list-projects does not have argument-hint', () => {
-      const skill = ECM_SKILLS.find((s) => s.dirName === 'ecm-list-projects')!;
+    it('causantic-list-projects does not have argument-hint', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-list-projects')!;
       expect(skill.content).not.toContain('argument-hint:');
     });
   });
@@ -131,23 +131,23 @@ describe('skill-templates', () => {
   describe('getMinimalClaudeMdBlock', () => {
     const block = getMinimalClaudeMdBlock();
 
-    it('starts with ECM_MEMORY_START marker', () => {
-      expect(block).toContain('<!-- ECM_MEMORY_START -->');
+    it('starts with CAUSANTIC_MEMORY_START marker', () => {
+      expect(block).toContain('<!-- CAUSANTIC_MEMORY_START -->');
     });
 
-    it('ends with ECM_MEMORY_END marker', () => {
-      expect(block).toContain('<!-- ECM_MEMORY_END -->');
+    it('ends with CAUSANTIC_MEMORY_END marker', () => {
+      expect(block).toContain('<!-- CAUSANTIC_MEMORY_END -->');
     });
 
-    it('references entropic-causal-memory MCP server', () => {
-      expect(block).toContain('entropic-causal-memory');
+    it('references causantic MCP server', () => {
+      expect(block).toContain('causantic');
     });
 
-    it('references all 4 ECM skills', () => {
-      expect(block).toContain('/ecm-recall');
-      expect(block).toContain('/ecm-explain');
-      expect(block).toContain('/ecm-predict');
-      expect(block).toContain('/ecm-list-projects');
+    it('references all 4 Causantic skills', () => {
+      expect(block).toContain('/causantic-recall');
+      expect(block).toContain('/causantic-explain');
+      expect(block).toContain('/causantic-predict');
+      expect(block).toContain('/causantic-list-projects');
     });
 
     it('is shorter than the old verbose instructions', () => {
@@ -164,36 +164,36 @@ describe('skill-templates', () => {
   describe('skill installation simulation', () => {
     it('generates correct directory paths', () => {
       const skillsBase = '/home/user/.claude/skills';
-      const paths = ECM_SKILLS.map((s) => `${skillsBase}/${s.dirName}/SKILL.md`);
+      const paths = CAUSANTIC_SKILLS.map((s) => `${skillsBase}/${s.dirName}/SKILL.md`);
 
-      expect(paths).toContain(`${skillsBase}/ecm-recall/SKILL.md`);
-      expect(paths).toContain(`${skillsBase}/ecm-explain/SKILL.md`);
-      expect(paths).toContain(`${skillsBase}/ecm-predict/SKILL.md`);
-      expect(paths).toContain(`${skillsBase}/ecm-list-projects/SKILL.md`);
+      expect(paths).toContain(`${skillsBase}/causantic-recall/SKILL.md`);
+      expect(paths).toContain(`${skillsBase}/causantic-explain/SKILL.md`);
+      expect(paths).toContain(`${skillsBase}/causantic-predict/SKILL.md`);
+      expect(paths).toContain(`${skillsBase}/causantic-list-projects/SKILL.md`);
     });
 
     it('CLAUDEMD replacement handles existing markers', () => {
-      const ECM_START = '<!-- ECM_MEMORY_START -->';
-      const ECM_END = '<!-- ECM_MEMORY_END -->';
+      const CAUSANTIC_START = '<!-- CAUSANTIC_MEMORY_START -->';
+      const CAUSANTIC_END = '<!-- CAUSANTIC_MEMORY_END -->';
 
       const existing = `# My CLAUDE.md
 Some instructions here.
 
-${ECM_START}
+${CAUSANTIC_START}
 ## Old verbose instructions
 Lots of text here...
-${ECM_END}
+${CAUSANTIC_END}
 
 More instructions below.`;
 
       const newBlock = getMinimalClaudeMdBlock();
 
-      const startIdx = existing.indexOf(ECM_START);
-      const endIdx = existing.indexOf(ECM_END);
-      const updated = existing.slice(0, startIdx) + newBlock + existing.slice(endIdx + ECM_END.length);
+      const startIdx = existing.indexOf(CAUSANTIC_START);
+      const endIdx = existing.indexOf(CAUSANTIC_END);
+      const updated = existing.slice(0, startIdx) + newBlock + existing.slice(endIdx + CAUSANTIC_END.length);
 
       // Should contain new block
-      expect(updated).toContain('/ecm-recall');
+      expect(updated).toContain('/causantic-recall');
       // Should not contain old verbose text
       expect(updated).not.toContain('Old verbose instructions');
       // Should preserve surrounding content
@@ -208,7 +208,7 @@ More instructions below.`;
       const updated = existing + separator + newBlock + '\n';
 
       expect(updated).toContain('# My CLAUDE.md');
-      expect(updated).toContain('/ecm-recall');
+      expect(updated).toContain('/causantic-recall');
     });
   });
 });

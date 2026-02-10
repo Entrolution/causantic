@@ -1,30 +1,30 @@
 # Quick Start
 
-Get ECM up and running with Claude Code in 5 minutes.
+Get Causantic up and running with Claude Code in 5 minutes.
 
-## Step 1: Install ECM
+## Step 1: Install Causantic
 
 ```bash
-npm install entropic-causal-memory
-npx ecm init
+npm install causantic
+npx causantic init
 ```
 
 ## Step 2: Ingest Your Sessions
 
-ECM needs to analyze your existing Claude Code sessions to build its memory:
+Causantic needs to analyze your existing Claude Code sessions to build its memory:
 
 ```bash
 # Ingest all sessions from your Claude Code projects
-npx ecm batch-ingest ~/.claude/projects
+npx causantic batch-ingest ~/.claude/projects
 ```
 
 This creates:
-- A SQLite database at `~/.ecm/memory.db`
-- A vector store at `~/.ecm/vectors/`
+- A SQLite database at `~/.causantic/memory.db`
+- A vector store at `~/.causantic/vectors/`
 
 ## Step 3: Configure Claude Code
 
-Add ECM as an MCP server in your Claude Code configuration:
+Add Causantic as an MCP server in your Claude Code configuration:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 
@@ -33,7 +33,7 @@ Add ECM as an MCP server in your Claude Code configuration:
   "mcpServers": {
     "memory": {
       "command": "npx",
-      "args": ["ecm", "serve"]
+      "args": ["causantic", "serve"]
     }
   }
 }

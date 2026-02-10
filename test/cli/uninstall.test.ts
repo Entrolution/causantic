@@ -1,5 +1,5 @@
 /**
- * Tests for ECM uninstall command.
+ * Tests for Causantic uninstall command.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -9,7 +9,7 @@ import * as os from 'node:os';
 import {
   getDirSize,
   formatSize,
-  removeEcmBlock,
+  removeCausanticBlock,
   removeJsonKey,
   decodeProjectDirName,
   discoverProjectMcpFiles,
@@ -21,7 +21,7 @@ import {
 
 /** Create a temp directory for test isolation */
 function createTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'ecm-uninstall-test-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'causantic-uninstall-test-'));
 }
 
 describe('uninstall', () => {
@@ -74,21 +74,21 @@ describe('uninstall', () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('removes ECM key from mcpServers', () => {
+    it('removes Causantic key from mcpServers', () => {
       const filePath = path.join(tmpDir, 'settings.json');
       const config = {
         mcpServers: {
-          'entropic-causal-memory': { command: 'node', args: ['serve'] },
+          'causantic': { command: 'node', args: ['serve'] },
           'other-server': { command: 'python', args: ['serve'] },
         },
       };
       fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
 
-      const result = removeJsonKey(filePath, ['mcpServers', 'entropic-causal-memory']);
+      const result = removeJsonKey(filePath, ['mcpServers', 'causantic']);
 
       expect(result).toBe(true);
       const updated = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      expect(updated.mcpServers['entropic-causal-memory']).toBeUndefined();
+      expect(updated.mcpServers['causantic']).toBeUndefined();
       expect(updated.mcpServers['other-server']).toBeDefined();
     });
 
@@ -96,14 +96,14 @@ describe('uninstall', () => {
       const filePath = path.join(tmpDir, 'settings.json');
       const config = {
         mcpServers: {
-          'entropic-causal-memory': { command: 'node' },
+          'causantic': { command: 'node' },
           'other-server': { command: 'python' },
         },
         otherConfig: 'value',
       };
       fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
 
-      removeJsonKey(filePath, ['mcpServers', 'entropic-causal-memory']);
+      removeJsonKey(filePath, ['mcpServers', 'causantic']);
 
       const updated = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       expect(updated.otherConfig).toBe('value');
@@ -115,7 +115,7 @@ describe('uninstall', () => {
       const config = { mcpServers: { 'other-server': {} } };
       fs.writeFileSync(filePath, JSON.stringify(config));
 
-      const result = removeJsonKey(filePath, ['mcpServers', 'entropic-causal-memory']);
+      const result = removeJsonKey(filePath, ['mcpServers', 'causantic']);
 
       expect(result).toBe(false);
     });
@@ -138,12 +138,12 @@ describe('uninstall', () => {
       const filePath = path.join(tmpDir, 'settings.json');
       const config = {
         mcpServers: {
-          'entropic-causal-memory': { command: 'node' },
+          'causantic': { command: 'node' },
         },
       };
       fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
 
-      removeJsonKey(filePath, ['mcpServers', 'entropic-causal-memory']);
+      removeJsonKey(filePath, ['mcpServers', 'causantic']);
 
       const updated = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
       expect(updated.mcpServers).toEqual({});
@@ -153,13 +153,13 @@ describe('uninstall', () => {
       const filePath = path.join(tmpDir, 'settings.json');
       const config = {
         mcpServers: {
-          'entropic-causal-memory': { command: 'node' },
+          'causantic': { command: 'node' },
           'other': { command: 'python' },
         },
       };
       fs.writeFileSync(filePath, JSON.stringify(config, null, 2));
 
-      removeJsonKey(filePath, ['mcpServers', 'entropic-causal-memory']);
+      removeJsonKey(filePath, ['mcpServers', 'causantic']);
 
       const raw = fs.readFileSync(filePath, 'utf-8');
       expect(raw).toMatch(/^{/);
@@ -169,27 +169,27 @@ describe('uninstall', () => {
     });
   });
 
-  describe('removeEcmBlock', () => {
-    it('removes ECM block from CLAUDE.md', () => {
+  describe('removeCausanticBlock', () => {
+    it('removes Causantic block from CLAUDE.md', () => {
       const content = `# My CLAUDE.md
 
 Some content here.
 
-<!-- ECM_MEMORY_START -->
-## Memory (Entropic Causal Memory)
+<!-- CAUSANTIC_MEMORY_START -->
+## Memory (Causantic)
 
-Some ECM stuff.
-<!-- ECM_MEMORY_END -->
+Some Causantic stuff.
+<!-- CAUSANTIC_MEMORY_END -->
 
 More content after.
 `;
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).not.toBeNull();
-      expect(result).not.toContain('ECM_MEMORY_START');
-      expect(result).not.toContain('ECM_MEMORY_END');
-      expect(result).not.toContain('Entropic Causal Memory');
+      expect(result).not.toContain('CAUSANTIC_MEMORY_START');
+      expect(result).not.toContain('CAUSANTIC_MEMORY_END');
+      expect(result).not.toContain('Causantic');
       expect(result).toContain('Some content here.');
       expect(result).toContain('More content after.');
     });
@@ -197,103 +197,103 @@ More content after.
     it('preserves surrounding content', () => {
       const content = `# Header
 
-Before ECM block.
+Before Causantic block.
 
-<!-- ECM_MEMORY_START -->
-ECM content
-<!-- ECM_MEMORY_END -->
+<!-- CAUSANTIC_MEMORY_START -->
+Causantic content
+<!-- CAUSANTIC_MEMORY_END -->
 
-After ECM block.
+After Causantic block.
 `;
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).toContain('# Header');
-      expect(result).toContain('Before ECM block.');
-      expect(result).toContain('After ECM block.');
+      expect(result).toContain('Before Causantic block.');
+      expect(result).toContain('After Causantic block.');
     });
 
-    it('returns null when no ECM block exists', () => {
-      const content = '# Just a normal CLAUDE.md\n\nNo ECM here.\n';
+    it('returns null when no Causantic block exists', () => {
+      const content = '# Just a normal CLAUDE.md\n\nNo Causantic here.\n';
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).toBeNull();
     });
 
     it('returns null when only start marker exists', () => {
-      const content = '<!-- ECM_MEMORY_START -->\nSome content\n';
+      const content = '<!-- CAUSANTIC_MEMORY_START -->\nSome content\n';
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).toBeNull();
     });
 
     it('returns null when only end marker exists', () => {
-      const content = 'Some content\n<!-- ECM_MEMORY_END -->\n';
+      const content = 'Some content\n<!-- CAUSANTIC_MEMORY_END -->\n';
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).toBeNull();
     });
 
-    it('handles ECM block at start of file', () => {
-      const content = `<!-- ECM_MEMORY_START -->
-ECM content
-<!-- ECM_MEMORY_END -->
+    it('handles Causantic block at start of file', () => {
+      const content = `<!-- CAUSANTIC_MEMORY_START -->
+Causantic content
+<!-- CAUSANTIC_MEMORY_END -->
 
 Rest of file.
 `;
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).not.toBeNull();
       expect(result).toContain('Rest of file.');
-      expect(result).not.toContain('ECM content');
+      expect(result).not.toContain('Causantic content');
     });
 
-    it('handles ECM block at end of file', () => {
+    it('handles Causantic block at end of file', () => {
       const content = `# Header
 
 Content.
 
-<!-- ECM_MEMORY_START -->
-ECM content
-<!-- ECM_MEMORY_END -->`;
+<!-- CAUSANTIC_MEMORY_START -->
+Causantic content
+<!-- CAUSANTIC_MEMORY_END -->`;
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).not.toBeNull();
       expect(result).toContain('# Header');
       expect(result).toContain('Content.');
-      expect(result).not.toContain('ECM content');
+      expect(result).not.toContain('Causantic content');
     });
 
     it('cleans up extra whitespace', () => {
       const content = `Content before.
 
 
-<!-- ECM_MEMORY_START -->
-ECM block
-<!-- ECM_MEMORY_END -->
+<!-- CAUSANTIC_MEMORY_START -->
+Causantic block
+<!-- CAUSANTIC_MEMORY_END -->
 
 
 Content after.
 `;
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).not.toBeNull();
       // Should not have excessive blank lines
       expect(result).not.toMatch(/\n{4,}/);
     });
 
-    it('returns empty string when file is only ECM block', () => {
-      const content = `<!-- ECM_MEMORY_START -->
-ECM content only
-<!-- ECM_MEMORY_END -->`;
+    it('returns empty string when file is only Causantic block', () => {
+      const content = `<!-- CAUSANTIC_MEMORY_START -->
+Causantic content only
+<!-- CAUSANTIC_MEMORY_END -->`;
 
-      const result = removeEcmBlock(content);
+      const result = removeCausanticBlock(content);
 
       expect(result).toBe('');
     });
@@ -426,14 +426,14 @@ ECM content only
     it('includes keychain artifacts', () => {
       const plan = buildRemovalPlan(false);
       const secrets = plan.filter((a) => a.category === 'secret');
-      expect(secrets.length).toBe(2); // ecm-db-key, anthropic-api-key
+      expect(secrets.length).toBe(2); // causantic-db-key, anthropic-api-key
     });
 
     it('includes data directory when keepData is false', () => {
       const plan = buildRemovalPlan(false);
       const data = plan.filter((a) => a.category === 'data');
       expect(data.length).toBe(1);
-      expect(data[0].label).toBe('~/.ecm/');
+      expect(data[0].label).toBe('~/.causantic/');
     });
 
     it('excludes data directory when keepData is true', () => {
@@ -540,14 +540,14 @@ ECM content only
       const artifacts: RemovalArtifact[] = [
         {
           label: '~/.claude/CLAUDE.md',
-          description: 'ECM memory block',
+          description: 'Causantic memory block',
           category: 'integration',
           found: true,
           remove: async () => true,
           verify: () => false,
         },
         {
-          label: 'Keychain: ecm-db-key',
+          label: 'Keychain: causantic-db-key',
           description: '',
           category: 'secret',
           found: true,
@@ -555,7 +555,7 @@ ECM content only
           verify: () => false,
         },
         {
-          label: '~/.ecm/',
+          label: '~/.causantic/',
           description: '142.3 MB',
           category: 'data',
           found: true,

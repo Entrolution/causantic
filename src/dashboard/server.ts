@@ -58,7 +58,7 @@ export async function startDashboard(port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const server = app.listen(port, () => {
       const url = `http://localhost:${port}`;
-      console.log(`ECM Dashboard running at ${url}`);
+      console.log(`Causantic Dashboard running at ${url}`);
 
       // Try to open browser
       openBrowser(url);
@@ -76,7 +76,7 @@ export async function startDashboard(port: number): Promise<void> {
 
     server.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${port} is already in use. Try: ecm dashboard --port ${port + 1}`);
+        console.error(`Port ${port} is already in use. Try: causantic dashboard --port ${port + 1}`);
       }
       reject(err);
     });

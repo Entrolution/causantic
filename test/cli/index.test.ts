@@ -10,13 +10,13 @@ describe('cli', () => {
       const command = {
         name: 'test',
         description: 'A test command',
-        usage: 'ecm test [options]',
+        usage: 'causantic test [options]',
         handler: async (_args: string[]) => {},
       };
 
       expect(command.name).toBe('test');
       expect(command.description).toBe('A test command');
-      expect(command.usage).toContain('ecm test');
+      expect(command.usage).toContain('causantic test');
       expect(typeof command.handler).toBe('function');
     });
   });
@@ -53,21 +53,21 @@ describe('cli', () => {
 
   describe('argument parsing', () => {
     it('extracts command name from argv', () => {
-      const argv = ['node', 'ecm', 'recall', 'test query'];
+      const argv = ['node', 'causantic', 'recall', 'test query'];
       const commandName = argv[2];
 
       expect(commandName).toBe('recall');
     });
 
     it('extracts command args from argv', () => {
-      const argv = ['node', 'ecm', 'recall', 'test query', '--limit', '5'];
+      const argv = ['node', 'causantic', 'recall', 'test query', '--limit', '5'];
       const args = argv.slice(3);
 
       expect(args).toEqual(['test query', '--limit', '5']);
     });
 
     it('handles empty args', () => {
-      const argv = ['node', 'ecm', 'stats'];
+      const argv = ['node', 'causantic', 'stats'];
       const args = argv.slice(3);
 
       expect(args).toEqual([]);
@@ -179,7 +179,7 @@ describe('cli', () => {
     it('parses --output flag', () => {
       const args = ['--output', '/path/to/backup.json', '--no-encrypt'];
       const outputIndex = args.indexOf('--output');
-      const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : 'ecm-backup.json';
+      const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : 'causantic-backup.json';
 
       expect(outputPath).toBe('/path/to/backup.json');
     });
@@ -187,9 +187,9 @@ describe('cli', () => {
     it('uses default output when not specified', () => {
       const args: string[] = [];
       const outputIndex = args.indexOf('--output');
-      const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : 'ecm-backup.json';
+      const outputPath = outputIndex >= 0 ? args[outputIndex + 1] : 'causantic-backup.json';
 
-      expect(outputPath).toBe('ecm-backup.json');
+      expect(outputPath).toBe('causantic-backup.json');
     });
 
     it('detects --no-encrypt flag', () => {

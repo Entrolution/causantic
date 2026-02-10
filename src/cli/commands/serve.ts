@@ -3,7 +3,7 @@ import type { Command } from '../types.js';
 export const serveCommand: Command = {
   name: 'serve',
   description: 'Start the MCP server',
-  usage: 'ecm serve [--health-check]',
+  usage: 'causantic serve [--health-check]',
   handler: async (_args) => {
     const mcpServer = await import('../../mcp/server.js');
     const startFn = (mcpServer as Record<string, unknown>).startMcpServer

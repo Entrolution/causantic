@@ -1,20 +1,20 @@
 # Configuration
 
-ECM can be configured through multiple sources, applied in this priority order:
+Causantic can be configured through multiple sources, applied in this priority order:
 
 1. **CLI flags** (highest priority)
-2. **Environment variables** (`ECM_*`)
-3. **Project config** (`./ecm.config.json`)
-4. **User config** (`~/.ecm/config.json`)
+2. **Environment variables** (`CAUSANTIC_*`)
+3. **Project config** (`./causantic.config.json`)
+4. **User config** (`~/.causantic/config.json`)
 5. **Built-in defaults** (lowest priority)
 
 ## Configuration File
 
-Create `ecm.config.json` in your project root:
+Create `causantic.config.json` in your project root:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Entrolution/entropic-causal-memory/main/config.schema.json",
+  "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json",
   "decay": {
     "backward": {
       "type": "linear",
@@ -41,19 +41,19 @@ All settings can be overridden via environment variables:
 
 ```bash
 # Decay settings
-export ECM_DECAY_BACKWARD_TYPE=linear
-export ECM_DECAY_BACKWARD_DIES_AT_HOPS=10
-export ECM_DECAY_FORWARD_TYPE=delayed-linear
-export ECM_DECAY_FORWARD_HOLD_HOPS=5
-export ECM_DECAY_FORWARD_DIES_AT_HOPS=20
+export CAUSANTIC_DECAY_BACKWARD_TYPE=linear
+export CAUSANTIC_DECAY_BACKWARD_DIES_AT_HOPS=10
+export CAUSANTIC_DECAY_FORWARD_TYPE=delayed-linear
+export CAUSANTIC_DECAY_FORWARD_HOLD_HOPS=5
+export CAUSANTIC_DECAY_FORWARD_DIES_AT_HOPS=20
 
 # Clustering
-export ECM_CLUSTERING_THRESHOLD=0.09
-export ECM_CLUSTERING_MIN_CLUSTER_SIZE=4
+export CAUSANTIC_CLUSTERING_THRESHOLD=0.09
+export CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE=4
 
 # Storage paths
-export ECM_STORAGE_DB_PATH=~/.ecm/memory.db
-export ECM_STORAGE_VECTOR_PATH=~/.ecm/vectors
+export CAUSANTIC_STORAGE_DB_PATH=~/.causantic/memory.db
+export CAUSANTIC_STORAGE_VECTOR_PATH=~/.causantic/vectors
 ```
 
 ## Key Settings
@@ -93,7 +93,7 @@ Control output sizes:
 Check your configuration for errors:
 
 ```bash
-npx ecm validate-config
+npx causantic validate-config
 ```
 
 ## See Also

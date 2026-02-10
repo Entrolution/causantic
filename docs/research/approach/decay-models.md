@@ -1,6 +1,6 @@
 # Decay Models
 
-This document explains ECM's approach to edge weight decay and why hop-based decay outperforms time-based decay.
+This document explains Causantic's approach to edge weight decay and why hop-based decay outperforms time-based decay.
 
 ## The Problem
 
@@ -26,7 +26,7 @@ function timeDecay(edge: Edge, now: Date): number {
 
 ### Our Approach: Hop-Based Decay
 
-ECM measures distance in "hops" (logical steps in the causal graph):
+Causantic measures distance in "hops" (logical steps in the causal graph):
 
 ```typescript
 function hopDecay(edge: Edge, hopsFromAnchor: number): number {
@@ -62,7 +62,7 @@ Weight: 0.9 (mostly dead)  Weight: 0.8 (still relevant)
 
 ### The Vector Clock Connection
 
-ECM's vector clocks capture "happens-before" relationships across parallel thought streams:
+Causantic's vector clocks capture "happens-before" relationships across parallel thought streams:
 
 ```typescript
 interface VectorClock {
@@ -133,7 +133,7 @@ Weight
 
 ## Decay Curve Types
 
-ECM supports multiple decay curve shapes:
+Causantic supports multiple decay curve shapes:
 
 ### Linear
 
@@ -182,7 +182,7 @@ function delayedLinear(hop: number, hold: number, diesAt: number): number {
 
 ## Configuration
 
-ECM's decay configuration:
+Causantic's decay configuration:
 
 ```json
 {

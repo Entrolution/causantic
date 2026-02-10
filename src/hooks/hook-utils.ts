@@ -46,7 +46,7 @@ export interface RetryOptions {
 
 /** Hook configuration */
 export interface HookConfig {
-  /** Enable structured JSON logging. Default: env ECM_HOOK_LOGGING === 'true' */
+  /** Enable structured JSON logging. Default: env CAUSANTIC_HOOK_LOGGING === 'true' */
   enableLogging?: boolean;
   /** Log level: 'debug' | 'info' | 'warn' | 'error'. Default: 'info' */
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
@@ -54,8 +54,8 @@ export interface HookConfig {
 
 // Global configuration
 let hookConfig: HookConfig = {
-  enableLogging: process.env.ECM_HOOK_LOGGING === 'true',
-  logLevel: (process.env.ECM_HOOK_LOG_LEVEL as HookConfig['logLevel']) ?? 'info',
+  enableLogging: process.env.CAUSANTIC_HOOK_LOGGING === 'true',
+  logLevel: (process.env.CAUSANTIC_HOOK_LOG_LEVEL as HookConfig['logLevel']) ?? 'info',
 };
 
 /**

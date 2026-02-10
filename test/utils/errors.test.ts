@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  EcmError,
+  CausanticError,
   StorageError,
   IngestionError,
   RetrievalError,
@@ -22,44 +22,44 @@ import {
 } from '../../src/utils/errors.js';
 
 describe('errors', () => {
-  describe('EcmError', () => {
+  describe('CausanticError', () => {
     it('has message, code, and name', () => {
-      const error = new EcmError('Something failed', 'TEST_ERROR');
+      const error = new CausanticError('Something failed', 'TEST_ERROR');
 
       expect(error.message).toBe('Something failed');
       expect(error.code).toBe('TEST_ERROR');
-      expect(error.name).toBe('EcmError');
+      expect(error.name).toBe('CausanticError');
     });
 
     it('captures cause from Error', () => {
       const cause = new Error('Original error');
-      const error = new EcmError('Wrapped error', 'WRAPPED', cause);
+      const error = new CausanticError('Wrapped error', 'WRAPPED', cause);
 
       expect(error.cause).toBe(cause);
     });
 
     it('converts non-Error cause to Error', () => {
-      const error = new EcmError('Wrapped error', 'WRAPPED', 'string cause');
+      const error = new CausanticError('Wrapped error', 'WRAPPED', 'string cause');
 
       expect(error.cause).toBeInstanceOf(Error);
       expect(error.cause?.message).toBe('string cause');
     });
 
     it('has undefined cause when not provided', () => {
-      const error = new EcmError('No cause', 'NO_CAUSE');
+      const error = new CausanticError('No cause', 'NO_CAUSE');
 
       expect(error.cause).toBeUndefined();
     });
 
     it('is instanceof Error', () => {
-      const error = new EcmError('Test', 'TEST');
+      const error = new CausanticError('Test', 'TEST');
 
       expect(error instanceof Error).toBe(true);
-      expect(error instanceof EcmError).toBe(true);
+      expect(error instanceof CausanticError).toBe(true);
     });
 
     it('has stack trace', () => {
-      const error = new EcmError('Test', 'TEST');
+      const error = new CausanticError('Test', 'TEST');
 
       expect(error.stack).toBeTruthy();
     });
@@ -67,22 +67,22 @@ describe('errors', () => {
 
   describe('toDetailedString', () => {
     it('formats basic error', () => {
-      const error = new EcmError('Something failed', 'TEST_ERROR');
+      const error = new CausanticError('Something failed', 'TEST_ERROR');
       const str = error.toDetailedString();
 
-      expect(str).toBe('EcmError [TEST_ERROR]: Something failed');
+      expect(str).toBe('CausanticError [TEST_ERROR]: Something failed');
     });
 
     it('includes cause', () => {
       const cause = new Error('Original error');
-      const error = new EcmError('Wrapped error', 'WRAPPED', cause);
+      const error = new CausanticError('Wrapped error', 'WRAPPED', cause);
       const str = error.toDetailedString();
 
       expect(str).toContain('Wrapped error');
       expect(str).toContain('Caused by: Original error');
     });
 
-    it('includes EcmError cause code', () => {
+    it('includes CausanticError cause code', () => {
       const cause = new StorageError('DB failed', 'DB_FAILED');
       const error = new IngestionError('Ingest failed', 'INGEST_FAILED', cause);
       const str = error.toDetailedString();
@@ -93,10 +93,10 @@ describe('errors', () => {
   });
 
   describe('StorageError', () => {
-    it('extends EcmError', () => {
+    it('extends CausanticError', () => {
       const error = new StorageError('DB failed', 'DB_CONNECTION_FAILED');
 
-      expect(error instanceof EcmError).toBe(true);
+      expect(error instanceof CausanticError).toBe(true);
       expect(error instanceof StorageError).toBe(true);
       expect(error.name).toBe('StorageError');
     });
@@ -109,50 +109,50 @@ describe('errors', () => {
   });
 
   describe('IngestionError', () => {
-    it('extends EcmError', () => {
+    it('extends CausanticError', () => {
       const error = new IngestionError('Parse failed', 'PARSE_FAILED');
 
-      expect(error instanceof EcmError).toBe(true);
+      expect(error instanceof CausanticError).toBe(true);
       expect(error instanceof IngestionError).toBe(true);
       expect(error.name).toBe('IngestionError');
     });
   });
 
   describe('RetrievalError', () => {
-    it('extends EcmError', () => {
+    it('extends CausanticError', () => {
       const error = new RetrievalError('Traversal failed', 'TRAVERSAL_FAILED');
 
-      expect(error instanceof EcmError).toBe(true);
+      expect(error instanceof CausanticError).toBe(true);
       expect(error instanceof RetrievalError).toBe(true);
       expect(error.name).toBe('RetrievalError');
     });
   });
 
   describe('ConfigError', () => {
-    it('extends EcmError', () => {
+    it('extends CausanticError', () => {
       const error = new ConfigError('Invalid config', 'CONFIG_INVALID');
 
-      expect(error instanceof EcmError).toBe(true);
+      expect(error instanceof CausanticError).toBe(true);
       expect(error instanceof ConfigError).toBe(true);
       expect(error.name).toBe('ConfigError');
     });
   });
 
   describe('ClusterError', () => {
-    it('extends EcmError', () => {
+    it('extends CausanticError', () => {
       const error = new ClusterError('Clustering failed', 'CLUSTER_FAILED');
 
-      expect(error instanceof EcmError).toBe(true);
+      expect(error instanceof CausanticError).toBe(true);
       expect(error instanceof ClusterError).toBe(true);
       expect(error.name).toBe('ClusterError');
     });
   });
 
   describe('HookError', () => {
-    it('extends EcmError', () => {
+    it('extends CausanticError', () => {
       const error = new HookError('Hook timeout', 'HOOK_TIMEOUT');
 
-      expect(error instanceof EcmError).toBe(true);
+      expect(error instanceof CausanticError).toBe(true);
       expect(error instanceof HookError).toBe(true);
       expect(error.name).toBe('HookError');
     });
@@ -171,7 +171,7 @@ describe('errors', () => {
       expect(isErrorWithCode(error, 'OTHER_CODE')).toBe(false);
     });
 
-    it('returns false for non-EcmError', () => {
+    it('returns false for non-CausanticError', () => {
       const error = new Error('Test');
 
       expect(isErrorWithCode(error, 'TEST_CODE')).toBe(false);
@@ -217,7 +217,7 @@ describe('errors', () => {
   });
 
   describe('wrapError', () => {
-    it('returns EcmError unchanged', () => {
+    it('returns CausanticError unchanged', () => {
       const original = new StorageError('Original', 'ORIGINAL');
       const wrapped = wrapError(original);
 
@@ -228,7 +228,7 @@ describe('errors', () => {
       const original = new Error('Original message');
       const wrapped = wrapError(original);
 
-      expect(wrapped).toBeInstanceOf(EcmError);
+      expect(wrapped).toBeInstanceOf(CausanticError);
       expect(wrapped.message).toBe('Original message');
       expect(wrapped.code).toBe('UNKNOWN');
       expect(wrapped.cause).toBe(original);
@@ -237,7 +237,7 @@ describe('errors', () => {
     it('wraps string', () => {
       const wrapped = wrapError('string error');
 
-      expect(wrapped).toBeInstanceOf(EcmError);
+      expect(wrapped).toBeInstanceOf(CausanticError);
       expect(wrapped.message).toBe('string error');
       expect(wrapped.code).toBe('UNKNOWN');
     });

@@ -8,7 +8,7 @@
 import { execSync } from 'node:child_process';
 import { createSecretStore, getApiKey as getApiKeyFromStore } from './secret-store.js';
 
-const SERVICE_NAME = 'entropic-causal-memory';
+const SERVICE_NAME = 'causantic';
 
 /**
  * Get a secret from the macOS Keychain.

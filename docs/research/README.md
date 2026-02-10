@@ -1,10 +1,10 @@
 # Research Documentation
 
-This section documents the research and experimentation behind ECM's design decisions.
+This section documents the research and experimentation behind Causantic's design decisions.
 
 ## Overview
 
-ECM was developed through systematic experimentation on real Claude Code session data:
+Causantic was developed through systematic experimentation on real Claude Code session data:
 
 - **75 sessions** analyzed for topic continuity and edge decay
 - **6,000+ chunks** processed for clustering validation
@@ -55,7 +55,7 @@ See [approach/why-entropic.md](approach/why-entropic.md).
 
 ### Why Causal Graphs?
 
-Unlike simple vector databases, ECM tracks *relationships* between memory chunks:
+Unlike simple vector databases, Causantic tracks *relationships* between memory chunks:
 
 - **Causality**: What led to what
 - **Temporal ordering**: Logical sequence via vector clocks
@@ -75,7 +75,7 @@ See [approach/vector-clocks.md](approach/vector-clocks.md).
 
 ### Why Dual Integration?
 
-ECM integrates via both hooks and MCP for different needs:
+Causantic integrates via both hooks and MCP for different needs:
 
 - **Hooks**: Automatic, background capture
 - **MCP**: On-demand, interactive queries

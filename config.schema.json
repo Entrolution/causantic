@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/Entrolution/entropic-causal-memory/main/config.schema.json",
-  "title": "Entropic Causal Memory Configuration",
-  "description": "Configuration schema for ECM (entropic-causal-memory)",
+  "$id": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json",
+  "title": "Causantic Configuration",
+  "description": "Configuration schema for Causantic",
   "type": "object",
   "properties": {
     "decay": {
@@ -135,12 +135,12 @@
       "properties": {
         "dbPath": {
           "type": "string",
-          "default": "~/.ecm/memory.db",
+          "default": "~/.causantic/memory.db",
           "description": "Path to SQLite database file (~ expands to home)"
         },
         "vectorPath": {
           "type": "string",
-          "default": "~/.ecm/vectors",
+          "default": "~/.causantic/vectors",
           "description": "Path to LanceDB vector store directory"
         }
       },
@@ -184,12 +184,12 @@
           "type": "string",
           "enum": ["keychain", "env", "prompt"],
           "default": "keychain",
-          "description": "Where to get encryption key: keychain (OS secret store), env (ECM_DB_KEY), prompt (CLI only)"
+          "description": "Where to get encryption key: keychain (OS secret store), env (CAUSANTIC_DB_KEY), prompt (CLI only)"
         },
         "auditLog": {
           "type": "boolean",
           "default": false,
-          "description": "Log database access attempts to ~/.ecm/audit.log"
+          "description": "Log database access attempts to ~/.causantic/audit.log"
         }
       },
       "additionalProperties": false

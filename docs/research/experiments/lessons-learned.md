@@ -1,6 +1,6 @@
 # Lessons Learned
 
-This document captures what didn't work during ECM's development and why.
+This document captures what didn't work during Causantic's development and why.
 
 ## Wall-Clock Time Decay
 

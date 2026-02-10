@@ -3,7 +3,7 @@ import * as d3 from 'd3';
 
 /**
  * Visualize the backward (linear, dies@10) and forward (delayed-linear, 5h hold, dies@20)
- * hop decay curves from ECM's decay.ts.
+ * hop decay curves from Causantic's decay.ts.
  */
 export function DecayCurves() {
   const svgRef = useRef<SVGSVGElement>(null);

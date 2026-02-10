@@ -10,9 +10,9 @@ describe('loadConfig', () => {
   const savedEnv = { ...process.env };
 
   beforeEach(() => {
-    // Clear any ECM_ env vars to ensure clean test environment
+    // Clear any CAUSANTIC_ env vars to ensure a clean test environment
     for (const key of Object.keys(process.env)) {
-      if (key.startsWith('ECM_')) {
+      if (key.startsWith('CAUSANTIC_')) {
         delete process.env[key];
       }
     }
@@ -21,12 +21,12 @@ describe('loadConfig', () => {
   afterEach(() => {
     // Restore original env
     for (const key of Object.keys(process.env)) {
-      if (key.startsWith('ECM_')) {
+      if (key.startsWith('CAUSANTIC_')) {
         delete process.env[key];
       }
     }
     for (const [key, value] of Object.entries(savedEnv)) {
-      if (key.startsWith('ECM_') && value !== undefined) {
+      if (key.startsWith('CAUSANTIC_') && value !== undefined) {
         process.env[key] = value;
       }
     }
@@ -51,8 +51,8 @@ describe('loadConfig', () => {
       expect(config.traversal.minWeight).toBe(0.01);
       expect(config.tokens.claudeMdBudget).toBe(500);
       expect(config.tokens.mcpMaxResponse).toBe(2000);
-      expect(config.storage.dbPath).toBe('~/.ecm/memory.db');
-      expect(config.storage.vectorPath).toBe('~/.ecm/vectors');
+      expect(config.storage.dbPath).toBe('~/.causantic/memory.db');
+      expect(config.storage.vectorPath).toBe('~/.causantic/vectors');
       expect(config.llm.clusterRefreshModel).toBe('claude-3-haiku-20240307');
       expect(config.llm.refreshRateLimitPerMin).toBe(30);
       expect(config.encryption.enabled).toBe(false);
@@ -78,9 +78,9 @@ describe('loadConfig', () => {
 
   describe('environment variable overrides', () => {
     it('overrides decay backward settings from env', () => {
-      process.env.ECM_DECAY_BACKWARD_TYPE = 'exponential';
-      process.env.ECM_DECAY_BACKWARD_DIES_AT_HOPS = '5';
-      process.env.ECM_DECAY_BACKWARD_HOLD_HOPS = '2';
+      process.env.CAUSANTIC_DECAY_BACKWARD_TYPE = 'exponential';
+      process.env.CAUSANTIC_DECAY_BACKWARD_DIES_AT_HOPS = '5';
+      process.env.CAUSANTIC_DECAY_BACKWARD_HOLD_HOPS = '2';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -93,9 +93,9 @@ describe('loadConfig', () => {
     });
 
     it('overrides decay forward settings from env', () => {
-      process.env.ECM_DECAY_FORWARD_TYPE = 'linear';
-      process.env.ECM_DECAY_FORWARD_DIES_AT_HOPS = '15';
-      process.env.ECM_DECAY_FORWARD_HOLD_HOPS = '3';
+      process.env.CAUSANTIC_DECAY_FORWARD_TYPE = 'linear';
+      process.env.CAUSANTIC_DECAY_FORWARD_DIES_AT_HOPS = '15';
+      process.env.CAUSANTIC_DECAY_FORWARD_HOLD_HOPS = '3';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -108,8 +108,8 @@ describe('loadConfig', () => {
     });
 
     it('overrides clustering settings from env', () => {
-      process.env.ECM_CLUSTERING_THRESHOLD = '0.15';
-      process.env.ECM_CLUSTERING_MIN_CLUSTER_SIZE = '8';
+      process.env.CAUSANTIC_CLUSTERING_THRESHOLD = '0.15';
+      process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE = '8';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -121,8 +121,8 @@ describe('loadConfig', () => {
     });
 
     it('overrides traversal settings from env', () => {
-      process.env.ECM_TRAVERSAL_MAX_DEPTH = '30';
-      process.env.ECM_TRAVERSAL_MIN_WEIGHT = '0.05';
+      process.env.CAUSANTIC_TRAVERSAL_MAX_DEPTH = '30';
+      process.env.CAUSANTIC_TRAVERSAL_MIN_WEIGHT = '0.05';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -134,8 +134,8 @@ describe('loadConfig', () => {
     });
 
     it('overrides token settings from env', () => {
-      process.env.ECM_TOKENS_CLAUDE_MD_BUDGET = '1000';
-      process.env.ECM_TOKENS_MCP_MAX_RESPONSE = '5000';
+      process.env.CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET = '1000';
+      process.env.CAUSANTIC_TOKENS_MCP_MAX_RESPONSE = '5000';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -147,8 +147,8 @@ describe('loadConfig', () => {
     });
 
     it('overrides storage settings from env', () => {
-      process.env.ECM_STORAGE_DB_PATH = '/tmp/test.db';
-      process.env.ECM_STORAGE_VECTOR_PATH = '/tmp/vectors';
+      process.env.CAUSANTIC_STORAGE_DB_PATH = '/tmp/test.db';
+      process.env.CAUSANTIC_STORAGE_VECTOR_PATH = '/tmp/vectors';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -160,8 +160,8 @@ describe('loadConfig', () => {
     });
 
     it('overrides LLM settings from env', () => {
-      process.env.ECM_LLM_CLUSTER_REFRESH_MODEL = 'claude-3-opus';
-      process.env.ECM_LLM_REFRESH_RATE_LIMIT = '10';
+      process.env.CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL = 'claude-3-opus';
+      process.env.CAUSANTIC_LLM_REFRESH_RATE_LIMIT = '10';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -173,10 +173,10 @@ describe('loadConfig', () => {
     });
 
     it('overrides encryption settings from env', () => {
-      process.env.ECM_ENCRYPTION_ENABLED = 'true';
-      process.env.ECM_ENCRYPTION_CIPHER = 'sqlcipher';
-      process.env.ECM_ENCRYPTION_KEY_SOURCE = 'env';
-      process.env.ECM_ENCRYPTION_AUDIT_LOG = 'true';
+      process.env.CAUSANTIC_ENCRYPTION_ENABLED = 'true';
+      process.env.CAUSANTIC_ENCRYPTION_CIPHER = 'sqlcipher';
+      process.env.CAUSANTIC_ENCRYPTION_KEY_SOURCE = 'env';
+      process.env.CAUSANTIC_ENCRYPTION_AUDIT_LOG = 'true';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -190,7 +190,7 @@ describe('loadConfig', () => {
     });
 
     it('overrides vectors TTL from env', () => {
-      process.env.ECM_VECTORS_TTL_DAYS = '30';
+      process.env.CAUSANTIC_VECTORS_TTL_DAYS = '30';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -201,7 +201,7 @@ describe('loadConfig', () => {
     });
 
     it('overrides embedding device from env', () => {
-      process.env.ECM_EMBEDDING_DEVICE = 'cpu';
+      process.env.CAUSANTIC_EMBEDDING_DEVICE = 'cpu';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -212,7 +212,7 @@ describe('loadConfig', () => {
     });
 
     it('skips env vars when skipEnv is true', () => {
-      process.env.ECM_CLUSTERING_THRESHOLD = '0.99';
+      process.env.CAUSANTIC_CLUSTERING_THRESHOLD = '0.99';
 
       const config = loadConfig({
         skipEnv: true,
@@ -226,7 +226,7 @@ describe('loadConfig', () => {
 
   describe('CLI overrides (highest priority)', () => {
     it('CLI overrides take precedence over env vars', () => {
-      process.env.ECM_CLUSTERING_THRESHOLD = '0.5';
+      process.env.CAUSANTIC_CLUSTERING_THRESHOLD = '0.5';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -273,11 +273,11 @@ describe('loadConfig', () => {
 
   describe('config file loading', () => {
     it('handles missing project config gracefully', () => {
-      // ecm.config.json doesn't exist in the test directory
+      // causantic.config.json doesn't exist in the test directory
       const config = loadConfig({
         skipEnv: true,
         skipUserConfig: true,
-        projectConfigPath: '/nonexistent/ecm.config.json',
+        projectConfigPath: '/nonexistent/causantic.config.json',
       });
 
       // Should still return defaults
@@ -401,8 +401,8 @@ describe('getResolvedPaths', () => {
 
     const paths = getResolvedPaths(config);
 
-    expect(paths.dbPath).toContain('.ecm/memory.db');
-    expect(paths.vectorPath).toContain('.ecm/vectors');
+    expect(paths.dbPath).toContain('.causantic/memory.db');
+    expect(paths.vectorPath).toContain('.causantic/vectors');
     // Should be absolute paths (tilde resolved)
     expect(paths.dbPath.startsWith('/')).toBe(true);
     expect(paths.vectorPath.startsWith('/')).toBe(true);

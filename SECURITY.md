@@ -10,7 +10,7 @@
 
 If you discover a security vulnerability, please report it by opening a private security advisory on GitHub:
 
-1. Go to the [Security tab](https://github.com/Entrolution/entropic-causal-memory/security)
+1. Go to the [Security tab](https://github.com/Entrolution/causantic/security)
 2. Click "Report a vulnerability"
 3. Provide details about the issue
 

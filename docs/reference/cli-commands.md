@@ -1,21 +1,21 @@
 # CLI Commands Reference
 
-Reference for ECM command-line interface.
+Reference for Causantic command-line interface.
 
 ## General Syntax
 
 ```bash
-npx ecm <command> [options]
+npx causantic <command> [options]
 ```
 
 ## Commands
 
 ### init
 
-Initialize ECM with an interactive setup wizard.
+Initialize Causantic with an interactive setup wizard.
 
 ```bash
-npx ecm init [options]
+npx causantic init [options]
 ```
 
 **Options**:
@@ -29,13 +29,13 @@ npx ecm init [options]
 The wizard performs the following steps:
 
 1. Checks Node.js version (requires 20+)
-2. Creates `~/.ecm/` directory structure
+2. Creates `~/.causantic/` directory structure
 3. Offers database encryption setup (ChaCha20-Poly1305, key stored in system keychain)
 4. Initializes the SQLite database
 5. Configures MCP server in `~/.claude/settings.json`
 6. Patches project-level `.mcp.json` files
-7. Installs ECM skills to `~/.claude/skills/`
-8. Updates `~/.claude/CLAUDE.md` with ECM reference block
+7. Installs Causantic skills to `~/.claude/skills/`
+8. Updates `~/.claude/CLAUDE.md` with Causantic reference block
 9. Runs a health check
 10. Offers to import existing Claude Code sessions
 11. Runs post-ingestion processing (graph pruning, clustering)
@@ -44,10 +44,10 @@ The wizard performs the following steps:
 **Example**:
 ```bash
 # Full interactive setup
-npx ecm init
+npx causantic init
 
 # Non-interactive (skip all prompts)
-npx ecm init --skip-mcp --skip-encryption --skip-ingest
+npx causantic init --skip-mcp --skip-encryption --skip-ingest
 ```
 
 ### serve
@@ -55,7 +55,7 @@ npx ecm init --skip-mcp --skip-encryption --skip-ingest
 Start the MCP server.
 
 ```bash
-npx ecm serve [options]
+npx causantic serve [options]
 ```
 
 **Options**:
@@ -67,8 +67,8 @@ npx ecm serve [options]
 
 **Example**:
 ```bash
-npx ecm serve
-npx ecm serve --health-check
+npx causantic serve
+npx causantic serve --health-check
 ```
 
 ### ingest
@@ -76,7 +76,7 @@ npx ecm serve --health-check
 Ingest a single session.
 
 ```bash
-npx ecm ingest <session-path> [options]
+npx causantic ingest <session-path> [options]
 ```
 
 **Arguments**:
@@ -94,8 +94,8 @@ npx ecm ingest <session-path> [options]
 
 **Example**:
 ```bash
-npx ecm ingest ~/.claude/projects/my-project/session-123.jsonl
-npx ecm ingest ~/.claude/projects/my-project/
+npx causantic ingest ~/.claude/projects/my-project/session-123.jsonl
+npx causantic ingest ~/.claude/projects/my-project/
 ```
 
 ### batch-ingest
@@ -103,7 +103,7 @@ npx ecm ingest ~/.claude/projects/my-project/
 Ingest all sessions from a directory.
 
 ```bash
-npx ecm batch-ingest <directory> [options]
+npx causantic batch-ingest <directory> [options]
 ```
 
 **Options**:
@@ -115,8 +115,8 @@ npx ecm batch-ingest <directory> [options]
 
 **Example**:
 ```bash
-npx ecm batch-ingest ~/.claude/projects
-npx ecm batch-ingest ~/.claude/projects --parallel 8
+npx causantic batch-ingest ~/.claude/projects
+npx causantic batch-ingest ~/.claude/projects --parallel 8
 ```
 
 ### recall
@@ -124,7 +124,7 @@ npx ecm batch-ingest ~/.claude/projects --parallel 8
 Query memory from the command line.
 
 ```bash
-npx ecm recall <query> [options]
+npx causantic recall <query> [options]
 ```
 
 **Options**:
@@ -136,8 +136,8 @@ npx ecm recall <query> [options]
 
 **Example**:
 ```bash
-npx ecm recall "authentication flow"
-npx ecm recall "error handling" --limit 5 --json
+npx causantic recall "authentication flow"
+npx causantic recall "error handling" --limit 5 --json
 ```
 
 ### maintenance
@@ -145,7 +145,7 @@ npx ecm recall "error handling" --limit 5 --json
 Run maintenance tasks.
 
 ```bash
-npx ecm maintenance <subcommand> [options]
+npx causantic maintenance <subcommand> [options]
 ```
 
 **Subcommands**:
@@ -169,10 +169,10 @@ npx ecm maintenance <subcommand> [options]
 
 **Example**:
 ```bash
-npx ecm maintenance run prune-graph
-npx ecm maintenance run all
-npx ecm maintenance status
-npx ecm maintenance daemon
+npx causantic maintenance run prune-graph
+npx causantic maintenance run all
+npx causantic maintenance status
+npx causantic maintenance daemon
 ```
 
 ### config
@@ -180,7 +180,7 @@ npx ecm maintenance daemon
 Manage configuration.
 
 ```bash
-npx ecm config <subcommand> [options]
+npx causantic config <subcommand> [options]
 ```
 
 **Subcommands**:
@@ -194,10 +194,10 @@ npx ecm config <subcommand> [options]
 
 **Example**:
 ```bash
-npx ecm config show
-npx ecm config validate
-npx ecm config set-key anthropic
-npx ecm config get-key anthropic
+npx causantic config show
+npx causantic config validate
+npx causantic config set-key anthropic
+npx causantic config get-key anthropic
 ```
 
 ### encryption
@@ -205,7 +205,7 @@ npx ecm config get-key anthropic
 Manage database encryption.
 
 ```bash
-npx ecm encryption <subcommand> [options]
+npx causantic encryption <subcommand> [options]
 ```
 
 **Subcommands**:
@@ -222,22 +222,22 @@ npx ecm encryption <subcommand> [options]
 **Example**:
 ```bash
 # Enable encryption
-npx ecm encryption setup
+npx causantic encryption setup
 
 # Check status
-npx ecm encryption status
+npx causantic encryption status
 
 # Rotate key
-npx ecm encryption rotate-key
+npx causantic encryption rotate-key
 
 # Back up key
-npx ecm encryption backup-key ~/ecm-key-backup.enc
+npx causantic encryption backup-key ~/causantic-key-backup.enc
 
 # Restore key
-npx ecm encryption restore-key ~/ecm-key-backup.enc
+npx causantic encryption restore-key ~/causantic-key-backup.enc
 
 # View last 20 audit entries
-npx ecm encryption audit 20
+npx causantic encryption audit 20
 ```
 
 ### export
@@ -245,7 +245,7 @@ npx ecm encryption audit 20
 Export memory data.
 
 ```bash
-npx ecm export [options]
+npx causantic export [options]
 ```
 
 **Options**:
@@ -258,8 +258,8 @@ npx ecm export [options]
 
 **Example**:
 ```bash
-npx ecm export --output backup.ecm.json
-npx ecm export --output backup.json --no-encrypt
+npx causantic export --output backup.causantic.json
+npx causantic export --output backup.json --no-encrypt
 ```
 
 ### import
@@ -267,7 +267,7 @@ npx ecm export --output backup.json --no-encrypt
 Import memory data.
 
 ```bash
-npx ecm import <file> [options]
+npx causantic import <file> [options]
 ```
 
 **Options**:
@@ -279,8 +279,8 @@ npx ecm import <file> [options]
 
 **Example**:
 ```bash
-npx ecm import backup.ecm.json
-npx ecm import backup.ecm.json --merge
+npx causantic import backup.causantic.json
+npx causantic import backup.causantic.json --merge
 ```
 
 ### stats
@@ -288,7 +288,7 @@ npx ecm import backup.ecm.json --merge
 Show memory statistics.
 
 ```bash
-npx ecm stats [options]
+npx causantic stats [options]
 ```
 
 **Options**:
@@ -299,8 +299,8 @@ npx ecm stats [options]
 
 **Example**:
 ```bash
-npx ecm stats
-npx ecm stats --json
+npx causantic stats
+npx causantic stats --json
 ```
 
 ### health
@@ -308,7 +308,7 @@ npx ecm stats --json
 Check system health.
 
 ```bash
-npx ecm health [options]
+npx causantic health [options]
 ```
 
 **Options**:
@@ -319,8 +319,8 @@ npx ecm health [options]
 
 **Example**:
 ```bash
-npx ecm health
-npx ecm health --verbose
+npx causantic health
+npx causantic health --verbose
 ```
 
 ### hook
@@ -328,7 +328,7 @@ npx ecm health --verbose
 Run a hook manually.
 
 ```bash
-npx ecm hook <hook-name> [options]
+npx causantic hook <hook-name> [options]
 ```
 
 **Hooks**:
@@ -341,16 +341,16 @@ npx ecm hook <hook-name> [options]
 
 **Example**:
 ```bash
-npx ecm hook session-start
-npx ecm hook claudemd-generator
+npx causantic hook session-start
+npx causantic hook claudemd-generator
 ```
 
 ### uninstall
 
-Remove ECM and all its artifacts.
+Remove Causantic and all its artifacts.
 
 ```bash
-npx ecm uninstall [options]
+npx causantic uninstall [options]
 ```
 
 **Options**:
@@ -358,30 +358,30 @@ npx ecm uninstall [options]
 | Option | Description |
 |--------|-------------|
 | `--force` | Skip confirmation prompt and export offer |
-| `--keep-data` | Remove integrations but preserve `~/.ecm/` data |
+| `--keep-data` | Remove integrations but preserve `~/.causantic/` data |
 | `--dry-run` | Show what would be removed without making changes |
 
 Removes the following artifacts:
-- CLAUDE.md ECM memory block
+- CLAUDE.md Causantic memory block
 - `~/.claude/settings.json` MCP server entry
-- Project `.mcp.json` ECM server entries
-- `~/.claude/skills/ecm-*/` skill directories
-- Keychain entries (`ecm-db-key`, `anthropic-api-key`)
-- `~/.ecm/` data directory (unless `--keep-data`)
+- Project `.mcp.json` Causantic server entries
+- `~/.claude/skills/causantic-*/` skill directories
+- Keychain entries (`causantic-db-key`, `anthropic-api-key`)
+- `~/.causantic/` data directory (unless `--keep-data`)
 
 **Example**:
 ```bash
 # Preview what would be removed
-npx ecm uninstall --dry-run
+npx causantic uninstall --dry-run
 
 # Remove integrations but keep data
-npx ecm uninstall --keep-data
+npx causantic uninstall --keep-data
 
 # Remove everything without prompts
-npx ecm uninstall --force
+npx causantic uninstall --force
 
 # Full uninstall, non-interactive
-npx ecm uninstall --force
+npx causantic uninstall --force
 ```
 
 ## Global Options

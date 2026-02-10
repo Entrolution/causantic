@@ -1,4 +1,4 @@
-# Entropic Causal Memory Docker Image
+# Causantic Docker Image
 # Multi-stage build for optimal size
 
 # Stage 1: Build
@@ -53,11 +53,11 @@ COPY --from=builder /app/package*.json ./
 COPY config.schema.json ./
 
 # Create data directory
-RUN mkdir -p /data/ecm
+RUN mkdir -p /data/causantic
 
 # Set environment variables
-ENV ECM_STORAGE_DB_PATH=/data/ecm/memory.db
-ENV ECM_STORAGE_VECTOR_PATH=/data/ecm/vectors
+ENV CAUSANTIC_STORAGE_DB_PATH=/data/causantic/memory.db
+ENV CAUSANTIC_STORAGE_VECTOR_PATH=/data/causantic/vectors
 ENV NODE_ENV=production
 
 # Expose MCP server port (if using HTTP mode)

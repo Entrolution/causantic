@@ -1,11 +1,11 @@
 /**
- * Centralized logging for ECM.
+ * Centralized logging for Causantic.
  *
  * Provides structured logging with levels, metadata, and output formatting.
  * Writes to stderr to avoid interfering with stdio-based protocols.
  *
  * Log level is controlled via:
- * 1. ECM_LOG_LEVEL environment variable
+ * 1. CAUSANTIC_LOG_LEVEL environment variable
  * 2. setLogLevel() function
  *
  * Levels (in order of severity): debug < info < warn < error
@@ -40,10 +40,10 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 // Current log level
-let currentLevel: LogLevel = (process.env.ECM_LOG_LEVEL as LogLevel) ?? 'info';
+let currentLevel: LogLevel = (process.env.CAUSANTIC_LOG_LEVEL as LogLevel) ?? 'info';
 
 // JSON output mode (for machine parsing)
-let jsonMode = process.env.ECM_LOG_JSON === 'true';
+let jsonMode = process.env.CAUSANTIC_LOG_JSON === 'true';
 
 /**
  * Set the log level.

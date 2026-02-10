@@ -8,7 +8,7 @@ import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 import { loadConfig } from '../config/loader.js';
 import { resolvePath } from '../config/memory-config.js';
 
-const AUDIT_LOG_PATH = '~/.ecm/audit.log';
+const AUDIT_LOG_PATH = '~/.causantic/audit.log';
 
 /** Audit log entry actions */
 export type AuditAction = 'open' | 'close' | 'query' | 'failed' | 'key-access' | 'key-rotate';

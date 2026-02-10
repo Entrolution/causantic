@@ -1,8 +1,8 @@
 /**
- * SKILL.md templates for ECM Claude Code skills.
+ * SKILL.md templates for Causantic Claude Code skills.
  *
- * These get installed to ~/.claude/skills/ecm-<name>/SKILL.md
- * by the `ecm init` wizard, replacing the old CLAUDE.md injection approach.
+ * These get installed to ~/.claude/skills/causantic-<name>/SKILL.md
+ * by the `causantic init` wizard, replacing the old CLAUDE.md injection approach.
  */
 
 export interface SkillTemplate {
@@ -12,25 +12,25 @@ export interface SkillTemplate {
   content: string;
 }
 
-export const ECM_SKILLS: SkillTemplate[] = [
+export const CAUSANTIC_SKILLS: SkillTemplate[] = [
   {
-    dirName: 'ecm-recall',
+    dirName: 'causantic-recall',
     content: `---
-name: ecm-recall
-description: "Look up context from past sessions using ECM long-term memory. Use when asked about recent or past work, previous decisions, errors solved before, or context from prior sessions."
+name: causantic-recall
+description: "Look up context from past sessions using Causantic long-term memory. Use when asked about recent or past work, previous decisions, errors solved before, or context from prior sessions."
 argument-hint: [query]
 ---
 
 # Recall Past Context
 
-Use the \`recall\` MCP tool from \`entropic-causal-memory\` to look up specific context from past sessions.
+Use the \`recall\` MCP tool from \`causantic\` to look up specific context from past sessions.
 
 ## Usage
 
 \`\`\`
-/ecm-recall What did we work on recently?
-/ecm-recall authentication implementation decisions
-/ecm-recall that migration bug we fixed last week
+/causantic-recall What did we work on recently?
+/causantic-recall authentication implementation decisions
+/causantic-recall that migration bug we fixed last week
 \`\`\`
 
 ## Parameters
@@ -39,7 +39,7 @@ Pass these to the \`recall\` MCP tool:
 
 - **query** (required): Natural language question about past work
 - **range**: \`"short"\` for recent work (last few sessions), \`"long"\` for historical context
-- **project**: Filter to a specific project slug (use \`/ecm-list-projects\` to discover names)
+- **project**: Filter to a specific project slug (use \`/causantic-list-projects\` to discover names)
 
 ## When to Use
 
@@ -53,27 +53,27 @@ Pass these to the \`recall\` MCP tool:
 
 - Use \`range: "short"\` for recent work, \`range: "long"\` for historical context
 - Use the \`project\` parameter to scope results to the current project when relevant
-- Combine with \`/ecm-explain\` when the user needs deeper understanding of why something was done
+- Combine with \`/causantic-explain\` when the user needs deeper understanding of why something was done
 `,
   },
   {
-    dirName: 'ecm-explain',
+    dirName: 'causantic-explain',
     content: `---
-name: ecm-explain
-description: "Explain the history behind a topic, decision, or implementation using ECM long-term memory. Use when asked 'why' something was done, 'how we got here', or to trace the evolution of a feature."
+name: causantic-explain
+description: "Explain the history behind a topic, decision, or implementation using Causantic long-term memory. Use when asked 'why' something was done, 'how we got here', or to trace the evolution of a feature."
 argument-hint: [topic]
 ---
 
 # Explain History
 
-Use the \`explain\` MCP tool from \`entropic-causal-memory\` to understand the history and rationale behind topics and decisions.
+Use the \`explain\` MCP tool from \`causantic\` to understand the history and rationale behind topics and decisions.
 
 ## Usage
 
 \`\`\`
-/ecm-explain why we chose SQLite for the database
-/ecm-explain how the authentication system evolved
-/ecm-explain the reasoning behind the project labels design
+/causantic-explain why we chose SQLite for the database
+/causantic-explain how the authentication system evolved
+/causantic-explain the reasoning behind the project labels design
 \`\`\`
 
 ## Parameters
@@ -98,22 +98,22 @@ Pass these to the \`explain\` MCP tool:
 `,
   },
   {
-    dirName: 'ecm-predict',
+    dirName: 'causantic-predict',
     content: `---
-name: ecm-predict
-description: "Proactively surface relevant past context based on the current discussion using ECM long-term memory. Use at the start of complex tasks to surface prior work, related decisions, or known pitfalls."
+name: causantic-predict
+description: "Proactively surface relevant past context based on the current discussion using Causantic long-term memory. Use at the start of complex tasks to surface prior work, related decisions, or known pitfalls."
 argument-hint: [context]
 ---
 
 # Predict Relevant Context
 
-Use the \`predict\` MCP tool from \`entropic-causal-memory\` to proactively surface relevant past context based on the current discussion.
+Use the \`predict\` MCP tool from \`causantic\` to proactively surface relevant past context based on the current discussion.
 
 ## Usage
 
 \`\`\`
-/ecm-predict
-/ecm-predict refactoring the auth module
+/causantic-predict
+/causantic-predict refactoring the auth module
 \`\`\`
 
 ## Parameters
@@ -137,20 +137,20 @@ Pass these to the \`predict\` MCP tool:
 `,
   },
   {
-    dirName: 'ecm-list-projects',
+    dirName: 'causantic-list-projects',
     content: `---
-name: ecm-list-projects
-description: "List all projects stored in ECM long-term memory with chunk counts and date ranges. Use to discover available project names for filtering recall/explain/predict queries."
+name: causantic-list-projects
+description: "List all projects stored in Causantic long-term memory with chunk counts and date ranges. Use to discover available project names for filtering recall/explain/predict queries."
 ---
 
 # List Memory Projects
 
-Use the \`list-projects\` MCP tool from \`entropic-causal-memory\` to see all projects in memory.
+Use the \`list-projects\` MCP tool from \`causantic\` to see all projects in memory.
 
 ## Usage
 
 \`\`\`
-/ecm-list-projects
+/causantic-list-projects
 \`\`\`
 
 ## Output
@@ -162,30 +162,30 @@ Returns a list of projects with:
 
 ## When to Use
 
-- Before using project-filtered queries with \`/ecm-recall\`, \`/ecm-explain\`, or \`/ecm-predict\`
+- Before using project-filtered queries with \`/causantic-recall\`, \`/causantic-explain\`, or \`/causantic-predict\`
 - To see what projects have been ingested into memory
 - To check the coverage and recency of memory for a specific project
 `,
   },
   {
-    dirName: 'ecm-reconstruct',
+    dirName: 'causantic-reconstruct',
     content: `---
-name: ecm-reconstruct
-description: "Reconstruct session context from ECM long-term memory. Use to rebuild what was worked on yesterday, show the last session, or reconstruct context from a time range."
+name: causantic-reconstruct
+description: "Reconstruct session context from Causantic long-term memory. Use to rebuild what was worked on yesterday, show the last session, or reconstruct context from a time range."
 argument-hint: [time range or description]
 ---
 
 # Reconstruct Session Context
 
-Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`entropic-causal-memory\` to rebuild session context chronologically.
+Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`causantic\` to rebuild session context chronologically.
 
 ## Usage
 
 \`\`\`
-/ecm-reconstruct what did I work on yesterday?
-/ecm-reconstruct last session
-/ecm-reconstruct past 3 days
-/ecm-reconstruct session abc12345
+/causantic-reconstruct what did I work on yesterday?
+/causantic-reconstruct last session
+/causantic-reconstruct past 3 days
+/causantic-reconstruct session abc12345
 \`\`\`
 
 ## Workflow
@@ -233,23 +233,23 @@ Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`entropic-causal-m
 ];
 
 /**
- * Returns a minimal CLAUDE.md reference block for ECM.
+ * Returns a minimal CLAUDE.md reference block for Causantic.
  * This replaces the verbose instructions that are now in skills.
  */
 export function getMinimalClaudeMdBlock(): string {
-  const ECM_START = '<!-- ECM_MEMORY_START -->';
-  const ECM_END = '<!-- ECM_MEMORY_END -->';
+  const CAUSANTIC_START = '<!-- CAUSANTIC_MEMORY_START -->';
+  const CAUSANTIC_END = '<!-- CAUSANTIC_MEMORY_END -->';
 
-  return `${ECM_START}
-## Memory (Entropic Causal Memory)
+  return `${CAUSANTIC_START}
+## Memory (Causantic)
 
-Long-term memory is available via the \`entropic-causal-memory\` MCP server and ECM skills:
-- \`/ecm-recall [query]\` — Look up context from past sessions
-- \`/ecm-explain [topic]\` — Understand history behind decisions
-- \`/ecm-predict\` — Surface relevant past context proactively
-- \`/ecm-list-projects\` — Discover available projects
-- \`/ecm-reconstruct [time range]\` — Reconstruct session context by time
+Long-term memory is available via the \`causantic\` MCP server and Causantic skills:
+- \`/causantic-recall [query]\` — Look up context from past sessions
+- \`/causantic-explain [topic]\` — Understand history behind decisions
+- \`/causantic-predict\` — Surface relevant past context proactively
+- \`/causantic-list-projects\` — Discover available projects
+- \`/causantic-reconstruct [time range]\` — Reconstruct session context by time
 
 Always try memory tools before saying "I don't have context from previous sessions."
-${ECM_END}`;
+${CAUSANTIC_END}`;
 }

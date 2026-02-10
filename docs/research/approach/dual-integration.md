@@ -1,10 +1,10 @@
 # Dual Integration: Hooks + MCP
 
-This document explains why ECM uses both hooks and MCP for Claude Code integration.
+This document explains why Causantic uses both hooks and MCP for Claude Code integration.
 
 ## Two Integration Points
 
-ECM integrates with Claude Code through two mechanisms:
+Causantic integrates with Claude Code through two mechanisms:
 
 1. **Hooks**: Automatic lifecycle events
 2. **MCP**: On-demand tool calls

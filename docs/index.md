@@ -1,14 +1,14 @@
-# Entropic Causal Memory Documentation
+# Causantic Documentation
 
-Welcome to the documentation for Entropic Causal Memory (ECM), a long-term memory system for Claude Code.
+Welcome to the documentation for Causantic, a long-term memory system for Claude Code.
 
 ## Getting Started
 
-New to ECM? Start here:
+New to Causantic? Start here:
 
-- [Installation](getting-started/installation.md) - How to install and set up ECM
+- [Installation](getting-started/installation.md) - How to install and set up Causantic
 - [Quick Start](getting-started/quick-start.md) - Get up and running in 5 minutes
-- [Configuration](getting-started/configuration.md) - Customize ECM for your needs
+- [Configuration](getting-started/configuration.md) - Customize Causantic for your needs
 
 ## User Guides
 
@@ -37,6 +37,6 @@ For those interested in the technical details:
 
 ## Quick Links
 
-- [GitHub Repository](https://github.com/Entrolution/entropic-causal-memory)
-- [Issue Tracker](https://github.com/Entrolution/entropic-causal-memory/issues)
-- [Changelog](https://github.com/Entrolution/entropic-causal-memory/blob/main/CHANGELOG.md)
+- [GitHub Repository](https://github.com/Entrolution/causantic)
+- [Issue Tracker](https://github.com/Entrolution/causantic/issues)
+- [Changelog](https://github.com/Entrolution/causantic/blob/main/CHANGELOG.md)
