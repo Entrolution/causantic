@@ -22,10 +22,28 @@ export default [
       '@typescript-eslint/consistent-type-imports': ['warn', { prefer: 'type-imports' }],
 
       // General rules
-      'no-console': 'off',
+      'no-console': 'warn',
       'prefer-const': 'warn',
       'no-var': 'error',
       eqeqeq: ['error', 'always'],
+    },
+  },
+  {
+    files: ['src/cli/**/*.ts', 'src/eval/**/*.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['src/mcp/server.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['src/report/reporter.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
   {

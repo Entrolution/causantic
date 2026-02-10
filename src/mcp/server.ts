@@ -18,6 +18,9 @@ import { initStartupPrune } from '../storage/pruner.js';
 import { getChunkCount } from '../storage/chunk-store.js';
 import { getEdgeCount } from '../storage/edge-store.js';
 import { getClusterCount } from '../storage/cluster-store.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('mcp-server');
 
 /** MCP Server configuration */
 export interface McpServerConfig {
@@ -524,7 +527,7 @@ export async function startMcpServer(config?: McpServerConfig): Promise<McpServe
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   startMcpServer().catch((error) => {
-    console.error('Failed to start MCP server:', error);
+    log.error('Failed to start MCP server:', { error: error instanceof Error ? error.message : String(error) });
     process.exit(1);
   });
 }

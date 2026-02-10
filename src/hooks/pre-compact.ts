@@ -19,6 +19,9 @@ import {
   isTransientError,
   type HookMetrics,
 } from './hook-utils.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('pre-compact');
 
 /**
  * Result of pre-compact hook execution.
@@ -166,24 +169,20 @@ export async function preCompactCli(sessionPath: string): Promise<void> {
     const result = await handlePreCompact(sessionPath);
 
     if (result.degraded) {
-      console.error('Pre-compact hook ran in degraded mode due to errors.');
+      log.error('Pre-compact hook ran in degraded mode due to errors.');
       process.exit(1);
     }
 
     if (result.skipped) {
-      console.log(`Session ${result.sessionId} already ingested, skipped.`);
+      log.info(`Session ${result.sessionId} already ingested, skipped.`);
     } else {
-      console.log(`Ingested session ${result.sessionId}:`);
-      console.log(`  Chunks: ${result.chunkCount}`);
-      console.log(`  Edges: ${result.edgeCount}`);
-      console.log(`  Clusters assigned: ${result.clustersAssigned}`);
-      console.log(`  Duration: ${result.durationMs}ms`);
+      log.info(`Ingested session ${result.sessionId}: Chunks: ${result.chunkCount}, Edges: ${result.edgeCount}, Clusters assigned: ${result.clustersAssigned}, Duration: ${result.durationMs}ms`);
       if (result.metrics?.retryCount && result.metrics.retryCount > 0) {
-        console.log(`  Retries: ${result.metrics.retryCount}`);
+        log.info(`Retries: ${result.metrics.retryCount}`);
       }
     }
   } catch (error) {
-    console.error('Pre-compact hook failed:', error);
+    log.error('Pre-compact hook failed:', { error: error instanceof Error ? error.message : String(error) });
     process.exit(1);
   }
 }

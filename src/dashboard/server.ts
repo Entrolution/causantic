@@ -2,6 +2,9 @@ import express from 'express';
 import { exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('dashboard');
 
 import statsRouter from './routes/stats.js';
 import chunksRouter from './routes/chunks.js';
@@ -60,14 +63,14 @@ export async function startDashboard(port: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const server = app.listen(port, () => {
       const url = `http://localhost:${port}`;
-      console.log(`Causantic Dashboard running at ${url}`);
+      log.info(`Causantic Dashboard running at ${url}`);
 
       // Try to open browser
       openBrowser(url);
 
       // Graceful shutdown
       const shutdown = () => {
-        console.log('\nShutting down dashboard...');
+        log.info('Shutting down dashboard...');
         server.close(() => {
           resolve();
         });
@@ -78,7 +81,7 @@ export async function startDashboard(port: number): Promise<void> {
 
     server.on('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'EADDRINUSE') {
-        console.error(`Port ${port} is already in use. Try: causantic dashboard --port ${port + 1}`);
+        log.error(`Port ${port} is already in use. Try: causantic dashboard --port ${port + 1}`);
       }
       reject(err);
     });
