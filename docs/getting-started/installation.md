@@ -96,6 +96,29 @@ npx ecm --version
 npx ecm health
 ```
 
+## Uninstalling
+
+To cleanly remove ECM and all its artifacts:
+
+```bash
+npx ecm uninstall
+```
+
+This removes MCP config entries, CLAUDE.md references, skill files, keychain secrets, and the `~/.ecm/` data directory. You'll be shown a preview and asked to confirm.
+
+```bash
+# Preview what would be removed without making changes
+npx ecm uninstall --dry-run
+
+# Remove integrations but keep your data for later
+npx ecm uninstall --keep-data
+
+# Skip prompts (CI/scripts)
+npx ecm uninstall --force
+```
+
+To reinstall after uninstalling: `npx ecm init`
+
 ## Next Steps
 
 - [Quick Start](quick-start.md) - Get up and running

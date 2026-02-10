@@ -10,6 +10,46 @@ npx ecm <command> [options]
 
 ## Commands
 
+### init
+
+Initialize ECM with an interactive setup wizard.
+
+```bash
+npx ecm init [options]
+```
+
+**Options**:
+
+| Option | Description |
+|--------|-------------|
+| `--skip-mcp` | Skip MCP configuration (settings.json, project .mcp.json, skills, CLAUDE.md) |
+| `--skip-encryption` | Skip the database encryption prompt |
+| `--skip-ingest` | Skip the session import step |
+
+The wizard performs the following steps:
+
+1. Checks Node.js version (requires 20+)
+2. Creates `~/.ecm/` directory structure
+3. Offers database encryption setup (ChaCha20-Poly1305, key stored in system keychain)
+4. Initializes the SQLite database
+5. Configures MCP server in `~/.claude/settings.json`
+6. Patches project-level `.mcp.json` files
+7. Installs ECM skills to `~/.claude/skills/`
+8. Updates `~/.claude/CLAUDE.md` with ECM reference block
+9. Runs a health check
+10. Offers to import existing Claude Code sessions
+11. Runs post-ingestion processing (graph pruning, clustering)
+12. Offers Anthropic API key setup for cluster labeling
+
+**Example**:
+```bash
+# Full interactive setup
+npx ecm init
+
+# Non-interactive (skip all prompts)
+npx ecm init --skip-mcp --skip-encryption --skip-ingest
+```
+
 ### serve
 
 Start the MCP server.
@@ -160,6 +200,46 @@ npx ecm config set-key anthropic
 npx ecm config get-key anthropic
 ```
 
+### encryption
+
+Manage database encryption.
+
+```bash
+npx ecm encryption <subcommand> [options]
+```
+
+**Subcommands**:
+
+| Subcommand | Description |
+|------------|-------------|
+| `setup` | Enable encryption and generate a key |
+| `status` | Show encryption status |
+| `rotate-key` | Rotate the encryption key |
+| `backup-key [path]` | Back up the encryption key to a password-protected file |
+| `restore-key <path>` | Restore an encryption key from a backup file |
+| `audit [limit]` | Show recent audit log entries |
+
+**Example**:
+```bash
+# Enable encryption
+npx ecm encryption setup
+
+# Check status
+npx ecm encryption status
+
+# Rotate key
+npx ecm encryption rotate-key
+
+# Back up key
+npx ecm encryption backup-key ~/ecm-key-backup.enc
+
+# Restore key
+npx ecm encryption restore-key ~/ecm-key-backup.enc
+
+# View last 20 audit entries
+npx ecm encryption audit 20
+```
+
 ### export
 
 Export memory data.
@@ -263,6 +343,45 @@ npx ecm hook <hook-name> [options]
 ```bash
 npx ecm hook session-start
 npx ecm hook claudemd-generator
+```
+
+### uninstall
+
+Remove ECM and all its artifacts.
+
+```bash
+npx ecm uninstall [options]
+```
+
+**Options**:
+
+| Option | Description |
+|--------|-------------|
+| `--force` | Skip confirmation prompt and export offer |
+| `--keep-data` | Remove integrations but preserve `~/.ecm/` data |
+| `--dry-run` | Show what would be removed without making changes |
+
+Removes the following artifacts:
+- CLAUDE.md ECM memory block
+- `~/.claude/settings.json` MCP server entry
+- Project `.mcp.json` ECM server entries
+- `~/.claude/skills/ecm-*/` skill directories
+- Keychain entries (`ecm-db-key`, `anthropic-api-key`)
+- `~/.ecm/` data directory (unless `--keep-data`)
+
+**Example**:
+```bash
+# Preview what would be removed
+npx ecm uninstall --dry-run
+
+# Remove integrations but keep data
+npx ecm uninstall --keep-data
+
+# Remove everything without prompts
+npx ecm uninstall --force
+
+# Full uninstall, non-interactive
+npx ecm uninstall --force
 ```
 
 ## Global Options
