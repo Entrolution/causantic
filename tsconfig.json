@@ -17,5 +17,5 @@
     "isolatedModules": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "test", "scripts"]
+  "exclude": ["node_modules", "dist", "test", "scripts", "src/dashboard/client"]
 }

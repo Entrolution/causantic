@@ -318,19 +318,46 @@ function runMigrations(database: Database.Database): void {
   const schemaPath = join(__dirname, 'schema.sql');
   const schema = readFileSync(schemaPath, 'utf-8');
 
-  // Split by statement (split on semicolons at line ends)
-  const statements = schema
-    .split(/;\s*\n/)
-    .map((s) => s.trim())
-    .map((s) => {
-      // Remove leading comment lines from each statement
-      const lines = s.split('\n');
-      while (lines.length > 0 && lines[0].trim().startsWith('--')) {
-        lines.shift();
-      }
-      return lines.join('\n').trim();
-    })
-    .filter((s) => s.length > 0);
+  // Split by statement, respecting BEGIN...END blocks (triggers).
+  // We split on semicolons at line ends, but only outside trigger bodies.
+  const statements: string[] = [];
+  let current = '';
+  let inTrigger = false;
+
+  for (const line of schema.split('\n')) {
+    const trimmed = line.trim();
+
+    // Skip pure comment lines when starting a new statement
+    if (!current && trimmed.startsWith('--')) continue;
+
+    current += (current ? '\n' : '') + line;
+
+    // Detect entering a trigger body
+    if (/\bBEGIN\s*$/i.test(trimmed)) {
+      inTrigger = true;
+    }
+
+    // Detect end of trigger (END; on its own line)
+    if (inTrigger && /^END\s*;/i.test(trimmed)) {
+      inTrigger = false;
+      statements.push(current.trim());
+      current = '';
+      continue;
+    }
+
+    // Outside triggers, a semicolon at end of line ends the statement
+    if (!inTrigger && trimmed.endsWith(';')) {
+      const stmt = current.trim().replace(/;$/, '').trim();
+      if (stmt) statements.push(stmt);
+      current = '';
+    }
+  }
+
+  // Handle any trailing statement
+  if (current.trim()) {
+    const stmt = current.trim().replace(/;$/, '').trim();
+    if (stmt) statements.push(stmt);
+  }
 
   for (const statement of statements) {
     try {

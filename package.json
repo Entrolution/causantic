@@ -44,10 +44,14 @@
     "dist",
     "config.schema.json",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "src/dashboard/client/package.json",
+    "src/dashboard/client/package-lock.json"
   ],
   "scripts": {
-    "build": "tsc && cp src/storage/schema.sql dist/storage/",
+    "build": "tsc && cp src/storage/schema.sql dist/storage/ && cd src/dashboard/client && npm run build",
+    "build:server": "tsc && cp src/storage/schema.sql dist/storage/",
+    "build:client": "cd src/dashboard/client && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "ingest": "tsx scripts/ops/ingest.ts",
@@ -83,9 +87,11 @@
     "@anthropic-ai/sdk": "^0.74.0",
     "@huggingface/transformers": "^3.4.1",
     "better-sqlite3-multiple-ciphers": "^11.8.1",
+    "express": "^5.2.1",
     "onnxruntime-node": "^1.24.1"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^25.2.2",
     "tsx": "^4.19.0",
     "typedoc": "^0.28.16",
