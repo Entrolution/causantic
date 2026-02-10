@@ -49,9 +49,9 @@
     "src/dashboard/client/package-lock.json"
   ],
   "scripts": {
-    "build": "tsc && cp src/storage/schema.sql dist/storage/ && cd src/dashboard/client && npm run build",
+    "build": "tsc && cp src/storage/schema.sql dist/storage/ && cd src/dashboard/client && npm install --ignore-scripts && npm run build",
     "build:server": "tsc && cp src/storage/schema.sql dist/storage/",
-    "build:client": "cd src/dashboard/client && npm run build",
+    "build:client": "cd src/dashboard/client && npm install --ignore-scripts && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
     "ingest": "tsx scripts/ops/ingest.ts",
