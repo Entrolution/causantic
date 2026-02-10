@@ -11,7 +11,12 @@
  */
 
 import { getAllClusters, getClusterChunkIds } from '../storage/cluster-store.js';
-import { getChunksByIds, getChunksBySessionSlug } from '../storage/chunk-store.js';
+import {
+  getChunksByIds,
+  getChunksBySessionSlug,
+  getSessionsForProject,
+  getChunksByTimeRange,
+} from '../storage/chunk-store.js';
 import { getConfig } from '../config/memory-config.js';
 import { approximateTokens } from '../utils/token-counter.js';
 import { initStartupPrune } from '../storage/pruner.js';
@@ -53,6 +58,8 @@ export interface SessionStartResult {
   clustersIncluded: number;
   /** Recent chunks included */
   recentChunksIncluded: number;
+  /** Whether last session summary was included */
+  lastSessionIncluded: boolean;
   /** Hook execution metrics */
   metrics?: HookMetrics;
   /** Whether this is a fallback result due to error */
@@ -100,17 +107,38 @@ function internalHandleSessionStart(
   let currentTokens = 0;
   let clustersIncluded = 0;
   let recentIncluded = 0;
+  let lastSessionIncluded = false;
+
+  // Reserve ~20% of token budget for last-session summary
+  const lastSessionBudget = Math.floor(maxTokens * 0.2);
+  const mainBudget = maxTokens - lastSessionBudget;
 
   // Add recent context first (most relevant)
   if (recentChunks.length > 0) {
     const recentSection = buildRecentSection(recentChunks);
     const recentTokens = approximateTokens(recentSection);
 
-    if (currentTokens + recentTokens <= maxTokens) {
+    if (currentTokens + recentTokens <= mainBudget) {
       parts.push(recentSection);
       currentTokens += recentTokens;
       recentIncluded = recentChunks.length;
     }
+  }
+
+  // Add last session summary if available (within last 7 days)
+  const lastSessionSection = buildLastSessionSection(projectPath, lastSessionBudget);
+  if (lastSessionSection) {
+    const sectionTokens = approximateTokens(lastSessionSection);
+    parts.push(lastSessionSection);
+    currentTokens += sectionTokens;
+    lastSessionIncluded = true;
+
+    logHook({
+      level: 'debug',
+      hook: 'session-start',
+      event: 'last_session_included',
+      details: { tokens: sectionTokens },
+    });
   }
 
   // Add project-relevant clusters
@@ -151,6 +179,7 @@ function internalHandleSessionStart(
     tokenCount: currentTokens,
     clustersIncluded,
     recentChunksIncluded: recentIncluded,
+    lastSessionIncluded,
   };
 }
 
@@ -180,6 +209,7 @@ export async function handleSessionStart(
     tokenCount: 0,
     clustersIncluded: 0,
     recentChunksIncluded: 0,
+    lastSessionIncluded: false,
     degraded: true,
   };
 
@@ -229,6 +259,57 @@ function buildClusterSection(cluster: StoredCluster): string {
 }
 
 /**
+ * Build a last-session summary section.
+ * Looks for the most recent session within the last 7 days and
+ * includes a brief preview from its final chunks.
+ *
+ * @returns The section string, or null if no recent session found
+ */
+function buildLastSessionSection(projectPath: string, tokenBudget: number): string | null {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sessions = getSessionsForProject(projectPath, sevenDaysAgo);
+
+  if (sessions.length === 0) return null;
+
+  // Most recent session (already sorted DESC by firstChunkTime)
+  const lastSession = sessions[0];
+
+  const sessionDate = new Date(lastSession.firstChunkTime).toLocaleDateString();
+  const sessionTime = new Date(lastSession.firstChunkTime).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const lines = [
+    `## Last Session (${sessionDate} ${sessionTime})`,
+  ];
+
+  // Get chunks from that session and take the final 3-5
+  const chunks = getChunksByTimeRange(
+    projectPath,
+    lastSession.firstChunkTime,
+    // Add 1ms to include the last chunk (start_time < to)
+    new Date(new Date(lastSession.lastChunkTime).getTime() + 1).toISOString(),
+  );
+  const tailChunks = chunks.slice(-5);
+
+  for (const chunk of tailChunks) {
+    const preview = chunk.content.slice(0, 150).replace(/\n/g, ' ');
+    const line = `- ${preview}${chunk.content.length > 150 ? '...' : ''}`;
+    const candidate = [...lines, line].join('\n');
+
+    if (approximateTokens(candidate) > tokenBudget) break;
+
+    lines.push(line);
+  }
+
+  // Only return if we got at least one chunk preview
+  if (lines.length <= 1) return null;
+
+  return lines.join('\n');
+}
+
+/**
  * Find clusters relevant to a project.
  */
 function findProjectClusters(clusters: StoredCluster[], projectPath: string): StoredCluster[] {
@@ -274,11 +355,13 @@ export async function generateMemorySection(
 `;
   }
 
+  const lastSessionNote = result.lastSessionIncluded ? ', last session included' : '';
+
   return `## Memory Context
 
 ${result.summary}
 
 ---
-*Memory summary: ${result.clustersIncluded} topics, ${result.recentChunksIncluded} recent items*
+*Memory summary: ${result.clustersIncluded} topics, ${result.recentChunksIncluded} recent items${lastSessionNote}*
 `;
 }
