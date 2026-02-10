@@ -1372,6 +1372,15 @@ const commands: Command[] = [
       console.log('Import complete.');
     },
   },
+  {
+    name: 'uninstall',
+    description: 'Remove ECM and all its artifacts',
+    usage: 'ecm uninstall [--force] [--keep-data] [--dry-run]',
+    handler: async (args) => {
+      const { handleUninstall } = await import('./uninstall.js');
+      await handleUninstall(args);
+    },
+  },
 ];
 
 function showHelp(): void {

@@ -34,6 +34,7 @@ describe('cli', () => {
       'hook',
       'export',
       'import',
+      'uninstall',
     ];
 
     it('includes all expected commands', () => {
