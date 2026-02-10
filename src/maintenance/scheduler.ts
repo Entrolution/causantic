@@ -1,18 +1,28 @@
 /**
  * Maintenance task scheduler for ECM.
  *
- * Manages periodic maintenance tasks:
+ * Orchestrates periodic maintenance tasks. Individual task handlers
+ * are in src/maintenance/tasks/ and accept dependencies as parameters.
+ *
+ * Tasks:
  * - scan-projects: Discover and ingest new sessions
  * - update-clusters: Re-run HDBSCAN clustering
  * - prune-graph: Remove dead edges and orphan nodes
  * - cleanup-vectors: Remove expired orphaned vectors (TTL-based)
  * - refresh-labels: Update cluster descriptions (optional, requires API key)
+ * - vacuum: Optimize SQLite database
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { dirname } from 'node:path';
 import { resolvePath } from '../config/memory-config.js';
 import { createLogger } from '../utils/logger.js';
+import { scanProjects } from './tasks/scan-projects.js';
+import { updateClusters } from './tasks/update-clusters.js';
+import { pruneGraph } from './tasks/prune-graph.js';
+import { refreshLabels } from './tasks/refresh-labels.js';
+import { vacuum } from './tasks/vacuum.js';
+import { cleanupVectors } from './tasks/cleanup-vectors.js';
 
 const log = createLogger('scheduler');
 
@@ -72,7 +82,7 @@ function shouldRunNow(schedule: CronSchedule, lastRun: Date | null): boolean {
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
 
   // Check if the current time matches the schedule
-  const matches = (field: string, value: number, max: number): boolean => {
+  const matches = (field: string, value: number, _max: number): boolean => {
     if (field === '*') return true;
     if (field.includes('/')) {
       const [, step] = field.split('/');
@@ -187,161 +197,40 @@ function recordRun(taskName: string, result: MaintenanceResult, startTime: Date)
 }
 
 /**
- * Placeholder task handlers - these call into the actual implementation modules.
+ * Create task handlers that wire in production dependencies via dynamic imports.
  */
-async function scanProjectsHandler(): Promise<MaintenanceResult> {
-  const startTime = Date.now();
-
-  try {
-    // Import and run the batch ingestion
-    const { batchIngest } = await import('../ingest/batch-ingest.js');
-    const claudeProjectsPath = resolvePath('~/.claude/projects');
-
-    if (!existsSync(claudeProjectsPath)) {
-      return {
-        success: true,
-        duration: Date.now() - startTime,
-        message: 'No Claude projects directory found',
-      };
-    }
-
-    const result = await batchIngest([claudeProjectsPath], {});
-
-    return {
-      success: true,
-      duration: Date.now() - startTime,
-      message: `Scanned projects: ${result.successCount} sessions processed`,
-      details: result as unknown as Record<string, unknown>,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      duration: Date.now() - startTime,
-      message: `Scan failed: ${(error as Error).message}`,
-    };
-  }
+async function createScanProjectsHandler(): Promise<MaintenanceResult> {
+  const { batchIngest } = await import('../ingest/batch-ingest.js');
+  const claudeProjectsPath = resolvePath('~/.claude/projects');
+  return scanProjects({ batchIngest, claudeProjectsPath });
 }
 
-async function updateClustersHandler(): Promise<MaintenanceResult> {
-  const startTime = Date.now();
-
-  try {
-    const { clusterManager } = await import('../clusters/cluster-manager.js');
-    await clusterManager.recluster();
-
-    return {
-      success: true,
-      duration: Date.now() - startTime,
-      message: 'Clusters updated successfully',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      duration: Date.now() - startTime,
-      message: `Clustering failed: ${(error as Error).message}`,
-    };
-  }
+async function createUpdateClustersHandler(): Promise<MaintenanceResult> {
+  const { clusterManager } = await import('../clusters/cluster-manager.js');
+  return updateClusters({ recluster: () => clusterManager.recluster() });
 }
 
-async function pruneGraphHandler(): Promise<MaintenanceResult> {
-  const startTime = Date.now();
-
-  try {
-    const { pruner } = await import('../storage/pruner.js');
-    const result = await pruner.flushNow();
-
-    return {
-      success: true,
-      duration: Date.now() - startTime,
-      message: `Pruned ${result.edgesDeleted} edges, ${result.chunksDeleted} chunks`,
-      details: result as unknown as Record<string, unknown>,
-    };
-  } catch (error) {
-    return {
-      success: false,
-      duration: Date.now() - startTime,
-      message: `Pruning failed: ${(error as Error).message}`,
-    };
-  }
+async function createPruneGraphHandler(): Promise<MaintenanceResult> {
+  const { pruner } = await import('../storage/pruner.js');
+  return pruneGraph({ flushNow: () => pruner.flushNow() });
 }
 
-async function refreshLabelsHandler(): Promise<MaintenanceResult> {
-  const startTime = Date.now();
-
-  try {
-    const { clusterRefresher } = await import('../clusters/cluster-refresh.js');
-    const results = await clusterRefresher.refreshAllClusters({});
-
-    return {
-      success: true,
-      duration: Date.now() - startTime,
-      message: `Refreshed ${results.length} cluster labels`,
-      details: { results } as unknown as Record<string, unknown>,
-    };
-  } catch (error) {
-    const errorMessage = (error as Error).message;
-    if (errorMessage.includes('API key')) {
-      return {
-        success: false,
-        duration: Date.now() - startTime,
-        message: 'Skipped: No Anthropic API key configured',
-      };
-    }
-    return {
-      success: false,
-      duration: Date.now() - startTime,
-      message: `Label refresh failed: ${errorMessage}`,
-    };
-  }
+async function createRefreshLabelsHandler(): Promise<MaintenanceResult> {
+  const { clusterRefresher } = await import('../clusters/cluster-refresh.js');
+  return refreshLabels({ refreshAllClusters: (opts) => clusterRefresher.refreshAllClusters(opts) });
 }
 
-async function vacuumHandler(): Promise<MaintenanceResult> {
-  const startTime = Date.now();
-
-  try {
-    const { getDb } = await import('../storage/db.js');
-    const db = getDb();
-    db.exec('VACUUM');
-
-    return {
-      success: true,
-      duration: Date.now() - startTime,
-      message: 'Database vacuumed successfully',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      duration: Date.now() - startTime,
-      message: `Vacuum failed: ${(error as Error).message}`,
-    };
-  }
+async function createVacuumHandler(): Promise<MaintenanceResult> {
+  const { getDb } = await import('../storage/db.js');
+  return vacuum({ getDb });
 }
 
-async function cleanupVectorsHandler(): Promise<MaintenanceResult> {
-  const startTime = Date.now();
-
-  try {
-    const { vectorStore } = await import('../storage/vector-store.js');
-    const { loadConfig } = await import('../config/loader.js');
-
-    const config = loadConfig();
-    const ttlDays = config.vectors?.ttlDays ?? 90;
-
-    const deletedCount = await vectorStore.cleanupExpired(ttlDays);
-
-    return {
-      success: true,
-      duration: Date.now() - startTime,
-      message: `Cleaned up ${deletedCount} expired orphaned vectors`,
-      details: { deletedCount, ttlDays },
-    };
-  } catch (error) {
-    return {
-      success: false,
-      duration: Date.now() - startTime,
-      message: `Vector cleanup failed: ${(error as Error).message}`,
-    };
-  }
+async function createCleanupVectorsHandler(): Promise<MaintenanceResult> {
+  const { vectorStore } = await import('../storage/vector-store.js');
+  const { loadConfig } = await import('../config/loader.js');
+  const config = loadConfig();
+  const ttlDays = config.vectors?.ttlDays ?? 90;
+  return cleanupVectors({ cleanupExpired: (days) => vectorStore.cleanupExpired(days), ttlDays });
 }
 
 /**
@@ -353,42 +242,42 @@ export const MAINTENANCE_TASKS: MaintenanceTask[] = [
     description: 'Discover new sessions and ingest changes',
     schedule: '0 * * * *', // Every hour
     requiresApiKey: false,
-    handler: scanProjectsHandler,
+    handler: createScanProjectsHandler,
   },
   {
     name: 'update-clusters',
     description: 'Re-run HDBSCAN clustering on all embeddings',
     schedule: '0 2 * * *', // Daily at 2am
     requiresApiKey: false,
-    handler: updateClustersHandler,
+    handler: createUpdateClustersHandler,
   },
   {
     name: 'prune-graph',
     description: 'Remove dead edges and orphan nodes',
     schedule: '0 3 * * *', // Daily at 3am
     requiresApiKey: false,
-    handler: pruneGraphHandler,
+    handler: createPruneGraphHandler,
   },
   {
     name: 'cleanup-vectors',
     description: 'Remove expired orphaned vectors (TTL-based)',
     schedule: '30 3 * * *', // Daily at 3:30am (after prune-graph)
     requiresApiKey: false,
-    handler: cleanupVectorsHandler,
+    handler: createCleanupVectorsHandler,
   },
   {
     name: 'refresh-labels',
     description: 'Update cluster descriptions via Haiku (optional)',
     schedule: '0 4 * * 0', // Weekly on Sunday at 4am
     requiresApiKey: true,
-    handler: refreshLabelsHandler,
+    handler: createRefreshLabelsHandler,
   },
   {
     name: 'vacuum',
     description: 'Optimize SQLite database',
     schedule: '0 5 * * 0', // Weekly on Sunday at 5am
     requiresApiKey: false,
-    handler: vacuumHandler,
+    handler: createVacuumHandler,
   },
 ];
 

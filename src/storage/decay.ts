@@ -3,7 +3,7 @@
  * Supports both time-based decay (legacy) and vector clock-based decay.
  */
 
-import type { DecayModelConfig } from '../eval/experiments/edge-decay/types.js';
+import type { DecayModelConfig } from '../core/decay-types.js';
 import { type VectorClock, hopCount, deserialize } from '../temporal/vector-clock.js';
 
 /**

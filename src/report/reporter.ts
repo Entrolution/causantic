@@ -3,7 +3,7 @@
  */
 
 import { writeFile } from 'node:fs/promises';
-import type { BenchmarkResult, ModelBenchmarkResult } from '../eval/benchmark-runner.js';
+import type { BenchmarkResult, ModelBenchmarkResult } from '../core/benchmark-types.js';
 import type { Chunk } from '../parser/types.js';
 
 /**

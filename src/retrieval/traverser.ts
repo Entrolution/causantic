@@ -14,7 +14,7 @@
 import { getWeightedEdges } from '../storage/edge-store.js';
 import { getChunkById } from '../storage/chunk-store.js';
 import { getConfig } from '../config/memory-config.js';
-import type { DecayModelConfig } from '../eval/experiments/edge-decay/types.js';
+import type { DecayModelConfig } from '../core/decay-types.js';
 import type { WeightedChunk, TraversalResult, EdgeType, StoredChunk } from '../storage/types.js';
 import type { VectorClock } from '../temporal/vector-clock.js';
 

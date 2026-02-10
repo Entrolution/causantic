@@ -15,7 +15,7 @@ import {
   DEFAULT_VECTOR_DECAY,
   type HopDecayConfig,
 } from '../../src/storage/decay.js';
-import type { DecayModelConfig } from '../../src/eval/experiments/edge-decay/types.js';
+import type { DecayModelConfig } from '../../src/core/decay-types.js';
 
 describe('decay', () => {
   describe('calculateHopDecayWeight', () => {

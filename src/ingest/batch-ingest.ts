@@ -11,6 +11,9 @@ import { getModel } from '../models/model-registry.js';
 import { isSessionIngested } from '../storage/chunk-store.js';
 import { ingestSession, type IngestResult, type IngestOptions } from './ingest-session.js';
 import { linkAllSessions } from './cross-session-linker.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('batch-ingest');
 
 /**
  * Progress information passed to callback.
@@ -92,8 +95,11 @@ export async function discoverSessions(dir: string): Promise<string[]> {
     let entries;
     try {
       entries = await readdir(currentDir, { withFileTypes: true });
-    } catch {
-      return; // Skip inaccessible directories
+    } catch (err) {
+      log.debug(`Skipping inaccessible directory: ${currentDir}`, {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return;
     }
 
     for (const entry of entries) {
@@ -123,7 +129,10 @@ export async function discoverSessions(dir: string): Promise<string[]> {
       try {
         const stats = await stat(path);
         return { path, mtime: stats.mtime.getTime() };
-      } catch {
+      } catch (err) {
+        log.warn(`Failed to stat session file: ${path}`, {
+          error: err instanceof Error ? err.message : String(err),
+        });
         return { path, mtime: 0 };
       }
     })
