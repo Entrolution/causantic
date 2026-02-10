@@ -345,6 +345,47 @@ npx causantic hook session-start
 npx causantic hook claudemd-generator
 ```
 
+### benchmark-collection
+
+Run benchmarks against your collection to evaluate health, retrieval quality, graph value, and latency.
+
+```bash
+npx causantic benchmark-collection [options]
+```
+
+**Options**:
+
+| Option | Description |
+|--------|-------------|
+| `--quick` | Health only (~1 second) |
+| `--standard` | Health + retrieval (~30 seconds, default) |
+| `--full` | All categories (~2-5 minutes) |
+| `--categories <list>` | Comma-separated: health,retrieval,graph,latency |
+| `--sample-size <n>` | Number of sample queries (default: 50) |
+| `--seed <n>` | Random seed for reproducibility |
+| `--project <slug>` | Limit to one project |
+| `--output <path>` | Output directory (default: ./causantic-benchmark/) |
+| `--json` | Output JSON only (no markdown) |
+| `--no-tuning` | Skip tuning recommendations |
+| `--history` | Show trend from past runs |
+
+**Example**:
+```bash
+# Quick health check
+npx causantic benchmark-collection --quick
+
+# Standard benchmark with reproducible sampling
+npx causantic benchmark-collection --seed 42
+
+# Full benchmark for a specific project
+npx causantic benchmark-collection --full --project my-app
+
+# View historical trends
+npx causantic benchmark-collection --history
+```
+
+See [Benchmarking Guide](../guides/benchmarking.md) for details on interpreting results and acting on recommendations.
+
 ### uninstall
 
 Remove Causantic and all its artifacts.

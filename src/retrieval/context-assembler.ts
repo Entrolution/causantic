@@ -10,7 +10,7 @@ import { getModel } from '../models/model-registry.js';
 import { getConfig } from '../config/memory-config.js';
 import { approximateTokens } from '../utils/token-counter.js';
 import { traverse, traverseMultiple, dedupeAndRank, resolveChunks } from './traverser.js';
-import type { StoredChunk, WeightedChunk } from '../storage/types.js';
+import type { StoredChunk, WeightedChunk, TraversalResult } from '../storage/types.js';
 import { getReferenceClock } from '../storage/clock-store.js';
 import { KeywordStore } from '../storage/keyword-store.js';
 import { fuseRRF, type RankedItem } from './rrf.js';
@@ -54,6 +54,10 @@ export interface RetrievalRequest {
   range?: RetrievalRange;
   /** Number of vector search results to start from */
   vectorSearchLimit?: number;
+  /** Skip graph traversal (for benchmarking vector-only retrieval) */
+  skipGraph?: boolean;
+  /** Skip cluster expansion (for benchmarking vector-only retrieval) */
+  skipClusters?: boolean;
 }
 
 /**
@@ -129,6 +133,8 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     mode,
     range = 'auto',
     vectorSearchLimit = 20,
+    skipGraph = false,
+    skipClusters = false,
   } = request;
 
   const { hybridSearch, clusterExpansion } = config;
@@ -197,12 +203,10 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     hybridSearch.rrfK,
   );
 
-  // 4. Cluster expansion
-  const expandedResults = expandViaClusters(
-    fusedResults,
-    clusterExpansion,
-    projectFilter,
-  );
+  // 4. Cluster expansion (skip if requested for benchmarking)
+  const expandedResults = skipClusters
+    ? fusedResults
+    : expandViaClusters(fusedResults, clusterExpansion, projectFilter);
 
   // Build source map for attribution
   type ChunkSource = 'vector' | 'keyword' | 'cluster' | 'graph';
@@ -227,20 +231,25 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     decayConfig = mode === 'explain' ? config.longRangeDecay : config.shortRangeDecay;
   }
 
-  // 6. Traverse graph from fused+expanded seeds
-  const startIds = expandedResults.map(r => r.chunkId);
-  const startWeights = expandedResults.map(r => r.score);
+  // 6. Traverse graph from fused+expanded seeds (skip if requested for benchmarking)
+  let traversalResult: TraversalResult;
+  if (skipGraph) {
+    traversalResult = { chunks: [], visited: 0 };
+  } else {
+    const startIds = expandedResults.map(r => r.chunkId);
+    const startWeights = expandedResults.map(r => r.score);
 
-  const traversalResult = await traverseMultiple(startIds, startWeights, queryTime, {
-    direction,
-    decayConfig,
-    referenceClock,
-  });
+    traversalResult = await traverseMultiple(startIds, startWeights, queryTime, {
+      direction,
+      decayConfig,
+      referenceClock,
+    });
 
-  // Tag traversal results with 'graph' source
-  for (const tc of traversalResult.chunks) {
-    if (!sourceMap.has(tc.chunkId)) {
-      sourceMap.set(tc.chunkId, 'graph');
+    // Tag traversal results with 'graph' source
+    for (const tc of traversalResult.chunks) {
+      if (!sourceMap.has(tc.chunkId)) {
+        sourceMap.set(tc.chunkId, 'graph');
+      }
     }
   }
 

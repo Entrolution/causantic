@@ -11,6 +11,7 @@ import projectsRouter from './routes/projects.js';
 import graphRouter from './routes/graph.js';
 import searchRouter from './routes/search.js';
 import sessionsRouter from './routes/sessions.js';
+import benchmarkCollectionRouter from './routes/benchmark-collection.js';
 import { errorHandler } from './middleware/error-handler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,7 @@ export function createApp() {
   app.use('/api/graph', graphRouter);
   app.use('/api/search', searchRouter);
   app.use('/api/sessions', sessionsRouter);
+  app.use('/api/benchmark-collection', benchmarkCollectionRouter);
 
   // API error handler (must come after API routes)
   app.use('/api', errorHandler);
