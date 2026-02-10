@@ -378,37 +378,37 @@ const commands: Command[] = [
         }
       }
 
-      // Step 6c: Add memory tool instructions to global CLAUDE.md
-      // Without these instructions, Claude Code won't proactively use the ECM MCP tools.
+      // Step 6c: Install ECM skills and update CLAUDE.md reference
       if (!skipMcp) {
+        const { ECM_SKILLS, getMinimalClaudeMdBlock } = await import('./skill-templates.js');
+
+        // Install skill files to ~/.claude/skills/ecm-*/SKILL.md
+        const skillsDir = path.join(os.homedir(), '.claude', 'skills');
+        let skillsInstalled = 0;
+
+        for (const skill of ECM_SKILLS) {
+          try {
+            const skillDir = path.join(skillsDir, skill.dirName);
+            if (!fs.existsSync(skillDir)) {
+              fs.mkdirSync(skillDir, { recursive: true });
+            }
+            const skillPath = path.join(skillDir, 'SKILL.md');
+            fs.writeFileSync(skillPath, skill.content);
+            skillsInstalled++;
+          } catch {
+            console.log(`⚠ Could not install skill: ${skill.dirName}`);
+          }
+        }
+
+        if (skillsInstalled > 0) {
+          console.log(`✓ Installed ${skillsInstalled} ECM skills to ~/.claude/skills/`);
+        }
+
+        // Update CLAUDE.md with minimal reference (detailed instructions now in skills)
         const claudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
         const ECM_START = '<!-- ECM_MEMORY_START -->';
         const ECM_END = '<!-- ECM_MEMORY_END -->';
-        const memoryInstructions = `${ECM_START}
-## Memory (Entropic Causal Memory)
-
-You have access to a long-term memory system via the \`entropic-causal-memory\` MCP server. Use it to recall past work, decisions, and context across sessions.
-
-**When to use memory tools:**
-- When asked about recent or past work (e.g., "What did we work on?", "What was decided about X?")
-- When starting a task in an unfamiliar area — check if past sessions covered it
-- When you encounter an error or pattern that might have been solved before
-- When the user references something from a previous session
-
-**Tools:**
-- \`recall\` — Look up specific context from past sessions. Use \`range: "short"\` for recent work, \`range: "long"\` for historical context. Use \`project\` to filter by project.
-- \`explain\` — Understand the history behind a topic or decision. Defaults to long-range retrieval. Use \`project\` to filter by project.
-- \`predict\` — Proactively surface relevant past context based on the current discussion. Use \`project\` to filter by project.
-- \`list-projects\` — List all projects in memory with chunk counts and date ranges. Use to discover available project names for filtering.
-
-**Guidelines:**
-- Prefer \`recall\` for direct questions about past work
-- Prefer \`explain\` when the user asks "why" or "how did we get here"
-- Use \`predict\` at the start of complex tasks to surface relevant background
-- Always try memory tools before saying "I don't have context from previous sessions"
-- Use \`list-projects\` to discover available projects, then filter with \`project\` parameter
-- Example: \`recall\` with \`project: "my-project"\` for project-scoped search
-${ECM_END}`;
+        const memoryInstructions = getMinimalClaudeMdBlock();
 
         try {
           let claudeMd = '';
@@ -417,19 +417,19 @@ ${ECM_END}`;
           }
 
           if (claudeMd.includes(ECM_START)) {
-            // Replace existing section
+            // Replace existing section with minimal version
             const startIdx = claudeMd.indexOf(ECM_START);
             const endIdx = claudeMd.indexOf(ECM_END);
             if (endIdx > startIdx) {
               claudeMd = claudeMd.slice(0, startIdx) + memoryInstructions + claudeMd.slice(endIdx + ECM_END.length);
               fs.writeFileSync(claudeMdPath, claudeMd);
-              console.log('✓ Updated memory instructions in CLAUDE.md');
+              console.log('✓ Updated CLAUDE.md with skill references');
             }
           } else {
             // Append to file
             const separator = claudeMd.length > 0 && !claudeMd.endsWith('\n\n') ? '\n' : '';
             fs.writeFileSync(claudeMdPath, claudeMd + separator + memoryInstructions + '\n');
-            console.log('✓ Added memory instructions to CLAUDE.md');
+            console.log('✓ Added ECM reference to CLAUDE.md');
           }
         } catch {
           console.log('⚠ Could not update CLAUDE.md');
