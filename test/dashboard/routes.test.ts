@@ -291,3 +291,105 @@ describe('GET /api/graph/neighborhood', () => {
     expect(root?.root).toBe(true);
   });
 });
+
+describe('GET /api/sessions', () => {
+  it('returns 400 when project parameter is missing', async () => {
+    const res = await get('/api/sessions');
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toBe('project query parameter is required');
+  });
+
+  it('returns empty sessions for unknown project', async () => {
+    const res = await get('/api/sessions?project=nonexistent');
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.sessions).toEqual([]);
+  });
+
+  it('returns sessions for a project', async () => {
+    // Insert 2 chunks with same sessionSlug but different sessionId
+    insertChunk(makeChunk({
+      id: 'sess-chunk-1',
+      sessionId: 'session-alpha',
+      sessionSlug: 'my-project',
+      startTime: '2024-03-01T10:00:00Z',
+      endTime: '2024-03-01T10:05:00Z',
+    }));
+    insertChunk(makeChunk({
+      id: 'sess-chunk-2',
+      sessionId: 'session-alpha',
+      sessionSlug: 'my-project',
+      startTime: '2024-03-01T10:05:00Z',
+      endTime: '2024-03-01T10:10:00Z',
+    }));
+    insertChunk(makeChunk({
+      id: 'sess-chunk-3',
+      sessionId: 'session-beta',
+      sessionSlug: 'my-project',
+      startTime: '2024-03-02T12:00:00Z',
+      endTime: '2024-03-02T12:30:00Z',
+    }));
+
+    const res = await get('/api/sessions?project=my-project');
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.sessions).toHaveLength(2);
+
+    // Ordered by firstChunkTime DESC, so session-beta first
+    expect(data.sessions[0].sessionId).toBe('session-beta');
+    expect(data.sessions[0].chunkCount).toBe(1);
+
+    expect(data.sessions[1].sessionId).toBe('session-alpha');
+    expect(data.sessions[1].chunkCount).toBe(2);
+    expect(data.sessions[1].totalTokens).toBe(20); // 2 chunks * 10 approxTokens
+  });
+
+  it('supports from/to date filtering', async () => {
+    insertChunk(makeChunk({
+      id: 'filter-chunk-1',
+      sessionId: 'sess-early',
+      sessionSlug: 'filtered-proj',
+      startTime: '2024-01-10T08:00:00Z',
+      endTime: '2024-01-10T09:00:00Z',
+    }));
+    insertChunk(makeChunk({
+      id: 'filter-chunk-2',
+      sessionId: 'sess-late',
+      sessionSlug: 'filtered-proj',
+      startTime: '2024-06-15T14:00:00Z',
+      endTime: '2024-06-15T15:00:00Z',
+    }));
+
+    // Filter to only include chunks from March onwards
+    const res = await get('/api/sessions?project=filtered-proj&from=2024-03-01T00:00:00Z');
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.sessions).toHaveLength(1);
+    expect(data.sessions[0].sessionId).toBe('sess-late');
+
+    // Filter with both from and to
+    const res2 = await get(
+      '/api/sessions?project=filtered-proj&from=2024-01-01T00:00:00Z&to=2024-02-01T00:00:00Z'
+    );
+    const data2 = await res2.json();
+
+    expect(res2.status).toBe(200);
+    expect(data2.sessions).toHaveLength(1);
+    expect(data2.sessions[0].sessionId).toBe('sess-early');
+  });
+});
+
+describe('GET /api/benchmark-collection/history', () => {
+  it('returns 200 with empty runs array on fresh database', async () => {
+    const res = await get('/api/benchmark-collection/history');
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.runs).toEqual([]);
+  });
+});
