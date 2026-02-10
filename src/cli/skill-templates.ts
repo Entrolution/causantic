@@ -167,6 +167,69 @@ Returns a list of projects with:
 - To check the coverage and recency of memory for a specific project
 `,
   },
+  {
+    dirName: 'ecm-reconstruct',
+    content: `---
+name: ecm-reconstruct
+description: "Reconstruct session context from ECM long-term memory. Use to rebuild what was worked on yesterday, show the last session, or reconstruct context from a time range."
+argument-hint: [time range or description]
+---
+
+# Reconstruct Session Context
+
+Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`entropic-causal-memory\` to rebuild session context chronologically.
+
+## Usage
+
+\`\`\`
+/ecm-reconstruct what did I work on yesterday?
+/ecm-reconstruct last session
+/ecm-reconstruct past 3 days
+/ecm-reconstruct session abc12345
+\`\`\`
+
+## Workflow
+
+1. **Identify the project**: Use \`list-projects\` if the user hasn't specified one
+2. **Browse sessions**: Use \`list-sessions\` to see available sessions and their time ranges
+3. **Reconstruct**: Use \`reconstruct\` with appropriate parameters
+
+## Parameters for \`list-sessions\`
+
+- **project** (required): Project slug
+- **from**: Start date (ISO 8601)
+- **to**: End date (ISO 8601)
+- **days_back**: Look back N days
+
+## Parameters for \`reconstruct\`
+
+- **project** (required): Project slug
+- **session_id**: Specific session ID
+- **from** / **to**: Time range (ISO 8601)
+- **days_back**: Look back N days
+- **previous_session**: Get the session before the current one (set to \`true\`)
+- **current_session_id**: Required when \`previous_session\` is true
+- **keep_newest**: Keep newest chunks when truncating (default: true)
+
+## Interpreting User Intent
+
+| User says | Parameters |
+|-----------|-----------|
+| "yesterday" | \`days_back: 1\` |
+| "past 3 days" | \`days_back: 3\` |
+| "last session" | \`previous_session: true\` + current session ID |
+| "session abc123" | \`session_id: "abc123"\` |
+| "this week" | \`days_back: 7\` |
+| "January 15" | \`from: "2025-01-15T00:00:00Z", to: "2025-01-16T00:00:00Z"\` |
+
+## Guidelines
+
+- Always start with \`list-sessions\` to give the user an overview before reconstructing
+- When the user says "last session", use \`previous_session: true\` — this finds the session before the current one
+- Token budget is applied automatically — newest chunks are kept by default
+- Results include session boundary markers for easy navigation
+`,
+  },
 ];
 
 /**
@@ -185,6 +248,7 @@ Long-term memory is available via the \`entropic-causal-memory\` MCP server and 
 - \`/ecm-explain [topic]\` — Understand history behind decisions
 - \`/ecm-predict\` — Surface relevant past context proactively
 - \`/ecm-list-projects\` — Discover available projects
+- \`/ecm-reconstruct [time range]\` — Reconstruct session context by time
 
 Always try memory tools before saying "I don't have context from previous sessions."
 ${ECM_END}`;

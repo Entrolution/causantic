@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS chunk_clusters (
 CREATE INDEX IF NOT EXISTS idx_chunks_session ON chunks(session_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_session_slug ON chunks(session_slug);
 CREATE INDEX IF NOT EXISTS idx_chunks_start_time ON chunks(start_time);
+CREATE INDEX IF NOT EXISTS idx_chunks_slug_start_time ON chunks(session_slug, start_time);
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_chunk_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_chunk_id);
 CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(edge_type);
@@ -128,5 +129,5 @@ CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks
   INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
 
--- Insert initial version if not exists (v5 adds FTS5 full-text search)
-INSERT OR IGNORE INTO schema_version (version) VALUES (5);
+-- Insert initial version if not exists (v6 adds composite index for session reconstruction)
+INSERT OR IGNORE INTO schema_version (version) VALUES (6);

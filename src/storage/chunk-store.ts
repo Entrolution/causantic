@@ -281,6 +281,132 @@ export function getDistinctProjects(): ProjectInfo[] {
   return rows;
 }
 
+/**
+ * Session summary info.
+ */
+export interface SessionInfo {
+  sessionId: string;
+  firstChunkTime: string;
+  lastChunkTime: string;
+  chunkCount: number;
+  totalTokens: number;
+}
+
+/**
+ * Options for getChunksByTimeRange.
+ */
+export interface TimeRangeOptions {
+  sessionId?: string;
+  limit?: number;
+}
+
+/**
+ * Get chunks for a project within a time range.
+ * Uses the composite index on (session_slug, start_time).
+ */
+export function getChunksByTimeRange(
+  project: string,
+  from: string,
+  to: string,
+  opts?: TimeRangeOptions
+): StoredChunk[] {
+  const db = getDb();
+
+  let sql = `SELECT * FROM chunks WHERE session_slug = ? AND start_time >= ? AND start_time < ?`;
+  const params: unknown[] = [project, from, to];
+
+  if (opts?.sessionId) {
+    sql += ' AND session_id = ?';
+    params.push(opts.sessionId);
+  }
+
+  sql += ' ORDER BY start_time ASC';
+
+  if (opts?.limit) {
+    sql += ' LIMIT ?';
+    params.push(opts.limit);
+  }
+
+  const rows = db.prepare(sql).all(...params) as DbChunkRow[];
+  return rows.map(rowToChunk);
+}
+
+/**
+ * List sessions for a project with aggregated metadata.
+ * Optionally filtered by time range.
+ */
+export function getSessionsForProject(
+  project: string,
+  from?: string,
+  to?: string
+): SessionInfo[] {
+  const db = getDb();
+
+  let sql = `
+    SELECT
+      session_id AS sessionId,
+      MIN(start_time) AS firstChunkTime,
+      MAX(end_time) AS lastChunkTime,
+      COUNT(*) AS chunkCount,
+      COALESCE(SUM(approx_tokens), 0) AS totalTokens
+    FROM chunks
+    WHERE session_slug = ?
+  `;
+  const params: unknown[] = [project];
+
+  if (from) {
+    sql += ' AND start_time >= ?';
+    params.push(from);
+  }
+  if (to) {
+    sql += ' AND start_time < ?';
+    params.push(to);
+  }
+
+  sql += ' GROUP BY session_id ORDER BY firstChunkTime DESC';
+
+  return db.prepare(sql).all(...params) as SessionInfo[];
+}
+
+/**
+ * Find the most recent session before a given session.
+ * Uses the composite index for efficient lookup.
+ */
+export function getPreviousSession(
+  project: string,
+  currentSessionId: string
+): SessionInfo | null {
+  const db = getDb();
+
+  // Get the current session's earliest start_time
+  const current = db
+    .prepare('SELECT MIN(start_time) AS minTime FROM chunks WHERE session_id = ? AND session_slug = ?')
+    .get(currentSessionId, project) as { minTime: string | null } | undefined;
+
+  if (!current?.minTime) return null;
+
+  // Find the latest session that ended before the current session started
+  const row = db
+    .prepare(`
+      SELECT
+        session_id AS sessionId,
+        MIN(start_time) AS firstChunkTime,
+        MAX(end_time) AS lastChunkTime,
+        COUNT(*) AS chunkCount,
+        COALESCE(SUM(approx_tokens), 0) AS totalTokens
+      FROM chunks
+      WHERE session_slug = ?
+        AND session_id != ?
+        AND end_time <= ?
+      GROUP BY session_id
+      ORDER BY lastChunkTime DESC
+      LIMIT 1
+    `)
+    .get(project, currentSessionId, current.minTime) as SessionInfo | undefined;
+
+  return row ?? null;
+}
+
 // Internal types and helpers
 
 interface DbChunkRow {

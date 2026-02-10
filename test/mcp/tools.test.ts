@@ -133,8 +133,8 @@ describe('mcp-tools', () => {
   });
 
   describe('tools array', () => {
-    it('contains all four tools', () => {
-      expect(tools.length).toBe(4);
+    it('contains all six tools', () => {
+      expect(tools.length).toBe(6);
     });
 
     it('contains recall tool', () => {
@@ -278,7 +278,7 @@ describe('mcp-tools', () => {
         inputSchema: t.inputSchema,
       }));
 
-      expect(toolList.length).toBe(4);
+      expect(toolList.length).toBe(6);
       expect(toolList[0]).not.toHaveProperty('handler'); // Handler not included
       expect(toolList[0]).toHaveProperty('name');
       expect(toolList[0]).toHaveProperty('description');

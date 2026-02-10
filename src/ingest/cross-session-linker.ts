@@ -3,9 +3,8 @@
  * Detects continued sessions and creates edges across session boundaries.
  */
 
-import { getChunksBySession, getSessionIds } from '../storage/chunk-store.js';
+import { getChunksBySession, getSessionIds, getPreviousSession } from '../storage/chunk-store.js';
 import { createCrossSessionEdges } from './edge-creator.js';
-import type { StoredChunk } from '../storage/types.js';
 
 /**
  * Boilerplate text indicating a continued session.
@@ -72,14 +71,10 @@ export async function linkCrossSession(
     };
   }
 
-  // Find previous session for this project
-  const previousSession = await findPreviousSession(
-    sessionSlug,
-    firstChunk.startTime,
-    sessionId
-  );
+  // Find previous session for this project (uses composite index)
+  const prevSessionInfo = getPreviousSession(sessionSlug, sessionId);
 
-  if (!previousSession) {
+  if (!prevSessionInfo) {
     return {
       sessionId,
       previousSessionId: null,
@@ -89,13 +84,13 @@ export async function linkCrossSession(
   }
 
   // Get final chunks from previous session
-  const prevChunks = getChunksBySession(previousSession.sessionId);
+  const prevChunks = getChunksBySession(prevSessionInfo.sessionId);
   const finalChunks = prevChunks.slice(-3); // Last 3 chunks
 
   if (finalChunks.length === 0) {
     return {
       sessionId,
-      previousSessionId: previousSession.sessionId,
+      previousSessionId: prevSessionInfo.sessionId,
       edgeCount: 0,
       isContinuation: true,
     };
@@ -109,51 +104,10 @@ export async function linkCrossSession(
 
   return {
     sessionId,
-    previousSessionId: previousSession.sessionId,
+    previousSessionId: prevSessionInfo.sessionId,
     edgeCount,
     isContinuation: true,
   };
-}
-
-/**
- * Find the most recent previous session for a project.
- */
-async function findPreviousSession(
-  sessionSlug: string,
-  beforeTime: string,
-  excludeSessionId: string
-): Promise<StoredChunk | null> {
-  // Get all session IDs
-  const allSessionIds = getSessionIds();
-
-  let latestChunk: StoredChunk | null = null;
-  let latestTime = 0;
-
-  for (const sid of allSessionIds) {
-    if (sid === excludeSessionId) continue;
-
-    const chunks = getChunksBySession(sid);
-    if (chunks.length === 0) continue;
-
-    // Check if this session is for the same project
-    if (chunks[0].sessionSlug !== sessionSlug) continue;
-
-    // Find the last chunk's end time
-    const lastChunk = chunks[chunks.length - 1];
-    const endTime = new Date(lastChunk.endTime).getTime();
-    const beforeTimeMs = new Date(beforeTime).getTime();
-
-    // Must be before the target session
-    if (endTime >= beforeTimeMs) continue;
-
-    // Track the most recent
-    if (endTime > latestTime) {
-      latestTime = endTime;
-      latestChunk = lastChunk;
-    }
-  }
-
-  return latestChunk;
 }
 
 /**

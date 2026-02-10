@@ -4,7 +4,8 @@
 
 import { recall, explain, predict } from '../retrieval/context-assembler.js';
 import { getConfig } from '../config/memory-config.js';
-import { getDistinctProjects } from '../storage/chunk-store.js';
+import { getDistinctProjects, getSessionsForProject } from '../storage/chunk-store.js';
+import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 
 /**
@@ -186,9 +187,149 @@ export const listProjectsTool: ToolDefinition = {
 };
 
 /**
+ * List sessions tool: browse available sessions for a project.
+ */
+export const listSessionsTool: ToolDefinition = {
+  name: 'list-sessions',
+  description:
+    'List sessions for a project with chunk counts, time ranges, and token totals. Use to browse available sessions before reconstructing context.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'Project slug (required). Use list-projects to discover available projects.',
+      },
+      from: {
+        type: 'string',
+        description: 'Start date filter (ISO 8601). Optional.',
+      },
+      to: {
+        type: 'string',
+        description: 'End date filter (ISO 8601). Optional.',
+      },
+      days_back: {
+        type: 'number',
+        description: 'Look back N days from now. Alternative to from/to.',
+      },
+    },
+    required: ['project'],
+  },
+  handler: async (args) => {
+    const project = args.project as string;
+    let from = args.from as string | undefined;
+    let to = args.to as string | undefined;
+    const daysBack = args.days_back as number | undefined;
+
+    if (daysBack != null) {
+      to = new Date().toISOString();
+      from = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
+    }
+
+    const sessions = getSessionsForProject(project, from, to);
+
+    if (sessions.length === 0) {
+      return `No sessions found for project "${project}".`;
+    }
+
+    const lines = sessions.map((s) => {
+      const start = new Date(s.firstChunkTime).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      const end = new Date(s.lastChunkTime).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      return `- ${s.sessionId.slice(0, 8)} (${start} – ${end}, ${s.chunkCount} chunks, ${s.totalTokens} tokens)`;
+    });
+
+    return `Sessions for "${project}" (${sessions.length} total):\n${lines.join('\n')}`;
+  },
+};
+
+/**
+ * Reconstruct tool: rebuild session context by time range.
+ */
+export const reconstructTool: ToolDefinition = {
+  name: 'reconstruct',
+  description:
+    'Rebuild session context for a project by time range. Returns chronological chunks with session boundary markers. Use for "what did I work on yesterday?", "show me the last session", etc.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'Project slug (required). Use list-projects to discover available projects.',
+      },
+      session_id: {
+        type: 'string',
+        description: 'Specific session ID to reconstruct.',
+      },
+      from: {
+        type: 'string',
+        description: 'Start date (ISO 8601).',
+      },
+      to: {
+        type: 'string',
+        description: 'End date (ISO 8601).',
+      },
+      days_back: {
+        type: 'number',
+        description: 'Look back N days from now.',
+      },
+      previous_session: {
+        type: 'boolean',
+        description: 'Get the session before the current one.',
+      },
+      current_session_id: {
+        type: 'string',
+        description: 'Current session ID (required when previous_session is true).',
+      },
+      keep_newest: {
+        type: 'boolean',
+        description: 'Keep newest chunks when truncating to fit token budget (default: true).',
+      },
+    },
+    required: ['project'],
+  },
+  handler: async (args) => {
+    const project = args.project as string;
+    const config = getConfig();
+
+    try {
+      const result = reconstructSession({
+        project,
+        sessionId: args.session_id as string | undefined,
+        from: args.from as string | undefined,
+        to: args.to as string | undefined,
+        daysBack: args.days_back as number | undefined,
+        previousSession: args.previous_session as boolean | undefined,
+        currentSessionId: args.current_session_id as string | undefined,
+        maxTokens: config.mcpMaxResponseTokens,
+        keepNewest: (args.keep_newest as boolean | undefined) ?? true,
+      });
+
+      return formatReconstruction(result);
+    } catch (error) {
+      return `Error: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  },
+};
+
+/**
  * All available tools.
  */
-export const tools: ToolDefinition[] = [recallTool, explainTool, predictTool, listProjectsTool];
+export const tools: ToolDefinition[] = [
+  recallTool,
+  explainTool,
+  predictTool,
+  listProjectsTool,
+  listSessionsTool,
+  reconstructTool,
+];
 
 /**
  * Get tool by name.

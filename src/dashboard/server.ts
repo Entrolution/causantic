@@ -10,6 +10,7 @@ import clustersRouter from './routes/clusters.js';
 import projectsRouter from './routes/projects.js';
 import graphRouter from './routes/graph.js';
 import searchRouter from './routes/search.js';
+import sessionsRouter from './routes/sessions.js';
 import { errorHandler } from './middleware/error-handler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ export function createApp() {
   app.use('/api/projects', projectsRouter);
   app.use('/api/graph', graphRouter);
   app.use('/api/search', searchRouter);
+  app.use('/api/sessions', sessionsRouter);
 
   // API error handler (must come after API routes)
   app.use('/api', errorHandler);

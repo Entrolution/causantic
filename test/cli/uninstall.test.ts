@@ -420,7 +420,7 @@ ECM content only
     it('includes skill directory artifacts', () => {
       const plan = buildRemovalPlan(false);
       const skills = plan.filter((a) => a.label.includes('skills/'));
-      expect(skills.length).toBe(4); // recall, explain, predict, list-projects
+      expect(skills.length).toBe(5); // recall, explain, predict, list-projects, reconstruct
     });
 
     it('includes keychain artifacts', () => {
