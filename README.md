@@ -14,7 +14,9 @@ Most AI memory systems use vector embeddings for similarity search. ECM does too
 | | Vector Search Only | ECM |
 |---|---|---|
 | **Finds similar content** | ✓ | ✓ |
+| **Finds lexically relevant content** | ✗ | ✓ (BM25 keyword search) |
 | **Finds related context** | ✗ | ✓ (causal edges) |
+| **Finds topically related context** | ✗ | ✓ (cluster expansion) |
 | **Temporal awareness** | Wall-clock decay | Logical hop decay |
 | **Context retrieval** | 1× | **4.65×** |
 | **Handles project switches** | Breaks continuity | Preserves causality |
@@ -22,19 +24,27 @@ Most AI memory systems use vector embeddings for similarity search. ECM does too
 
 ### Key Differentiators
 
-**1. Causal Graphs, Not Just Vectors**
+**1. Hybrid BM25 + Vector Search**
 
-Vector search finds chunks that *look similar*. ECM also finds chunks that are *causally related* — the debugging session that led to a fix, the error message that triggered investigation, the test that validated a change.
+Vector search finds chunks that *look similar*. BM25 keyword search finds chunks with *exact lexical matches* — function names, error codes, CLI flags. ECM runs both in parallel and fuses results via Reciprocal Rank Fusion (RRF), catching what either search alone would miss.
 
-**2. Hop-Based Decay, Not Wall-Clock Time**
+**2. Causal Graphs, Not Just Vectors**
+
+ECM also finds chunks that are *causally related* — the debugging session that led to a fix, the error message that triggered investigation, the test that validated a change.
+
+**3. Cluster-Guided Expansion**
+
+HDBSCAN clusters group semantically related chunks. During retrieval, ECM expands search results through cluster siblings — surfacing topically related context that neither vector nor keyword search found independently.
+
+**4. Hop-Based Decay, Not Wall-Clock Time**
 
 Returning to a project after a weekend shouldn't make yesterday's work seem "old." ECM measures distance in logical hops (D-T-D transitions), not elapsed time. Monday's work and Tuesday's continuation are 1 hop apart — regardless of the 24-hour gap.
 
-**3. Bidirectional Traversal**
+**5. Bidirectional Traversal**
 
 Query backward ("what context led to this?") and forward ("what typically follows this?") with direction-specific decay curves optimized for each use case.
 
-**4. Sum-Product Semantics**
+**6. Sum-Product Semantics**
 
 Weights multiply along paths and accumulate across paths — a principled approach (inspired by Feynman path integrals) that handles graph cycles naturally and provides meaningful ranking without arbitrary thresholds.
 
@@ -53,8 +63,8 @@ See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explana
 - **Causal Graph**: Tracks relationships between chunks using 9 edge types with evidence-based weights
 - **Vector Clocks**: Measures logical distance in D-T-D hops, not wall-clock time
 - **Bidirectional Traversal**: Query backward (causes) and forward (consequences) with direction-specific decay
-- **Semantic Search**: Embedding-based similarity search augmented by graph traversal
-- **HDBSCAN Clustering**: Groups related topics for coherent retrieval
+- **Hybrid Search**: BM25 keyword search + vector embedding search fused via Reciprocal Rank Fusion
+- **HDBSCAN Clustering**: Groups related topics; clusters used for retrieval expansion
 - **MCP Integration**: Works with Claude Code via Model Context Protocol
 - **Hook System**: Automatically captures context at session start and before compaction
 
@@ -141,9 +151,15 @@ Add to your Claude Code MCP configuration:
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Retrieval System                              │
+│  ┌──────────┐ ┌──────────┐                                      │
+│  │ Vector   │ │ Keyword  │  (parallel)                          │
+│  │ Search   │ │ (BM25)   │                                      │
+│  └────┬─────┘ └────┬─────┘                                      │
+│       └──────┬──────┘                                            │
+│              ▼                                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ Vector       │→ │ Graph        │→ │ Context              │   │
-│  │ Search       │  │ Traversal    │  │ Assembly             │   │
+│  │  RRF Fusion  │→ │ Cluster      │→ │ Graph Traversal      │   │
+│  │              │  │ Expansion    │  │ + Context Assembly    │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 └─────────────────────────────┬───────────────────────────────────┘
                               │

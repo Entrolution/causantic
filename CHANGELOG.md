@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Hybrid BM25 + Vector Search**: Full-text keyword search via SQLite FTS5 with porter stemming, fused with vector search using Reciprocal Rank Fusion (RRF)
+- **Cluster-Guided Expansion**: Retrieval results expanded through HDBSCAN cluster siblings, surfacing topically related chunks that neither search found independently
+- **Source Attribution**: Returned chunks tagged with retrieval source (`vector`, `keyword`, `cluster`, `graph`) for debugging and tuning
+- **Schema v5 Migration**: FTS5 virtual table with automatic sync triggers; graceful fallback when FTS5 is unavailable
 - Initial open source release
 - Core memory ingestion and storage system
 - HDBSCAN clustering with Python bridge for performance

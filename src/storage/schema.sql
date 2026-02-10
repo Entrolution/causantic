@@ -106,5 +106,27 @@ CREATE TABLE IF NOT EXISTS schema_version (
   applied_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert initial version if not exists (v4 adds project_path column)
-INSERT OR IGNORE INTO schema_version (version) VALUES (4);
+-- Full-text search index (content-sync mode, porter stemming)
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+  content,
+  content='chunks',
+  content_rowid='rowid',
+  tokenize='porter unicode61'
+);
+
+-- Keep FTS in sync with chunks table
+CREATE TRIGGER IF NOT EXISTS chunks_fts_insert AFTER INSERT ON chunks BEGIN
+  INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunks_fts_delete AFTER DELETE ON chunks BEGIN
+  INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks BEGIN
+  INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
+  INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
+END;
+
+-- Insert initial version if not exists (v5 adds FTS5 full-text search)
+INSERT OR IGNORE INTO schema_version (version) VALUES (5);

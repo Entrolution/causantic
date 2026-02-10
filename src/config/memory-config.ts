@@ -102,6 +102,29 @@ export interface MemoryConfig {
   /** Rate limit for refresh calls (per minute) */
   refreshRateLimitPerMin: number;
 
+  // Hybrid search
+  /** Configuration for hybrid BM25 + vector search */
+  hybridSearch: {
+    /** RRF constant (default: 60) */
+    rrfK: number;
+    /** Weight for vector results in RRF */
+    vectorWeight: number;
+    /** Weight for keyword results in RRF */
+    keywordWeight: number;
+    /** Max keyword results before fusion */
+    keywordSearchLimit: number;
+  };
+
+  /** Configuration for cluster expansion during retrieval */
+  clusterExpansion: {
+    /** Max clusters to expand from */
+    maxClusters: number;
+    /** Max siblings per cluster */
+    maxSiblings: number;
+    /** Score multiplier for cluster siblings */
+    boostFactor: number;
+  };
+
   // Storage
   /** Path to SQLite database file */
   dbPath: string;
@@ -139,6 +162,19 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   // LLM refresh
   clusterRefreshModel: 'claude-3-haiku-20240307',
   refreshRateLimitPerMin: 30,  // Haiku can handle much higher rates
+
+  // Hybrid search
+  hybridSearch: {
+    rrfK: 60,
+    vectorWeight: 1.0,
+    keywordWeight: 1.0,
+    keywordSearchLimit: 20,
+  },
+  clusterExpansion: {
+    maxClusters: 3,
+    maxSiblings: 5,
+    boostFactor: 0.3,
+  },
 
   // Storage - defaults to ~/.ecm/
   dbPath: '~/.ecm/memory.db',

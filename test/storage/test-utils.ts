@@ -114,8 +114,41 @@ export function createTestDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_vector_clocks_project ON vector_clocks(project_slug);
 
     -- Set schema version
-    INSERT OR REPLACE INTO schema_version (version) VALUES (4);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (5);
   `);
+
+  // Create FTS5 table and sync triggers (separate exec for virtual table)
+  try {
+    db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+        content,
+        content='chunks',
+        content_rowid='rowid',
+        tokenize='porter unicode61'
+      );
+    `);
+
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS chunks_fts_insert AFTER INSERT ON chunks BEGIN
+        INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
+      END;
+    `);
+
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS chunks_fts_delete AFTER DELETE ON chunks BEGIN
+        INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
+      END;
+    `);
+
+    db.exec(`
+      CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks BEGIN
+        INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
+        INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
+      END;
+    `);
+  } catch {
+    // FTS5 may not be available in all SQLite builds
+  }
 
   return db;
 }
