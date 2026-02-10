@@ -354,6 +354,9 @@ function runMigrations(database: Database.Database): void {
   if (currentVersion < 4) {
     migrateToV4(database);
   }
+  if (currentVersion < 5) {
+    migrateToV5(database);
+  }
 }
 
 /**
@@ -611,6 +614,66 @@ function migrateToV4(database: Database.Database): void {
 
   // 6. Update schema version
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (4)');
+}
+
+/**
+ * Migrate from v4 to v5 (add FTS5 full-text search).
+ */
+function migrateToV5(database: Database.Database): void {
+  // Create FTS5 virtual table for keyword search
+  try {
+    database.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+        content,
+        content='chunks',
+        content_rowid='rowid',
+        tokenize='porter unicode61'
+      )
+    `);
+  } catch (error) {
+    // FTS5 may not be available in some SQLite builds
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('already exists')) {
+      // Table exists, continue
+    } else {
+      // FTS5 not available — skip migration, keyword search will gracefully degrade
+      database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (5)');
+      return;
+    }
+  }
+
+  // Create sync triggers
+  try {
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS chunks_fts_insert AFTER INSERT ON chunks BEGIN
+        INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
+      END
+    `);
+
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS chunks_fts_delete AFTER DELETE ON chunks BEGIN
+        INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
+      END
+    `);
+
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks BEGIN
+        INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES ('delete', old.rowid, old.content);
+        INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
+      END
+    `);
+  } catch {
+    // Triggers may already exist
+  }
+
+  // Rebuild FTS index from existing data
+  try {
+    database.exec("INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild')");
+  } catch {
+    // Rebuild may fail if table has issues — not critical
+  }
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (5)');
 }
 
 /**

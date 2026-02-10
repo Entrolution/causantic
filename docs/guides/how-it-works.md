@@ -90,11 +90,34 @@ Forward decay (predictive):
 
 When Claude uses the `recall` tool:
 
-1. **Vector search**: Find chunks similar to the query
-2. **Graph traversal**: Follow edges from seed chunks
-3. **Decay weighting**: Apply temporal decay to edges
-4. **Context assembly**: Rank and format results
-5. **Token budgeting**: Fit within response limits
+1. **Embed query**: Generate vector embedding for the query
+2. **Parallel search**: Run vector search and BM25 keyword search simultaneously
+3. **RRF fusion**: Merge both ranked lists using Reciprocal Rank Fusion (k=60)
+4. **Cluster expansion**: Expand results through HDBSCAN cluster siblings
+5. **Graph traversal**: Follow causal edges from seed chunks with hop-based decay
+6. **Context assembly**: Rank, deduplicate, and format results with source attribution
+7. **Token budgeting**: Fit within response limits
+
+### Hybrid Search
+
+ECM uses two complementary search strategies:
+
+- **Vector search** finds chunks with similar semantic meaning (e.g., "auth flow" matches "login handler")
+- **BM25 keyword search** finds chunks with exact lexical matches (e.g., function names, error codes, CLI flags)
+
+Results are fused using Reciprocal Rank Fusion, which combines ranked lists without requiring score normalization. Chunks appearing in both searches get a natural boost.
+
+### Cluster-Guided Expansion
+
+After fusion, ECM expands results through cluster siblings. If a search hit belongs to a topic cluster, other chunks in that cluster are added as candidates with a reduced score. This surfaces topically related context that neither search found independently.
+
+### Source Attribution
+
+Each returned chunk is tagged with its retrieval source (`vector`, `keyword`, `cluster`, or `graph`), enabling debugging and tuning of fusion weights.
+
+### Graceful Degradation
+
+If FTS5 keyword search is unavailable (e.g., SQLite built without FTS5 support), the pipeline falls back to vector-only search without error.
 
 ## Clustering
 
@@ -104,6 +127,7 @@ HDBSCAN groups similar chunks into **clusters**:
 - No preset number of clusters
 - Handles noise (unclustered chunks)
 - Optional: LLM-generated cluster descriptions
+- Used during retrieval for cluster-guided expansion (sibling chunks surface related context)
 
 ## Storage
 

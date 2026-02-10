@@ -76,6 +76,10 @@ export {
 // Vector store
 export { vectorStore } from './vector-store.js';
 
+// Keyword store
+export { KeywordStore } from './keyword-store.js';
+export type { KeywordSearchResult } from './keyword-store.js';
+
 // Decay calculation
 export { calculateDecayWeight, getDeathTime } from './decay.js';
 

@@ -14,9 +14,9 @@ The server communicates via stdio using the Model Context Protocol.
 
 ### recall
 
-Semantic search with graph-augmented retrieval.
+Hybrid BM25 + vector search with graph-augmented retrieval.
 
-**Purpose**: Find relevant historical context based on a query.
+**Purpose**: Find relevant historical context based on a query. Uses parallel vector and keyword search, fused via RRF, with cluster expansion and graph traversal.
 
 **Parameters**:
 

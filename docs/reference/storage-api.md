@@ -11,6 +11,7 @@ The storage layer provides persistence for the Entropic Causal Memory system. It
 | Chunk Store | Conversation segments | `chunk-store.ts` |
 | Edge Store | Weighted causal connections | `edge-store.ts` |
 | Vector Store | Embedding vectors for similarity search | `vector-store.ts` |
+| Keyword Store | FTS5 full-text search with BM25 ranking | `keyword-store.ts` |
 | Cluster Store | Topic groupings | `cluster-store.ts` |
 | Clock Store | Session vector clocks | `clock-store.ts` |
 
@@ -224,6 +225,38 @@ Delete a vector.
 
 Get total vector count.
 
+## Keyword Store API
+
+The keyword store provides FTS5-backed full-text search with BM25 ranking.
+
+```typescript
+import { KeywordStore } from './keyword-store.js';
+
+const store = new KeywordStore();
+```
+
+### store.search(query: string, limit: number): KeywordSearchResult[]
+
+Full-text search with BM25 ranking. Porter stemming enables matching of word variants (e.g., "authenticating" matches "authentication").
+
+```typescript
+const results = store.search('authentication JWT', 10);
+// [{ id: 'chunk-123', score: 2.5 }, ...]
+```
+
+Query preprocessing automatically escapes FTS5 special characters and strips boolean operators.
+
+### store.searchByProject(query, projects, limit): KeywordSearchResult[]
+
+Full-text search filtered by project slug(s).
+
+```typescript
+const results = store.searchByProject('error handling', 'my-project', 10);
+const results = store.searchByProject('error handling', ['proj-a', 'proj-b'], 10);
+```
+
+**Graceful degradation**: If FTS5 is unavailable (SQLite built without it) or the `chunks_fts` table is corrupted, methods return empty results instead of throwing.
+
 ## Cluster Store API
 
 ### createCluster(input: ClusterInput): string
@@ -334,6 +367,7 @@ vectorStore.insertBatch([...]);
 | Edge lookup | O(1) | Primary key index |
 | Outgoing edges | O(k) | Indexed by source_chunk_id |
 | Vector search | O(n) | Brute-force, optimize if >100k vectors |
+| Keyword search | O(log n) | FTS5 inverted index with BM25 ranking |
 | Batch insert | O(n) | Single transaction |
 
 ## Related

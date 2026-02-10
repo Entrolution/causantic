@@ -12,6 +12,12 @@ import { approximateTokens } from '../utils/token-counter.js';
 import { traverse, traverseMultiple, dedupeAndRank, resolveChunks } from './traverser.js';
 import type { StoredChunk, WeightedChunk } from '../storage/types.js';
 import { getReferenceClock } from '../storage/clock-store.js';
+import { KeywordStore } from '../storage/keyword-store.js';
+import { fuseRRF, type RankedItem } from './rrf.js';
+import { expandViaClusters } from './cluster-expander.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('context-assembler');
 
 /**
  * Retrieval mode determines traversal direction and ranking.
@@ -64,6 +70,7 @@ export interface RetrievalResponse {
     sessionSlug: string;
     weight: number;
     preview: string;
+    source?: 'vector' | 'keyword' | 'cluster' | 'graph';
   }>;
   /** Total chunks considered */
   totalConsidered: number;
@@ -88,7 +95,25 @@ async function getEmbedder(): Promise<Embedder> {
 }
 
 /**
+ * Shared keyword store instance for retrieval.
+ */
+let sharedKeywordStore: KeywordStore | null = null;
+
+/**
+ * Get or create shared keyword store.
+ */
+function getKeywordStore(): KeywordStore {
+  if (!sharedKeywordStore) {
+    sharedKeywordStore = new KeywordStore();
+  }
+  return sharedKeywordStore;
+}
+
+/**
  * Assemble context from memory based on a query.
+ *
+ * Pipeline: embed → [vector search, keyword search] → RRF fusion → cluster expansion
+ *           → graph traverse → combine → dedupe → recency → budget
  */
 export async function assembleContext(request: RetrievalRequest): Promise<RetrievalResponse> {
   const startTime = Date.now();
@@ -106,6 +131,8 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     vectorSearchLimit = 20,
   } = request;
 
+  const { hybridSearch, clusterExpansion } = config;
+
   // If projectFilter is a single string, also use it for clock lookup
   const effectiveProjectSlug = projectSlug ??
     (typeof projectFilter === 'string' ? projectFilter : undefined);
@@ -117,12 +144,27 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
   const embedder = await getEmbedder();
   const queryResult = await embedder.embed(query, true); // isQuery = true
 
-  // 2. Find similar chunks via vector search (project-filtered or global)
-  const similar = projectFilter
-    ? await vectorStore.searchByProject(queryResult.embedding, projectFilter, vectorSearchLimit)
-    : await vectorStore.search(queryResult.embedding, vectorSearchLimit);
+  // 2. Run vector search and keyword search in parallel
+  const vectorSearchPromise = projectFilter
+    ? vectorStore.searchByProject(queryResult.embedding, projectFilter, vectorSearchLimit)
+    : vectorStore.search(queryResult.embedding, vectorSearchLimit);
 
-  if (similar.length === 0) {
+  let keywordResults: Array<{ id: string; score: number }> = [];
+  try {
+    const keywordStore = getKeywordStore();
+    keywordResults = projectFilter
+      ? keywordStore.searchByProject(query, projectFilter, hybridSearch.keywordSearchLimit)
+      : keywordStore.search(query, hybridSearch.keywordSearchLimit);
+  } catch (error) {
+    // Graceful fallback: keyword search unavailable (FTS5 missing, table corrupted, etc.)
+    log.warn('Keyword search unavailable, falling back to vector-only', {
+      error: (error as Error).message,
+    });
+  }
+
+  const similar = await vectorSearchPromise;
+
+  if (similar.length === 0 && keywordResults.length === 0) {
     return {
       text: '',
       tokenCount: 0,
@@ -132,13 +174,48 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     };
   }
 
-  // 3. Determine traversal direction and decay model based on mode and range
+  // 3. Convert to RankedItem format and fuse with RRF
+  const vectorItems: RankedItem[] = similar.map(s => ({
+    chunkId: s.id,
+    score: Math.max(0, 1 - s.distance),
+    source: 'vector' as const,
+  }));
+
+  const keywordItems: RankedItem[] = keywordResults.map(r => ({
+    chunkId: r.id,
+    score: r.score,
+    source: 'keyword' as const,
+  }));
+
+  const fusedResults = fuseRRF(
+    [
+      { items: vectorItems, weight: hybridSearch.vectorWeight },
+      ...(keywordItems.length > 0
+        ? [{ items: keywordItems, weight: hybridSearch.keywordWeight }]
+        : []),
+    ],
+    hybridSearch.rrfK,
+  );
+
+  // 4. Cluster expansion
+  const expandedResults = expandViaClusters(
+    fusedResults,
+    clusterExpansion,
+    projectFilter,
+  );
+
+  // Build source map for attribution
+  type ChunkSource = 'vector' | 'keyword' | 'cluster' | 'graph';
+  const sourceMap = new Map<string, ChunkSource>();
+  for (const item of expandedResults) {
+    if (item.source && !sourceMap.has(item.chunkId)) {
+      sourceMap.set(item.chunkId, item.source);
+    }
+  }
+
+  // 5. Determine traversal direction and decay model based on mode and range
   const direction = mode === 'predict' ? 'forward' : 'backward';
 
-  // Select decay model based on range hint
-  // - 'short': Use short-range decay (15min hold) for recent context
-  // - 'long': Use long-range decay (60min hold) for historical context
-  // - 'auto': Use long-range for explain mode, short-range otherwise
   let decayConfig;
   if (direction === 'forward') {
     decayConfig = config.forwardDecay;
@@ -147,17 +224,12 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
   } else if (range === 'long') {
     decayConfig = config.longRangeDecay;
   } else {
-    // Auto: explain mode benefits from long-range, recall from short-range
     decayConfig = mode === 'explain' ? config.longRangeDecay : config.shortRangeDecay;
   }
 
-  // 4. Traverse graph from similar chunks
-  // Convert distances to weights (1 - distance for angular distance in [0,1])
-  // Direction-specific hop decay curves are applied automatically:
-  // - Backward: Linear (dies@10) for 4-20 hop range
-  // - Forward: Delayed linear (5h, dies@20) for 1-20 hop range
-  const startIds = similar.map((s) => s.id);
-  const startWeights = similar.map((s) => Math.max(0, 1 - s.distance));
+  // 6. Traverse graph from fused+expanded seeds
+  const startIds = expandedResults.map(r => r.chunkId);
+  const startWeights = expandedResults.map(r => r.score);
 
   const traversalResult = await traverseMultiple(startIds, startWeights, queryTime, {
     direction,
@@ -165,14 +237,21 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     referenceClock,
   });
 
-  // 5. Combine vector search hits with traversal results
+  // Tag traversal results with 'graph' source
+  for (const tc of traversalResult.chunks) {
+    if (!sourceMap.has(tc.chunkId)) {
+      sourceMap.set(tc.chunkId, 'graph');
+    }
+  }
+
+  // 7. Combine direct hits with traversal results
   const allChunks: WeightedChunk[] = [];
 
-  // Add direct vector search hits
-  for (let i = 0; i < similar.length; i++) {
+  // Add direct search hits (vector + keyword + cluster) with 1.5x boost
+  for (const item of expandedResults) {
     allChunks.push({
-      chunkId: similar[i].id,
-      weight: startWeights[i] * 1.5, // Boost direct hits
+      chunkId: item.chunkId,
+      weight: item.score * 1.5,
       depth: 0,
     });
   }
@@ -180,10 +259,10 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
   // Add traversal results
   allChunks.push(...traversalResult.chunks);
 
-  // 6. Dedupe and rank
+  // 8. Dedupe and rank
   const ranked = dedupeAndRank(allChunks);
 
-  // 7. Apply recency boost for current session
+  // 9. Apply recency boost for current session
   if (currentSessionId) {
     for (const wc of ranked) {
       const chunk = getChunkById(wc.chunkId);
@@ -191,12 +270,11 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
         wc.weight *= 1.2; // 20% boost for current session
       }
     }
-    // Re-sort after boost
     ranked.sort((a, b) => b.weight - a.weight);
   }
 
-  // 8. Assemble within token budget
-  const assembled = assembleWithinBudget(ranked, maxTokens);
+  // 10. Assemble within token budget
+  const assembled = assembleWithinBudget(ranked, maxTokens, sourceMap);
 
   return {
     text: assembled.text,
@@ -212,7 +290,8 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
  */
 function assembleWithinBudget(
   ranked: WeightedChunk[],
-  maxTokens: number
+  maxTokens: number,
+  sourceMap?: Map<string, 'vector' | 'keyword' | 'cluster' | 'graph'>,
 ): {
   text: string;
   tokenCount: number;
@@ -221,6 +300,7 @@ function assembleWithinBudget(
     sessionSlug: string;
     weight: number;
     preview: string;
+    source?: 'vector' | 'keyword' | 'cluster' | 'graph';
   }>;
 } {
   const parts: string[] = [];
@@ -229,6 +309,7 @@ function assembleWithinBudget(
     sessionSlug: string;
     weight: number;
     preview: string;
+    source?: 'vector' | 'keyword' | 'cluster' | 'graph';
   }> = [];
   let totalTokens = 0;
 
@@ -251,6 +332,7 @@ function assembleWithinBudget(
           sessionSlug: chunk.sessionSlug,
           weight: wc.weight,
           preview: truncated.slice(0, 100) + '...',
+          source: sourceMap?.get(chunk.id),
         });
       }
       break;
@@ -263,6 +345,7 @@ function assembleWithinBudget(
       sessionSlug: chunk.sessionSlug,
       weight: wc.weight,
       preview: chunk.content.slice(0, 100) + (chunk.content.length > 100 ? '...' : ''),
+      source: sourceMap?.get(chunk.id),
     });
   }
 

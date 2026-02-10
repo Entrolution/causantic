@@ -75,6 +75,29 @@ Controls output token budgets.
 | `claudeMdBudget` | `integer` | `500` | Tokens for CLAUDE.md memory section (100-10000) |
 | `mcpMaxResponse` | `integer` | `2000` | Maximum tokens in MCP responses (500-50000) |
 
+## Hybrid Search Settings
+
+### `hybridSearch`
+
+Controls the hybrid BM25 + vector search pipeline. These settings are internal defaults and not currently exposed in `ecm.config.json` — they are configured programmatically via `MemoryConfig`.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `rrfK` | `integer` | `60` | RRF constant. Higher values reduce the impact of high-ranked items |
+| `vectorWeight` | `number` | `1.0` | Weight for vector search results in RRF fusion |
+| `keywordWeight` | `number` | `1.0` | Weight for keyword search results in RRF fusion |
+| `keywordSearchLimit` | `integer` | `20` | Maximum keyword results before fusion |
+
+### `clusterExpansion`
+
+Controls cluster-guided expansion during retrieval.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `maxClusters` | `integer` | `3` | Maximum clusters to expand from per query |
+| `maxSiblings` | `integer` | `5` | Maximum sibling chunks added per cluster |
+| `boostFactor` | `number` | `0.3` | Score multiplier for cluster siblings (0-1) |
+
 ## Storage Settings
 
 ### `storage`
