@@ -18,6 +18,7 @@ import { encryptionCommand } from './commands/encryption.js';
 import { exportCommand, importCommand } from './commands/archive.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { dashboardCommand } from './commands/dashboard.js';
+import { benchmarkCollectionCommand } from './commands/benchmark-collection.js';
 
 const VERSION = '0.1.0';
 
@@ -37,6 +38,7 @@ const commands: Command[] = [
   importCommand,
   uninstallCommand,
   dashboardCommand,
+  benchmarkCollectionCommand,
 ];
 
 function showHelp(): void {
