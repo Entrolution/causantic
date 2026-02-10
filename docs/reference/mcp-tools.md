@@ -8,174 +8,137 @@ Reference documentation for Causantic's MCP server tools.
 npx causantic serve
 ```
 
-The server communicates via stdio using the Model Context Protocol.
+The server communicates via stdio using the Model Context Protocol (JSON-RPC 2.0).
 
 ## Available Tools
 
+All tools return plain text responses via the MCP `content` array with `type: "text"`.
+
 ### recall
 
-Hybrid BM25 + vector search with graph-augmented retrieval.
-
-**Purpose**: Find relevant historical context based on a query. Uses parallel vector and keyword search, fused via RRF, with cluster expansion and graph traversal.
+Retrieve relevant context from memory based on a query. Uses hybrid BM25 + vector search with RRF fusion, cluster expansion, and graph traversal.
 
 **Parameters**:
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `query` | `string` | Yes | The search query |
-| `limit` | `integer` | No | Maximum results (default: 10) |
-| `minScore` | `number` | No | Minimum similarity score (default: 0.5) |
+| `query` | `string` | Yes | What to look up in memory. Be specific about what context you need. |
+| `range` | `string` | No | Time range hint: `"short"` for recent context (last few turns), `"long"` for historical/cross-session context. Default: `"short"`. |
+| `project` | `string` | No | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
 
-**Response**:
+**Response**: Plain text. Returns a header with chunk count and token count, followed by the assembled context text. Returns `"No relevant memory found."` if no matches.
 
-```json
-{
-  "results": [
-    {
-      "chunkId": "abc123",
-      "content": "Discussion about authentication flow...",
-      "score": 0.87,
-      "session": "project-a-2024-02-01",
-      "cluster": "Authentication"
-    }
-  ],
-  "graphContext": [
-    {
-      "chunkId": "def456",
-      "content": "Related OAuth implementation...",
-      "relation": "backward",
-      "hops": 2
-    }
-  ]
-}
+**Example**:
 ```
+Found 5 relevant memory chunks (1200 tokens):
 
-**Example usage by Claude**:
-
-```
-Claude uses recall to find context about "how did we implement rate limiting"
+[assembled context text...]
 ```
 
 ### explain
 
-Long-range historical context for complex questions.
-
-**Purpose**: Provide comprehensive historical background spanning multiple sessions.
+Get an explanation of the context and history behind a topic. Defaults to long-range retrieval for comprehensive historical background spanning multiple sessions.
 
 **Parameters**:
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `topic` | `string` | Yes | The topic to explain |
-| `depth` | `integer` | No | Traversal depth (default: 20) |
-| `includeTimeline` | `boolean` | No | Include chronological timeline (default: true) |
+| `topic` | `string` | Yes | What topic or aspect to explain. E.g., "the authentication system" or "why we chose React". |
+| `range` | `string` | No | Time range: `"short"` for recent context, `"long"` for full history. Default: `"long"`. |
+| `project` | `string` | No | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
 
-**Response**:
-
-```json
-{
-  "summary": "The authentication system was implemented in phases...",
-  "timeline": [
-    {
-      "date": "2024-01-15",
-      "session": "project-a",
-      "event": "Initial OAuth setup"
-    },
-    {
-      "date": "2024-01-20",
-      "session": "project-a",
-      "event": "Added token refresh logic"
-    }
-  ],
-  "relatedClusters": ["Authentication", "Security", "API Design"],
-  "keyChunks": [...]
-}
-```
-
-**Example usage by Claude**:
-
-```
-Claude uses explain to understand "the evolution of our error handling approach"
-```
+**Response**: Plain text. Same format as `recall`. Returns `"No relevant memory found."` if no matches.
 
 ### predict
 
-Proactive suggestions based on current context.
-
-**Purpose**: Suggest relevant historical context before being asked.
+Predict what context or topics might be relevant based on current discussion. Use proactively to surface potentially useful past context.
 
 **Parameters**:
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `context` | `string` | Yes | Current conversation context |
-| `limit` | `integer` | No | Maximum suggestions (default: 5) |
+| `context` | `string` | Yes | Current context or topic being discussed. |
+| `project` | `string` | No | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
 
-**Response**:
+**Response**: Plain text. Returns `"Potentially relevant context (N items):"` followed by assembled text, or `"No predictions available based on current context."` if no matches. Uses half the token budget of recall/explain.
 
-```json
-{
-  "suggestions": [
-    {
-      "title": "Previous login timeout fix",
-      "relevance": 0.92,
-      "summary": "Last week we fixed a similar timeout issue...",
-      "chunkId": "xyz789"
-    }
-  ]
-}
+### list-projects
+
+List all projects in memory with chunk counts and date ranges. Use to discover available project names for filtering other tools.
+
+**Parameters**: None.
+
+**Response**: Plain text list of projects with metadata.
+
+**Example**:
+```
+Projects in memory:
+- my-app (142 chunks, Jan 2025 – Feb 2025)
+- api-server (87 chunks, Dec 2024 – Feb 2025)
 ```
 
-**Example usage by Claude**:
+Returns `"No projects found in memory."` if empty.
 
+### list-sessions
+
+List sessions for a project with chunk counts, time ranges, and token totals. Use to browse available sessions before reconstructing context.
+
+**Parameters**:
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `project` | `string` | Yes | Project slug. Use `list-projects` to discover available projects. |
+| `from` | `string` | No | Start date filter (ISO 8601). |
+| `to` | `string` | No | End date filter (ISO 8601). |
+| `days_back` | `number` | No | Look back N days from now. Alternative to `from`/`to`. |
+
+**Response**: Plain text list of sessions with abbreviated IDs, timestamps, chunk counts, and token totals.
+
+**Example**:
 ```
-Claude uses predict with current context to proactively surface relevant memories
+Sessions for "my-app" (3 total):
+- a1b2c3d4 (Feb 8, 2:30 PM – 4:15 PM, 12 chunks, 3400 tokens)
+- e5f6g7h8 (Feb 7, 10:00 AM – 11:45 AM, 8 chunks, 2100 tokens)
+- i9j0k1l2 (Feb 6, 3:00 PM – 5:30 PM, 15 chunks, 4200 tokens)
 ```
+
+Returns `"No sessions found for project "[name]"."` if none match.
+
+### reconstruct
+
+Rebuild session context for a project by time range. Returns chronological chunks with session boundary markers. Use for questions like "what did I work on yesterday?" or "show me the last session".
+
+**Parameters**:
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `project` | `string` | Yes | Project slug. Use `list-projects` to discover available projects. |
+| `session_id` | `string` | No | Specific session ID to reconstruct. |
+| `from` | `string` | No | Start date (ISO 8601). |
+| `to` | `string` | No | End date (ISO 8601). |
+| `days_back` | `number` | No | Look back N days from now. |
+| `previous_session` | `boolean` | No | Get the session before the current one. |
+| `current_session_id` | `string` | No | Current session ID (required when `previous_session` is true). |
+| `keep_newest` | `boolean` | No | Keep newest chunks when truncating to fit token budget. Default: `true`. |
+
+**Response**: Plain text with chronological session context, including session boundary markers and chunk content. Token budget controlled by `tokens.mcpMaxResponse` config.
 
 ## Tool Selection Guidelines
 
 | Scenario | Recommended Tool |
 |----------|-----------------|
-| User asks about past work | `recall` |
-| User needs historical background | `explain` |
-| Complex problem similar to past issues | `predict` |
-| Quick fact lookup | `recall` |
-| Understanding design evolution | `explain` |
-
-## Error Handling
-
-Tools return structured errors:
-
-```json
-{
-  "error": {
-    "code": "NO_RESULTS",
-    "message": "No matching chunks found",
-    "suggestion": "Try a broader query or check if sessions were ingested"
-  }
-}
-```
-
-Error codes:
-
-| Code | Description |
-|------|-------------|
-| `NO_RESULTS` | Query returned no matches |
-| `DB_ERROR` | Database access error |
-| `INVALID_PARAMS` | Invalid parameter values |
-| `TIMEOUT` | Query took too long |
+| Quick fact lookup or recent context | `recall` |
+| Understanding design evolution or past decisions | `explain` |
+| Proactively surfacing relevant past context | `predict` |
+| Discovering what projects exist in memory | `list-projects` |
+| Browsing sessions before diving into one | `list-sessions` |
+| "What did I work on yesterday/last session?" | `reconstruct` |
+| Rebuilding context after a compaction | `reconstruct` |
 
 ## Token Limits
 
-Response sizes are controlled by `tokens.mcpMaxResponse` (default: 2000).
+Response sizes are controlled by `tokens.mcpMaxResponse` in the configuration (default: 2000 tokens). The `predict` tool uses half this budget. Long responses are truncated to fit within the budget.
 
-Long responses are truncated with a continuation indicator:
+## Error Handling
 
-```json
-{
-  "results": [...],
-  "truncated": true,
-  "totalCount": 25,
-  "returnedCount": 10
-}
-```
+Tool errors are returned as MCP JSON-RPC error responses with code `-32002` (tool error) and include the tool name and error message. The `reconstruct` tool catches errors internally and returns them as plain text prefixed with `"Error: "`.
