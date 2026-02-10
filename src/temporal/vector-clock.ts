@@ -218,7 +218,8 @@ export function deserialize(json: string | null | undefined): VectorClock {
       return clock;
     }
     return {};
-  } catch {
+  } catch (err) {
+    console.warn(`[vector-clock] Failed to deserialize clock: ${json}`, err);
     return {};
   }
 }

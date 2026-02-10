@@ -2,8 +2,8 @@
  * Centralized configuration for the D-T-D memory system.
  */
 
-import type { DecayModelConfig } from '../eval/experiments/edge-decay/types.js';
-import { MS_PER_MINUTE, MS_PER_HOUR } from '../eval/experiments/edge-decay/types.js';
+import type { DecayModelConfig } from '../core/decay-types.js';
+import { MS_PER_MINUTE, MS_PER_HOUR } from '../core/decay-types.js';
 import { type VectorDecayConfig, DEFAULT_VECTOR_DECAY } from '../storage/decay.js';
 
 /**

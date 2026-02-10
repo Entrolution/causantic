@@ -10,7 +10,7 @@ import {
   computeKeywordOverlap,
   extractFilePaths,
   extractKeywords,
-} from '../eval/experiments/topic-continuity/lexical-features.js';
+} from '../core/lexical-features.js';
 import type { ReferenceType } from '../storage/types.js';
 import type { Chunk } from '../parser/types.js';
 

@@ -5,10 +5,10 @@
  * collecting all metrics for comparison.
  */
 
-import { Embedder, type ModelStats } from '../models/embedder.js';
-import { getModel, getAllModelIds, type ModelConfig } from '../models/model-registry.js';
-import { clusterEmbeddings, getClusterMembership, type ClusterResult } from './cluster-evaluator.js';
-import { evaluateCodeNLAlignment, type AlignmentResult } from './code-nl-alignment.js';
+import { Embedder } from '../models/embedder.js';
+import { getModel, getAllModelIds } from '../models/model-registry.js';
+import { clusterEmbeddings, getClusterMembership } from './cluster-evaluator.js';
+import { evaluateCodeNLAlignment } from './code-nl-alignment.js';
 import { evaluateContextWindowImpact, type ContextWindowResult } from './context-window-test.js';
 import {
   scorePairs,
@@ -19,39 +19,9 @@ import {
 } from './metrics.js';
 import type { LabeledPair } from './annotation-schema.js';
 import type { Chunk } from '../parser/types.js';
+import type { ModelBenchmarkResult, BenchmarkResult, BenchmarkOptions } from '../core/benchmark-types.js';
 
-export interface ModelBenchmarkResult {
-  modelId: string;
-  modelConfig: ModelConfig;
-  loadStats: ModelStats;
-  rocAuc: number;
-  clusterCount: number;
-  noiseRatio: number;
-  silhouetteScore: number;
-  codeNLAlignment: AlignmentResult;
-  meanInferenceMs: number;
-  totalInferenceMs: number;
-  clusterResult: ClusterResult;
-  clusterMembership: Map<number, number[]>;
-  embeddings: Map<string, number[]>;
-}
-
-export interface BenchmarkResult {
-  models: ModelBenchmarkResult[];
-  contextWindowComparison: ContextWindowResult | null;
-  corpus: {
-    chunkCount: number;
-    pairCount: number;
-  };
-  completedAt: string;
-}
-
-export interface BenchmarkOptions {
-  /** Model IDs to benchmark. Default: all. */
-  modelIds?: string[];
-  /** HDBSCAN min cluster size. Default: 3. */
-  minClusterSize?: number;
-}
+export type { ModelBenchmarkResult, BenchmarkResult, BenchmarkOptions };
 
 /**
  * Run the full benchmark suite.

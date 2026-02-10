@@ -3,7 +3,7 @@
  */
 
 import { getDb, generateId } from './db.js';
-import type { DecayModelConfig } from '../eval/experiments/edge-decay/types.js';
+import type { DecayModelConfig } from '../core/decay-types.js';
 import type { StoredEdge, EdgeInput, WeightedEdge, EdgeType } from './types.js';
 import type { VectorClock } from '../temporal/vector-clock.js';
 import { serialize as serializeClock, deserialize as deserializeClock, merge as mergeClock } from '../temporal/vector-clock.js';
