@@ -54,6 +54,9 @@ export function runMigrations(database: Database.Database): void {
   if (currentVersion < 5) {
     migrateToV5(database);
   }
+  if (currentVersion < 6) {
+    migrateToV6(database);
+  }
 }
 
 /**
@@ -338,6 +341,17 @@ function migrateToV5(database: Database.Database): void {
   }
 
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (5)');
+}
+
+/**
+ * Migrate from v5 to v6 (add composite index for session reconstruction).
+ */
+function migrateToV6(database: Database.Database): void {
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chunks_slug_start_time ON chunks(session_slug, start_time)
+  `);
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (6)');
 }
 
 /**

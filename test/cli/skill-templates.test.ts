@@ -7,8 +7,8 @@ import { ECM_SKILLS, getMinimalClaudeMdBlock } from '../../src/cli/skill-templat
 
 describe('skill-templates', () => {
   describe('ECM_SKILLS', () => {
-    it('has 4 skill templates', () => {
-      expect(ECM_SKILLS.length).toBe(4);
+    it('has 5 skill templates', () => {
+      expect(ECM_SKILLS.length).toBe(5);
     });
 
     it('includes ecm-recall skill', () => {
