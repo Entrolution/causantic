@@ -253,7 +253,7 @@ Create `causantic.config.json` in your project root:
     }
   },
   "clustering": {
-    "threshold": 0.09,
+    "threshold": 0.10,
     "minClusterSize": 4
   }
 }
