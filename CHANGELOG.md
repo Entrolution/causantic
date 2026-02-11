@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-02-11
+
+### Added
+- **SessionEnd hook**: Triggers session ingestion on `/clear`, logout, and exit — closes the gap where chunks were lost between compaction events
+- Shared `ingestCurrentSession()` helper extracted from PreCompact, used by both PreCompact and SessionEnd hooks
+- Dynamic hook name logging in `causantic init`
+
 ## [0.2.0] - 2026-02-11
 
 ### Added
