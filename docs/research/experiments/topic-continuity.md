@@ -136,6 +136,21 @@ npm run topic-continuity
 
 Results are saved to `benchmark-results/topic-continuity/`.
 
+## Label Distribution by Source
+
+The comprehensive 75-session run revealed where topic labels come from:
+
+| Source | Count | Label | Confidence |
+|--------|-------|-------|------------|
+| Same-session adjacent | 1,470 | continuation | medium |
+| Tool/file references | 772 | continuation | high |
+| Explicit continuation markers | 710 | continuation | high |
+| Time gap (>30 min) | 155 | new_topic | medium |
+| Session boundaries | 45 | new_topic | high |
+| Explicit shift markers | 27 | new_topic | high |
+
+The dataset is imbalanced (93% continuations), reflecting the reality that most adjacent turns in coding sessions continue the same topic.
+
 ## Key Insight
 
 Simple lexical features outperform complex models because:

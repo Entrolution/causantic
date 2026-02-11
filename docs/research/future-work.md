@@ -2,6 +2,17 @@
 
 Open questions and potential improvements for Causantic.
 
+## Recently Implemented
+
+These items were previously listed as future work and have since been implemented:
+
+- **Web Dashboard** (Lower Priority → Done): React + Vite frontend with graph visualization, cluster browser, search interface, and project views. Launch with `npx causantic dashboard`.
+- **Per-Project Isolation** (Medium Priority → Done): Federated approach — all projects in one store, filtered at query time via `projectFilter`. Cross-project graph edges traversed freely.
+- **Collection Benchmark Suite** (New): Self-service benchmarks for health, retrieval quality, graph value, and latency. Scoring with tuning recommendations and historical tracking.
+- **Session Reconstruction** (New): Pure chronological context rebuilding via `reconstruct` MCP tool — "what did I work on yesterday?"
+- **Native HDBSCAN** (New): Pure TypeScript rewrite — 130× speedup over hdbscan-ts.
+- **Hybrid BM25 + Vector Search** (New): FTS5 keyword search fused with vector search via RRF.
+
 ## High Priority
 
 ### Token Usage Analytics
@@ -47,17 +58,6 @@ Open questions and potential improvements for Causantic.
 - Model-specific clustering thresholds
 - Storage for multiple embedding versions
 
-### Per-Project Isolation
-
-**Goal**: Separate memory per project.
-
-**Current State**: All projects share one memory store.
-
-**Options**:
-1. **Isolated**: Completely separate databases per project
-2. **Hybrid**: Project-local chunks, global clusters for topic discovery
-3. **Federated**: Query across projects with project-aware ranking
-
 ### VSCode Extension
 
 **Goal**: Direct integration without MCP.
@@ -68,16 +68,6 @@ Open questions and potential improvements for Causantic.
 - Query interface in editor
 
 ## Lower Priority
-
-### Web Dashboard
-
-**Goal**: Visualize graph structure and cluster topics.
-
-**Features**:
-- Interactive graph visualization
-- Cluster browser with member lists
-- Query testing interface
-- Maintenance task status
 
 ### Team Sharing
 
@@ -115,7 +105,7 @@ Open questions and potential improvements for Causantic.
 
 **Question**: How well do cross-session links work?
 
-**Current**: Based on file-path and topic similarity.
+**Current**: Based on file-path and topic similarity. The [collection benchmark suite](../guides/benchmarking.md) can now measure cross-session bridging quality — run `npx causantic benchmark-collection --full` to evaluate.
 
 **To Measure**:
 - Precision of cross-session edges

@@ -185,6 +185,21 @@ function assignCluster(chunk: Chunk): Cluster | null {
 
 Chunks beyond threshold remain unclustered (noise).
 
+## Resolved Questions from Pre-Implementation
+
+These questions were identified as open before implementation and resolved through experiments:
+
+| Question | Answer | Evidence |
+|----------|--------|----------|
+| Topic continuity detection | Lexical features (0.998 AUC), 30-min time gap threshold | Topic continuity experiment |
+| Embedding model selection | jina-small (0.715 AUC, 0.384 silhouette) | Embedding benchmark |
+| Decay curve type | Delayed linear for retrieval, exponential for prediction | Edge decay experiments |
+| Directional asymmetry | Yes — +0.64 MRR delta for delayed linear | Forward prediction experiment |
+| Thinking block handling | Remove before embedding (+0.063 AUC) | Ablation study |
+| Chunk strategy | Turn-based, code-block aware | Parser implementation |
+| Cold start problem | Not real — full context until compaction | Design analysis |
+| Parallelism detection | Via parentToolUseID + timestamps | Session data inspection |
+
 ## Takeaways
 
 1. **Question assumptions**: Wall-clock time seems natural but is wrong

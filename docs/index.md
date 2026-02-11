@@ -16,24 +16,33 @@ Deep dives into specific topics:
 
 - [How It Works](guides/how-it-works.md) - Architecture and design
 - [Integration](guides/integration.md) - Claude Code hooks and MCP setup
+- [Dashboard](guides/dashboard.md) - Web dashboard for exploring memory
+- [Benchmarking](guides/benchmarking.md) - Measure and tune retrieval quality
 - [Maintenance](guides/maintenance.md) - Keeping your memory system healthy
+- [Security](guides/security.md) - Encryption, keychain, and threat model
+- [Backup & Restore](guides/backup-restore.md) - Data export and import
 - [Troubleshooting](guides/troubleshooting.md) - Common issues and solutions
 
 ## Reference
 
 Technical reference documentation:
 
-- [Configuration Reference](reference/configuration.md) - All configuration options
-- [MCP Tools](reference/mcp-tools.md) - MCP server tool documentation
 - [CLI Commands](reference/cli-commands.md) - Command-line interface reference
+- [MCP Tools](reference/mcp-tools.md) - MCP server tool documentation (6 tools)
+- [Configuration Reference](reference/configuration.md) - All configuration options
+- [Storage API](reference/storage-api.md) - Storage layer internals
+- [Traversal Algorithm](reference/traversal-algorithm.md) - Graph traversal and sum-product semantics
 
 ## Research
 
 For those interested in the technical details:
 
 - [Research Overview](research/README.md) - Research background and findings
-- [Approach](research/approach/) - Design decisions and rationale
+- [Design Decision Log](research/decisions.md) - Why things are the way they are
+- [Approach](research/approach/) - Design rationale per topic
 - [Experiments](research/experiments/) - Benchmark results and analysis
+- [Future Work](research/future-work.md) - Open questions and roadmap
+- [Research Archive](research/archive/) - Original working documents
 
 ## Quick Links
 
