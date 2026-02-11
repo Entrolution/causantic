@@ -364,15 +364,18 @@ describe('initCommand', () => {
       const written = JSON.parse(hooksWrite![1] as string);
       expect(written.hooks.PreCompact).toBeDefined();
       expect(written.hooks.SessionStart).toBeDefined();
+      expect(written.hooks.SessionEnd).toBeDefined();
       expect(written.hooks.PreCompact[0].hooks[0].command).toContain('hook pre-compact');
       expect(written.hooks.SessionStart[0].hooks[0].command).toContain('hook session-start');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Configured 2 Claude Code hooks'));
+      expect(written.hooks.SessionEnd[0].hooks[0].command).toContain('hook session-end');
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Configured 3 Claude Code hooks'));
     });
 
     it('skips when hooks are already configured', async () => {
       const existingHooks = {
         PreCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'node /some/path causantic hook pre-compact' }] }],
         SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'node /some/path causantic hook session-start' }] }],
+        SessionEnd: [{ matcher: '', hooks: [{ type: 'command', command: 'node /some/path causantic hook session-end' }] }],
       };
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);

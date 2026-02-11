@@ -2,7 +2,7 @@
  * Tests for hook utilities.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type {
   HookLogEntry,
   HookMetrics,
@@ -363,5 +363,121 @@ describe('hook-utils', () => {
 
       expect(message).toBe('null');
     });
+  });
+});
+
+// ── ingestCurrentSession tests (separate describe with mocks) ───────────────
+
+vi.mock('../../src/ingest/ingest-session.js', () => ({
+  ingestSession: vi.fn(),
+}));
+
+vi.mock('../../src/clusters/cluster-manager.js', () => ({
+  clusterManager: {
+    assignNewChunks: vi.fn(),
+  },
+}));
+
+vi.mock('../../src/storage/vector-store.js', () => ({
+  vectorStore: {
+    getAllVectors: vi.fn(),
+  },
+}));
+
+import { ingestCurrentSession } from '../../src/hooks/hook-utils.js';
+import { ingestSession } from '../../src/ingest/ingest-session.js';
+import { clusterManager } from '../../src/clusters/cluster-manager.js';
+import { vectorStore } from '../../src/storage/vector-store.js';
+
+const mockedIngestSession = vi.mocked(ingestSession);
+const mockedAssignNewChunks = vi.mocked(clusterManager.assignNewChunks);
+const mockedGetAllVectors = vi.mocked(vectorStore.getAllVectors);
+
+describe('ingestCurrentSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns ingestion counts on successful ingestion', async () => {
+    mockedIngestSession.mockResolvedValue({
+      sessionId: 'sess-100',
+      sessionSlug: 'my-project',
+      chunkCount: 4,
+      edgeCount: 2,
+      crossSessionEdges: 1,
+      subAgentEdges: 0,
+      skipped: false,
+      durationMs: 40,
+      subAgentCount: 0,
+    });
+
+    mockedGetAllVectors.mockResolvedValue([
+      { id: 'c1', embedding: [0.1] },
+      { id: 'c2', embedding: [0.2] },
+      { id: 'c3', embedding: [0.3] },
+      { id: 'c4', embedding: [0.4] },
+    ]);
+    mockedAssignNewChunks.mockResolvedValue({ assigned: 3, total: 4 });
+
+    const result = await ingestCurrentSession('test-hook', '/path/to/session.jsonl');
+
+    expect(result.sessionId).toBe('sess-100');
+    expect(result.chunkCount).toBe(4);
+    expect(result.edgeCount).toBe(2);
+    expect(result.clustersAssigned).toBe(3);
+    expect(result.skipped).toBe(false);
+    expect(result.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('returns skipped result when session already ingested', async () => {
+    mockedIngestSession.mockResolvedValue({
+      sessionId: 'sess-200',
+      sessionSlug: 'my-project',
+      chunkCount: 0,
+      edgeCount: 0,
+      crossSessionEdges: 0,
+      subAgentEdges: 0,
+      skipped: true,
+      skipReason: 'already_ingested',
+      durationMs: 2,
+      subAgentCount: 0,
+    });
+
+    const result = await ingestCurrentSession('test-hook', '/path/to/session.jsonl');
+
+    expect(result.skipped).toBe(true);
+    expect(result.sessionId).toBe('sess-200');
+    expect(result.chunkCount).toBe(0);
+    expect(result.clustersAssigned).toBe(0);
+    expect(mockedGetAllVectors).not.toHaveBeenCalled();
+    expect(mockedAssignNewChunks).not.toHaveBeenCalled();
+  });
+
+  it('logs but does not throw on cluster assignment failure', async () => {
+    mockedIngestSession.mockResolvedValue({
+      sessionId: 'sess-300',
+      sessionSlug: 'my-project',
+      chunkCount: 3,
+      edgeCount: 1,
+      crossSessionEdges: 0,
+      subAgentEdges: 0,
+      skipped: false,
+      durationMs: 20,
+      subAgentCount: 0,
+    });
+
+    mockedGetAllVectors.mockResolvedValue([
+      { id: 'c1', embedding: [0.1] },
+      { id: 'c2', embedding: [0.2] },
+      { id: 'c3', embedding: [0.3] },
+    ]);
+    mockedAssignNewChunks.mockRejectedValue(new Error('Cluster DB locked'));
+
+    const result = await ingestCurrentSession('test-hook', '/path/to/session.jsonl');
+
+    expect(result.sessionId).toBe('sess-300');
+    expect(result.chunkCount).toBe(3);
+    expect(result.clustersAssigned).toBe(0);
+    expect(result.skipped).toBe(false);
   });
 });
