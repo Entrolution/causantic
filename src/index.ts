@@ -1,7 +1,7 @@
 /**
  * Causantic
  *
- * Long-term memory system for Claude Code using causal graphs and vector clocks.
+ * Long-term memory for Claude Code — local-first, graph-augmented, self-benchmarking.
  *
  * @packageDocumentation
  */
