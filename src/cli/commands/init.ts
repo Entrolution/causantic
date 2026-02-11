@@ -427,6 +427,71 @@ export const initCommand: Command = {
       } catch {
         console.log('\u26a0 Could not update CLAUDE.md');
       }
+
+      // Step 6d: Configure Claude Code hooks
+      try {
+        const settingsContent = fs.readFileSync(claudeConfigPath, 'utf-8');
+        const config = JSON.parse(settingsContent);
+
+        const nodeBin = process.execPath;
+        const { fileURLToPath } = await import('node:url');
+        const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'index.js');
+
+        const causanticHooks = [
+          {
+            event: 'PreCompact',
+            matcher: '',
+            hook: {
+              type: 'command',
+              command: `${nodeBin} ${cliEntry} hook pre-compact`,
+              timeout: 300,
+            },
+          },
+          {
+            event: 'SessionStart',
+            matcher: '',
+            hook: {
+              type: 'command',
+              command: `${nodeBin} ${cliEntry} hook session-start`,
+              timeout: 60,
+            },
+          },
+        ];
+
+        if (!config.hooks) {
+          config.hooks = {};
+        }
+
+        let hooksAdded = 0;
+        for (const { event, matcher, hook } of causanticHooks) {
+          if (!config.hooks[event]) {
+            config.hooks[event] = [];
+          }
+
+          // Check if a causantic hook already exists for this event
+          const alreadyConfigured = config.hooks[event].some(
+            (entry: { hooks?: Array<{ command?: string }> }) =>
+              entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))
+          );
+
+          if (!alreadyConfigured) {
+            config.hooks[event].push({
+              matcher,
+              hooks: [hook],
+            });
+            hooksAdded++;
+          }
+        }
+
+        if (hooksAdded > 0) {
+          fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
+          console.log(`\u2713 Configured ${hooksAdded} Claude Code hooks (PreCompact, SessionStart)`);
+        } else {
+          console.log('\u2713 Claude Code hooks already configured');
+        }
+      } catch {
+        console.log('\u26a0 Could not configure Claude Code hooks');
+      }
     }
 
     // Step 7: Health check
