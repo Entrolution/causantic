@@ -132,6 +132,7 @@ describe('generateMarkdownReport', () => {
         fullRecallAt10: 0.82,
         vectorOnlyRecallAt10: 0.61,
         uniqueGraphFinds: 42,
+        graphBoostedCount: 5,
         lift: 0.34,
         edgeTypeEffectiveness: [
           { type: 'file-path', chunksSurfaced: 847, recallContribution: 0.38 },
@@ -142,6 +143,7 @@ describe('generateMarkdownReport', () => {
 
     expect(md).toContain('## Graph Value');
     expect(md).toContain('**Augmentation Ratio:** 2.3x');
+    expect(md).toContain('**Graph-Boosted Chunks:** 5');
     expect(md).toContain('### Edge Type Effectiveness');
   });
 

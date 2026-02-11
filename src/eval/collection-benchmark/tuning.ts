@@ -126,6 +126,19 @@ export function generateTuningRecommendations(
     });
   }
 
+  // Graph-boosted count is 0 despite having graph results
+  if (graph && graph.graphBoostedCount === 0 && graph.sourceAttribution.graphPercentage > 0) {
+    const currentBoost = config.traversal?.graphAgreementBoost ?? 2.0;
+    recommendations.push({
+      metric: 'Graph agreement boost',
+      currentValue: `0 chunks boosted (graphAgreementBoost: ${currentBoost})`,
+      suggestedValue: 'traversal.graphAgreementBoost: 3.0',
+      configPath: 'traversal.graphAgreementBoost',
+      impact: 'Graph finds disjoint chunks from vector search; higher boost rewards any future overlap',
+      priority: 'low',
+    });
+  }
+
   // Recall latency p95 > 200ms
   if (latency && latency.recall.p95 > 200) {
     const currentDepth = config.traversal?.maxDepth ?? 15;

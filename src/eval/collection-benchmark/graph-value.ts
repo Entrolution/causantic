@@ -36,6 +36,7 @@ export async function runGraphValueBenchmarks(
   const sourceCounts = { vector: 0, keyword: 0, cluster: 0, graph: 0 };
   let totalResults = 0;
   let vectorOnlyResults = 0;
+  let totalGraphBoosted = 0;
 
   const queryIds = sample.queryChunkIds.slice(0, Math.min(30, sample.queryChunkIds.length));
   let processed = 0;
@@ -59,6 +60,7 @@ export async function runGraphValueBenchmarks(
       vectorSearchLimit: topK * 2,
     });
     fullResults.push(fullResponse);
+    totalGraphBoosted += fullResponse.graphBoosted ?? 0;
 
     for (const result of fullResponse.chunks) {
       totalResults++;
@@ -171,6 +173,7 @@ export async function runGraphValueBenchmarks(
       fullRecallAt10: normalizedFullRecall,
       vectorOnlyRecallAt10: normalizedVectorOnlyRecall,
       uniqueGraphFinds,
+      graphBoostedCount: totalGraphBoosted,
       lift,
       edgeTypeEffectiveness,
     },

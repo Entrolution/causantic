@@ -145,9 +145,38 @@ Start 2 (weight 0.87): reaches D with weight 0.56
 D's total weight: 0.95 × 0.72 + 0.87 × 0.56 = 1.17
 ```
 
-## Deduplication and Re-ranking
+## Score Fusion: Graph Agreement Boost
 
-After traversal, `dedupeAndRank()` combines duplicate entries:
+After traversal, direct hits and graph results are combined in a fusion step that rewards **agreement** — when a chunk is found by both vector search and graph traversal, that's treated as a confidence signal.
+
+### Fusion Rules
+
+| Chunk type | Score formula |
+|------------|--------------|
+| **Intersection** (vector + graph) | `directScore × directHitBoost + graphWeight × graphAgreementBoost` |
+| **Direct-only** (vector/keyword/cluster) | `directScore × directHitBoost` |
+| **Graph-only** (traversal) | `graphWeight` (unchanged) |
+
+Default config: `directHitBoost: 1.5`, `graphAgreementBoost: 2.0`
+
+### Example
+
+```
+Chunk A: directScore=0.012, also found by graph with weight=0.005
+  → 0.012 × 1.5 + 0.005 × 2.0 = 0.028  (boosted by agreement)
+
+Chunk C: directScore=0.012, not in graph results
+  → 0.012 × 1.5 = 0.018  (direct-only)
+
+Chunk D: graph-only with weight=0.005
+  → 0.005  (unchanged)
+```
+
+Intersection chunks rank higher because graph agreement confirms relevance through an independent signal (causal connectivity vs semantic similarity).
+
+### Deduplication
+
+After fusion, `dedupeAndRank()` handles any remaining duplicates (e.g., within graph-only results reached via multiple traversal paths):
 
 ```typescript
 function dedupeAndRank(chunks: WeightedChunk[]): WeightedChunk[] {
@@ -162,7 +191,20 @@ function dedupeAndRank(chunks: WeightedChunk[]): WeightedChunk[] {
 }
 ```
 
-The 0.5 factor for additional paths prevents over-weighting highly-connected nodes.
+### Configuration
+
+Both boost factors are configurable in `causantic.config.json`:
+
+```json
+{
+  "traversal": {
+    "directHitBoost": 1.5,
+    "graphAgreementBoost": 2.0
+  }
+}
+```
+
+Set `graphAgreementBoost: 0` to disable the graph agreement signal (falls back to direct-only scoring).
 
 ## Configuration
 

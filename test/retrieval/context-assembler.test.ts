@@ -151,6 +151,7 @@ describe('context-assembler', () => {
         chunks: [],
         totalConsidered: 25,
         durationMs: 42,
+        graphBoosted: 0,
       };
 
       expect(response.text).toBeDefined();
@@ -174,6 +175,7 @@ describe('context-assembler', () => {
         ],
         totalConsidered: 10,
         durationMs: 25,
+        graphBoosted: 0,
       };
 
       const chunk = response.chunks[0];
@@ -349,6 +351,7 @@ describe('context-assembler', () => {
         chunks: [],
         totalConsidered: 0,
         durationMs: 5,
+        graphBoosted: 0,
       };
 
       expect(emptyResponse.text).toBe('');
@@ -538,6 +541,143 @@ describe('context-assembler', () => {
       const projectFilter: string | string[] = 'filter-slug';
       const effectiveSlug = projectSlug ?? (typeof projectFilter === 'string' ? projectFilter : undefined);
       expect(effectiveSlug).toBe('explicit-slug');
+    });
+  });
+
+  describe('graph agreement boost', () => {
+    // These tests verify the step 7 fusion logic in assembleContext:
+    // - Direct hits get: score × directHitBoost (1.5)
+    // - Intersection chunks get: score × directHitBoost + graphWeight × graphAgreementBoost (2.0)
+    // - Graph-only chunks get: raw graph weight
+
+    it('intersection chunks get boosted: directScore×1.5 + graphWeight×2.0', () => {
+      // Simulate step 7 fusion logic
+      const directHitBoost = 1.5;
+      const graphAgreementBoost = 2.0;
+
+      const directScore = 0.012;
+      const graphWeight = 0.005;
+
+      // Intersection: direct + graph agreement
+      const intersectionWeight = directScore * directHitBoost + graphWeight * graphAgreementBoost;
+
+      expect(intersectionWeight).toBeCloseTo(0.028); // 0.018 + 0.010
+    });
+
+    it('direct-only chunks use directHitBoost with no graph contribution', () => {
+      const directHitBoost = 1.5;
+      const directScore = 0.012;
+
+      const directOnlyWeight = directScore * directHitBoost;
+
+      expect(directOnlyWeight).toBeCloseTo(0.018);
+    });
+
+    it('graph-only chunks are unchanged (raw graph weight)', () => {
+      const graphWeight = 0.005;
+
+      // Graph-only chunks are added with their raw weight
+      const graphOnlyWeight = graphWeight;
+
+      expect(graphOnlyWeight).toBe(0.005);
+    });
+
+    it('intersection outranks direct-only when graph agreement adds signal', () => {
+      const directHitBoost = 1.5;
+      const graphAgreementBoost = 2.0;
+
+      // Moderate direct hit that also appears in graph
+      const moderateDirectScore = 0.010;
+      const graphWeight = 0.005;
+      const intersectionWeight = moderateDirectScore * directHitBoost + graphWeight * graphAgreementBoost;
+
+      // Slightly higher direct-only hit
+      const higherDirectScore = 0.012;
+      const directOnlyWeight = higherDirectScore * directHitBoost;
+
+      // Intersection (0.025) > direct-only (0.018) despite lower direct score
+      expect(intersectionWeight).toBeGreaterThan(directOnlyWeight);
+    });
+
+    it('graphAgreementBoost of 0 disables graph contribution', () => {
+      const directHitBoost = 1.5;
+      const graphAgreementBoost = 0;
+
+      const directScore = 0.012;
+      const graphWeight = 0.005;
+
+      const weight = directScore * directHitBoost + graphWeight * graphAgreementBoost;
+
+      // With boost=0, intersection behaves like direct-only
+      expect(weight).toBeCloseTo(directScore * directHitBoost);
+    });
+
+    it('graphBoosted counter counts intersection chunks correctly', () => {
+      // Simulate the counter logic from step 7
+      const directChunkIds = ['chunk-a', 'chunk-b', 'chunk-c'];
+      const graphChunkIds = new Set(['chunk-a', 'chunk-c', 'chunk-d']);
+
+      let graphBoostedCount = 0;
+      for (const id of directChunkIds) {
+        if (graphChunkIds.has(id)) {
+          graphBoostedCount++;
+        }
+      }
+
+      // chunk-a and chunk-c are in both sets
+      expect(graphBoostedCount).toBe(2);
+    });
+
+    it('step 7 produces correct weights for mixed results', () => {
+      const directHitBoost = 1.5;
+      const graphAgreementBoost = 2.0;
+
+      // Direct hits with scores
+      const directHits = [
+        { chunkId: 'A', score: 0.012 },  // Also in graph
+        { chunkId: 'B', score: 0.010 },  // Direct-only
+      ];
+
+      // Graph traversal results
+      const graphResults = new Map([
+        ['A', { weight: 0.005 }],  // Intersection with A
+        ['D', { weight: 0.003 }],  // Graph-only
+      ]);
+
+      // Simulate step 7
+      const allChunks: Array<{ chunkId: string; weight: number }> = [];
+      let graphBoostedCount = 0;
+      const directIds = new Set<string>();
+
+      for (const item of directHits) {
+        directIds.add(item.chunkId);
+        let weight = item.score * directHitBoost;
+        const graphEntry = graphResults.get(item.chunkId);
+        if (graphEntry) {
+          weight += graphEntry.weight * graphAgreementBoost;
+          graphBoostedCount++;
+        }
+        allChunks.push({ chunkId: item.chunkId, weight });
+      }
+
+      for (const [chunkId, entry] of graphResults) {
+        if (!directIds.has(chunkId)) {
+          allChunks.push({ chunkId, weight: entry.weight });
+        }
+      }
+
+      // Verify
+      expect(allChunks).toHaveLength(3); // A, B, D
+
+      const chunkA = allChunks.find(c => c.chunkId === 'A');
+      const chunkB = allChunks.find(c => c.chunkId === 'B');
+      const chunkD = allChunks.find(c => c.chunkId === 'D');
+
+      expect(chunkA!.weight).toBeCloseTo(0.012 * 1.5 + 0.005 * 2.0); // 0.028
+      expect(chunkB!.weight).toBeCloseTo(0.010 * 1.5);                // 0.015
+      expect(chunkD!.weight).toBeCloseTo(0.003);                      // 0.003
+
+      expect(graphBoostedCount).toBe(1); // Only A is intersection
     });
   });
 

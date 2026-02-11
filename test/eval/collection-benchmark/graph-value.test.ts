@@ -97,6 +97,8 @@ describe('runGraphValueBenchmarks', () => {
     expect(result.sourceAttribution.clusterPercentage).toBeGreaterThan(0);
     // 3 results per query (full) vs 1 per query (vector-only)
     expect(result.sourceAttribution.augmentationRatio).toBeGreaterThan(1);
+    // graphBoostedCount defaults to 0 when mock doesn't provide graphBoosted
+    expect(result.graphBoostedCount).toBe(0);
   });
 
   it('should compute recall lift over vector-only', async () => {
@@ -196,6 +198,27 @@ describe('runGraphValueBenchmarks', () => {
 
     expect(progressMessages.length).toBeGreaterThan(0);
     expect(progressMessages.some(m => m.includes('Graph value analysis'))).toBe(true);
+  });
+
+  it('should accumulate graphBoostedCount from response', async () => {
+    mockAssembleContext.mockImplementation(async (req: Record<string, unknown>) => {
+      if (req.skipGraph) {
+        return { chunks: [], tokenCount: 0, graphBoosted: 0 };
+      }
+      return {
+        chunks: [
+          { id: 'r1', preview: 'result', sessionSlug: 'proj-a', source: 'vector' },
+        ],
+        tokenCount: 50,
+        graphBoosted: 2,
+      };
+    });
+
+    const sample = makeSample();
+    const { result } = await runGraphValueBenchmarks(sample, 10);
+
+    // 3 queries × 2 graphBoosted per full pipeline call = 6
+    expect(result.graphBoostedCount).toBe(6);
   });
 
   it('should limit queries to 30 max', async () => {

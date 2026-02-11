@@ -61,6 +61,8 @@ describe('loadConfig', () => {
       expect(config.encryption.auditLog).toBe(false);
       expect(config.vectors.ttlDays).toBe(90);
       expect(config.embedding.device).toBe('auto');
+      expect(config.traversal.directHitBoost).toBe(1.5);
+      expect(config.traversal.graphAgreementBoost).toBe(2.0);
     });
 
     it('EXTERNAL_DEFAULTS has all required fields', () => {

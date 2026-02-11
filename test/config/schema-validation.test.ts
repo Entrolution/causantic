@@ -126,6 +126,18 @@ describe('schema defaults match DEFAULT_CONFIG', () => {
     expect(schemaDefault).toBe(DEFAULT_CONFIG.refreshRateLimitPerMin);
     expect(schemaDefault).toBe(30);
   });
+
+  it('traversal.directHitBoost matches DEFAULT_CONFIG.directHitBoost', () => {
+    const schemaDefault = schema.properties.traversal.properties.directHitBoost.default;
+    expect(schemaDefault).toBe(DEFAULT_CONFIG.directHitBoost);
+    expect(schemaDefault).toBe(1.5);
+  });
+
+  it('traversal.graphAgreementBoost matches DEFAULT_CONFIG.graphAgreementBoost', () => {
+    const schemaDefault = schema.properties.traversal.properties.graphAgreementBoost.default;
+    expect(schemaDefault).toBe(DEFAULT_CONFIG.graphAgreementBoost);
+    expect(schemaDefault).toBe(2.0);
+  });
 });
 
 describe('schema sections do not allow additional properties', () => {

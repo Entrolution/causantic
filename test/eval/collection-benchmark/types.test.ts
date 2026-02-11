@@ -80,6 +80,7 @@ describe('collection-benchmark/types', () => {
       fullRecallAt10: 0.82,
       vectorOnlyRecallAt10: 0.61,
       uniqueGraphFinds: 42,
+      graphBoostedCount: 5,
       lift: 0.34,
       edgeTypeEffectiveness: [
         { type: 'file-path', chunksSurfaced: 847, recallContribution: 0.38 },

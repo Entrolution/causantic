@@ -89,6 +89,10 @@ export interface MemoryConfig {
   maxTraversalDepth: number;
   /** Minimum signal threshold for traversal */
   minSignalThreshold: number;
+  /** Boost multiplier for direct search hits (vector/keyword/cluster) */
+  directHitBoost: number;
+  /** Boost multiplier for graph agreement (chunks found by both vector and graph) */
+  graphAgreementBoost: number;
 
   // Integration
   /** Token budget for CLAUDE.md memory section */
@@ -155,6 +159,8 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   // Traversal
   maxTraversalDepth: 15,  // Limits latency on sparse graphs; raise for dense edge sets
   minSignalThreshold: 0.01,
+  directHitBoost: 1.5,
+  graphAgreementBoost: 2.0,
 
   // Integration
   claudeMdBudgetTokens: 500,
@@ -226,6 +232,12 @@ export function validateConfig(config: MemoryConfig): string[] {
   }
   if (config.refreshRateLimitPerMin < 0) {
     errors.push('refreshRateLimitPerMin cannot be negative');
+  }
+  if (config.directHitBoost < 0) {
+    errors.push('directHitBoost cannot be negative');
+  }
+  if (config.graphAgreementBoost < 0) {
+    errors.push('graphAgreementBoost cannot be negative');
   }
 
   return errors;
