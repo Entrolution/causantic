@@ -84,7 +84,7 @@ export function resolveTimeWindow(req: ReconstructRequest): { from: string; to: 
     return { from: '1970-01-01T00:00:00Z', to: '9999-12-31T23:59:59Z', sessionId: req.sessionId };
   }
 
-  if (req.daysBack != null) {
+  if (req.daysBack !== null && req.daysBack !== undefined) {
     const to = new Date().toISOString();
     const from = new Date(Date.now() - req.daysBack * 24 * 60 * 60 * 1000).toISOString();
     return { from, to };
