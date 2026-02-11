@@ -249,7 +249,84 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
     },
   });
 
-  // 3. Project .mcp.json files
+  // 3. Claude Code hooks in settings.json
+  const hasCausanticHooks = (() => {
+    try {
+      const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+      if (!config.hooks) return false;
+      for (const event of Object.keys(config.hooks)) {
+        const entries = config.hooks[event];
+        if (!Array.isArray(entries)) continue;
+        for (const entry of entries) {
+          if (entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))) {
+            return true;
+          }
+        }
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  })();
+
+  artifacts.push({
+    label: '~/.claude/settings.json',
+    description: 'Claude Code hooks',
+    category: 'integration',
+    found: hasCausanticHooks,
+    remove: async () => {
+      try {
+        const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        if (!config.hooks) return false;
+        let removed = false;
+        for (const event of Object.keys(config.hooks)) {
+          const entries = config.hooks[event];
+          if (!Array.isArray(entries)) continue;
+          config.hooks[event] = entries.filter(
+            (entry: { hooks?: Array<{ command?: string }> }) =>
+              !entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))
+          );
+          if (config.hooks[event].length !== entries.length) {
+            removed = true;
+          }
+          // Clean up empty event arrays
+          if (config.hooks[event].length === 0) {
+            delete config.hooks[event];
+          }
+        }
+        // Clean up empty hooks object
+        if (Object.keys(config.hooks).length === 0) {
+          delete config.hooks;
+        }
+        if (removed) {
+          fs.writeFileSync(settingsPath, JSON.stringify(config, null, 2) + '\n');
+        }
+        return removed;
+      } catch {
+        return false;
+      }
+    },
+    verify: () => {
+      try {
+        const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+        if (!config.hooks) return false;
+        for (const event of Object.keys(config.hooks)) {
+          const entries = config.hooks[event];
+          if (!Array.isArray(entries)) continue;
+          for (const entry of entries) {
+            if (entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))) {
+              return true;
+            }
+          }
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    },
+  });
+
+  // 4. Project .mcp.json files
   const projectMcpFiles = discoverProjectMcpFiles();
   for (const { displayName, mcpPath } of projectMcpFiles) {
     artifacts.push({
@@ -269,7 +346,7 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
     });
   }
 
-  // 4. Skill directories
+  // 5. Skill directories
   const skillsDir = path.join(home, '.claude', 'skills');
   for (const skill of CAUSANTIC_SKILLS) {
     const skillDir = path.join(skillsDir, skill.dirName);
@@ -292,7 +369,7 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
     });
   }
 
-  // 5. Keychain entries
+  // 6. Keychain entries
   for (const keyName of KEYCHAIN_KEYS) {
     artifacts.push({
       label: `Keychain: ${keyName}`,
@@ -311,7 +388,7 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
     });
   }
 
-  // 6. Data directory
+  // 7. Data directory
   if (!keepData) {
     const causanticDir = path.join(home, '.causantic');
     const causanticDirExists = fs.existsSync(causanticDir);
