@@ -45,9 +45,9 @@ describe('loadConfig', () => {
       expect(config.decay.forward.type).toBe('delayed-linear');
       expect(config.decay.forward.diesAtHops).toBe(20);
       expect(config.decay.forward.holdHops).toBe(5);
-      expect(config.clustering.threshold).toBe(0.09);
+      expect(config.clustering.threshold).toBe(0.10);
       expect(config.clustering.minClusterSize).toBe(4);
-      expect(config.traversal.maxDepth).toBe(20);
+      expect(config.traversal.maxDepth).toBe(15);
       expect(config.traversal.minWeight).toBe(0.01);
       expect(config.tokens.claudeMdBudget).toBe(500);
       expect(config.tokens.mcpMaxResponse).toBe(2000);
@@ -220,7 +220,7 @@ describe('loadConfig', () => {
         skipUserConfig: true,
       });
 
-      expect(config.clustering.threshold).toBe(0.09); // Default
+      expect(config.clustering.threshold).toBe(0.10); // Default
     });
   });
 
@@ -281,7 +281,7 @@ describe('loadConfig', () => {
       });
 
       // Should still return defaults
-      expect(config.clustering.threshold).toBe(0.09);
+      expect(config.clustering.threshold).toBe(0.10);
     });
 
     it('handles missing user config gracefully', () => {
@@ -291,7 +291,7 @@ describe('loadConfig', () => {
         userConfigPath: '/nonexistent/config.json',
       });
 
-      expect(config.clustering.threshold).toBe(0.09);
+      expect(config.clustering.threshold).toBe(0.10);
     });
   });
 });

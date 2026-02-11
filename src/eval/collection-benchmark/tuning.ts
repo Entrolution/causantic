@@ -27,7 +27,7 @@ export function generateTuningRecommendations(
 
   // Cluster coverage < 70%
   if (health.clusterCoverage < 0.7) {
-    const currentThreshold = config.clustering?.threshold ?? 0.09;
+    const currentThreshold = config.clustering?.threshold ?? 0.10;
     recommendations.push({
       metric: 'Cluster coverage',
       currentValue: `clustering.threshold: ${currentThreshold}`,
@@ -65,7 +65,7 @@ export function generateTuningRecommendations(
 
   // Cluster coherence: inter-cluster separation low
   if (health.clusterQuality && health.clusterQuality.interClusterSeparation < 0.3) {
-    const currentThreshold = config.clustering?.threshold ?? 0.09;
+    const currentThreshold = config.clustering?.threshold ?? 0.10;
     recommendations.push({
       metric: 'Inter-cluster separation',
       currentValue: `clustering.threshold: ${currentThreshold}`,
@@ -78,7 +78,7 @@ export function generateTuningRecommendations(
 
   // Cluster coherence: intra-cluster similarity low
   if (health.clusterQuality && health.clusterQuality.intraClusterSimilarity < 0.5) {
-    const currentThreshold = config.clustering?.threshold ?? 0.09;
+    const currentThreshold = config.clustering?.threshold ?? 0.10;
     recommendations.push({
       metric: 'Intra-cluster similarity',
       currentValue: `clustering.threshold: ${currentThreshold}`,
@@ -91,7 +91,7 @@ export function generateTuningRecommendations(
 
   // Graph-sourced % < 10%
   if (graph && graph.sourceAttribution.graphPercentage < 0.1) {
-    const currentDepth = config.traversal?.maxDepth ?? 20;
+    const currentDepth = config.traversal?.maxDepth ?? 15;
     if (health.edgeToChunkRatio < 1) {
       recommendations.push({
         metric: 'Graph utilization (sparse edges)',
@@ -128,7 +128,7 @@ export function generateTuningRecommendations(
 
   // Recall latency p95 > 200ms
   if (latency && latency.recall.p95 > 200) {
-    const currentDepth = config.traversal?.maxDepth ?? 20;
+    const currentDepth = config.traversal?.maxDepth ?? 15;
     recommendations.push({
       metric: 'Recall latency p95',
       currentValue: `traversal.maxDepth: ${currentDepth}`,
@@ -165,7 +165,7 @@ export function generateTuningRecommendations(
 
   // Precision@K low (cross-project bleed)
   if (retrieval && retrieval.precisionAt10 < 0.7 && retrieval.precisionAt10 > 0) {
-    const currentDepth = config.traversal?.maxDepth ?? 20;
+    const currentDepth = config.traversal?.maxDepth ?? 15;
     recommendations.push({
       metric: 'Precision@K (cross-project bleed)',
       currentValue: `traversal.maxDepth: ${currentDepth}`,
