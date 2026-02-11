@@ -1,5 +1,11 @@
 # Causantic
 
+[![npm version](https://img.shields.io/npm/v/causantic)](https://www.npmjs.com/package/causantic)
+[![CI](https://github.com/Entrolution/causantic/actions/workflows/ci.yml/badge.svg)](https://github.com/Entrolution/causantic/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-native-blue)](https://www.typescriptlang.org/)
+
 **Long-term memory for Claude Code — local-first, graph-augmented, self-benchmarking.**
 
 No cloud. No API keys. No data leaves your machine. Runs entirely on your hardware with optional per-chunk encryption.
@@ -176,6 +182,26 @@ Add to your Claude Code MCP configuration:
 ```
 
 Or run `npx causantic init` to configure automatically.
+
+## Skills
+
+Causantic installs 11 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
+
+| Skill | Description |
+|-------|-------------|
+| `/causantic-recall [query]` | Look up context from past sessions |
+| `/causantic-explain [topic]` | Understand history behind decisions |
+| `/causantic-predict` | Surface relevant past context proactively |
+| `/causantic-resume` | Resume interrupted work — start-of-session briefing |
+| `/causantic-debug [error]` | Search for prior encounters with an error (auto-extracts from conversation if no argument) |
+| `/causantic-context [area]` | Deep dive into a codebase area's history and decisions |
+| `/causantic-crossref [pattern]` | Search across all projects for reusable patterns |
+| `/causantic-retro [scope]` | Retrospective analysis across past sessions |
+| `/causantic-cleanup` | Memory-informed codebase review and cleanup plan |
+| `/causantic-list-projects` | Discover available projects in memory |
+| `/causantic-reconstruct [time]` | Reconstruct session context by time range |
+
+Skills are installed to `~/.claude/skills/causantic-*/` and work as slash commands in Claude Code. They orchestrate the MCP tools above with structured prompts tailored to each use case.
 
 ## Dashboard
 
