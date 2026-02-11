@@ -51,8 +51,26 @@ export const initCommand: Command = {
     // Step 3: Ask about encryption (before database init)
     const skipEncryption = args.includes('--skip-encryption');
     let encryptionEnabled = false;
+    const dbPath = path.join(causanticDir, 'memory.db');
+    const existingDbExists = fs.existsSync(dbPath) && fs.statSync(dbPath).size > 0;
 
     if (!skipEncryption && process.stdin.isTTY) {
+      // Check if existing db is unencrypted before offering encryption
+      let existingDbIsUnencrypted = false;
+      if (existingDbExists) {
+        try {
+          // Try opening without encryption — if it works, db is unencrypted
+          const Database = (await import('better-sqlite3-multiple-ciphers')).default;
+          const testDb = new Database(dbPath);
+          testDb.prepare('SELECT 1').get();
+          testDb.close();
+          existingDbIsUnencrypted = true;
+        } catch {
+          // File exists but can't be opened without key — may already be encrypted
+          existingDbIsUnencrypted = false;
+        }
+      }
+
       const rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -61,6 +79,13 @@ export const initCommand: Command = {
       console.log('');
       console.log('Enable database encryption?');
       console.log('Protects conversation data, embeddings, and work patterns.');
+
+      if (existingDbIsUnencrypted) {
+        console.log('');
+        console.log('\u26a0  Existing unencrypted database detected.');
+        console.log('  Enabling encryption will back up the existing database and create a new encrypted one.');
+        console.log('  Your data will be migrated automatically.');
+      }
 
       const encryptAnswer = await new Promise<string>((resolve) => {
         rl.question('[y/N] ', (ans) => {
@@ -73,6 +98,22 @@ export const initCommand: Command = {
         const { generatePassword } = await import('../../storage/encryption.js');
         const { storeDbKey } = await import('../../storage/db.js');
 
+        // If existing unencrypted db, back it up and migrate
+        if (existingDbIsUnencrypted) {
+          const backupPath = dbPath + '.unencrypted.bak';
+          fs.copyFileSync(dbPath, backupPath);
+          console.log(`\u2713 Backed up existing database to ${path.basename(backupPath)}`);
+
+          // Remove old db so getDb creates a fresh encrypted one
+          fs.unlinkSync(dbPath);
+
+          // Also remove WAL/SHM files if present
+          for (const suffix of ['-wal', '-shm']) {
+            const walPath = dbPath + suffix;
+            if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
+          }
+        }
+
         console.log('');
         console.log('Generating encryption key...');
 
@@ -80,7 +121,11 @@ export const initCommand: Command = {
         await storeDbKey(key);
 
         const configPath = path.join(causanticDir, 'config.json');
+        const existingConfig = fs.existsSync(configPath)
+          ? JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+          : {};
         const encryptionConfig = {
+          ...existingConfig,
           encryption: {
             enabled: true,
             cipher: 'chacha20',
@@ -92,6 +137,55 @@ export const initCommand: Command = {
         console.log('\u2713 Key stored in system keychain');
         console.log('\u2713 Encryption enabled with ChaCha20-Poly1305');
         encryptionEnabled = true;
+
+        // Migrate data from backup into new encrypted db
+        if (existingDbIsUnencrypted) {
+          const backupPath = dbPath + '.unencrypted.bak';
+          try {
+            const newDb = getDb();
+            const Database = (await import('better-sqlite3-multiple-ciphers')).default;
+            const oldDb = new Database(backupPath);
+
+            // Get table list from old db (excluding schema_version which getDb already created)
+            const tables = oldDb
+              .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_version'")
+              .all() as Array<{ name: string }>;
+
+            let migratedRows = 0;
+            for (const { name } of tables) {
+              // Check if table exists in new db
+              const exists = newDb
+                .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")
+                .get(name);
+              if (!exists) continue;
+
+              const rows = oldDb.prepare(`SELECT * FROM "${name}"`).all();
+              if (rows.length === 0) continue;
+
+              // Build insert statement from first row's columns
+              const columns = Object.keys(rows[0] as Record<string, unknown>);
+              const placeholders = columns.map(() => '?').join(', ');
+              const insert = newDb.prepare(
+                `INSERT OR IGNORE INTO "${name}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`
+              );
+
+              const batchInsert = newDb.transaction((rowBatch: Array<Record<string, unknown>>) => {
+                for (const row of rowBatch) {
+                  insert.run(...columns.map((c) => row[c]));
+                }
+              });
+              batchInsert(rows as Array<Record<string, unknown>>);
+              migratedRows += rows.length;
+            }
+
+            oldDb.close();
+            console.log(`\u2713 Migrated ${migratedRows} rows to encrypted database`);
+          } catch (err) {
+            console.log(`\u26a0 Migration error: ${(err as Error).message}`);
+            console.log(`  Backup preserved at: ${backupPath}`);
+            console.log('  You can manually re-import with: causantic import');
+          }
+        }
       }
     }
 
@@ -606,12 +700,15 @@ export const initCommand: Command = {
 
                 process.env.ANTHROPIC_API_KEY = apiKey;
 
-                startSpinner('Labeling clusters...');
+                startSpinner('Labeling clusters (0/?)...');
                 try {
-                  const labelResult = await runTask('refresh-labels');
-                  stopSpinner(labelResult.success
-                    ? '  \u2713 Clusters labeled'
-                    : `  \u26a0 Labeling: ${labelResult.message}`);
+                  const { clusterRefresher } = await import('../../clusters/cluster-refresh.js');
+                  const results = await clusterRefresher.refreshAllClusters({
+                    onProgress: (current, total) => {
+                      currentSpinText = `Labeling clusters (${current}/${total})...`;
+                    },
+                  });
+                  stopSpinner(`  \u2713 ${results.length} clusters labeled`);
                 } catch (err) {
                   stopSpinner(`  \u2717 Labeling error: ${(err as Error).message}`);
                 }

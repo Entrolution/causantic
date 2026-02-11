@@ -33,6 +33,8 @@ export interface RefreshOptions {
   maxExemplars?: number;
   /** Max tokens per chunk in prompt. Default: 500. */
   maxTokensPerChunk?: number;
+  /** Progress callback, called after each cluster is labeled. */
+  onProgress?: (current: number, total: number) => void;
 }
 
 /**
@@ -165,7 +167,7 @@ export class ClusterRefresher {
   async refreshStaleClusters(
     options: RefreshOptions & { maxAgeMs?: number } = {}
   ): Promise<RefreshResult[]> {
-    const { maxAgeMs = 24 * 60 * 60 * 1000 } = options; // Default: 24 hours
+    const { maxAgeMs = 24 * 60 * 60 * 1000, onProgress } = options; // Default: 24 hours
 
     const staleClusters = getStaleClusters(maxAgeMs);
     const results: RefreshResult[] = [];
@@ -174,6 +176,7 @@ export class ClusterRefresher {
       try {
         const result = await this.refreshCluster(cluster.id, options);
         results.push(result);
+        onProgress?.(results.length, staleClusters.length);
       } catch (error) {
         log.error(`Failed to refresh cluster ${cluster.id}`, { error: (error as Error).message });
       }
@@ -186,6 +189,7 @@ export class ClusterRefresher {
    * Refresh all clusters (force refresh).
    */
   async refreshAllClusters(options: RefreshOptions = {}): Promise<RefreshResult[]> {
+    const { onProgress } = options;
     const staleClusters = getStaleClusters(0); // Get all
     const results: RefreshResult[] = [];
 
@@ -193,6 +197,7 @@ export class ClusterRefresher {
       try {
         const result = await this.refreshCluster(cluster.id, options);
         results.push(result);
+        onProgress?.(results.length, staleClusters.length);
       } catch (error) {
         log.error(`Failed to refresh cluster ${cluster.id}`, { error: (error as Error).message });
       }
