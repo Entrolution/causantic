@@ -312,7 +312,7 @@ describe('cli', () => {
 
   describe('version constant', () => {
     it('follows semver format', () => {
-      const VERSION = '0.1.0';
+      const VERSION = '0.2.0';
       const semverPattern = /^\d+\.\d+\.\d+$/;
 
       expect(semverPattern.test(VERSION)).toBe(true);
