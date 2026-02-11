@@ -108,12 +108,12 @@ export function removeJsonKey(filePath: string, keyPath: string[]): boolean {
     // Navigate to parent of the target key
     let parent = json;
     for (let i = 0; i < keyPath.length - 1; i++) {
-      if (parent == null || typeof parent !== 'object') return false;
+      if (parent === null || parent === undefined || typeof parent !== 'object') return false;
       parent = parent[keyPath[i]];
     }
 
     const targetKey = keyPath[keyPath.length - 1];
-    if (parent == null || typeof parent !== 'object' || !(targetKey in parent)) {
+    if (parent === null || parent === undefined || typeof parent !== 'object' || !(targetKey in parent)) {
       return false;
     }
 

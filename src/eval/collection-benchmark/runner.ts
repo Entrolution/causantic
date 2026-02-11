@@ -190,7 +190,7 @@ export async function runCollectionBenchmark(
   // 2. Generate samples if needed
   let sample;
   if (categories.some(c => c !== 'health')) {
-    onProgress?.(`[2/4] Sampling queries (${sampleSize} samples${seed != null ? `, seed=${seed}` : ''})...`);
+    onProgress?.(`[2/4] Sampling queries (${sampleSize} samples${seed !== null && seed !== undefined ? `, seed=${seed}` : ''})...`);
     sample = generateSamples({ sampleSize, seed, projectFilter });
     onProgress?.('[2/4] Sampling... done');
 

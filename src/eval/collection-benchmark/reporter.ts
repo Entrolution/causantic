@@ -16,7 +16,7 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
   const ts = new Date(result.timestamp).toISOString();
 
   lines.push(`# Causantic Collection Benchmark Report`);
-  lines.push(`Generated: ${ts} | Profile: ${result.profile}${result.overallScore != null ? '' : ''}`);
+  lines.push(`Generated: ${ts} | Profile: ${result.profile}${result.overallScore !== null && result.overallScore !== undefined ? '' : ''}`);
   lines.push('');
   lines.push(`## Overall Score: ${result.overallScore}/100`);
   lines.push('');
