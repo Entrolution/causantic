@@ -12,7 +12,7 @@
  *   const key = await store.get('anthropic');
  */
 
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
@@ -46,7 +46,7 @@ class KeychainStore implements SecretStore {
       return false;
     }
     try {
-      execSync('which security', { stdio: 'ignore' });
+      execFileSync('which', ['security'], { stdio: 'ignore' });
       return true;
     } catch {
       return false;
@@ -55,9 +55,10 @@ class KeychainStore implements SecretStore {
 
   async get(key: string): Promise<string | null> {
     try {
-      const result = execSync(
-        `security find-generic-password -a "${key}" -s "${SERVICE_NAME}" -w 2>/dev/null`,
-        { encoding: 'utf-8' }
+      const result = execFileSync(
+        'security',
+        ['find-generic-password', '-a', key, '-s', SERVICE_NAME, '-w'],
+        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
       );
       return result.trim();
     } catch {
@@ -68,24 +69,29 @@ class KeychainStore implements SecretStore {
   async set(key: string, value: string): Promise<void> {
     // Delete existing entry if present
     try {
-      execSync(
-        `security delete-generic-password -a "${key}" -s "${SERVICE_NAME}" 2>/dev/null`
+      execFileSync(
+        'security',
+        ['delete-generic-password', '-a', key, '-s', SERVICE_NAME],
+        { stdio: ['pipe', 'ignore', 'ignore'] }
       );
     } catch {
       // Ignore - entry may not exist
     }
 
-    // Add new entry
-    execSync(
-      `security add-generic-password -a "${key}" -s "${SERVICE_NAME}" -w "${value}"`,
+    // Add new entry — uses execFileSync to avoid shell interpretation of special chars
+    execFileSync(
+      'security',
+      ['add-generic-password', '-a', key, '-s', SERVICE_NAME, '-w', value],
       { encoding: 'utf-8' }
     );
   }
 
   async delete(key: string): Promise<boolean> {
     try {
-      execSync(
-        `security delete-generic-password -a "${key}" -s "${SERVICE_NAME}" 2>/dev/null`
+      execFileSync(
+        'security',
+        ['delete-generic-password', '-a', key, '-s', SERVICE_NAME],
+        { stdio: ['pipe', 'ignore', 'ignore'] }
       );
       return true;
     } catch {
