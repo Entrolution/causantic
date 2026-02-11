@@ -1,6 +1,7 @@
 import type { Command } from '../types.js';
 import { loadConfig, validateExternalConfig } from '../../config/loader.js';
 import { createSecretStore } from '../../utils/secret-store.js';
+import { promptUser } from '../utils.js';
 
 export const configCommand: Command = {
   name: 'config',
@@ -36,17 +37,7 @@ export const configCommand: Command = {
           console.log('Usage: causantic config set-key <name>');
           process.exit(2);
         }
-        const readline = await import('node:readline');
-        const rl = readline.createInterface({
-          input: process.stdin,
-          output: process.stdout,
-        });
-        const value = await new Promise<string>((resolve) => {
-          rl.question(`Enter value for ${keyName}: `, (answer) => {
-            rl.close();
-            resolve(answer);
-          });
-        });
+        const value = await promptUser(`Enter value for ${keyName}: `);
         const store = createSecretStore();
         await store.set(keyName, value);
         console.log(`Key ${keyName} stored.`);

@@ -3,7 +3,7 @@ import { runTask } from '../../maintenance/scheduler.js';
 import { getDb } from '../../storage/db.js';
 import { getChunkCount } from '../../storage/chunk-store.js';
 import { createSecretStore } from '../../utils/secret-store.js';
-import { promptPassword } from '../utils.js';
+import { promptPassword, promptYesNo, promptUser } from '../utils.js';
 
 export const initCommand: Command = {
   name: 'init',
@@ -14,8 +14,6 @@ export const initCommand: Command = {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const os = await import('node:os');
-    const readline = await import('node:readline');
-
     console.log('Causantic - Setup');
     console.log('=================');
     console.log('');
@@ -71,11 +69,6 @@ export const initCommand: Command = {
         }
       }
 
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
-
       console.log('');
       console.log('Enable database encryption?');
       console.log('Protects conversation data, embeddings, and work patterns.');
@@ -87,14 +80,9 @@ export const initCommand: Command = {
         console.log('  Your data will be migrated automatically.');
       }
 
-      const encryptAnswer = await new Promise<string>((resolve) => {
-        rl.question('[y/N] ', (ans) => {
-          rl.close();
-          resolve(ans.toLowerCase() || 'n');
-        });
-      });
+      const wantsEncryption = await promptYesNo('Enable encryption?');
 
-      if (encryptAnswer === 'y' || encryptAnswer === 'yes') {
+      if (wantsEncryption) {
         const { generatePassword } = await import('../../storage/encryption.js');
         const { storeDbKey } = await import('../../storage/db.js');
 
@@ -242,19 +230,9 @@ export const initCommand: Command = {
               console.log('\u2713 Causantic already configured in Claude Code');
             }
           } else {
-            const rl = readline.createInterface({
-              input: process.stdin,
-              output: process.stdout,
-            });
+            const addMcp = await promptYesNo('Add Causantic to Claude Code MCP config?', true);
 
-            const answer = await new Promise<string>((resolve) => {
-              rl.question('Add Causantic to Claude Code MCP config? [Y/n] ', (ans) => {
-                rl.close();
-                resolve(ans.toLowerCase() || 'y');
-              });
-            });
-
-            if (answer === 'y' || answer === 'yes') {
+            if (addMcp) {
               const nodeBin = process.execPath;
               const { fileURLToPath } = await import('node:url');
               const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'index.js');
@@ -338,19 +316,9 @@ export const initCommand: Command = {
             console.log(`  ${p.name}${p.needsMigrate ? ' (migrate)' : ''}`);
           }
 
-          const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout,
-          });
+          const fixProjects = await promptYesNo('Add/migrate Causantic server in these projects?', true);
 
-          const fixAnswer = await new Promise<string>((resolve) => {
-            rl.question('Add/migrate Causantic server in these projects? [Y/n] ', (ans) => {
-              rl.close();
-              resolve(ans.toLowerCase() || 'y');
-            });
-          });
-
-          if (fixAnswer === 'y' || fixAnswer === 'yes') {
+          if (fixProjects) {
             let patched = 0;
             for (const p of projectsToFix) {
               try {
@@ -547,28 +515,18 @@ export const initCommand: Command = {
         console.log(`Found ${projectDirs.length} projects with ${totalSessions} total sessions.`);
         console.log('');
 
-        const rl = readline.createInterface({
-          input: process.stdin,
-          output: process.stdout,
-        });
-
         console.log('Import existing sessions?');
         console.log('  [A] All projects');
         console.log('  [S] Select specific projects');
         console.log('  [N] Skip (can run "causantic batch-ingest" later)');
         console.log('');
 
-        const importChoice = await new Promise<string>((resolve) => {
-          rl.question('Choice [A/s/n]: ', (ans) => {
-            resolve(ans.toLowerCase() || 'a');
-          });
-        });
+        const importChoice = (await promptUser('Choice [A/s/n]: ')).toLowerCase() || 'a';
 
         let projectsToIngest: string[] = [];
 
         if (importChoice === 'a' || importChoice === 'all') {
           projectsToIngest = projectDirs.map((p) => p.path);
-          rl.close();
         } else if (importChoice === 's' || importChoice === 'select') {
           console.log('');
           console.log('Select projects to import (comma-separated numbers, or "all"):');
@@ -578,12 +536,7 @@ export const initCommand: Command = {
           });
           console.log('');
 
-          const selection = await new Promise<string>((resolve) => {
-            rl.question('Projects: ', (ans) => {
-              rl.close();
-              resolve(ans.trim());
-            });
-          });
+          const selection = (await promptUser('Projects: ')).trim();
 
           if (selection.toLowerCase() === 'all') {
             projectsToIngest = projectDirs.map((p) => p.path);
@@ -596,7 +549,6 @@ export const initCommand: Command = {
             }
           }
         } else {
-          rl.close();
           console.log('Skipping session import.');
         }
 
@@ -746,19 +698,9 @@ export const initCommand: Command = {
             console.log('Cluster labeling uses Claude Haiku to generate human-readable');
             console.log('descriptions for topic clusters.');
 
-            const apiKeyRl = readline.createInterface({
-              input: process.stdin,
-              output: process.stdout,
-            });
+            const wantsLabeling = await promptYesNo('Add Anthropic API key for cluster labeling?');
 
-            const wantsLabeling = await new Promise<string>((resolve) => {
-              apiKeyRl.question('Add Anthropic API key for cluster labeling? [y/N] ', (ans) => {
-                resolve(ans.toLowerCase() || 'n');
-              });
-            });
-            apiKeyRl.close();
-
-            if (wantsLabeling === 'y' || wantsLabeling === 'yes') {
+            if (wantsLabeling) {
               const apiKey = await promptPassword('Enter Anthropic API key: ');
 
               if (apiKey && apiKey.startsWith('sk-ant-')) {
