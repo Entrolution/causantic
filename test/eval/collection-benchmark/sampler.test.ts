@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Database from 'better-sqlite3-multiple-ciphers';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { createTestDb, setupTestDb, teardownTestDb, createSampleChunk, insertTestChunk, insertTestEdge } from '../../storage/test-utils.js';
 import { generateSamples, checkThresholds } from '../../../src/eval/collection-benchmark/sampler.js';
 import { getAllChunks } from '../../../src/storage/chunk-store.js';

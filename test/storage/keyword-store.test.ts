@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Database from 'better-sqlite3-multiple-ciphers';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { createTestDb, createSampleChunk, insertTestChunk } from './test-utils.js';
 import { KeywordStore } from '../../src/storage/keyword-store.js';
 

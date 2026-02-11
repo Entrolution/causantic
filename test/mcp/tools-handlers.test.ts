@@ -451,7 +451,7 @@ describe('reconstructTool.handler', () => {
 
   it('catches non-Error thrown values', async () => {
     mockReconstructSession.mockImplementation(() => {
-      throw 'unexpected string error'; // eslint-disable-line no-throw-literal
+      throw 'unexpected string error';  
     });
 
     const result = await reconstructTool.handler({ project: 'my-app' });

@@ -201,7 +201,7 @@ export async function getHopCountDistribution(
  */
 export function refreshReferenceClock(projectSlug: string): VectorClock {
   const agentClocks = getAllAgentClocks(projectSlug);
-  let refClock: VectorClock = {};
+  const refClock: VectorClock = {};
 
   for (const [, clock] of agentClocks) {
     for (const [agentId, ticks] of Object.entries(clock)) {
