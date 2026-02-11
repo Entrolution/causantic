@@ -64,6 +64,10 @@ export interface ExternalConfig {
     /** Device for embedding inference: 'auto' | 'coreml' | 'cuda' | 'cpu' | 'wasm'. Default: 'auto'. */
     device?: string;
   };
+  maintenance?: {
+    /** Hour of day (0-23) to run reclustering. Default: 2. */
+    clusterHour?: number;
+  };
 }
 
 /** Default external config values */
@@ -111,6 +115,9 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   },
   embedding: {
     device: 'auto',
+  },
+  maintenance: {
+    clusterHour: 2,
   },
 };
 
@@ -249,6 +256,12 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.CAUSANTIC_VECTORS_TTL_DAYS) {
     config.vectors = config.vectors ?? {};
     config.vectors.ttlDays = parseInt(process.env.CAUSANTIC_VECTORS_TTL_DAYS, 10);
+  }
+
+  // Maintenance
+  if (process.env.CAUSANTIC_MAINTENANCE_CLUSTER_HOUR) {
+    config.maintenance = config.maintenance ?? {};
+    config.maintenance.clusterHour = parseInt(process.env.CAUSANTIC_MAINTENANCE_CLUSTER_HOUR, 10);
   }
 
   // Embedding

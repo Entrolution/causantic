@@ -12,6 +12,10 @@ vi.mock('../../src/config/memory-config.js', () => ({
   resolvePath: vi.fn((p: string) => p.replace('~', '/tmp/test-causantic')),
 }));
 
+vi.mock('../../src/config/loader.js', () => ({
+  loadConfig: vi.fn(() => ({ maintenance: { clusterHour: 2 } })),
+}));
+
 vi.mock('../../src/utils/logger.js', () => ({
   createLogger: () => ({
     info: vi.fn(),
@@ -39,9 +43,6 @@ vi.mock('../../src/maintenance/tasks/update-clusters.js', () => ({
 vi.mock('../../src/maintenance/tasks/prune-graph.js', () => ({
   pruneGraph: vi.fn(),
 }));
-vi.mock('../../src/maintenance/tasks/refresh-labels.js', () => ({
-  refreshLabels: vi.fn(),
-}));
 vi.mock('../../src/maintenance/tasks/vacuum.js', () => ({
   vacuum: vi.fn(),
 }));
@@ -58,8 +59,8 @@ import {
 } from '../../src/maintenance/scheduler.js';
 
 describe('MAINTENANCE_TASKS', () => {
-  it('has exactly 6 tasks', () => {
-    expect(MAINTENANCE_TASKS).toHaveLength(6);
+  it('has exactly 5 tasks', () => {
+    expect(MAINTENANCE_TASKS).toHaveLength(5);
   });
 
   it('contains all expected task names', () => {
@@ -69,7 +70,6 @@ describe('MAINTENANCE_TASKS', () => {
       'update-clusters',
       'prune-graph',
       'cleanup-vectors',
-      'refresh-labels',
       'vacuum',
     ]);
   });
@@ -92,16 +92,8 @@ describe('MAINTENANCE_TASKS', () => {
     }
   });
 
-  it('refresh-labels requires API key', () => {
-    const refreshLabels = MAINTENANCE_TASKS.find((t) => t.name === 'refresh-labels');
-    expect(refreshLabels).toBeDefined();
-    expect(refreshLabels!.requiresApiKey).toBe(true);
-  });
-
-  it('all tasks except refresh-labels do not require API key', () => {
-    const nonApiTasks = MAINTENANCE_TASKS.filter((t) => t.name !== 'refresh-labels');
-    expect(nonApiTasks.length).toBe(5);
-    for (const task of nonApiTasks) {
+  it('no tasks require API key (label refresh is handled by update-clusters)', () => {
+    for (const task of MAINTENANCE_TASKS) {
       expect(task.requiresApiKey).toBe(false);
     }
   });
@@ -199,10 +191,10 @@ describe('runTask', () => {
 });
 
 describe('getStatus', () => {
-  it('returns status for all 6 tasks', () => {
+  it('returns status for all 5 tasks', () => {
     const status = getStatus();
 
-    expect(status).toHaveLength(6);
+    expect(status).toHaveLength(5);
   });
 
   it('each status entry has required fields', () => {

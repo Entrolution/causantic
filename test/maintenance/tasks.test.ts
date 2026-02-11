@@ -53,7 +53,7 @@ describe('scanProjects', () => {
 });
 
 describe('updateClusters', () => {
-  it('returns success when recluster succeeds', async () => {
+  it('returns success when recluster succeeds without label refresh', async () => {
     const recluster = vi.fn().mockResolvedValue(undefined);
 
     const result = await updateClusters({ recluster });
@@ -61,6 +61,27 @@ describe('updateClusters', () => {
     expect(result.success).toBe(true);
     expect(result.message).toBe('Clusters updated successfully');
     expect(recluster).toHaveBeenCalledOnce();
+  });
+
+  it('returns success with label count when refresh succeeds', async () => {
+    const recluster = vi.fn().mockResolvedValue(undefined);
+    const refreshLabels = vi.fn().mockResolvedValue([{}, {}, {}]);
+
+    const result = await updateClusters({ recluster, refreshLabels });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Clusters updated, 3 labels refreshed');
+    expect(refreshLabels).toHaveBeenCalledOnce();
+  });
+
+  it('succeeds even when label refresh fails', async () => {
+    const recluster = vi.fn().mockResolvedValue(undefined);
+    const refreshLabels = vi.fn().mockRejectedValue(new Error('No API key'));
+
+    const result = await updateClusters({ recluster, refreshLabels });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('Clusters updated successfully');
   });
 
   it('returns failure when recluster throws', async () => {
@@ -75,12 +96,12 @@ describe('updateClusters', () => {
 
 describe('pruneGraph', () => {
   it('returns success with deletion counts', async () => {
-    const flushNow = vi.fn().mockResolvedValue({ edgesDeleted: 3, chunksDeleted: 1 });
+    const flushNow = vi.fn().mockResolvedValue({ edgesDeleted: 3, chunksOrphaned: 1 });
 
     const result = await pruneGraph({ flushNow });
 
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Pruned 3 edges, 1 chunks');
+    expect(result.message).toBe('Pruned 3 edges, marked 1 chunks for TTL cleanup');
     expect(result.details).toBeDefined();
   });
 
@@ -94,12 +115,12 @@ describe('pruneGraph', () => {
   });
 
   it('handles zero deletions', async () => {
-    const flushNow = vi.fn().mockResolvedValue({ edgesDeleted: 0, chunksDeleted: 0 });
+    const flushNow = vi.fn().mockResolvedValue({ edgesDeleted: 0, chunksOrphaned: 0 });
 
     const result = await pruneGraph({ flushNow });
 
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Pruned 0 edges, 0 chunks');
+    expect(result.message).toBe('Pruned 0 edges, marked 0 chunks for TTL cleanup');
   });
 });
 

@@ -19,7 +19,7 @@ import {
 } from '../storage/chunk-store.js';
 import { getConfig } from '../config/memory-config.js';
 import { approximateTokens } from '../utils/token-counter.js';
-import { initStartupPrune } from '../storage/pruner.js';
+import { runStaleMaintenanceTasks } from '../maintenance/scheduler.js';
 import {
   executeHook,
   logHook,
@@ -201,8 +201,9 @@ export async function handleSessionStart(
     gracefulDegradation = true,
   } = options;
 
-  // Start background pruning (non-blocking, idempotent)
-  initStartupPrune();
+  // Run stale maintenance tasks in background (prune, recluster)
+  // Covers cases where scheduled cron times were missed (e.g. laptop asleep)
+  runStaleMaintenanceTasks();
 
   const fallbackResult: SessionStartResult = {
     summary: 'Memory context temporarily unavailable.',

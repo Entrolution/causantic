@@ -1,11 +1,11 @@
 /**
- * Maintenance task: Remove dead edges and orphan nodes.
+ * Maintenance task: Remove dead edges and mark orphaned chunks for TTL cleanup.
  */
 
 import type { MaintenanceResult } from '../scheduler.js';
 
 export interface PruneGraphDeps {
-  flushNow: () => Promise<{ edgesDeleted: number; chunksDeleted: number }>;
+  flushNow: () => Promise<{ edgesDeleted: number; chunksOrphaned: number }>;
 }
 
 export async function pruneGraph(deps: PruneGraphDeps): Promise<MaintenanceResult> {
@@ -17,7 +17,7 @@ export async function pruneGraph(deps: PruneGraphDeps): Promise<MaintenanceResul
     return {
       success: true,
       duration: Date.now() - startTime,
-      message: `Pruned ${result.edgesDeleted} edges, ${result.chunksDeleted} chunks`,
+      message: `Pruned ${result.edgesDeleted} edges, marked ${result.chunksOrphaned} chunks for TTL cleanup`,
       details: result as unknown as Record<string, unknown>,
     };
   } catch (error) {

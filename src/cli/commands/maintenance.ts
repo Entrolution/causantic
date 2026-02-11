@@ -25,7 +25,7 @@ export const maintenanceCommand: Command = {
         } else {
           console.error('Error: Task name required');
           console.log('Usage: causantic maintenance run <task|all>');
-          console.log('Tasks: scan-projects, update-clusters, prune-graph, refresh-labels, vacuum');
+          console.log('Tasks: scan-projects, update-clusters, prune-graph, cleanup-vectors, vacuum');
           process.exit(2);
         }
         break;
