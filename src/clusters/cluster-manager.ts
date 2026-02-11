@@ -32,6 +32,8 @@ export interface ClusteringResult {
   noiseRatio: number;
   /** Cluster sizes */
   clusterSizes: number[];
+  /** Number of noise points reassigned to clusters via threshold pass */
+  reassignedNoise: number;
   /** Time taken in milliseconds */
   durationMs: number;
 }
@@ -80,6 +82,7 @@ export class ClusterManager {
         noiseChunks: 0,
         noiseRatio: 0,
         clusterSizes: [],
+        reassignedNoise: 0,
         durationMs: Date.now() - startTime,
       };
     }
@@ -152,14 +155,47 @@ export class ClusterManager {
       assignChunksToClusters(assignments);
     }
 
-    const noiseCount = labels.filter((l: number) => l < 0).length;
+    const rawNoiseCount = labels.filter((l: number) => l < 0).length;
+
+    // Noise reassignment pass: assign noise points to clusters within threshold
+    const clusterThreshold = options.clusterThreshold ?? this.config.clusterThreshold;
+    const noiseAssignments: ChunkClusterAssignment[] = [];
+    const reassignedNoiseIds = new Set<string>();
+
+    if (rawNoiseCount > 0 && clusterMembers.size > 0) {
+      const clusters = getAllClusters();
+      const noisePoints = vectors.filter((_, i) => labels[i] < 0);
+
+      for (const point of noisePoints) {
+        for (const cluster of clusters) {
+          if (!cluster.centroid) continue;
+          const distance = angularDistance(point.embedding, cluster.centroid);
+          if (distance < clusterThreshold) {
+            noiseAssignments.push({
+              chunkId: point.id,
+              clusterId: cluster.id,
+              distance,
+            });
+            reassignedNoiseIds.add(point.id);
+          }
+        }
+      }
+
+      if (noiseAssignments.length > 0) {
+        assignChunksToClusters(noiseAssignments);
+        await this.updateCentroids();
+      }
+    }
+
+    const noiseCount = rawNoiseCount - reassignedNoiseIds.size;
 
     return {
       numClusters: clusterMembers.size,
-      assignedChunks: assignments.length,
+      assignedChunks: assignments.length + noiseAssignments.length,
       noiseChunks: noiseCount,
       noiseRatio: vectors.length > 0 ? noiseCount / vectors.length : 0,
       clusterSizes: clusterSizes.sort((a, b) => b - a),
+      reassignedNoise: reassignedNoiseIds.size,
       durationMs: Date.now() - startTime,
     };
   }
@@ -216,6 +252,63 @@ export class ClusterManager {
     }
 
     return { assigned: assignedCount, total: chunks.length };
+  }
+
+  /**
+   * Reassign noise points (unassigned chunks) to clusters within threshold.
+   * Runs only the threshold pass without HDBSCAN — useful for threshold experimentation.
+   */
+  async reassignNoisePoints(
+    options: { threshold?: number } = {}
+  ): Promise<{ reassigned: number; total: number }> {
+    const threshold = options.threshold ?? this.config.clusterThreshold;
+    const clusters = getAllClusters();
+
+    if (clusters.length === 0) {
+      return { reassigned: 0, total: 0 };
+    }
+
+    // Collect all currently-assigned chunk IDs
+    const assignedIds = new Set<string>();
+    for (const cluster of clusters) {
+      for (const id of getClusterChunkIds(cluster.id)) {
+        assignedIds.add(id);
+      }
+    }
+
+    // Get all vectors and filter to unassigned
+    const allVectors = await vectorStore.getAllVectors();
+    const unassigned = allVectors.filter((v) => !assignedIds.has(v.id));
+
+    if (unassigned.length === 0) {
+      return { reassigned: 0, total: 0 };
+    }
+
+    // Threshold pass
+    const assignments: ChunkClusterAssignment[] = [];
+    const reassignedIds = new Set<string>();
+
+    for (const point of unassigned) {
+      for (const cluster of clusters) {
+        if (!cluster.centroid) continue;
+        const distance = angularDistance(point.embedding, cluster.centroid);
+        if (distance < threshold) {
+          assignments.push({
+            chunkId: point.id,
+            clusterId: cluster.id,
+            distance,
+          });
+          reassignedIds.add(point.id);
+        }
+      }
+    }
+
+    if (assignments.length > 0) {
+      assignChunksToClusters(assignments);
+      await this.updateCentroids();
+    }
+
+    return { reassigned: reassignedIds.size, total: unassigned.length };
   }
 
   /**

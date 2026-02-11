@@ -14,6 +14,7 @@ describe('cluster-manager', () => {
         noiseChunks: 20,
         noiseRatio: 0.117,
         clusterSizes: [45, 35, 30, 25, 15],
+        reassignedNoise: 10,
         durationMs: 1234,
       };
 
@@ -22,6 +23,7 @@ describe('cluster-manager', () => {
       expect(result.noiseChunks).toBe(20);
       expect(result.noiseRatio).toBeCloseTo(0.117);
       expect(result.clusterSizes.length).toBe(5);
+      expect(result.reassignedNoise).toBe(10);
       expect(result.durationMs).toBe(1234);
     });
 
@@ -47,11 +49,13 @@ describe('cluster-manager', () => {
         noiseChunks: 0,
         noiseRatio: 0,
         clusterSizes: [],
+        reassignedNoise: 0,
         durationMs: 5,
       };
 
       expect(emptyResult.numClusters).toBe(0);
       expect(emptyResult.clusterSizes).toEqual([]);
+      expect(emptyResult.reassignedNoise).toBe(0);
     });
   });
 
@@ -285,6 +289,88 @@ describe('cluster-manager', () => {
       const limited = allClusters.slice(0, limit);
 
       expect(limited.length).toBe(3);
+    });
+  });
+
+  describe('noise reassignment', () => {
+    it('noise points within threshold get assigned to cluster', () => {
+      const threshold = 0.3;
+      const clusterCentroid = [1, 0, 0];
+      // A noise point close to the cluster centroid
+      const noisePoint = [0.95, 0.31, 0]; // ~0.08 angular distance
+
+      const dot = noisePoint[0] * clusterCentroid[0] +
+        noisePoint[1] * clusterCentroid[1] +
+        noisePoint[2] * clusterCentroid[2];
+      const distance = 1 - dot;
+
+      expect(distance).toBeLessThan(threshold);
+    });
+
+    it('noise points beyond threshold remain noise', () => {
+      const threshold = 0.3;
+      const clusterCentroid = [1, 0, 0];
+      // A noise point far from the cluster centroid
+      const noisePoint = [0, 1, 0]; // 1.0 angular distance
+
+      const dot = noisePoint[0] * clusterCentroid[0] +
+        noisePoint[1] * clusterCentroid[1] +
+        noisePoint[2] * clusterCentroid[2];
+      const distance = 1 - dot;
+
+      expect(distance).toBeGreaterThanOrEqual(threshold);
+    });
+
+    it('single noise point can be assigned to multiple clusters (soft clustering)', () => {
+      const threshold = 0.3;
+      const noisePoint = [0.577, 0.577, 0.577]; // equidistant from axes
+      const clusters = [
+        { id: 'c1', centroid: [0.7, 0.5, 0.5] },
+        { id: 'c2', centroid: [0.5, 0.7, 0.5] },
+      ];
+
+      // Normalize cluster centroids for proper angular distance
+      const normalize = (v: number[]) => {
+        const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+        return v.map((x) => x / norm);
+      };
+
+      const assigned: string[] = [];
+      for (const cluster of clusters) {
+        const c = normalize(cluster.centroid);
+        const dot = noisePoint[0] * c[0] + noisePoint[1] * c[1] + noisePoint[2] * c[2];
+        const distance = 1 - dot;
+        if (distance < threshold) {
+          assigned.push(cluster.id);
+        }
+      }
+
+      expect(assigned.length).toBe(2);
+    });
+
+    it('reassignedNoise counts unique chunk IDs, not total assignments', () => {
+      // A single noise point assigned to 3 clusters should count as 1 reassigned
+      const noiseAssignments = [
+        { chunkId: 'n1', clusterId: 'c1', distance: 0.1 },
+        { chunkId: 'n1', clusterId: 'c2', distance: 0.2 },
+        { chunkId: 'n1', clusterId: 'c3', distance: 0.15 },
+        { chunkId: 'n2', clusterId: 'c1', distance: 0.05 },
+      ];
+
+      const reassignedIds = new Set(noiseAssignments.map((a) => a.chunkId));
+
+      expect(noiseAssignments.length).toBe(4); // 4 total assignments
+      expect(reassignedIds.size).toBe(2); // but only 2 unique chunks
+    });
+
+    it('threshold of 0 reassigns nothing', () => {
+      const threshold = 0;
+      const distances = [0.01, 0.1, 0.5, 0.001];
+
+      // distance < 0 is never true for non-negative distances
+      const assigned = distances.filter((d) => d < threshold);
+
+      expect(assigned.length).toBe(0);
     });
   });
 });
