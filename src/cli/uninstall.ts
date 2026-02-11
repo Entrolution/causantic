@@ -173,40 +173,47 @@ export function discoverProjectMcpFiles(): Array<{ displayName: string; mcpPath:
   return results;
 }
 
-/**
- * Build the full removal plan by scanning all artifact locations.
- */
-export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
-  const home = os.homedir();
-  const artifacts: RemovalArtifact[] = [];
-
-  // 1. CLAUDE.md Causantic block
-  const claudeMdPath = path.join(home, '.claude', 'CLAUDE.md');
-  const hasCausanticBlock = (() => {
-    try {
-      const content = fs.readFileSync(claudeMdPath, 'utf-8');
-      return content.includes(CAUSANTIC_START_MARKER) && content.includes(CAUSANTIC_END_MARKER);
-    } catch {
-      return false;
+/** Check if settings.json hooks contain any causantic entries. */
+function settingsHaveCausanticHooks(settingsPath: string): boolean {
+  try {
+    const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    if (!config.hooks) return false;
+    for (const event of Object.keys(config.hooks)) {
+      const entries = config.hooks[event];
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        if (entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))) {
+          return true;
+        }
+      }
     }
-  })();
+    return false;
+  } catch {
+    return false;
+  }
+}
 
-  artifacts.push({
+function findClaudeMdArtifact(): RemovalArtifact {
+  const claudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
+  let found = false;
+  try {
+    const content = fs.readFileSync(claudeMdPath, 'utf-8');
+    found = content.includes(CAUSANTIC_START_MARKER) && content.includes(CAUSANTIC_END_MARKER);
+  } catch {
+    // File doesn't exist or can't be read
+  }
+
+  return {
     label: '~/.claude/CLAUDE.md',
     description: 'Causantic memory block',
     category: 'integration',
-    found: hasCausanticBlock,
+    found,
     remove: async () => {
       try {
         const content = fs.readFileSync(claudeMdPath, 'utf-8');
         const cleaned = removeCausanticBlock(content);
         if (cleaned === null) return false;
-        if (cleaned === '') {
-          // Don't delete the file, just empty it — user may have other content to add
-          fs.writeFileSync(claudeMdPath, '');
-        } else {
-          fs.writeFileSync(claudeMdPath, cleaned);
-        }
+        fs.writeFileSync(claudeMdPath, cleaned === '' ? '' : cleaned);
         return true;
       } catch {
         return false;
@@ -214,30 +221,29 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
     },
     verify: () => {
       try {
-        const content = fs.readFileSync(claudeMdPath, 'utf-8');
-        return content.includes(CAUSANTIC_START_MARKER);
+        return fs.readFileSync(claudeMdPath, 'utf-8').includes(CAUSANTIC_START_MARKER);
       } catch {
         return false;
       }
     },
-  });
+  };
+}
 
-  // 2. ~/.claude/settings.json MCP server entry
-  const settingsPath = path.join(home, '.claude', 'settings.json');
-  const hasSettingsEntry = (() => {
-    try {
-      const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-      return CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
-    } catch {
-      return false;
-    }
-  })();
+function findMcpConfigArtifact(): RemovalArtifact {
+  const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+  let found = false;
+  try {
+    const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+    found = CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
+  } catch {
+    // File doesn't exist or can't be read
+  }
 
-  artifacts.push({
+  return {
     label: '~/.claude/settings.json',
     description: 'MCP server entry',
     category: 'integration',
-    found: hasSettingsEntry,
+    found,
     remove: async () => removeJsonKey(settingsPath, ['mcpServers', CAUSANTIC_SERVER_KEY]),
     verify: () => {
       try {
@@ -247,33 +253,17 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
         return false;
       }
     },
-  });
+  };
+}
 
-  // 3. Claude Code hooks in settings.json
-  const hasCausanticHooks = (() => {
-    try {
-      const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-      if (!config.hooks) return false;
-      for (const event of Object.keys(config.hooks)) {
-        const entries = config.hooks[event];
-        if (!Array.isArray(entries)) continue;
-        for (const entry of entries) {
-          if (entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))) {
-            return true;
-          }
-        }
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  })();
+function findHooksArtifact(): RemovalArtifact {
+  const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
 
-  artifacts.push({
+  return {
     label: '~/.claude/settings.json',
     description: 'Claude Code hooks',
     category: 'integration',
-    found: hasCausanticHooks,
+    found: settingsHaveCausanticHooks(settingsPath),
     remove: async () => {
       try {
         const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
@@ -289,12 +279,10 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
           if (config.hooks[event].length !== entries.length) {
             removed = true;
           }
-          // Clean up empty event arrays
           if (config.hooks[event].length === 0) {
             delete config.hooks[event];
           }
         }
-        // Clean up empty hooks object
         if (Object.keys(config.hooks).length === 0) {
           delete config.hooks;
         }
@@ -306,57 +294,38 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
         return false;
       }
     },
+    verify: () => settingsHaveCausanticHooks(settingsPath),
+  };
+}
+
+function findProjectMcpArtifacts(): RemovalArtifact[] {
+  return discoverProjectMcpFiles().map(({ displayName, mcpPath }) => ({
+    label: displayName + '/.mcp.json',
+    description: 'MCP server entry',
+    category: 'integration' as const,
+    found: true,
+    remove: async () => removeJsonKey(mcpPath, ['mcpServers', CAUSANTIC_SERVER_KEY]),
     verify: () => {
       try {
-        const config = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-        if (!config.hooks) return false;
-        for (const event of Object.keys(config.hooks)) {
-          const entries = config.hooks[event];
-          if (!Array.isArray(entries)) continue;
-          for (const entry of entries) {
-            if (entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))) {
-              return true;
-            }
-          }
-        }
-        return false;
+        const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
+        return CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
       } catch {
         return false;
       }
     },
-  });
+  }));
+}
 
-  // 4. Project .mcp.json files
-  const projectMcpFiles = discoverProjectMcpFiles();
-  for (const { displayName, mcpPath } of projectMcpFiles) {
-    artifacts.push({
-      label: displayName + '/.mcp.json',
-      description: 'MCP server entry',
-      category: 'integration',
-      found: true,
-      remove: async () => removeJsonKey(mcpPath, ['mcpServers', CAUSANTIC_SERVER_KEY]),
-      verify: () => {
-        try {
-          const config = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
-          return CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
-        } catch {
-          return false;
-        }
-      },
-    });
-  }
+function findSkillArtifacts(): RemovalArtifact[] {
+  const skillsDir = path.join(os.homedir(), '.claude', 'skills');
 
-  // 5. Skill directories
-  const skillsDir = path.join(home, '.claude', 'skills');
-  for (const skill of CAUSANTIC_SKILLS) {
+  return CAUSANTIC_SKILLS.map((skill) => {
     const skillDir = path.join(skillsDir, skill.dirName);
-    const skillExists = fs.existsSync(skillDir);
-
-    artifacts.push({
+    return {
       label: `~/.claude/skills/${skill.dirName}/`,
       description: 'Skill directory',
-      category: 'integration',
-      found: skillExists,
+      category: 'integration' as const,
+      found: fs.existsSync(skillDir),
       remove: async () => {
         try {
           fs.rmSync(skillDir, { recursive: true, force: true });
@@ -366,50 +335,66 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
         }
       },
       verify: () => fs.existsSync(skillDir),
-    });
-  }
+    };
+  });
+}
 
-  // 6. Keychain entries
-  for (const keyName of KEYCHAIN_KEYS) {
-    artifacts.push({
-      label: `Keychain: ${keyName}`,
-      description: '',
-      category: 'secret',
-      found: true, // We can't cheaply check if keychain entries exist without side effects
-      remove: async () => {
-        try {
-          const store = createSecretStore();
-          return await store.delete(keyName);
-        } catch {
-          return false;
-        }
-      },
-      verify: () => false, // Can't cheaply verify keychain state synchronously
-    });
-  }
+function findKeychainArtifacts(): RemovalArtifact[] {
+  return KEYCHAIN_KEYS.map((keyName) => ({
+    label: `Keychain: ${keyName}`,
+    description: '',
+    category: 'secret' as const,
+    found: true, // Can't cheaply check if keychain entries exist without side effects
+    remove: async () => {
+      try {
+        const store = createSecretStore();
+        return await store.delete(keyName);
+      } catch {
+        return false;
+      }
+    },
+    verify: () => false, // Can't cheaply verify keychain state synchronously
+  }));
+}
 
-  // 7. Data directory
+function findDataArtifact(): RemovalArtifact {
+  const causanticDir = path.join(os.homedir(), '.causantic');
+  const exists = fs.existsSync(causanticDir);
+  const dirSize = exists ? getDirSize(causanticDir) : 0;
+
+  return {
+    label: '~/.causantic/',
+    description: formatSize(dirSize),
+    category: 'data',
+    found: exists,
+    size: formatSize(dirSize),
+    remove: async () => {
+      try {
+        fs.rmSync(causanticDir, { recursive: true, force: true });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    verify: () => fs.existsSync(causanticDir),
+  };
+}
+
+/**
+ * Build the full removal plan by scanning all artifact locations.
+ */
+export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
+  const artifacts: RemovalArtifact[] = [
+    findClaudeMdArtifact(),
+    findMcpConfigArtifact(),
+    findHooksArtifact(),
+    ...findProjectMcpArtifacts(),
+    ...findSkillArtifacts(),
+    ...findKeychainArtifacts(),
+  ];
+
   if (!keepData) {
-    const causanticDir = path.join(home, '.causantic');
-    const causanticDirExists = fs.existsSync(causanticDir);
-    const dirSize = causanticDirExists ? getDirSize(causanticDir) : 0;
-
-    artifacts.push({
-      label: '~/.causantic/',
-      description: formatSize(dirSize),
-      category: 'data',
-      found: causanticDirExists,
-      size: formatSize(dirSize),
-      remove: async () => {
-        try {
-          fs.rmSync(causanticDir, { recursive: true, force: true });
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      verify: () => fs.existsSync(causanticDir),
-    });
+    artifacts.push(findDataArtifact());
   }
 
   return artifacts;
