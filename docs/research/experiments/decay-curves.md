@@ -107,6 +107,31 @@ export const FORWARD_HOP_DECAY = {
 };
 ```
 
+## Stratified Analysis by Context Distance
+
+The optimal decay model depends on what context Claude already has in its window. For immediate retrieval (previous turn), recency dominates. For long-range retrieval — the memory system's core use case — slower decay with hold periods wins.
+
+| Context Boundary | Best Model | MRR | Rank@1 |
+|------------------|------------|-----|--------|
+| All references (baseline) | Exponential | 0.961 | 95% |
+| Beyond immediate (>1 turn) | Delayed Linear | 0.680 | 55% |
+| Beyond recent (>3 turns) | Delayed Linear | 0.549 | 42% |
+| Beyond session (>30 min) | Multi-Linear (Default) | 0.397 | 18% |
+| Long-range (>5 turns, high conf) | Delayed Linear | 0.420 | 29% |
+
+### Directional Comparison
+
+Backward (retrieval) and forward (prediction) queries need different decay profiles:
+
+| Model | Backward MRR | Forward MRR | Delta | Better For |
+|-------|-------------|-------------|-------|------------|
+| Simple Linear | 0.952 | 0.960 | +0.008 | Similar |
+| Delayed Linear | 0.329 | 0.969 | +0.641 | Forward |
+| Multi-Linear (Default) | 0.698 | 0.969 | +0.271 | Forward |
+| Exponential | 0.955 | 0.960 | +0.005 | Similar |
+
+Models with hold periods show huge directional asymmetry — delayed linear improves by +0.64 MRR for forward vs backward queries. This validated the use of separate decay profiles for each direction.
+
 ## Reproducibility
 
 Run the decay experiments:

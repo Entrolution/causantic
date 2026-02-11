@@ -345,6 +345,33 @@ npx causantic hook session-start
 npx causantic hook claudemd-generator
 ```
 
+### dashboard
+
+Launch the web dashboard for exploring your memory graph, clusters, and search results.
+
+```bash
+npx causantic dashboard [options]
+```
+
+**Options**:
+
+| Option | Description |
+|--------|-------------|
+| `--port <port>` | HTTP port (default: 3333) |
+
+**Example**:
+```bash
+# Launch on default port
+npx causantic dashboard
+
+# Launch on custom port
+npx causantic dashboard --port 8080
+```
+
+The dashboard provides 5 pages: Overview (collection stats), Search (query memory), Graph Explorer (visualize causal graph), Clusters (browse topic clusters), and Projects (per-project breakdowns).
+
+See [Dashboard Guide](../guides/dashboard.md) for details.
+
 ### benchmark-collection
 
 Run benchmarks against your collection to evaluate health, retrieval quality, graph value, and latency.

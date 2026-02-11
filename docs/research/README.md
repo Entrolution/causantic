@@ -82,6 +82,18 @@ Causantic integrates via both hooks and MCP for different needs:
 
 See [approach/dual-integration.md](approach/dual-integration.md).
 
+### Landscape Analysis
+
+How Causantic compares to existing memory systems (Mem0, Cognee, Letta, Zep, etc.).
+
+See [approach/landscape-analysis.md](approach/landscape-analysis.md).
+
+## Design Decision Log
+
+A chronological narrative of every major decision — the "story of the project" in one place.
+
+See [decisions.md](decisions.md).
+
 ## What Didn't Work
 
 Documenting failures is as important as successes:
@@ -103,6 +115,10 @@ Open questions and ideas for future research:
 - Cross-user memory sharing
 
 See [future-work.md](future-work.md).
+
+## Research Archive
+
+The original working documents from the research phase are preserved in the [archive](archive/) directory. These contain the raw analysis and experiment data that shaped the final implementation.
 
 ## Data and Reproducibility
 

@@ -1,119 +1,81 @@
 # Causantic
 
-Long-term memory system for Claude Code using causal graphs and vector clocks.
+**Long-term memory for Claude Code — local-first, graph-augmented, self-benchmarking.**
+
+No cloud. No API keys. No data leaves your machine. Runs entirely on your hardware with optional per-chunk encryption.
 
 <p align="center">
 <strong>4.65× the relevant context</strong> vs semantic embedding alone<br/>
-<sub>Median 4.54× across 492 queries • Range 3.60× - 5.87×</sub>
+<sub>Median 4.54× across 492 queries · Range 3.60× – 5.87×</sub>
 </p>
+
+## Quick Start
+
+```bash
+# Install
+npm install causantic
+
+# Initialize (creates dirs, configures MCP, offers to import sessions)
+npx causantic init
+
+# Query memory
+npx causantic recall "authentication flow"
+
+# Launch the dashboard
+npx causantic dashboard
+```
+
+## Who Is This For?
+
+Developers using Claude Code who want their AI assistant to **remember across sessions**. When you switch projects, return after a weekend, or need context from three sessions ago, Causantic retrieves the right history automatically.
 
 ## Why Causantic?
 
-Most AI memory systems use vector embeddings for similarity search. Causantic does too — but adds a **causal graph** that tracks *relationships* between memory chunks. This fundamentally changes what you can retrieve.
+Most AI memory systems use vector embeddings for similarity search. Causantic does too — but adds a **causal graph** that tracks *relationships* between memory chunks, **BM25 keyword search** for exact matches, and **HDBSCAN clustering** for topic expansion. The result:
 
 | | Vector Search Only | Causantic |
 |---|---|---|
-| **Finds similar content** | ✓ | ✓ |
-| **Finds lexically relevant content** | ✗ | ✓ (BM25 keyword search) |
-| **Finds related context** | ✗ | ✓ (causal edges) |
-| **Finds topically related context** | ✗ | ✓ (cluster expansion) |
+| **Finds similar content** | Yes | Yes |
+| **Finds lexically relevant content** | No | Yes (BM25 keyword search) |
+| **Finds related context** | No | Yes (causal edges) |
+| **Finds topically related context** | No | Yes (cluster expansion) |
 | **Temporal awareness** | Wall-clock decay | Logical hop decay |
 | **Context retrieval** | 1× | **4.65×** |
 | **Handles project switches** | Breaks continuity | Preserves causality |
 | **Bidirectional queries** | Forward only | Backward + Forward |
 
-### Key Differentiators
+### How It Compares
 
-**1. Hybrid BM25 + Vector Search**
+| System | Local-First | Temporal Decay | Graph Structure | Self-Benchmarking | Hop-Based Distance |
+|--------|:-----------:|:--------------:|:--------------:|:-----------------:|:------------------:|
+| **Causantic** | **Yes** | **Hop-based** | **9-type causal** | **Yes** | **Yes** |
+| Mem0 | No (Cloud) | None | Paid add-on | No | No |
+| Cognee | Self-hostable | None | Triplet extraction | No | No |
+| Letta/MemGPT | Self-hostable | Summarization | None | No | No |
+| Zep | Enterprise | Bi-temporal | Temporal KG | No | No |
+| GraphRAG | Self-hostable | Static corpus | Hierarchical | No | No |
 
-Vector search finds chunks that *look similar*. BM25 keyword search finds chunks with *exact lexical matches* — function names, error codes, CLI flags. Causantic runs both in parallel and fuses results via Reciprocal Rank Fusion (RRF), catching what either search alone would miss.
+See [Landscape Analysis](docs/research/approach/landscape-analysis.md) for detailed per-system analysis.
 
-**2. Causal Graphs, Not Just Vectors**
+## Key Differentiators
 
-Causantic also finds chunks that are *causally related* — the debugging session that led to a fix, the error message that triggered investigation, the test that validated a change.
+**1. Local-First with Encryption**
+All data stays on your machine. Optional per-chunk encryption (ChaCha20-Poly1305) with keys stored in your system keychain. No cloud dependency.
 
-**3. Cluster-Guided Expansion**
+**2. Hybrid BM25 + Vector Search**
+Vector search finds chunks that *look similar*. BM25 keyword search finds chunks with *exact lexical matches* — function names, error codes, CLI flags. Both run in parallel and fuse via Reciprocal Rank Fusion (RRF).
 
-HDBSCAN clusters group semantically related chunks. During retrieval, Causantic expands search results through cluster siblings — surfacing topically related context that neither vector nor keyword search found independently.
+**3. Causal Graphs with 9 Evidence-Weighted Edge Types**
+Chunks are connected by file-path references, code entities, explicit backreferences, error fragments, topic continuity, and more. Each edge type has an empirically determined weight. The graph finds chunks that are *causally related* — not just similar.
 
-**4. Hop-Based Decay, Not Wall-Clock Time**
+**4. Hop-Based Decay with Direction-Specific Curves**
+Returning to a project after a weekend shouldn't make yesterday's work seem "old." Distance is measured in logical D-T-D hops, not elapsed time. Backward edges (dies@10 hops, 1.35× MRR vs exponential) and forward edges (5-hop hold, dies@20, 3.71× MRR) use different decay profiles.
 
-Returning to a project after a weekend shouldn't make yesterday's work seem "old." Causantic measures distance in logical hops (D-T-D transitions), not elapsed time. Monday's work and Tuesday's continuation are 1 hop apart — regardless of the 24-hour gap.
+**5. HDBSCAN Cluster-Guided Expansion**
+Topic clusters group semantically related chunks. During retrieval, results expand through cluster siblings — surfacing context that neither vector nor keyword search found independently. Native TypeScript implementation (130× faster than hdbscan-ts).
 
-**5. Bidirectional Traversal**
-
-Query backward ("what context led to this?") and forward ("what typically follows this?") with direction-specific decay curves optimized for each use case.
-
-**6. Sum-Product Semantics**
-
-Weights multiply along paths and accumulate across paths — a principled approach (inspired by Feynman path integrals) that handles graph cycles naturally and provides meaningful ranking without arbitrary thresholds.
-
-## Overview
-
-Causantic provides persistent, semantically-aware memory for Claude Code sessions. It captures conversation context, builds causal relationships between chunks of dialogue, and enables intelligent retrieval of relevant historical context.
-
-### Why "Entropic"?
-
-The name reflects how **discrimination degrades along causal paths**. When traversing the graph, edge weights multiply — and since weights are < 1, products converge toward zero. You lose the ability to discriminate between distant nodes. This is entropy flowing along causal lines, implementing natural **causal compression**.
-
-See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explanation.
-
-### Key Features
-
-- **Causal Graph**: Tracks relationships between chunks using 9 edge types with evidence-based weights
-- **Vector Clocks**: Measures logical distance in D-T-D hops, not wall-clock time
-- **Bidirectional Traversal**: Query backward (causes) and forward (consequences) with direction-specific decay
-- **Hybrid Search**: BM25 keyword search + vector embedding search fused via Reciprocal Rank Fusion
-- **HDBSCAN Clustering**: Groups related topics; clusters used for retrieval expansion
-- **MCP Integration**: Works with Claude Code via Model Context Protocol
-- **Hook System**: Automatically captures context at session start and before compaction
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 20+
-
-### Installation
-
-```bash
-# Install the package
-npm install causantic
-
-# Initialize Causantic (creates directories, verifies setup)
-npx causantic init
-```
-
-### Basic Usage
-
-```bash
-# Ingest a Claude Code session
-npx causantic ingest ~/.claude/projects/my-project
-
-# Batch ingest all sessions
-npx causantic batch-ingest ~/.claude/projects
-
-# Query memory
-npx causantic recall "authentication flow"
-
-# Start the MCP server
-npx causantic serve
-```
-
-### Claude Code Integration
-
-Add to your Claude Code MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "npx",
-      "args": ["causantic", "serve"]
-    }
-  }
-}
-```
+**6. Self-Benchmarking Suite**
+Measure how well your memory system is working with built-in benchmarks. Health, retrieval quality, graph value, and latency — scored and tracked over time with specific tuning recommendations.
 
 ## Architecture
 
@@ -144,7 +106,7 @@ Add to your Claude Code MCP configuration:
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
 │  │   SQLite     │  │   LanceDB    │  │   Vector Clocks      │   │
 │  │ (chunks,     │  │ (embeddings) │  │   (logical time)     │   │
-│  │  edges)      │  │              │  │                      │   │
+│  │  edges, FTS5)│  │              │  │                      │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
@@ -166,11 +128,85 @@ Add to your Claude Code MCP configuration:
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       MCP Server                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │   recall     │  │   explain    │  │      predict         │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
+│  ┌────────┐ ┌────────┐ ┌─────────┐ ┌───────────┐ ┌───────────┐ │
+│  │ recall │ │explain │ │ predict │ │list-      │ │list-      │ │
+│  │        │ │        │ │         │ │projects   │ │sessions   │ │
+│  └────────┘ └────────┘ └─────────┘ └───────────┘ └───────────┘ │
+│  ┌─────────────┐                                                │
+│  │ reconstruct │                                                │
+│  └─────────────┘                                                │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Web Dashboard                                │
+│  ┌──────────┐ ┌────────┐ ┌───────────┐ ┌──────────┐ ┌────────┐ │
+│  │ Overview │ │ Search │ │ Graph     │ │ Clusters │ │Projects│ │
+│  │          │ │        │ │ Explorer  │ │          │ │        │ │
+│  └──────────┘ └────────┘ └───────────┘ └──────────┘ └────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+## MCP Tools
+
+The MCP server exposes six tools:
+
+| Tool | Description |
+|------|-------------|
+| `recall` | Semantic search with graph-augmented retrieval. Supports `range` (short/long) and `project` filtering. |
+| `explain` | Long-range historical context for complex questions. Default: long-range retrieval. |
+| `predict` | Proactive suggestions based on current context. |
+| `list-projects` | Discover available projects with chunk counts and date ranges. |
+| `list-sessions` | Browse sessions for a project with time filtering. |
+| `reconstruct` | Rebuild session context chronologically — "what did I work on yesterday?" |
+
+### Claude Code Integration
+
+Add to your Claude Code MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "memory": {
+      "command": "npx",
+      "args": ["causantic", "serve"]
+    }
+  }
+}
+```
+
+Or run `npx causantic init` to configure automatically.
+
+## Dashboard
+
+Explore your memory visually:
+
+```bash
+npx causantic dashboard
+```
+
+Opens at [http://localhost:3333](http://localhost:3333) with 5 pages: Overview (collection stats), Search (query memory), Graph Explorer (D3.js visualization), Clusters (topic browser), and Projects (per-project breakdowns).
+
+See [Dashboard Guide](docs/guides/dashboard.md).
+
+## Benchmarking
+
+Measure how well your memory system is working:
+
+```bash
+# Quick health check (~1 second)
+npx causantic benchmark-collection --quick
+
+# Standard benchmark (~30 seconds)
+npx causantic benchmark-collection
+
+# Full benchmark with graph value and latency (~2-5 minutes)
+npx causantic benchmark-collection --full
+```
+
+Scores health (20%), retrieval quality (35%), graph value (30%), and latency (15%) — with specific tuning recommendations. Track improvements over time with `--history`.
+
+See [Benchmarking Guide](docs/guides/benchmarking.md).
 
 ## Configuration
 
@@ -199,15 +235,44 @@ Create `causantic.config.json` in your project root:
 
 See [Configuration Reference](docs/reference/configuration.md) for all options.
 
-## MCP Tools
+## Security
 
-The MCP server exposes three tools:
+- **Per-chunk encryption**: ChaCha20-Poly1305 with keys stored in your system keychain
+- **Local-only storage**: SQLite + LanceDB on your filesystem, no cloud sync
+- **Embedding vector protection**: Encrypted vectors prevent semantic reconstruction
 
-| Tool | Description |
-|------|-------------|
-| `recall` | Semantic search with graph-augmented retrieval |
-| `explain` | Long-range historical context for complex questions |
-| `predict` | Proactive suggestions based on current context |
+See [Security Guide](docs/guides/security.md).
+
+## Documentation
+
+- [Getting Started](docs/getting-started/installation.md) — Installation and setup
+- [User Guides](docs/guides/) — Dashboard, benchmarking, integration, security, maintenance
+- [CLI Reference](docs/reference/cli-commands.md) — All commands and options
+- [MCP Tools Reference](docs/reference/mcp-tools.md) — Tool schemas and usage
+- [Configuration Reference](docs/reference/configuration.md) — All configuration options
+- [Research Documentation](docs/research/) — Experiment results and design decisions
+- [Design Decision Log](docs/research/decisions.md) — Why things are the way they are
+
+## Research
+
+Built on rigorous experimentation across 75 sessions and 492 queries:
+
+| Experiment | Result | Comparison |
+|------------|--------|------------|
+| Graph Traversal | **4.65×** context | vs vector-only |
+| Forward Decay | **3.71×** MRR | vs time-based decay |
+| Backward Decay | **1.35×** MRR | vs time-based decay |
+| Topic Detection | 0.998 AUC | near-perfect accuracy |
+| Clustering | F1=0.940 | 100% precision |
+| Thinking Block Removal | +0.063 AUC | embedding quality improvement |
+
+See [Research Documentation](docs/research/) for detailed findings, and the [Design Decision Log](docs/research/decisions.md) for the story of how each decision was made.
+
+### Why "Entropic"?
+
+The name reflects how **discrimination degrades along causal paths**. When traversing the graph, edge weights multiply — and since weights are < 1, products converge toward zero. You lose the ability to discriminate between distant nodes. This is entropy flowing along causal lines, implementing natural **causal compression**.
+
+See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explanation.
 
 ## Maintenance
 
@@ -222,27 +287,6 @@ npx causantic maintenance status
 npx causantic maintenance daemon
 ```
 
-## Documentation
-
-- [Getting Started](docs/getting-started/installation.md)
-- [User Guides](docs/guides/)
-- [API Reference](docs/reference/)
-- [Research Documentation](docs/research/)
-
-## Research
-
-This project is built on extensive experimentation across 75 sessions and 492 queries:
-
-| Experiment | Result | Comparison |
-|------------|--------|------------|
-| Graph Traversal | **4.65×** context | vs vector-only |
-| Forward Decay | **3.71×** MRR | vs time-based decay |
-| Backward Decay | **1.35×** MRR | vs time-based decay |
-| Topic Detection | 0.998 AUC | near-perfect accuracy |
-| Clustering | F1=0.940 | 100% precision |
-
-See [Research Documentation](docs/research/) for detailed findings.
-
 ## Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before submitting PRs.
@@ -250,4 +294,3 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
-
