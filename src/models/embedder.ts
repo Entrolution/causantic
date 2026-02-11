@@ -70,7 +70,7 @@ export class Embedder {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       this.pipe = await (pipeline as any)(
         'feature-extraction', config.hfId, pipelineOptions,
       ) as FeatureExtractionPipeline;
@@ -87,7 +87,7 @@ export class Embedder {
           source: detection.source,
           notes: `${detection.label} failed: ${(epError as Error).message}`,
         };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         this.pipe = await (pipeline as any)(
           'feature-extraction', config.hfId, { dtype: 'fp32', device: 'cpu' },
         ) as FeatureExtractionPipeline;

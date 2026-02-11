@@ -6,7 +6,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Server } from 'node:http';
-import Database from 'better-sqlite3-multiple-ciphers';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import { createTestDb, setupTestDb, teardownTestDb } from '../storage/test-utils.js';
 import { createApp } from '../../src/dashboard/server.js';
 import { insertChunk } from '../../src/storage/chunk-store.js';

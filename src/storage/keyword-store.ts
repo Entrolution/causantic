@@ -23,7 +23,7 @@ function sanitizeQuery(query: string): string {
   if (!query || !query.trim()) return '';
 
   // Remove FTS5 special operators and characters
-  let sanitized = query
+  const sanitized = query
     // Remove boolean operators (AND, OR, NOT as full words)
     .replace(/\b(AND|OR|NOT)\b/g, '')
     // Escape special FTS5 characters by wrapping terms in double quotes
