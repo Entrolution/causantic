@@ -7,7 +7,7 @@
 
 import Database from 'better-sqlite3-multiple-ciphers';
 import { existsSync, mkdirSync } from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import { dirname } from 'path';
 import { resolvePath } from '../config/memory-config.js';
 import { loadConfig } from '../config/loader.js';
@@ -35,17 +35,19 @@ const KEYCHAIN_SERVICE = 'causantic';
 function getKeyFromKeychainSync(): string | null {
   try {
     if (process.platform === 'darwin') {
-      const result = execSync(
-        `security find-generic-password -a "${DB_KEY_NAME}" -s "${KEYCHAIN_SERVICE}" -w 2>/dev/null`,
-        { encoding: 'utf-8' }
+      const result = execFileSync(
+        'security',
+        ['find-generic-password', '-a', DB_KEY_NAME, '-s', KEYCHAIN_SERVICE, '-w'],
+        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
       );
       return result.trim() || null;
     } else if (process.platform === 'linux') {
-      const result = execSync(
-        `secret-tool lookup service "${KEYCHAIN_SERVICE}" account "${DB_KEY_NAME}" 2>/dev/null`,
+      const result = spawnSync(
+        'secret-tool',
+        ['lookup', 'service', KEYCHAIN_SERVICE, 'account', DB_KEY_NAME],
         { encoding: 'utf-8' }
       );
-      return result.trim() || null;
+      return (result.status === 0 && result.stdout?.trim()) || null;
     }
     return null;
   } catch {
