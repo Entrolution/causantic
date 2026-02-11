@@ -10,9 +10,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import * as readline from 'node:readline';
 import { createSecretStore } from '../utils/secret-store.js';
 import { CAUSANTIC_SKILLS } from './skill-templates.js';
+import { promptUser } from './utils.js';
 
 const CAUSANTIC_SERVER_KEY = 'causantic';
 const CAUSANTIC_START_MARKER = '<!-- CAUSANTIC_MEMORY_START -->';
@@ -514,17 +514,7 @@ export async function handleUninstall(args: string[]): Promise<void> {
       process.exit(1);
     }
 
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    const answer = await new Promise<string>((resolve) => {
-      rl.question('Type "yes" to proceed with uninstall: ', (ans) => {
-        rl.close();
-        resolve(ans.trim());
-      });
-    });
+    const answer = (await promptUser('Type "yes" to proceed with uninstall: ')).trim();
 
     if (answer !== 'yes') {
       console.log('Uninstall cancelled.');

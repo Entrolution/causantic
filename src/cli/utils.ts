@@ -58,6 +58,42 @@ export async function promptPassword(prompt: string): Promise<string> {
 }
 
 /**
+ * Prompt the user for text input.
+ */
+export async function promptUser(message: string): Promise<string> {
+  const readline = await import('node:readline');
+
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    rl.question(message, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
+/**
+ * Prompt the user for a yes/no answer.
+ * @param message - The prompt message (bracket hint is appended automatically)
+ * @param defaultYes - Whether "yes" is the default (affects prompt hint and empty input)
+ * @returns true if the user answered yes
+ */
+export async function promptYesNo(message: string, defaultYes = false): Promise<boolean> {
+  const hint = defaultYes ? '[Y/n]' : '[y/N]';
+  const answer = await promptUser(`${message} ${hint} `);
+  const normalized = answer.toLowerCase().trim();
+
+  if (normalized === '') {
+    return defaultYes;
+  }
+  return normalized === 'y' || normalized === 'yes';
+}
+
+/**
  * Check if a file is an encrypted Causantic archive.
  */
 export async function isEncryptedArchive(filePath: string): Promise<boolean> {
