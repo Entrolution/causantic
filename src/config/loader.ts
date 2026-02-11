@@ -85,11 +85,11 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
     },
   },
   clustering: {
-    threshold: 0.09,
+    threshold: 0.10,
     minClusterSize: 4,
   },
   traversal: {
-    maxDepth: 20,  // Match forward decay diesAtHops
+    maxDepth: 15,  // Limits latency on sparse graphs; raise for dense edge sets
     minWeight: 0.01,
   },
   tokens: {

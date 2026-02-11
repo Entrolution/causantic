@@ -134,12 +134,13 @@ export interface MemoryConfig {
 
 /**
  * Default configuration values.
- * Cluster threshold derived from Phase 0.1 experiment: 0.09 gives F1=0.940
- * (100% precision, 88.7% recall on same-cluster pair prediction)
+ * Cluster threshold: 0.10 balances coverage and separation on large collections.
+ * Phase 0.1 calibrated F1=0.940 at 0.09; bumped to 0.10 after noise rescue
+ * pass doubled cluster coverage (26% → 50%) on a 7k-chunk dataset.
  */
 export const DEFAULT_CONFIG: MemoryConfig = {
   // Clustering
-  clusterThreshold: 0.09,
+  clusterThreshold: 0.10,
   minClusterSize: 4,
 
   // Time-based decay (fallback) - based on Phase 0.2 experiment results
@@ -152,7 +153,7 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   vectorDecay: DEFAULT_VECTOR_DECAY,   // Legacy fallback only
 
   // Traversal
-  maxTraversalDepth: 20,  // Match forward decay diesAtHops
+  maxTraversalDepth: 15,  // Limits latency on sparse graphs; raise for dense edge sets
   minSignalThreshold: 0.01,
 
   // Integration

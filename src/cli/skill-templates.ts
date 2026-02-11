@@ -473,7 +473,7 @@ description: "Memory-informed codebase review and cleanup plan. Combines compreh
 
 # Codebase Cleanup & Architecture Review
 
-Perform a comprehensive codebase review and create a cleanup plan aligned to clean code and clean architecture principles, enriched with historical context from Causantic memory.
+Perform a comprehensive review of the codebase and create a cleanup plan aligned to clean code and clean architecture principles, enriched with historical context from Causantic memory. Primary goals: audit dependency health (security vulnerabilities, deprecations, unmaintained projects), resolve linting errors and warnings, remove duplication, improve readability, eliminate dead code and artifacts, consolidate documentation, and enable high test coverage (70%+ target, ideally near 100%).
 
 ## Invoke Planning Mode
 
@@ -489,13 +489,91 @@ Perform a comprehensive codebase review and create a cleanup plan aligned to cle
 - Note the tech stack, frameworks, and key dependencies
 - Find existing tests and assess current coverage
 
-### 1.2 Dependency Analysis
+### 1.2 Internal Dependency Analysis
 - Map internal dependencies between modules/packages
 - Identify circular dependencies
 - Check for dependency direction violations (dependencies should point inward)
-- Note external dependencies and their coupling
+- Note coupling between modules
 
-### 1.3 Code Metrics Gathering
+### 1.3 External Dependency Health Audit
+
+**Version Currency & Updates:**
+- List all direct dependencies with current pinned version vs latest available
+- Identify dependencies more than one major version behind
+- Flag any dependencies with pending breaking changes in the next major version
+- Check for deprecated dependencies (marked deprecated by maintainers)
+
+**Security Vulnerabilities:**
+- Run ecosystem security audit tools (\`cargo audit\`, \`npm audit\`, \`pip-audit\`, \`govulncheck\`, etc.)
+- Cross-reference dependencies against known vulnerability databases (RustSec, GitHub Advisory, NIST NVD)
+- Classify findings by severity: critical, high, medium, low
+- For each vulnerability, note whether a patched version exists
+- Check transitive (indirect) dependencies for vulnerabilities — not just direct ones
+
+**Project Health & Sustainability:**
+For each dependency, assess maintenance health signals:
+- **Last release date** — flag if >12 months since last publish
+- **Last commit date** — flag if >6 months since last commit to default branch
+- **Open issues / PRs** — flag accumulating unanswered issues
+- **Bus factor** — flag single-maintainer projects for critical dependencies
+- **Download trends** — flag declining adoption (ecosystem-specific: crates.io, npm, PyPI)
+- **Funding / backing** — note whether the project has organisational support or is volunteer-only
+- **Ecosystem signals** — check for "looking for maintainer" notices, archived repos, or successor projects
+
+**Risk Classification:**
+Classify each dependency into:
+| Risk Level | Criteria |
+|-----------|----------|
+| **Low** | Actively maintained, multiple contributors, backed by org, no known CVEs |
+| **Medium** | Maintained but single maintainer, or infrequent releases, or minor CVEs patched |
+| **High** | Unmaintained (>12 months), single maintainer gone, unpatched CVEs, or deprecated |
+| **Critical** | Known exploited vulnerabilities, abandoned with no successor, or archived |
+
+**Mitigation Strategies for High/Critical Risk:**
+For each high/critical risk dependency, recommend one of:
+1. **Bump** — newer version resolves the issue
+2. **Replace** — suggest well-maintained alternative with migration path
+3. **Fork** — if no alternative exists, consider maintaining a fork
+4. **Embed** — for small or thin dependencies, inline the relevant code to eliminate the external dependency entirely (reduces supply chain risk)
+5. **Remove** — if the dependency is no longer needed
+
+### 1.4 Linter & Static Analysis Audit
+
+**Run all configured linters with warnings enabled:**
+Detect the project's linting tools and run them in strict/pedantic mode to surface the full picture:
+
+| Ecosystem | Lint Command | Notes |
+|-----------|-------------|-------|
+| Rust | \`cargo clippy --workspace --all-features -- -W clippy::pedantic\` | Run both default and pedantic; separate findings by severity |
+| TypeScript/JS | \`eslint . --max-warnings 0\` or \`biome check .\` | Check for \`eslint-disable\` comments and \`@ts-ignore\` / \`@ts-expect-error\` suppressions |
+| Python | \`ruff check .\` or \`flake8 . --statistics\` | Also check \`mypy\`/\`pyright\` type errors |
+| Go | \`go vet ./...\` and \`staticcheck ./...\` | Check for \`//nolint\` directives |
+| General | Any project-specific linters in CI config or pre-commit hooks | Match what CI enforces |
+
+**Classify findings:**
+- **Errors** — code that won't compile, type errors, or lint rules configured as errors. These must be fixed.
+- **Warnings** — potential bugs, style issues, or best practice violations. Triage by category.
+- **Suppressions** — \`#[allow(...)]\`, \`// eslint-disable\`, \`@ts-ignore\`, \`# noqa\`, \`//nolint\`, etc. Audit each:
+  - Is the suppression still necessary? (The underlying issue may have been fixed)
+  - Is there a comment explaining why it's suppressed?
+  - Can the code be refactored to eliminate the need for suppression?
+
+**Categorise lint findings:**
+
+| Category | Examples | Priority |
+|----------|---------|----------|
+| **Correctness** | Unused results, unchecked errors, unreachable code, type mismatches | High — likely bugs |
+| **Performance** | Unnecessary allocations, redundant clones, inefficient patterns | Medium — profile first |
+| **Style & Idiom** | Non-idiomatic patterns, naming conventions, import ordering | Low — batch fix |
+| **Complexity** | Overly complex expressions, deeply nested logic, long functions | Medium — readability |
+| **Deprecation** | Use of deprecated APIs, functions, or language features | High — will break on upgrade |
+
+**Formatter compliance:**
+- Run the project formatter (\`cargo fmt\`, \`prettier\`, \`black\`, \`gofmt\`, etc.) in check mode
+- Note any files that don't conform
+- Check if formatting is enforced in CI — if not, recommend adding it
+
+### 1.5 Code Metrics Gathering
 - Identify large files (>300 lines) and complex functions (>30 lines)
 - Find files with high cyclomatic complexity
 - Locate code with deep nesting (>3 levels)
@@ -526,6 +604,16 @@ Perform a comprehensive codebase review and create a cleanup plan aligned to cle
 - Note what was done before, what worked, and what was abandoned
 - Avoid recommending changes that were previously tried and rejected (unless circumstances changed)
 
+### 2.4 Dependency History
+- Use \`recall\` to search for past dependency upgrade attempts, compatibility issues, or migration discussions
+- Use \`explain\` to understand why specific dependency versions may be pinned
+- Cross-reference memory findings with current dependency state — avoid recommending upgrades that were previously tried and caused issues
+
+### 2.5 Lint & Suppression History
+- Use \`recall\` to search for past discussions about lint suppressions, intentional \`eslint-disable\` or \`@ts-ignore\` additions
+- Check if past sessions document why certain warnings were left unfixed
+- Note when memory shows a suppression was deliberately added for a specific edge case
+
 \`\`\`
 ✓ CHECKPOINT: Phase 2 complete - Memory-Informed Context Gathering
 \`\`\`
@@ -536,21 +624,22 @@ Perform a comprehensive codebase review and create a cleanup plan aligned to cle
 
 ### 3.1 Documentation Inventory
 - Locate all documentation files (README, docs/, wiki, inline docs)
-- Identify documentation types: API docs, architecture docs, setup guides
+- Identify documentation types: API docs, architecture docs, setup guides, user guides
 - Map documentation to corresponding code/features
-- Note documentation format and tooling
+- Note documentation format and tooling (markdown, JSDoc, Sphinx, etc.)
 
 ### 3.2 Documentation Quality Assessment
-- Check for outdated or stale documentation
-- Identify duplicate documentation
-- Find conflicting documentation
-- Note incomplete documentation
-- Assess discoverability
+- Check for outdated or stale documentation (doesn't match current code)
+- Identify duplicate documentation (same info in multiple places)
+- Find conflicting documentation (contradictory information)
+- Note incomplete documentation (missing critical sections)
+- Assess documentation accessibility and discoverability
 
 ### 3.3 Documentation Consolidation Plan
 - Recommend single source of truth for each topic
 - Identify documentation to merge, update, or remove
 - Suggest documentation structure aligned with project architecture
+- Propose automation for keeping docs in sync (doc generation, CI checks)
 
 \`\`\`
 ✓ CHECKPOINT: Phase 3 complete - Documentation Review
@@ -571,21 +660,31 @@ Search for:
 
 **Dead and Unused Code:**
 - Unreachable code paths
-- Unused functions, methods, classes, variables, imports
+- Unused functions, methods, and classes
+- Unused variables and imports
 - Vestigial code from removed features
 - Commented-out code blocks
 - Deprecated code still present
 
 **Debugging Artifacts:**
-- Console.log, print statements, debug output
+- Console.log, print statements, and debug output
 - Hardcoded debug flags or conditions
+- Debug-only code paths
 - Temporary workarounds left in place
 
+**Testing Artifacts:**
+- Orphaned test files for deleted code
+- Test fixtures no longer used
+- Mock data files that are stale
+- Test utilities that aren't called
+
 **Outdated Artifacts:**
-- Old configuration files
-- Legacy migration scripts already applied
+- Old configuration files (for removed tools/services)
+- Legacy migration scripts that have been applied
 - Backup files (.bak, .old, .orig)
 - Generated files that should be in .gitignore
+- Old build outputs or cache directories
+- Stale lock files or dependency snapshots
 
 ### 4.3 Architecture Assessment
 
@@ -596,7 +695,7 @@ Search for:
 - Is the domain free of I/O and side effects?
 
 **SOLID Principles:**
-- **S**: Classes/modules doing too much?
+- **S**: Are there classes/modules doing too much?
 - **O**: Can behaviour be extended without modification?
 - **L**: Are substitutions safe across inheritance?
 - **I**: Are interfaces minimal and focused?
@@ -604,9 +703,17 @@ Search for:
 
 ### 4.4 Code Quality Assessment
 
-**Readability:** Self-documenting names, explicit over implicit, small focused functions, reasonable nesting depth
+**Readability:**
+- Are names self-documenting?
+- Is the code explicit over implicit?
+- Are functions small and focused?
+- Is nesting depth reasonable?
 
-**Maintainability:** Components understandable in isolation, contained side effects, clear state management, consistent error handling
+**Maintainability:**
+- Can components be understood in isolation?
+- Are side effects contained and explicit?
+- Is state management clear?
+- Are error paths handled consistently?
 
 \`\`\`
 ✓ CHECKPOINT: Phase 4 complete - Pattern Analysis
@@ -617,20 +724,25 @@ Search for:
 ## Phase 5: Testability Analysis
 
 ### 5.1 Current Test Assessment
-- Document existing test coverage
+- Document existing test coverage percentage
 - Identify test types present (unit, integration, e2e)
-- Note testing frameworks and patterns
+- Note testing frameworks and patterns in use
 - Find untested critical paths
 
 ### 5.2 Testability Barriers
-- Tight coupling to infrastructure
+Identify code that is hard to test:
+- Tight coupling to infrastructure (DB, APIs, filesystem)
 - Hidden dependencies (singletons, global state)
 - Side effects mixed with business logic
 - Large functions doing multiple things
 - Missing dependency injection
 
 ### 5.3 Coverage Gap Analysis
-Prioritise untested areas by: business criticality, change frequency, complexity/risk, ease of testing
+Prioritise untested areas by:
+1. Business criticality
+2. Change frequency
+3. Complexity/risk
+4. Ease of testing after refactor
 
 \`\`\`
 ✓ CHECKPOINT: Phase 5 complete - Testability Analysis
@@ -640,30 +752,133 @@ Prioritise untested areas by: business criticality, change frequency, complexity
 
 ## Phase 6: Cleanup Plan Creation
 
-### 6.1 Dead Code & Artifact Removal
+### 6.1 Dependency Actions
 
-**Immediate Removal** (safe): Commented-out code, unused imports/variables, debug statements, backup files, orphaned test files
+**Immediate Security Fixes:**
+| Dependency | Current | Fix Version | Vulnerability | Severity |
+|-----------|---------|-------------|---------------|----------|
+| ... | ... | ... | CVE-... | critical/high |
 
-**Careful Removal** (verify first): Unused functions (check dynamic calls), vestigial feature code, old configuration, deprecated code
+**Version Bumps:**
+| Dependency | Current | Latest | Breaking Changes | Notes |
+|-----------|---------|--------|------------------|-------|
+| ... | ... | ... | yes/no | ... |
 
-### 6.2 Refactoring Opportunities
+**At-Risk Dependencies:**
+| Dependency | Risk Level | Issue | Recommended Action |
+|-----------|-----------|-------|-------------------|
+| ... | high/critical | unmaintained/deprecated/... | replace with X / embed / fork / remove |
 
-**Quick Wins** (low effort, high impact): Remove dead code, extract duplicates, rename unclear names, fix obvious SOLID violations
+For each at-risk dependency, include:
+- Why it's flagged (specific health signals)
+- Recommended alternative (if replacing), with brief comparison
+- Migration complexity estimate (trivial / moderate / significant)
+- If recommending embed: identify the specific functions/types used and estimate the inlining effort
 
-**Structural Improvements** (medium effort): Extract classes from large files, introduce missing abstractions, separate pure logic from side effects, add dependency injection
+### 6.2 Lint & Static Analysis Cleanup
 
-**Architectural Changes** (high effort): Restructure to proper layers, extract bounded contexts, introduce interfaces/ports
+**Errors (must fix):**
+| File | Line | Lint Rule | Message | Fix |
+|------|------|-----------|---------|-----|
+| ... | ... | ... | ... | ... |
 
-### 6.3 Testing Strategy
+**Warnings by category:**
+| Category | Count | Examples | Suggested Approach |
+|----------|-------|---------|-------------------|
+| Correctness | N | unused Result in \`foo.ts:42\` | Fix individually — likely bugs |
+| Deprecation | N | \`old_api()\` in \`bar.ts:15\` | Migrate to replacement API |
+| Performance | N | unnecessary clone in \`baz.ts:88\` | Batch fix, profile first |
+| Style/Idiom | N | non-idiomatic match in \`qux.ts:20\` | Batch fix in single commit |
+| Complexity | N | cognitive complexity 25 in \`parse()\` | Refactor as part of Phase 4 |
+
+**Suppression audit:**
+| File | Line | Suppression | Still Needed? | Action |
+|------|------|------------|---------------|--------|
+| ... | ... | \`// eslint-disable\` | yes/no | keep with comment / remove / refactor |
+
+**Formatter fixes:**
+- List files not conforming to project formatter
+- Recommend: run formatter and commit as standalone PR (no logic changes)
+
+### 6.3 Dead Code & Artifact Removal
+
+**Immediate Removal** (safe to delete):
+- Commented-out code (preserved in version control)
+- Unused imports and variables
+- Debug statements and logging
+- Backup and temporary files
+- Orphaned test files
+
+**Careful Removal** (verify before deleting):
+- Unused functions (check for dynamic calls)
+- Vestigial feature code (confirm feature is truly removed)
+- Old configuration (ensure not referenced)
+- Deprecated code (check for external consumers)
+
+### 6.4 Documentation Updates
+
+**Documentation Actions:**
+| Document | Action | Reason |
+|----------|--------|--------|
+| ... | Keep/Update/Merge/Remove | ... |
+
+**Consolidation Tasks:**
+- Merge duplicate docs into single source
+- Update outdated documentation
+- Remove documentation for deleted features
+- Add missing critical documentation
+
+### 6.5 Refactoring Opportunities
+
+Categorise findings into:
+
+**Quick Wins** (low effort, high impact)
+- Remove dead code, unused imports, and debug statements
+- Extract duplicated code into shared utilities
+- Rename unclear variables/functions
+- Fix obvious SOLID violations
+
+**Structural Improvements** (medium effort)
+- Extract classes/modules from large files
+- Introduce missing abstractions
+- Separate pure logic from side effects
+- Add dependency injection where missing
+
+**Architectural Changes** (high effort)
+- Restructure to proper layers
+- Extract bounded contexts
+- Introduce proper interfaces/ports
+- Migrate to cleaner patterns
+
+### 6.6 Testing Strategy
+
+For each area, recommend:
+- What test types to add (unit/integration/e2e)
+- What refactoring enables testing
+- Order of test introduction
+- Target coverage per module
 
 **Testing Pyramid Target:**
-- Unit tests: 70-80% (fast, isolated)
+- Unit tests: 70-80% of tests (fast, isolated)
 - Integration tests: 15-25% (component boundaries)
 - E2E tests: 5-10% (critical paths only)
 
-### 6.4 Prioritised Backlog
+### 6.7 Prioritised Backlog
 
-Order by: 1) Dead code removal, 2) Unlocks testing, 3) Documentation consolidation, 4) High duplication, 5) High complexity, 6) Architectural violations, 7) Tech debt hotspots
+Create a prioritised list considering:
+1. **Security vulnerability fixes** — patch or bump dependencies with known CVEs (critical/high first)
+2. **Lint errors & correctness warnings** — fix compiler/linter errors and correctness-category warnings (likely bugs)
+3. **At-risk dependency mitigation** — replace, embed, or fork unmaintained/deprecated dependencies
+4. **Dead code removal** — quick wins that reduce noise
+5. **Formatter & style lint fixes** — run formatter, fix style warnings (standalone PR, no logic changes)
+6. **Dependency version bumps** — bring dependencies up to date (group minor/patch bumps)
+7. **Suppression audit** — remove stale \`eslint-disable\` / \`@ts-ignore\` / \`# noqa\` directives
+8. **Unlocks testing** — refactors that enable high-value tests
+9. **Documentation consolidation** — reduce confusion and maintenance burden
+10. **High duplication** — consolidation opportunities
+11. **High complexity** — simplification targets (also addresses complexity lint warnings)
+12. **Architectural violations** — dependency direction fixes
+13. **Technical debt hotspots** — frequently changed problem areas
 
 \`\`\`
 ✓ CHECKPOINT: Phase 6 complete - Cleanup Plan Creation
@@ -673,16 +888,130 @@ Order by: 1) Dead code removal, 2) Unlocks testing, 3) Documentation consolidati
 
 ## Output Format
 
-Write the plan to \`CLEANUP_PLAN.md\` in project root with sections:
-- Executive Summary
-- Current State (architecture, coverage, documentation, top issues)
-- Memory Context (decisions from history, known tech debt, past attempts)
-- Dead Code & Artifact Removal (immediate + careful)
-- Documentation Consolidation
-- Refactoring Roadmap (phases 1-4)
-- Testing Strategy
-- Target State
-- Risks & Considerations
+Write the plan to \`CLEANUP_PLAN.md\` in project root with:
+
+\`\`\`markdown
+# Codebase Cleanup Plan
+
+## Executive Summary
+[2-3 paragraph overview of findings and recommended approach]
+
+## Current State
+- **Architecture**: [assessment]
+- **Test Coverage**: [current %]
+- **Documentation**: [assessment]
+- **Dependency Health**: [assessment — e.g., "3 critical CVEs, 5 outdated, 2 unmaintained"]
+- **Lint Health**: [assessment — e.g., "0 errors, 12 warnings (3 correctness, 9 style), 5 stale suppressions"]
+- **Key Issues**: [top 5-7 problems]
+
+## Memory Context
+- **Decisions from History**: [relevant architectural decisions from memory]
+- **Known Tech Debt**: [tech debt items surfaced from memory]
+- **Past Attempts**: [previous cleanup/refactoring attempts and outcomes]
+- **Dependency History**: [past upgrade attempts, pinning reasons]
+- **Lint/Suppression History**: [deliberate suppressions, unfixed warnings context]
+
+## Dependency Health
+
+### Security Fixes (Priority)
+| Dependency | Current | Fix Version | Vulnerability | Severity |
+|-----------|---------|-------------|---------------|----------|
+| ... | ... | ... | CVE-... | critical/high/medium |
+
+### At-Risk Dependencies
+| Dependency | Risk | Issue | Action | Alternative / Notes |
+|-----------|------|-------|--------|---------------------|
+| ... | high/critical | unmaintained since YYYY | replace / embed / fork | ... |
+
+### Version Bumps
+| Dependency | Current | Latest | Breaking | Notes |
+|-----------|---------|--------|----------|-------|
+| ... | ... | ... | yes/no | ... |
+
+## Lint & Static Analysis
+
+### Errors
+| File:Line | Rule | Message | Fix |
+|-----------|------|---------|-----|
+| ... | ... | ... | ... |
+
+### Warnings (by category)
+| Category | Count | Action |
+|----------|-------|--------|
+| Correctness | N | Fix individually |
+| Deprecation | N | Migrate APIs |
+| Performance | N | Profile then fix |
+| Style | N | Batch fix |
+| Complexity | N | Refactor in Phase 4 |
+
+### Suppression Audit
+| File:Line | Suppression | Verdict | Action |
+|-----------|------------|---------|--------|
+| ... | \`// eslint-disable\` | stale/valid | remove / keep with comment |
+
+## Dead Code & Artifact Removal
+
+### Immediate Removal
+| Item | Location | Type | Notes |
+|------|----------|------|-------|
+| ... | ... | dead code/debug/artifact | ... |
+
+### Verify Before Removal
+| Item | Location | Verification Needed |
+|------|----------|---------------------|
+| ... | ... | ... |
+
+## Documentation Consolidation
+
+### Documents to Update
+| Document | Updates Required |
+|----------|------------------|
+| ... | ... |
+
+### Documents to Remove/Merge
+| Document | Action | Target |
+|----------|--------|--------|
+| ... | merge into | ... |
+
+## Refactoring Roadmap
+
+### Phase 0: Dependency Health (Security & Supply Chain)
+| Task | Impact | Effort | Dependencies Affected |
+|------|--------|--------|----------------------|
+| ... | ... | ... | ... |
+
+### Phase 1: Cleanup (Remove Noise)
+| Task | Impact | Effort | Files Affected |
+|------|--------|--------|----------------|
+| ... | ... | ... | ... |
+
+### Phase 2: Foundation (Enable Testing)
+| Task | Impact | Effort | Unlocks |
+|------|--------|--------|---------|
+| ... | ... | ... | ... |
+
+### Phase 3: Consolidation (Remove Duplication)
+| Task | Impact | Effort | Files Affected |
+|------|--------|--------|----------------|
+| ... | ... | ... | ... |
+
+### Phase 4: Architecture (Clean Structure)
+| Task | Impact | Effort | Components |
+|------|--------|--------|------------|
+| ... | ... | ... | ... |
+
+## Testing Strategy
+[Detailed testing approach per module/layer]
+
+## Target State
+- **Test Coverage**: [target %]
+- **Architecture**: [target state description]
+- **Documentation**: [target state]
+- **Key Improvements**: [expected outcomes]
+
+## Risks & Considerations
+[Migration risks, breaking changes, dependencies]
+\`\`\`
 
 ---
 
@@ -690,19 +1019,68 @@ Write the plan to \`CLEANUP_PLAN.md\` in project root with sections:
 
 ### Do
 - Be specific with file paths and line references
-- Quantify duplication ("duplicated in 5 places")
+- Quantify duplication (e.g., "duplicated in 5 places")
 - List every piece of dead code found
+- Note all debug statements for removal
+- Explain the "why" behind each recommendation
+- Consider incremental refactoring paths
 - Check memory before recommending changes to understand why code exists as-is
 - Note when memory shows a decision was deliberate vs accidental
 - Prioritise changes that unlock testing
+- Run ecosystem-specific audit tools (cargo audit, npm audit, etc.) for security findings
+- Check GitHub/registry pages for dependency health signals (last release, contributors, issues)
+- Distinguish between direct and transitive dependency vulnerabilities
+- Provide concrete alternatives when flagging at-risk dependencies
+- Estimate migration effort when suggesting dependency replacements
+- Run linters in strict/pedantic mode to surface the full warning set, not just what CI enforces
+- Audit every lint suppression — check if still needed and has an explanatory comment
+- Categorise lint findings (correctness vs style vs performance) so fixes can be batched sensibly
+- Recommend formatter-only commits as standalone PRs to keep diffs reviewable
 
 ### Don't
 - Recommend rewrites when refactoring suffices
 - Suggest changes that break existing tests
 - Over-abstract prematurely
+- Ignore existing team conventions without discussion
 - Recommend removing code that memory shows was deliberately written to handle a specific edge case
 - Recommend an approach that memory shows was tried and abandoned
 - Create a plan too large to execute incrementally
+- Remove code without checking for dynamic references
+- Delete documentation without confirming it's truly outdated
+- Bump major versions without noting breaking changes and migration steps
+- Flag a dependency as "unmaintained" just because it's stable and feature-complete (some mature libraries are intentionally low-activity)
+- Recommend replacing a dependency without verifying the alternative covers the actual usage
+- Blindly fix all pedantic lint warnings — some are noise; triage by category first
+- Remove lint suppressions without checking if the underlying issue is actually fixed
+- Mix formatter changes with logic changes in the same commit (keep diffs reviewable)
+
+### Clean Code Principles to Apply
+- Functions should do one thing
+- Names should reveal intent
+- Comments explain "why", code explains "what"
+- Error handling is a separate concern
+- Tests are first-class citizens
+- Boy Scout Rule: leave code cleaner than you found it
+- No dead code, no commented-out code, no debug leftovers
+
+### Clean Architecture Principles to Apply
+- Independence from frameworks
+- Testability without external elements
+- Independence from UI
+- Independence from database
+- Independence from external agencies
+- Dependency Rule: source code dependencies point inward
+
+---
+
+## Notes
+
+- This skill produces a **plan**, not immediate changes
+- User approval required before implementing any refactoring
+- Large codebases may need multiple planning sessions by area
+- Consider breaking the plan into separate PRs for review
+- Dead code removal is often safest to do first as a separate PR
+- Documentation updates can be done in parallel with code changes
 `,
   },
 ];

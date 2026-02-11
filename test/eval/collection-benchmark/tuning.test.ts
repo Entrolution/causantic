@@ -9,8 +9,8 @@ import type { CollectionBenchmarkResult } from '../../../src/eval/collection-ben
 // Mock the config loader
 vi.mock('../../../src/config/loader.js', () => ({
   loadConfig: () => ({
-    clustering: { threshold: 0.09, minClusterSize: 4 },
-    traversal: { maxDepth: 20, minWeight: 0.01 },
+    clustering: { threshold: 0.10, minClusterSize: 4 },
+    traversal: { maxDepth: 15, minWeight: 0.01 },
     tokens: { mcpMaxResponse: 2000 },
     decay: { forward: { diesAtHops: 20 } },
   }),

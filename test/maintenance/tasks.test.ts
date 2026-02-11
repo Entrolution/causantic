@@ -52,35 +52,70 @@ describe('scanProjects', () => {
 });
 
 describe('updateClusters', () => {
-  it('returns success when recluster succeeds without label refresh', async () => {
-    const recluster = vi.fn().mockResolvedValue(undefined);
+  const mockClusteringResult = {
+    numClusters: 5,
+    assignedChunks: 150,
+    noiseChunks: 20,
+    noiseRatio: 0.117,
+    clusterSizes: [45, 35, 30, 25, 15],
+    reassignedNoise: 0,
+    durationMs: 500,
+  };
+
+  it('returns success with stats when recluster succeeds without label refresh', async () => {
+    const recluster = vi.fn().mockResolvedValue(mockClusteringResult);
 
     const result = await updateClusters({ recluster });
 
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Clusters updated successfully');
+    expect(result.message).toBe('5 clusters, 150 assigned');
     expect(recluster).toHaveBeenCalledOnce();
   });
 
   it('returns success with label count when refresh succeeds', async () => {
-    const recluster = vi.fn().mockResolvedValue(undefined);
+    const recluster = vi.fn().mockResolvedValue(mockClusteringResult);
     const refreshLabels = vi.fn().mockResolvedValue([{}, {}, {}]);
 
     const result = await updateClusters({ recluster, refreshLabels });
 
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Clusters updated, 3 labels refreshed');
+    expect(result.message).toBe('5 clusters, 150 assigned, 3 labels refreshed');
     expect(refreshLabels).toHaveBeenCalledOnce();
   });
 
+  it('includes noise rescued count when reassignedNoise > 0', async () => {
+    const recluster = vi.fn().mockResolvedValue({
+      ...mockClusteringResult,
+      reassignedNoise: 12,
+    });
+
+    const result = await updateClusters({ recluster });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('5 clusters, 150 assigned, 12 noise points rescued');
+  });
+
+  it('includes both noise rescued and labels refreshed', async () => {
+    const recluster = vi.fn().mockResolvedValue({
+      ...mockClusteringResult,
+      reassignedNoise: 8,
+    });
+    const refreshLabels = vi.fn().mockResolvedValue([{}, {}]);
+
+    const result = await updateClusters({ recluster, refreshLabels });
+
+    expect(result.success).toBe(true);
+    expect(result.message).toBe('5 clusters, 150 assigned, 8 noise points rescued, 2 labels refreshed');
+  });
+
   it('succeeds even when label refresh fails', async () => {
-    const recluster = vi.fn().mockResolvedValue(undefined);
+    const recluster = vi.fn().mockResolvedValue(mockClusteringResult);
     const refreshLabels = vi.fn().mockRejectedValue(new Error('No API key'));
 
     const result = await updateClusters({ recluster, refreshLabels });
 
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Clusters updated successfully');
+    expect(result.message).toBe('5 clusters, 150 assigned');
   });
 
   it('returns failure when recluster throws', async () => {

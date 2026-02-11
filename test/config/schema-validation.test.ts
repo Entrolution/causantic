@@ -76,7 +76,7 @@ describe('schema defaults match DEFAULT_CONFIG', () => {
   it('clustering.threshold matches DEFAULT_CONFIG.clusterThreshold', () => {
     const schemaDefault = schema.properties.clustering.properties.threshold.default;
     expect(schemaDefault).toBe(DEFAULT_CONFIG.clusterThreshold);
-    expect(schemaDefault).toBe(0.09);
+    expect(schemaDefault).toBe(0.10);
   });
 
   it('clustering.minClusterSize matches DEFAULT_CONFIG.minClusterSize', () => {
@@ -88,7 +88,7 @@ describe('schema defaults match DEFAULT_CONFIG', () => {
   it('traversal.maxDepth matches DEFAULT_CONFIG.maxTraversalDepth', () => {
     const schemaDefault = schema.properties.traversal.properties.maxDepth.default;
     expect(schemaDefault).toBe(DEFAULT_CONFIG.maxTraversalDepth);
-    expect(schemaDefault).toBe(20);
+    expect(schemaDefault).toBe(15);
   });
 
   it('traversal.minWeight matches DEFAULT_CONFIG.minSignalThreshold', () => {
