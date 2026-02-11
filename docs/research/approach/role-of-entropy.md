@@ -1,10 +1,10 @@
-# Why "Entropic"?
+# The Role of Entropy
 
-This document explains the information-theoretic inspiration behind the name "Causantic."
+This document explains the information-theoretic principles behind Causantic's causal graph.
 
 ## The Core Insight
 
-The name "Entropic" reflects how **discrimination degrades along causal paths**.
+The central design principle is how **discrimination degrades along causal paths**.
 
 When traversing the graph from a query point, edge weights multiply along the path. As you move farther from the query (more hops), these products converge toward zero. This convergence represents **increasing entropy** — the loss of ability to discriminate between nodes.
 

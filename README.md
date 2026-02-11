@@ -294,11 +294,21 @@ Built on rigorous experimentation across 75 sessions and 492 queries:
 
 See [Research Documentation](docs/research/) for detailed findings, and the [Design Decision Log](docs/research/decisions.md) for the story of how each decision was made.
 
-### Why "Entropic"?
+### The Role of Entropy
 
-The name reflects how **discrimination degrades along causal paths**. When traversing the graph, edge weights multiply — and since weights are < 1, products converge toward zero. You lose the ability to discriminate between distant nodes. This is entropy flowing along causal lines, implementing natural **causal compression**.
+The name reflects how **discrimination degrades along causal paths** — the same way information diffuses with each causal jump.
 
-See [Why Entropic?](docs/research/approach/why-entropic.md) for the full explanation.
+Chunks close to your query point are sharply ranked: the graph can clearly distinguish what's most relevant. But as traversal moves outward, edge weights multiply — and since each weight is < 1, the products converge toward zero. You progressively lose the ability to discriminate between distant nodes. This is entropy flowing along causal lines.
+
+This isn't a limitation — it's the design. The loss of discriminating power:
+
+- **Prevents unbounded graph growth**: distant, low-discrimination regions naturally fade rather than accumulating indefinitely
+- **Keeps memory current**: the graph evolves with your usage of Claude — recent causal paths retain sharp discrimination while older paths gracefully compress
+- **Mirrors how relevance actually works**: the further a piece of context is from your current work (in causal hops, not wall-clock time), the less precisely it needs to be ranked
+
+The result is **natural causal compression** — a graph that stays focused on what matters without manual pruning or arbitrary cutoffs.
+
+See [The Role of Entropy](docs/research/approach/role-of-entropy.md) for the full explanation.
 
 ## Maintenance
 

@@ -47,11 +47,11 @@ Among tested models, jina-small provides the best balance of embedding quality a
 
 ## Design Rationale
 
-### Why "Entropic"?
+### The Role of Entropy
 
-The name reflects how discrimination degrades along causal paths. As you traverse farther from a query point, edge weight products converge toward zero — you lose the ability to distinguish between distant nodes. This entropy flows along causal lines (D-T-D hops), not wall-clock time, implementing **causal compression**.
+Discrimination degrades along causal paths. As you traverse farther from a query point, edge weight products converge toward zero — you lose the ability to distinguish between distant nodes. This entropy flows along causal lines (D-T-D hops), not wall-clock time, implementing **causal compression**.
 
-See [approach/why-entropic.md](approach/why-entropic.md).
+See [approach/role-of-entropy.md](approach/role-of-entropy.md).
 
 ### Why Causal Graphs?
 

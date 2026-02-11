@@ -96,7 +96,7 @@ async function visit(chunkId: string, depth: number, pathWeight: number): Promis
 }
 ```
 
-See [Why Entropic?](/docs/research/approach/why-entropic.md) for the theoretical foundation.
+See [The Role of Entropy](/docs/research/approach/role-of-entropy.md) for the theoretical foundation.
 
 ## Lazy Pruning
 
