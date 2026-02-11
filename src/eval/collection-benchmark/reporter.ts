@@ -135,6 +135,7 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     lines.push('');
     lines.push(`**Augmentation Ratio:** ${g.sourceAttribution.augmentationRatio.toFixed(1)}x`);
     lines.push(`**Recall Lift:** +${(g.lift * 100).toFixed(0)}% over vector-only`);
+    lines.push(`**Graph-Boosted Chunks:** ${g.graphBoostedCount} (found by both vector and graph)`);
     lines.push('');
 
     if (g.edgeTypeEffectiveness.length > 0) {

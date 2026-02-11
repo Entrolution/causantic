@@ -37,6 +37,8 @@ export interface ExternalConfig {
   traversal?: {
     maxDepth?: number;
     minWeight?: number;
+    directHitBoost?: number;
+    graphAgreementBoost?: number;
   };
   tokens?: {
     claudeMdBudget?: number;
@@ -91,6 +93,8 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   traversal: {
     maxDepth: 15,  // Limits latency on sparse graphs; raise for dense edge sets
     minWeight: 0.01,
+    directHitBoost: 1.5,
+    graphAgreementBoost: 2.0,
   },
   tokens: {
     claudeMdBudget: 500,

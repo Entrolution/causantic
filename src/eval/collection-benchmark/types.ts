@@ -92,6 +92,8 @@ export interface GraphValueResult {
   fullRecallAt10: number;
   vectorOnlyRecallAt10: number;
   uniqueGraphFinds: number;
+  /** Total chunks boosted by graph agreement (found by both vector and graph) across all queries */
+  graphBoostedCount: number;
   lift: number;
   edgeTypeEffectiveness: EdgeTypeEffectiveness[];
 }

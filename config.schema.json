@@ -104,6 +104,20 @@
           "maximum": 1,
           "default": 0.01,
           "description": "Minimum edge weight to continue traversal"
+        },
+        "directHitBoost": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 1.5,
+          "description": "Score multiplier for direct search hits (vector/keyword/cluster)"
+        },
+        "graphAgreementBoost": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 2.0,
+          "description": "Score boost multiplier when a chunk is found by both vector search and graph traversal"
         }
       },
       "additionalProperties": false

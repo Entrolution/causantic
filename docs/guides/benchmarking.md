@@ -94,8 +94,9 @@ Using the same `--seed` ensures comparable results.
 
 **Low graph value (augmentation <1.5x)**
 
-- Increase `traversal.maxDepth` (default: 20, try 25)
-- Ensure sessions have been re-ingested with latest parser
+- Increase `traversal.maxDepth` (default: 15, try 25)
+- Increase `traversal.graphAgreementBoost` (default: 2.0) to amplify the graph signal
+- If graph-boosted count is 0, edges may be missing — re-ingest with the latest parser
 - Check edge type distribution — missing types mean missing connections
 
 **High latency (p95 >200ms)**

@@ -159,6 +159,9 @@ export function computeTrend(
     addDelta(metricDeltas, 'Graph Lift',
       previous.graphValue.lift,
       current.graphValue.lift, true);
+    addDelta(metricDeltas, 'Graph-Boosted Chunks',
+      previous.graphValue.graphBoostedCount ?? 0,
+      current.graphValue.graphBoostedCount ?? 0, true);
   }
 
   // Latency metrics (lower is better)

@@ -80,6 +80,8 @@ export interface RetrievalResponse {
   totalConsidered: number;
   /** Time taken in milliseconds */
   durationMs: number;
+  /** Number of chunks boosted by graph agreement (found by both vector and graph) */
+  graphBoosted: number;
 }
 
 /**
@@ -177,6 +179,7 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
       chunks: [],
       totalConsidered: 0,
       durationMs: Date.now() - startTime,
+      graphBoosted: 0,
     };
   }
 
@@ -253,20 +256,37 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     }
   }
 
-  // 7. Combine direct hits with traversal results
+  // 7. Combine direct hits with traversal, boosting intersection
   const allChunks: WeightedChunk[] = [];
+  let graphBoostedCount = 0;
 
-  // Add direct search hits (vector + keyword + cluster) with 1.5x boost
-  for (const item of expandedResults) {
-    allChunks.push({
-      chunkId: item.chunkId,
-      weight: item.score * 1.5,
-      depth: 0,
-    });
+  // Build graph traversal lookup
+  const graphChunkMap = new Map<string, WeightedChunk>();
+  for (const tc of traversalResult.chunks) {
+    graphChunkMap.set(tc.chunkId, tc);
   }
 
-  // Add traversal results
-  allChunks.push(...traversalResult.chunks);
+  // Direct hits: boost if also found via graph traversal
+  const directChunkIds = new Set<string>();
+  for (const item of expandedResults) {
+    directChunkIds.add(item.chunkId);
+    let weight = item.score * config.directHitBoost;
+
+    const graphEntry = graphChunkMap.get(item.chunkId);
+    if (graphEntry) {
+      weight += graphEntry.weight * config.graphAgreementBoost;
+      graphBoostedCount++;
+    }
+
+    allChunks.push({ chunkId: item.chunkId, weight, depth: 0 });
+  }
+
+  // Graph-only results: add unchanged
+  for (const tc of traversalResult.chunks) {
+    if (!directChunkIds.has(tc.chunkId)) {
+      allChunks.push(tc);
+    }
+  }
 
   // 8. Dedupe and rank
   const ranked = dedupeAndRank(allChunks);
@@ -291,6 +311,7 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     chunks: assembled.includedChunks,
     totalConsidered: ranked.length,
     durationMs: Date.now() - startTime,
+    graphBoosted: graphBoostedCount,
   };
 }
 

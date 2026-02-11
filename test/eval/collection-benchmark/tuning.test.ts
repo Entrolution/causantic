@@ -90,6 +90,7 @@ describe('generateTuningRecommendations', () => {
         fullRecallAt10: 0.5,
         vectorOnlyRecallAt10: 0.45,
         uniqueGraphFinds: 2,
+        graphBoostedCount: 0,
         lift: 0.11,
         edgeTypeEffectiveness: [],
       },
@@ -194,5 +195,30 @@ describe('generateTuningRecommendations', () => {
 
     const filePathRec = recs.find(r => r.metric === 'File-path edges');
     expect(filePathRec).toBeDefined();
+  });
+
+  it('should recommend adjusting graphAgreementBoost when graph finds but no boosted chunks', () => {
+    const result = makeResult({
+      graphValue: {
+        sourceAttribution: {
+          vectorPercentage: 0.7,
+          keywordPercentage: 0.1,
+          clusterPercentage: 0.05,
+          graphPercentage: 0.15,
+          augmentationRatio: 1.5,
+        },
+        fullRecallAt10: 0.6,
+        vectorOnlyRecallAt10: 0.5,
+        uniqueGraphFinds: 5,
+        graphBoostedCount: 0,
+        lift: 0.2,
+        edgeTypeEffectiveness: [],
+      },
+    });
+    const recs = generateTuningRecommendations(result);
+
+    const boostRec = recs.find(r => r.metric === 'Graph agreement boost');
+    expect(boostRec).toBeDefined();
+    expect(boostRec!.configPath).toBe('traversal.graphAgreementBoost');
   });
 });
