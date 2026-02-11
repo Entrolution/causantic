@@ -229,7 +229,8 @@ export const initCommand: Command = {
           if (config.mcpServers?.[CAUSANTIC_SERVER_KEY]) {
             if (config.mcpServers[CAUSANTIC_SERVER_KEY].command === 'npx') {
               const nodeBin = process.execPath;
-              const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/../index.js';
+              const { fileURLToPath } = await import('node:url');
+              const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'index.js');
 
               config.mcpServers[CAUSANTIC_SERVER_KEY] = {
                 command: nodeBin,
@@ -255,7 +256,8 @@ export const initCommand: Command = {
 
             if (answer === 'y' || answer === 'yes') {
               const nodeBin = process.execPath;
-              const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/../index.js';
+              const { fileURLToPath } = await import('node:url');
+              const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'index.js');
 
               config.mcpServers = config.mcpServers || {};
               config.mcpServers[CAUSANTIC_SERVER_KEY] = {
@@ -282,7 +284,8 @@ export const initCommand: Command = {
       const claudeProjectsDir = path.join(os.homedir(), '.claude', 'projects');
       if (fs.existsSync(claudeProjectsDir)) {
         const nodeBin = process.execPath;
-        const cliEntry = new URL('.', import.meta.url).pathname.replace(/\/$/, '') + '/../index.js';
+        const { fileURLToPath } = await import('node:url');
+        const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'index.js');
         const memoryServerConfig = {
           command: nodeBin,
           args: [cliEntry, 'serve'],
