@@ -1,16 +1,19 @@
 /**
- * Lazy pruning system for dead edges and orphaned nodes.
+ * Lazy pruning system for dead edges.
  * Edges with weight <= 0 at query time are queued for async deletion.
- * Orphaned nodes (no remaining edges) are also removed.
+ * Chunks that lose all edges are marked for TTL-based cleanup (not deleted).
  *
  * Two pruning modes:
  * 1. Lazy: Queued during traversal, flushed after debounce
- * 2. Full: Background scan on startup, removes all dead edges/nodes
+ * 2. Full: Background scan on startup, removes all dead edges
+ *
+ * Chunks remain in the database after losing edges so they can still be
+ * found via vector and keyword search. Their vectors are marked orphaned
+ * to start the TTL countdown; the cleanup-vectors task handles eventual
+ * deletion of both vector and chunk after TTL expires.
  */
 
 import { deleteEdge, hasAnyEdges, getAllEdges } from './edge-store.js';
-import { deleteChunk, getAllChunks } from './chunk-store.js';
-import { removeChunkAssignments } from './cluster-store.js';
 import { vectorStore } from './vector-store.js';
 import { getReferenceClock } from './clock-store.js';
 import { calculateDirectionalDecayWeight, type EdgeDirection } from './decay.js';
@@ -20,7 +23,8 @@ import { createLogger } from '../utils/logger.js';
 const log = createLogger('pruner');
 
 /**
- * Pruner class for managing lazy deletion of dead edges and orphaned chunks.
+ * Pruner class for managing lazy deletion of dead edges.
+ * Chunks that lose all edges are marked for TTL cleanup, not deleted.
  */
 class Pruner {
   private pendingEdges: Set<string> = new Set();
@@ -86,17 +90,17 @@ class Pruner {
    */
   private async flush(): Promise<PruneResult> {
     if (this.isRunning || this.pendingEdges.size === 0) {
-      return { edgesDeleted: 0, chunksDeleted: 0 };
+      return { edgesDeleted: 0, chunksOrphaned: 0 };
     }
 
     this.isRunning = true;
-    const result: PruneResult = { edgesDeleted: 0, chunksDeleted: 0 };
+    const result: PruneResult = { edgesDeleted: 0, chunksOrphaned: 0 };
 
     try {
       const edgeIds = [...this.pendingEdges];
       this.pendingEdges.clear();
 
-      // Track chunks that might become orphaned
+      // Track chunks that might lose all edges
       const chunkIdsToCheck = new Set<string>();
 
       for (const edgeId of edgeIds) {
@@ -117,13 +121,11 @@ class Pruner {
         }
       }
 
-      // Check for orphaned chunks
+      // Mark chunks that lost all edges for TTL cleanup
       for (const chunkId of chunkIdsToCheck) {
-        const hasEdges = hasAnyEdges(chunkId);
-        if (!hasEdges) {
-          // Chunk is orphaned - remove it
-          await this.deleteOrphanedChunk(chunkId);
-          result.chunksDeleted++;
+        if (!hasAnyEdges(chunkId)) {
+          await vectorStore.markOrphaned(chunkId);
+          result.chunksOrphaned++;
         }
       }
     } finally {
@@ -131,23 +133,6 @@ class Pruner {
     }
 
     return result;
-  }
-
-  /**
-   * Delete an orphaned chunk and its associated data.
-   * Vectors are marked as orphaned (not deleted) for TTL-based cleanup.
-   */
-  private async deleteOrphanedChunk(chunkId: string): Promise<void> {
-    // Remove cluster assignments
-    removeChunkAssignments(chunkId);
-
-    // Mark vector as orphaned (starts TTL countdown)
-    // The vector will be cleaned up later if not accessed within the TTL period.
-    // This allows semantic search to find old context that may still be relevant.
-    await vectorStore.markOrphaned(chunkId);
-
-    // Remove chunk from chunks table
-    deleteChunk(chunkId);
   }
 
   /**
@@ -182,7 +167,7 @@ class Pruner {
 
   /**
    * Start a full background prune (non-blocking).
-   * Scans all edges, removes dead ones, then removes orphan chunks.
+   * Scans all edges, removes dead ones, marks orphaned chunks for TTL.
    * Idempotent - if already running, returns existing progress.
    */
   startBackgroundPrune(): FullPruneProgress {
@@ -195,7 +180,7 @@ class Pruner {
       edgesScanned: 0,
       edgesDeleted: 0,
       chunksScanned: 0,
-      chunksDeleted: 0,
+      chunksOrphaned: 0,
       startedAt: Date.now(),
       completedAt: null,
       error: null,
@@ -230,7 +215,8 @@ class Pruner {
 
   /**
    * Run the full prune operation.
-   * Scans all edges, calculates weights, removes dead edges and orphan chunks.
+   * Scans all edges, calculates weights, removes dead edges, and marks
+   * chunks that lose all edges for TTL cleanup.
    */
   private async runFullPrune(): Promise<void> {
     if (this.fullPruneRunning) {
@@ -299,36 +285,18 @@ class Pruner {
         await new Promise((resolve) => setImmediate(resolve));
       }
 
-      // Check for orphan chunks
+      // Mark chunks that lost all edges for TTL cleanup
       for (const chunkId of chunkIdsToCheck) {
         progress.chunksScanned++;
 
         if (!hasAnyEdges(chunkId)) {
-          await this.deleteOrphanedChunk(chunkId);
-          progress.chunksDeleted++;
+          await vectorStore.markOrphaned(chunkId);
+          progress.chunksOrphaned++;
         }
 
         // Yield periodically
         if (progress.chunksScanned % 100 === 0) {
           await new Promise((resolve) => setImmediate(resolve));
-        }
-      }
-
-      // Also scan for any chunks that have no edges at all (orphans from before)
-      const allChunks = getAllChunks();
-      for (const chunk of allChunks) {
-        if (!chunkIdsToCheck.has(chunk.id)) {
-          progress.chunksScanned++;
-
-          if (!hasAnyEdges(chunk.id)) {
-            await this.deleteOrphanedChunk(chunk.id);
-            progress.chunksDeleted++;
-          }
-
-          // Yield periodically
-          if (progress.chunksScanned % 100 === 0) {
-            await new Promise((resolve) => setImmediate(resolve));
-          }
         }
       }
 
@@ -345,7 +313,7 @@ class Pruner {
  */
 export interface PruneResult {
   edgesDeleted: number;
-  chunksDeleted: number;
+  chunksOrphaned: number;
 }
 
 /**
@@ -356,7 +324,7 @@ export interface FullPruneProgress {
   edgesScanned: number;
   edgesDeleted: number;
   chunksScanned: number;
-  chunksDeleted: number;
+  chunksOrphaned: number;
   startedAt: number;
   completedAt: number | null;
   error: string | null;

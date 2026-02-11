@@ -162,9 +162,9 @@ npx causantic maintenance <subcommand> [options]
 | Task | Description |
 |------|-------------|
 | `scan-projects` | Discover and ingest new sessions |
-| `update-clusters` | Re-run HDBSCAN clustering |
-| `prune-graph` | Remove dead edges and orphans |
-| `refresh-labels` | Update cluster descriptions (requires API key) |
+| `update-clusters` | Re-run HDBSCAN clustering and refresh labels |
+| `prune-graph` | Remove dead edges, mark orphaned chunks for TTL cleanup |
+| `cleanup-vectors` | Remove expired orphaned vectors and chunks (TTL-based) |
 | `vacuum` | Optimize database |
 
 **Example**:

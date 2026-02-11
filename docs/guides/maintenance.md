@@ -2,6 +2,16 @@
 
 This guide covers maintaining your Causantic installation for optimal performance.
 
+## Chunk Lifecycle
+
+Chunks follow a defined lifecycle through the system:
+
+1. **Active**: Chunk is on the causal graph (has edges) and searchable via vector, keyword, and graph queries.
+2. **Orphaned**: Chunk loses all edges after pruning. Its vector is marked with an `orphaned_at` timestamp. The chunk remains searchable via vector and keyword queries but is no longer reachable via graph traversal.
+3. **Expired**: After the TTL period (default 90 days), the chunk and its vector are permanently deleted. Empty clusters left behind are cleaned up automatically.
+
+This design ensures chunks remain discoverable through non-graph search paths even after they fall off the causal graph.
+
 ## Maintenance Tasks
 
 ### scan-projects
@@ -21,50 +31,67 @@ npx causantic maintenance run scan-projects
 
 ### update-clusters
 
-Re-runs HDBSCAN clustering on all embeddings.
+Re-runs HDBSCAN clustering on all embeddings and refreshes cluster labels.
 
 ```bash
 npx causantic maintenance run update-clusters
 ```
 
-**Frequency**: Daily
+**Frequency**: Daily (configurable via `maintenance.clusterHour`)
 
 **What it does**:
-- Recalculates cluster assignments
-- Identifies new topic groups
-- Updates cluster centroids
+- Full rebuild of cluster assignments using HDBSCAN
+- Identifies new topic groups and updates centroids
+- Refreshes cluster labels via Haiku (if Anthropic API key is configured)
+
+**Note**: Label refresh requires an Anthropic API key but is not fatal if unavailable. Causantic works without cluster descriptions.
 
 ### prune-graph
 
-Removes dead edges and orphaned nodes.
+Removes dead edges from the causal graph.
 
 ```bash
 npx causantic maintenance run prune-graph
 ```
 
-**Frequency**: Daily
+**Frequency**: Daily (1 hour after `update-clusters`)
 
 **What it does**:
-- Removes edges with zero weight (decayed fully)
-- Cleans up orphaned chunks
-- Optimizes graph structure
+- Calculates decay weights for all edges
+- Removes edges with zero weight (fully decayed)
+- Marks chunks that lose all edges as orphaned (starts TTL countdown)
 
-### refresh-labels
+The pruner only manages edges — it never deletes chunks directly. Chunks that fall off the graph remain searchable via vector and keyword queries until their TTL expires.
 
-Updates cluster descriptions using Haiku.
+### cleanup-vectors
+
+Removes expired orphaned vectors and their chunks.
 
 ```bash
-npx causantic maintenance run refresh-labels
+npx causantic maintenance run cleanup-vectors
 ```
 
-**Frequency**: Weekly (optional)
+**Frequency**: Daily (1.5 hours after `update-clusters`)
 
 **What it does**:
-- Generates human-readable cluster descriptions
-- Requires Anthropic API key
-- Improves memory summaries in CLAUDE.md
+- Finds vectors marked as orphaned longer than the TTL period (default 90 days)
+- Deletes the expired chunks (FK cascades remove cluster assignments and edges)
+- Deletes the expired vectors
+- Removes empty clusters left behind after chunk deletion
 
-**Note**: This task is optional. Causantic works without cluster descriptions.
+### vacuum
+
+Optimizes the SQLite database.
+
+```bash
+npx causantic maintenance run vacuum
+```
+
+**Frequency**: Weekly (Sundays at 5am)
+
+**What it does**:
+- Runs SQLite VACUUM to reclaim disk space
+- Rebuilds internal data structures for better query performance
 
 ## Running Maintenance
 
@@ -94,11 +121,50 @@ Run maintenance as a background service:
 npx causantic maintenance daemon
 ```
 
-Uses cron-style scheduling:
+Uses cron-style scheduling (assuming default `clusterHour` of 2):
 - `scan-projects`: Every hour
 - `update-clusters`: Daily at 2am
 - `prune-graph`: Daily at 3am
-- `refresh-labels`: Sundays at 4am
+- `cleanup-vectors`: Daily at 3:30am
+- `vacuum`: Sundays at 5am
+
+### Session-Start Stale Checks
+
+When a new Claude Code session starts, the session-start hook automatically checks if `prune-graph` or `update-clusters` haven't run in the last 24 hours. If stale, they run in the background. This covers cases where scheduled cron times were missed (e.g. laptop was asleep overnight).
+
+## Configuration
+
+### Cluster Schedule
+
+The hour at which reclustering runs is configurable:
+
+```json
+{
+  "maintenance": {
+    "clusterHour": 2
+  }
+}
+```
+
+Or via environment variable:
+
+```bash
+export CAUSANTIC_MAINTENANCE_CLUSTER_HOUR=4
+```
+
+Prune and cleanup schedules adjust automatically (1h and 1.5h after the cluster hour respectively).
+
+### Vector TTL
+
+The TTL for orphaned vectors (time between losing all edges and being deleted):
+
+```json
+{
+  "vectors": {
+    "ttlDays": 90
+  }
+}
+```
 
 ## Storage Management
 

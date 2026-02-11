@@ -220,6 +220,20 @@
         }
       },
       "additionalProperties": false
+    },
+    "maintenance": {
+      "type": "object",
+      "description": "Maintenance schedule settings",
+      "properties": {
+        "clusterHour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23,
+          "default": 2,
+          "description": "Hour of day (0-23) to run reclustering. Prune and cleanup run 1h and 1.5h after."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

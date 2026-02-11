@@ -6,21 +6,20 @@
  *
  * Tasks:
  * - scan-projects: Discover and ingest new sessions
- * - update-clusters: Re-run HDBSCAN clustering
- * - prune-graph: Remove dead edges and orphan nodes
- * - cleanup-vectors: Remove expired orphaned vectors (TTL-based)
- * - refresh-labels: Update cluster descriptions (optional, requires API key)
+ * - update-clusters: Re-run HDBSCAN clustering + refresh labels
+ * - prune-graph: Remove dead edges
+ * - cleanup-vectors: Remove expired orphaned vectors and chunks (TTL-based)
  * - vacuum: Optimize SQLite database
  */
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { resolvePath } from '../config/memory-config.js';
+import { loadConfig } from '../config/loader.js';
 import { createLogger } from '../utils/logger.js';
 import { scanProjects } from './tasks/scan-projects.js';
 import { updateClusters } from './tasks/update-clusters.js';
 import { pruneGraph } from './tasks/prune-graph.js';
-import { refreshLabels } from './tasks/refresh-labels.js';
 import { vacuum } from './tasks/vacuum.js';
 import { cleanupVectors } from './tasks/cleanup-vectors.js';
 
@@ -207,17 +206,16 @@ async function createScanProjectsHandler(): Promise<MaintenanceResult> {
 
 async function createUpdateClustersHandler(): Promise<MaintenanceResult> {
   const { clusterManager } = await import('../clusters/cluster-manager.js');
-  return updateClusters({ recluster: () => clusterManager.recluster() });
+  const { clusterRefresher } = await import('../clusters/cluster-refresh.js');
+  return updateClusters({
+    recluster: () => clusterManager.recluster(),
+    refreshLabels: () => clusterRefresher.refreshAllClusters({}),
+  });
 }
 
 async function createPruneGraphHandler(): Promise<MaintenanceResult> {
   const { pruner } = await import('../storage/pruner.js');
   return pruneGraph({ flushNow: () => pruner.flushNow() });
-}
-
-async function createRefreshLabelsHandler(): Promise<MaintenanceResult> {
-  const { clusterRefresher } = await import('../clusters/cluster-refresh.js');
-  return refreshLabels({ refreshAllClusters: (opts) => clusterRefresher.refreshAllClusters(opts) });
 }
 
 async function createVacuumHandler(): Promise<MaintenanceResult> {
@@ -227,59 +225,65 @@ async function createVacuumHandler(): Promise<MaintenanceResult> {
 
 async function createCleanupVectorsHandler(): Promise<MaintenanceResult> {
   const { vectorStore } = await import('../storage/vector-store.js');
-  const { loadConfig } = await import('../config/loader.js');
   const config = loadConfig();
   const ttlDays = config.vectors?.ttlDays ?? 90;
   return cleanupVectors({ cleanupExpired: (days) => vectorStore.cleanupExpired(days), ttlDays });
 }
 
 /**
+ * Build maintenance tasks with configurable cluster hour.
+ * Prune and cleanup run 1h and 1.5h after clustering respectively.
+ */
+function buildMaintenanceTasks(): MaintenanceTask[] {
+  const config = loadConfig();
+  const h = config.maintenance?.clusterHour ?? 2;
+  const pruneHour = (h + 1) % 24;
+  const cleanupHour = (h + 1) % 24;
+  const cleanupMinute = 30;
+
+  return [
+    {
+      name: 'scan-projects',
+      description: 'Discover new sessions and ingest changes',
+      schedule: '0 * * * *', // Every hour
+      requiresApiKey: false,
+      handler: createScanProjectsHandler,
+    },
+    {
+      name: 'update-clusters',
+      description: 'Re-run HDBSCAN clustering and refresh labels',
+      schedule: `0 ${h} * * *`,
+      requiresApiKey: false,
+      handler: createUpdateClustersHandler,
+    },
+    {
+      name: 'prune-graph',
+      description: 'Remove dead edges',
+      schedule: `0 ${pruneHour} * * *`,
+      requiresApiKey: false,
+      handler: createPruneGraphHandler,
+    },
+    {
+      name: 'cleanup-vectors',
+      description: 'Remove expired orphaned vectors and chunks (TTL-based)',
+      schedule: `${cleanupMinute} ${cleanupHour} * * *`,
+      requiresApiKey: false,
+      handler: createCleanupVectorsHandler,
+    },
+    {
+      name: 'vacuum',
+      description: 'Optimize SQLite database',
+      schedule: '0 5 * * 0', // Weekly on Sunday at 5am
+      requiresApiKey: false,
+      handler: createVacuumHandler,
+    },
+  ];
+}
+
+/**
  * Available maintenance tasks.
  */
-export const MAINTENANCE_TASKS: MaintenanceTask[] = [
-  {
-    name: 'scan-projects',
-    description: 'Discover new sessions and ingest changes',
-    schedule: '0 * * * *', // Every hour
-    requiresApiKey: false,
-    handler: createScanProjectsHandler,
-  },
-  {
-    name: 'update-clusters',
-    description: 'Re-run HDBSCAN clustering on all embeddings',
-    schedule: '0 2 * * *', // Daily at 2am
-    requiresApiKey: false,
-    handler: createUpdateClustersHandler,
-  },
-  {
-    name: 'prune-graph',
-    description: 'Remove dead edges and orphan nodes',
-    schedule: '0 3 * * *', // Daily at 3am
-    requiresApiKey: false,
-    handler: createPruneGraphHandler,
-  },
-  {
-    name: 'cleanup-vectors',
-    description: 'Remove expired orphaned vectors (TTL-based)',
-    schedule: '30 3 * * *', // Daily at 3:30am (after prune-graph)
-    requiresApiKey: false,
-    handler: createCleanupVectorsHandler,
-  },
-  {
-    name: 'refresh-labels',
-    description: 'Update cluster descriptions via Haiku (optional)',
-    schedule: '0 4 * * 0', // Weekly on Sunday at 4am
-    requiresApiKey: true,
-    handler: createRefreshLabelsHandler,
-  },
-  {
-    name: 'vacuum',
-    description: 'Optimize SQLite database',
-    schedule: '0 5 * * 0', // Weekly on Sunday at 5am
-    requiresApiKey: false,
-    handler: createVacuumHandler,
-  },
-];
+export const MAINTENANCE_TASKS: MaintenanceTask[] = buildMaintenanceTasks();
 
 /**
  * Get a task by name.
@@ -403,4 +407,48 @@ export async function runDaemon(signal?: AbortSignal): Promise<void> {
       signal.addEventListener('abort', () => resolve());
     }
   });
+}
+
+/**
+ * Check if a task is stale (hasn't run in the given period).
+ */
+function isTaskStale(taskName: string, maxAgeMs: number): boolean {
+  const state = loadState();
+  const lastRun = state.lastRuns[taskName];
+  if (!lastRun) return true;
+  return Date.now() - new Date(lastRun.startTime).getTime() >= maxAgeMs;
+}
+
+const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+/**
+ * Run stale maintenance tasks in the background.
+ * Intended for session-start hook to cover cases where scheduled cron
+ * times were missed (e.g. laptop asleep overnight).
+ *
+ * Non-blocking — fires and forgets. Prune runs first, then recluster.
+ */
+export function runStaleMaintenanceTasks(): void {
+  const staleTasks: string[] = [];
+
+  if (isTaskStale('prune-graph', TWENTY_FOUR_HOURS)) {
+    staleTasks.push('prune-graph');
+  }
+  if (isTaskStale('update-clusters', TWENTY_FOUR_HOURS)) {
+    staleTasks.push('update-clusters');
+  }
+
+  if (staleTasks.length === 0) return;
+
+  log.info('Stale maintenance tasks detected, running in background', { tasks: staleTasks });
+
+  (async () => {
+    for (const name of staleTasks) {
+      try {
+        await runTask(name);
+      } catch (err) {
+        log.error(`Background ${name} failed`, { error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+  })();
 }

@@ -10,21 +10,21 @@ describe('pruner', () => {
     it('has correct structure', () => {
       const result: PruneResult = {
         edgesDeleted: 5,
-        chunksDeleted: 2,
+        chunksOrphaned: 2,
       };
 
       expect(result.edgesDeleted).toBe(5);
-      expect(result.chunksDeleted).toBe(2);
+      expect(result.chunksOrphaned).toBe(2);
     });
 
     it('returns zeros when nothing to prune', () => {
       const result: PruneResult = {
         edgesDeleted: 0,
-        chunksDeleted: 0,
+        chunksOrphaned: 0,
       };
 
       expect(result.edgesDeleted).toBe(0);
-      expect(result.chunksDeleted).toBe(0);
+      expect(result.chunksOrphaned).toBe(0);
     });
   });
 
@@ -35,7 +35,7 @@ describe('pruner', () => {
         edgesScanned: 150,
         edgesDeleted: 5,
         chunksScanned: 50,
-        chunksDeleted: 2,
+        chunksOrphaned: 2,
         startedAt: Date.now(),
         completedAt: null,
         error: null,
@@ -53,7 +53,7 @@ describe('pruner', () => {
         edgesScanned: 1000,
         edgesDeleted: 50,
         chunksScanned: 200,
-        chunksDeleted: 10,
+        chunksOrphaned: 10,
         startedAt: startTime,
         completedAt: Date.now(),
         error: null,
@@ -70,7 +70,7 @@ describe('pruner', () => {
         edgesScanned: 500,
         edgesDeleted: 10,
         chunksScanned: 100,
-        chunksDeleted: 3,
+        chunksOrphaned: 3,
         startedAt: Date.now() - 2000,
         completedAt: Date.now(),
         error: 'Database connection lost',
@@ -216,7 +216,7 @@ describe('pruner', () => {
         edgesScanned: 500,
         edgesDeleted: 25,
         chunksScanned: 100,
-        chunksDeleted: 5,
+        chunksOrphaned: 5,
         startedAt: Date.now(),
         completedAt: null,
         error: null,
@@ -224,10 +224,10 @@ describe('pruner', () => {
 
       // Deletion rate
       const edgeDeletionRate = progress.edgesScanned > 0 ? progress.edgesDeleted / progress.edgesScanned : 0;
-      const chunkDeletionRate = progress.chunksScanned > 0 ? progress.chunksDeleted / progress.chunksScanned : 0;
+      const chunkOrphanRate = progress.chunksScanned > 0 ? progress.chunksOrphaned / progress.chunksScanned : 0;
 
       expect(edgeDeletionRate).toBeCloseTo(0.05);
-      expect(chunkDeletionRate).toBeCloseTo(0.05);
+      expect(chunkOrphanRate).toBeCloseTo(0.05);
     });
 
     it('calculates duration for completed prune', () => {
@@ -256,22 +256,24 @@ describe('pruner', () => {
     });
   });
 
-  describe('orphaned chunk cleanup', () => {
-    it('removes cluster assignments and chunk but preserves vector', () => {
-      // Simulated cleanup order - vectors are intentionally preserved
-      // for semantic search beyond the causal graph bounds
-      const cleanupSteps = ['removeChunkAssignments', 'deleteChunk'];
+  describe('orphaned chunk handling', () => {
+    it('marks vector as orphaned but preserves chunk', () => {
+      // When a chunk loses all edges, only the vector is marked orphaned
+      // to start the TTL countdown. The chunk remains for non-graph search.
+      const actions = ['markVectorOrphaned'];
 
-      expect(cleanupSteps[0]).toBe('removeChunkAssignments');
-      expect(cleanupSteps[1]).toBe('deleteChunk');
-      // Note: vectorStore.delete is NOT called - vectors remain for search
+      expect(actions).toEqual(['markVectorOrphaned']);
+      // Note: chunk is NOT deleted — it stays for vector/keyword search
+      // Note: cluster assignments are NOT removed — chunk is still a valid member
     });
 
-    it('preserves vectors for semantic search', () => {
-      // Vectors should remain searchable even when chunks are pruned
-      // This allows finding old context that may still be relevant
-      const vectorsPreserved = true;
-      expect(vectorsPreserved).toBe(true);
+    it('preserves chunks for non-graph search', () => {
+      // Chunks without edges should remain searchable via vector and keyword search
+      // Only the TTL cleanup task removes them after expiry
+      const chunkPreserved = true;
+      const vectorPreserved = true;
+      expect(chunkPreserved).toBe(true);
+      expect(vectorPreserved).toBe(true);
     });
   });
 
@@ -290,7 +292,7 @@ describe('pruner', () => {
           edgesScanned: 0,
           edgesDeleted: 0,
           chunksScanned: 0,
-          chunksDeleted: 0,
+          chunksOrphaned: 0,
           startedAt: Date.now(),
           completedAt: null,
           error: null,

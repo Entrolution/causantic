@@ -466,8 +466,9 @@ export class VectorStore {
   }
 
   /**
-   * Clean up expired orphaned vectors.
+   * Clean up expired orphaned vectors and their corresponding chunks.
    * Removes vectors that are orphaned AND haven't been accessed within the TTL period.
+   * Also deletes the corresponding chunks (FK cascades handle cluster assignments and edges).
    *
    * @param ttlDays - Number of days after which orphaned vectors expire
    * @returns Number of vectors deleted
@@ -489,12 +490,24 @@ export class VectorStore {
     }
 
     const expiredIds = expiredRows.map((r) => r.id);
-
-    // Delete from database
     const placeholders = expiredIds.map(() => '?').join(',');
+
+    // Delete chunks first (FK cascades handle chunk_clusters and edges)
+    db.prepare(
+      `DELETE FROM chunks WHERE id IN (${placeholders})`
+    ).run(...expiredIds);
+
+    // Delete vectors
     const result = db.prepare(
       `DELETE FROM vectors WHERE id IN (${placeholders})`
     ).run(...expiredIds);
+
+    // Remove empty clusters (no remaining members after chunk deletion)
+    db.prepare(`
+      DELETE FROM clusters WHERE id NOT IN (
+        SELECT DISTINCT cluster_id FROM chunk_clusters
+      )
+    `).run();
 
     // Remove from memory
     for (const id of expiredIds) {
