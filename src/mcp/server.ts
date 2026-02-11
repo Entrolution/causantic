@@ -387,7 +387,7 @@ export class McpServer {
 
     const status: HealthStatus = {
       status: dbOk && vectorOk ? 'healthy' : dbOk ? 'degraded' : 'unhealthy',
-      version: '0.1.0',
+      version: '0.2.0',
       uptime: Date.now() - this.startTime,
       checks: {
         database: dbOk,
@@ -421,7 +421,7 @@ export class McpServer {
         },
         serverInfo: {
           name: 'causantic',
-          version: '0.1.0',
+          version: '0.2.0',
         },
       },
     };
