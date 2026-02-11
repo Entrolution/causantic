@@ -370,6 +370,15 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
           timeout: 60,
         },
       },
+      {
+        event: 'SessionEnd',
+        matcher: '',
+        hook: {
+          type: 'command',
+          command: `${nodeBin} ${cliEntry} hook session-end`,
+          timeout: 60,
+        },
+      },
     ];
 
     if (!config.hooks) {
@@ -398,7 +407,8 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
 
     if (hooksAdded > 0) {
       fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
-      console.log(`\u2713 Configured ${hooksAdded} Claude Code hooks (PreCompact, SessionStart)`);
+      const hookNames = causanticHooks.map(h => h.event).join(', ');
+      console.log(`\u2713 Configured ${hooksAdded} Claude Code hooks (${hookNames})`);
     } else {
       console.log('\u2713 Claude Code hooks already configured');
     }

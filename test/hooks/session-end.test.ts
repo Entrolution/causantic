@@ -1,5 +1,5 @@
 /**
- * Tests for pre-compact hook handler.
+ * Tests for session-end hook handler.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -42,7 +42,7 @@ vi.mock('../../src/utils/logger.js', () => ({
   })),
 }));
 
-import { handlePreCompact } from '../../src/hooks/pre-compact.js';
+import { handleSessionEnd } from '../../src/hooks/session-end.js';
 import { ingestSession } from '../../src/ingest/ingest-session.js';
 import { clusterManager } from '../../src/clusters/cluster-manager.js';
 import { vectorStore } from '../../src/storage/vector-store.js';
@@ -51,12 +51,12 @@ const mockedIngestSession = vi.mocked(ingestSession);
 const mockedAssignNewChunks = vi.mocked(clusterManager.assignNewChunks);
 const mockedGetAllVectors = vi.mocked(vectorStore.getAllVectors);
 
-describe('pre-compact', () => {
+describe('session-end', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('handlePreCompact', () => {
+  describe('handleSessionEnd', () => {
     it('returns skipped result when session already ingested', async () => {
       mockedIngestSession.mockResolvedValue({
         sessionId: 'sess-123',
@@ -71,7 +71,7 @@ describe('pre-compact', () => {
         subAgentCount: 0,
       });
 
-      const result = await handlePreCompact('/path/to/session.jsonl');
+      const result = await handleSessionEnd('/path/to/session.jsonl');
 
       expect(result.skipped).toBe(true);
       expect(result.sessionId).toBe('sess-123');
@@ -110,7 +110,7 @@ describe('pre-compact', () => {
       mockedGetAllVectors.mockResolvedValue(fakeVectors);
       mockedAssignNewChunks.mockResolvedValue({ assigned: 3, total: 5 });
 
-      const result = await handlePreCompact('/path/to/session.jsonl');
+      const result = await handleSessionEnd('/path/to/session.jsonl');
 
       expect(result.skipped).toBe(false);
       expect(result.sessionId).toBe('sess-456');
@@ -138,47 +138,13 @@ describe('pre-compact', () => {
       ]);
       mockedAssignNewChunks.mockRejectedValue(new Error('Cluster DB locked'));
 
-      const result = await handlePreCompact('/path/to/session.jsonl');
+      const result = await handleSessionEnd('/path/to/session.jsonl');
 
-      // Should succeed despite cluster failure
       expect(result.skipped).toBe(false);
       expect(result.sessionId).toBe('sess-789');
       expect(result.chunkCount).toBe(2);
       expect(result.edgeCount).toBe(1);
-      // Clusters assignment failed, so count stays 0
       expect(result.clustersAssigned).toBe(0);
-    });
-
-    it('returns result with clustersAssigned count on success', async () => {
-      mockedIngestSession.mockResolvedValue({
-        sessionId: 'sess-abc',
-        sessionSlug: 'my-project',
-        chunkCount: 10,
-        edgeCount: 8,
-        crossSessionEdges: 2,
-        subAgentEdges: 1,
-        skipped: false,
-        durationMs: 100,
-        subAgentCount: 1,
-      });
-
-      // Return 15 vectors total, last 10 are the new ones
-      const allVectors = Array.from({ length: 15 }, (_, i) => ({
-        id: `chunk-${i}`,
-        embedding: [i * 0.1],
-      }));
-      mockedGetAllVectors.mockResolvedValue(allVectors);
-      mockedAssignNewChunks.mockResolvedValue({ assigned: 7, total: 10 });
-
-      const result = await handlePreCompact('/path/to/session.jsonl');
-
-      expect(result.clustersAssigned).toBe(7);
-      expect(result.chunkCount).toBe(10);
-      expect(result.edgeCount).toBe(8);
-      expect(result.skipped).toBe(false);
-
-      // Verify assignNewChunks received the last 10 vectors (matching chunkCount)
-      expect(mockedAssignNewChunks).toHaveBeenCalledWith(allVectors.slice(-10));
     });
 
     it('does not attempt cluster assignment when chunkCount is 0 but not skipped', async () => {
@@ -194,7 +160,7 @@ describe('pre-compact', () => {
         subAgentCount: 0,
       });
 
-      const result = await handlePreCompact('/path/to/session.jsonl');
+      const result = await handleSessionEnd('/path/to/session.jsonl');
 
       expect(result.skipped).toBe(false);
       expect(result.chunkCount).toBe(0);

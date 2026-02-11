@@ -255,6 +255,75 @@ export async function executeHook<T>(
   }
 }
 
+/** Result of a session ingestion via hook. */
+export interface IngestionResult {
+  sessionId: string;
+  chunkCount: number;
+  edgeCount: number;
+  clustersAssigned: number;
+  durationMs: number;
+  skipped: boolean;
+}
+
+/**
+ * Shared ingestion logic used by both PreCompact and SessionEnd hooks.
+ *
+ * Ingests the session, then assigns new chunks to existing clusters.
+ * Cluster assignment failures are logged but non-fatal.
+ */
+export async function ingestCurrentSession(
+  hookName: string,
+  sessionPath: string
+): Promise<IngestionResult> {
+  const { ingestSession } = await import('../ingest/ingest-session.js');
+  const { clusterManager } = await import('../clusters/cluster-manager.js');
+  const { vectorStore } = await import('../storage/vector-store.js');
+
+  const startTime = Date.now();
+
+  const ingestResult = await ingestSession(sessionPath, {
+    skipIfExists: true,
+    linkCrossSessions: true,
+  });
+
+  if (ingestResult.skipped) {
+    return {
+      sessionId: ingestResult.sessionId,
+      chunkCount: 0,
+      edgeCount: 0,
+      clustersAssigned: 0,
+      durationMs: Date.now() - startTime,
+      skipped: true,
+    };
+  }
+
+  let clustersAssigned = 0;
+  if (ingestResult.chunkCount > 0) {
+    try {
+      const vectors = await vectorStore.getAllVectors();
+      const recentVectors = vectors.slice(-ingestResult.chunkCount);
+      const assignResult = await clusterManager.assignNewChunks(recentVectors);
+      clustersAssigned = assignResult.assigned;
+    } catch (error) {
+      logHook({
+        level: 'warn',
+        hook: hookName,
+        event: 'cluster_assignment_failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return {
+    sessionId: ingestResult.sessionId,
+    chunkCount: ingestResult.chunkCount,
+    edgeCount: ingestResult.edgeCount,
+    clustersAssigned,
+    durationMs: Date.now() - startTime,
+    skipped: false,
+  };
+}
+
 /**
  * Check if an error is transient (worth retrying).
  */

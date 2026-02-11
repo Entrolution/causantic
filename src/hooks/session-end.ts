@@ -1,6 +1,6 @@
 /**
- * Pre-compact hook handler.
- * Called before a Claude Code session is compacted.
+ * Session-end hook handler.
+ * Called when a Claude Code session ends (clear, logout, exit).
  * Ingests the session into the memory system.
  *
  * Features:
@@ -18,12 +18,12 @@ import {
 } from './hook-utils.js';
 import { createLogger } from '../utils/logger.js';
 
-const log = createLogger('pre-compact');
+const log = createLogger('session-end');
 
 /**
- * Result of pre-compact hook execution.
+ * Result of session-end hook execution.
  */
-export interface PreCompactResult {
+export interface SessionEndResult {
   /** Session ID that was ingested */
   sessionId: string;
   /** Number of chunks created */
@@ -43,9 +43,9 @@ export interface PreCompactResult {
 }
 
 /**
- * Options for pre-compact hook.
+ * Options for session-end hook.
  */
-export interface PreCompactOptions {
+export interface SessionEndOptions {
   /** Enable retry on transient errors. Default: true */
   enableRetry?: boolean;
   /** Maximum retries. Default: 3 */
@@ -57,29 +57,29 @@ export interface PreCompactOptions {
 /**
  * Internal handler without retry logic.
  */
-async function internalHandlePreCompact(sessionPath: string): Promise<PreCompactResult> {
-  return ingestCurrentSession('pre-compact', sessionPath);
+async function internalHandleSessionEnd(sessionPath: string): Promise<SessionEndResult> {
+  return ingestCurrentSession('session-end', sessionPath);
 }
 
 /**
- * Handle pre-compact hook.
- * Called by Claude Code before session compaction.
+ * Handle session-end hook.
+ * Called by Claude Code when a session ends (clear, logout, exit).
  *
  * @param sessionPath - Path to the session JSONL file
  * @param options - Hook options
  * @returns Result of the ingestion
  */
-export async function handlePreCompact(
+export async function handleSessionEnd(
   sessionPath: string,
-  options: PreCompactOptions = {}
-): Promise<PreCompactResult> {
+  options: SessionEndOptions = {}
+): Promise<SessionEndResult> {
   const {
     enableRetry = true,
     maxRetries = 3,
     gracefulDegradation = true,
   } = options;
 
-  const fallbackResult: PreCompactResult = {
+  const fallbackResult: SessionEndResult = {
     sessionId: 'unknown',
     chunkCount: 0,
     edgeCount: 0,
@@ -90,8 +90,8 @@ export async function handlePreCompact(
   };
 
   const { result, metrics } = await executeHook(
-    'pre-compact',
-    () => internalHandlePreCompact(sessionPath),
+    'session-end',
+    () => internalHandleSessionEnd(sessionPath),
     {
       retry: enableRetry
         ? {
@@ -111,14 +111,14 @@ export async function handlePreCompact(
 }
 
 /**
- * CLI entry point for pre-compact hook.
+ * CLI entry point for session-end hook.
  */
-export async function preCompactCli(sessionPath: string): Promise<void> {
+export async function sessionEndCli(sessionPath: string): Promise<void> {
   try {
-    const result = await handlePreCompact(sessionPath);
+    const result = await handleSessionEnd(sessionPath);
 
     if (result.degraded) {
-      log.error('Pre-compact hook ran in degraded mode due to errors.');
+      log.error('Session-end hook ran in degraded mode due to errors.');
       process.exit(1);
     }
 
@@ -131,7 +131,7 @@ export async function preCompactCli(sessionPath: string): Promise<void> {
       }
     }
   } catch (error) {
-    log.error('Pre-compact hook failed:', { error: error instanceof Error ? error.message : String(error) });
+    log.error('Session-end hook failed:', { error: error instanceof Error ? error.message : String(error) });
     process.exit(1);
   }
 }

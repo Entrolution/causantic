@@ -3,7 +3,7 @@ import type { Command } from '../types.js';
 export const hookCommand: Command = {
   name: 'hook',
   description: 'Run a hook manually',
-  usage: 'causantic hook <session-start|pre-compact|claudemd-generator> [path]',
+  usage: 'causantic hook <session-start|pre-compact|session-end|claudemd-generator> [path]',
   handler: async (args) => {
     const hookName = args[0];
     const path = args[1] ?? process.cwd();
@@ -22,6 +22,12 @@ export const hookCommand: Command = {
         console.log('Pre-compact hook executed.');
         break;
       }
+      case 'session-end': {
+        const { handleSessionEnd } = await import('../../hooks/session-end.js');
+        await handleSessionEnd(path);
+        console.log('Session-end hook executed.');
+        break;
+      }
       case 'claudemd-generator': {
         const { updateClaudeMd } = await import('../../hooks/claudemd-generator.js');
         await updateClaudeMd(path, {});
@@ -30,7 +36,7 @@ export const hookCommand: Command = {
       }
       default:
         console.error('Error: Unknown hook');
-        console.log('Usage: causantic hook <session-start|pre-compact|claudemd-generator> [path]');
+        console.log('Usage: causantic hook <session-start|pre-compact|session-end|claudemd-generator> [path]');
         process.exit(2);
     }
   },
