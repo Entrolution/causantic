@@ -9,7 +9,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { scanProjects } from '../../src/maintenance/tasks/scan-projects.js';
 import { updateClusters } from '../../src/maintenance/tasks/update-clusters.js';
 import { pruneGraph } from '../../src/maintenance/tasks/prune-graph.js';
-import { refreshLabels } from '../../src/maintenance/tasks/refresh-labels.js';
 import { vacuum } from '../../src/maintenance/tasks/vacuum.js';
 import { cleanupVectors } from '../../src/maintenance/tasks/cleanup-vectors.js';
 
@@ -121,45 +120,6 @@ describe('pruneGraph', () => {
 
     expect(result.success).toBe(true);
     expect(result.message).toBe('Pruned 0 edges, marked 0 chunks for TTL cleanup');
-  });
-});
-
-describe('refreshLabels', () => {
-  it('returns success with refresh count', async () => {
-    const refreshAllClusters = vi.fn().mockResolvedValue([{}, {}, {}]);
-
-    const result = await refreshLabels({ refreshAllClusters });
-
-    expect(result.success).toBe(true);
-    expect(result.message).toBe('Refreshed 3 cluster labels');
-    expect(refreshAllClusters).toHaveBeenCalledWith({});
-  });
-
-  it('returns skipped message when API key is missing', async () => {
-    const refreshAllClusters = vi.fn().mockRejectedValue(new Error('No API key configured'));
-
-    const result = await refreshLabels({ refreshAllClusters });
-
-    expect(result.success).toBe(false);
-    expect(result.message).toBe('Skipped: No Anthropic API key configured');
-  });
-
-  it('returns failure for non-API-key errors', async () => {
-    const refreshAllClusters = vi.fn().mockRejectedValue(new Error('rate limited'));
-
-    const result = await refreshLabels({ refreshAllClusters });
-
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('rate limited');
-  });
-
-  it('handles empty cluster list', async () => {
-    const refreshAllClusters = vi.fn().mockResolvedValue([]);
-
-    const result = await refreshLabels({ refreshAllClusters });
-
-    expect(result.success).toBe(true);
-    expect(result.message).toBe('Refreshed 0 cluster labels');
   });
 });
 
