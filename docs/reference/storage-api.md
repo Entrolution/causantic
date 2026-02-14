@@ -312,4 +312,4 @@ vectorStore.insertBatch([...]);
 
 - [Types Reference](../src/storage/types.ts) - Full type definitions
 - [Traversal Algorithm](./traversal-algorithm.md) - How edges are traversed
-- [Decay Models](../research/approach/decay-models.md) - Decay curve details
+- [Decay Models](../research/archive/decay-models.md) - Decay curve details (historical, pre-v0.3)

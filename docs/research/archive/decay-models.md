@@ -165,5 +165,5 @@ export const FORWARD_HOP_DECAY: HopDecayConfig = {
 
 ## Related
 
-- [Decay Curves Experiments](../experiments/decay-curves.md) - Full experimental data and methodology
+- [Decay Curves Experiments](./decay-curves.md) - Full experimental data and methodology
 - [Lessons Learned](../experiments/lessons-learned.md) - Why sum-product traversal and decay were removed

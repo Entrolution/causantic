@@ -180,6 +180,6 @@ The entropic model provides:
 
 ## Related
 
-- [Vector Clocks](./vector-clocks.md) - Historical: original causal distance approach (removed in v0.3.0)
-- [Decay Models](./decay-models.md) - Implementation of edge weight decay
+- [Vector Clocks](../archive/vector-clocks.md) - Historical: original causal distance approach (removed in v0.3.0)
+- [Decay Models](../archive/decay-models.md) - Historical: edge weight decay (removed in v0.3.0)
 - [Why Causal Graphs](./why-causal-graphs.md) - Graph structure motivation

@@ -14,6 +14,9 @@ For distilled, up-to-date documentation, see the parent [Research](../README.md)
 | [session-data-inventory.md](session-data-inventory.md) | Audit of 32 projects, 251 sessions, 3.5 GB of Claude Code session data used for experiments |
 | [embedding-benchmark-results.md](embedding-benchmark-results.md) | Two-run embedding model benchmark (66 → 294 chunks) plus 5 follow-up experiments on jina-small |
 | [topic-continuity-results.md](topic-continuity-results.md) | Topic boundary detection experiment across 75 sessions, 2,817 transitions — lexical-only achieves 0.998 AUC |
+| [vector-clocks.md](vector-clocks.md) | D-T-D vector clock model for logical distance — replaced by chain walking in v0.3 |
+| [decay-models.md](decay-models.md) | Hop-based decay models (exponential backward, linear forward) — removed in v0.3 |
+| [decay-curves.md](decay-curves.md) | Decay curve experiments: 9 models, 30 sessions, MRR analysis — superseded by chain walking |
 
 ## Relationship to Current Docs
 
@@ -21,7 +24,6 @@ Key findings from these documents have been extracted into the distilled researc
 
 - **Competitor analysis** → [Landscape Analysis](../approach/landscape-analysis.md)
 - **Design decisions** → [Design Decision Log](../decisions.md)
-- **Decay experiment results** → [Decay Curves](../experiments/decay-curves.md)
 - **Embedding experiment results** → [Embedding Models](../experiments/embedding-models.md)
 - **Topic continuity results** → [Topic Continuity](../experiments/topic-continuity.md)
 - **What didn't work** → [Lessons Learned](../experiments/lessons-learned.md)

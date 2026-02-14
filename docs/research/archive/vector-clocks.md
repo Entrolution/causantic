@@ -148,7 +148,7 @@ Forward (predictive):
 
 Hop-based decay improves retrieval accuracy by 35% (backward) and 271% (forward) compared to exponential time-based decay.
 
-See [../experiments/decay-curves.md](../experiments/decay-curves.md) for benchmark data.
+See [./decay-curves.md](./decay-curves.md) for benchmark data.
 
 ## What Replaced This
 

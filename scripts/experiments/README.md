@@ -11,7 +11,6 @@ Research experiments and parameter sweeps.
 | `run-cluster-threshold.ts` | Cluster threshold sweep | `npm run cluster-threshold` |
 | `run-hold-period-sweep.ts` | Hold period sweep | `npm run hold-period-sweep` |
 | `run-noncoding-validation.ts` | Non-coding validation | `npm run noncoding-validation` |
-| `run-vector-decay-sweep.ts` | Vector decay sweep | `npm run vector-decay-sweep` |
 | `sweep-min-weight.ts` | Minimum weight sweep | `npm run min-weight-sweep` |
 | `sweep-depth.ts` | Depth sweep | `npm run depth-sweep` |
 | `cross-project-experiment.ts` | Cross-project experiment | `npm run cross-project` |

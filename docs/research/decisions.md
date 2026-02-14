@@ -60,7 +60,7 @@ A chronological narrative of every major design decision in Causantic's developm
 
 **Why**: Wall-clock decay made all historical edges appear "dead" — returning to a project after a weekend showed no memory. Hop-based decay preserves cross-session continuity because Monday's work and Tuesday's continuation are 1 hop apart regardless of the 24-hour gap.
 
-**Evidence**: [Decay curve experiments](experiments/decay-curves.md), [lessons learned §1](experiments/lessons-learned.md)
+**Evidence**: [Decay curve experiments](archive/decay-curves.md), [lessons learned §1](experiments/lessons-learned.md)
 
 ## Direction-Specific Decay Curves
 
@@ -72,7 +72,7 @@ A chronological narrative of every major design decision in Causantic's developm
 
 **Supersedes**: v0.2 decision of linear dies@10 (backward) and delayed-linear 5h/dies@20 (forward). The previous backward curve was too short; the previous forward hold period added complexity for zero benefit.
 
-**Evidence**: [Decay curve experiments](experiments/decay-curves.md)
+**Evidence**: [Decay curve experiments](archive/decay-curves.md)
 
 ## Edge Types and Weights (Historical, pre-v0.3)
 
