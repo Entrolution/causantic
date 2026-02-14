@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Readable } from 'node:stream';
+import type { HookStdinInput } from '../../src/cli/commands/hook.js';
 
 // We test readStdin by mocking process.stdin
 describe('hook-command', () => {
@@ -35,7 +36,7 @@ describe('hook-command', () => {
       Object.defineProperty(mockStdin, 'setEncoding', { value: vi.fn() });
       Object.defineProperty(process, 'stdin', { value: mockStdin, writable: true });
 
-      const readStdin = (await getReadStdin());
+      const readStdin = await getReadStdin();
       const result = await readStdin();
 
       expect(result.transcript_path).toBe('/tmp/test.jsonl');
@@ -53,7 +54,7 @@ describe('hook-command', () => {
       Object.defineProperty(mockStdin, 'setEncoding', { value: vi.fn() });
       Object.defineProperty(process, 'stdin', { value: mockStdin, writable: true });
 
-      const readStdin = (await getReadStdin());
+      const readStdin = await getReadStdin();
       const result = await readStdin();
 
       expect(result).toEqual({});
@@ -70,7 +71,7 @@ describe('hook-command', () => {
       Object.defineProperty(mockStdin, 'setEncoding', { value: vi.fn() });
       Object.defineProperty(process, 'stdin', { value: mockStdin, writable: true });
 
-      const readStdin = (await getReadStdin());
+      const readStdin = await getReadStdin();
       const result = await readStdin();
 
       expect(result).toEqual({});
@@ -82,7 +83,7 @@ describe('hook-command', () => {
       Object.defineProperty(mockStdin, 'setEncoding', { value: vi.fn() });
       Object.defineProperty(process, 'stdin', { value: mockStdin, writable: true });
 
-      const readStdin = (await getReadStdin());
+      const readStdin = await getReadStdin();
       const result = await readStdin();
 
       expect(result).toEqual({});
@@ -98,7 +99,7 @@ describe('hook-command', () => {
       Object.defineProperty(mockStdin, 'setEncoding', { value: vi.fn() });
       Object.defineProperty(process, 'stdin', { value: mockStdin, writable: true });
 
-      const readStdin = (await getReadStdin());
+      const readStdin = await getReadStdin();
       const result = await readStdin();
 
       expect(result).toEqual({});
@@ -121,7 +122,7 @@ describe('hook-command', () => {
       Object.defineProperty(mockStdin, 'setEncoding', { value: vi.fn() });
       Object.defineProperty(process, 'stdin', { value: mockStdin, writable: true });
 
-      const readStdin = (await getReadStdin());
+      const readStdin = await getReadStdin();
       const result = await readStdin();
 
       expect(result.transcript_path).toBe(hookInput.transcript_path);
@@ -133,7 +134,7 @@ describe('hook-command', () => {
   describe('HookStdinInput type', () => {
     it('allows additional unknown fields', () => {
       // Type check — extra fields should be allowed via index signature
-      const input: import('../../src/cli/commands/hook.js').HookStdinInput = {
+      const input: HookStdinInput = {
         transcript_path: '/tmp/test.jsonl',
         session_id: 'abc',
         cwd: '/tmp',

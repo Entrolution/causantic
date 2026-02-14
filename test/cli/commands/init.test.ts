@@ -407,25 +407,43 @@ describe('initCommand', () => {
 
     it('skips when hooks already match the current install path', async () => {
       // Build the exact command strings that init would generate
-      const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'src', 'cli', 'index.js');
+      const cliEntry = path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        '..',
+        '..',
+        '..',
+        'src',
+        'cli',
+        'index.js',
+      );
       const nodeBin = process.execPath;
       const existingHooks = {
         PreCompact: [
           {
             matcher: '',
-            hooks: [{ type: 'command', command: `${nodeBin} ${cliEntry} hook pre-compact`, timeout: 300 }],
+            hooks: [
+              { type: 'command', command: `${nodeBin} ${cliEntry} hook pre-compact`, timeout: 300 },
+            ],
           },
         ],
         SessionStart: [
           {
             matcher: '',
-            hooks: [{ type: 'command', command: `${nodeBin} ${cliEntry} hook session-start`, timeout: 60 }],
+            hooks: [
+              {
+                type: 'command',
+                command: `${nodeBin} ${cliEntry} hook session-start`,
+                timeout: 60,
+              },
+            ],
           },
         ],
         SessionEnd: [
           {
             matcher: '',
-            hooks: [{ type: 'command', command: `${nodeBin} ${cliEntry} hook session-end`, timeout: 60 }],
+            hooks: [
+              { type: 'command', command: `${nodeBin} ${cliEntry} hook session-end`, timeout: 60 },
+            ],
           },
         ],
       };

@@ -3,12 +3,7 @@
  */
 
 // Context assembler
-export {
-  assembleContext,
-  recall,
-  predict,
-  disposeRetrieval,
-} from './context-assembler.js';
+export { assembleContext, recall, predict, disposeRetrieval } from './context-assembler.js';
 export type { RetrievalRequest, RetrievalResponse } from './context-assembler.js';
 
 // Search assembler

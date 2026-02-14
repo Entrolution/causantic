@@ -4,8 +4,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { writeFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { dirname } from 'node:path';
+import type * as NodeOs from 'node:os';
 
 // Mock os.homedir() so STATUS_FILE_PATH resolves to a temp directory
 const TEST_HOME = vi.hoisted(() => {
@@ -18,7 +18,7 @@ const TEST_HOME = vi.hoisted(() => {
 });
 
 vi.mock('node:os', async (importOriginal) => {
-  const original = (await importOriginal()) as typeof import('node:os');
+  const original = (await importOriginal()) as typeof NodeOs;
   return {
     ...original,
     homedir: () => TEST_HOME,

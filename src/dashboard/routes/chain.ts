@@ -38,22 +38,19 @@ router.get('/walk', (req, res) => {
   let current = chunkId;
 
   for (let depth = 0; depth < maxDepth; depth++) {
-    const edges =
-      direction === 'forward' ? getForwardEdges(current) : getBackwardEdges(current);
+    const edges = direction === 'forward' ? getForwardEdges(current) : getBackwardEdges(current);
 
     if (edges.length === 0) break;
 
     // Pick first unvisited neighbor
     const next = edges.find((e) => {
-      const neighbor =
-        direction === 'forward' ? e.targetChunkId : e.sourceChunkId;
+      const neighbor = direction === 'forward' ? e.targetChunkId : e.sourceChunkId;
       return !visited.has(neighbor);
     });
 
     if (!next) break;
 
-    const neighborId =
-      direction === 'forward' ? next.targetChunkId : next.sourceChunkId;
+    const neighborId = direction === 'forward' ? next.targetChunkId : next.sourceChunkId;
     visited.add(neighborId);
     chainIds.push(neighborId);
     current = neighborId;
@@ -77,10 +74,7 @@ router.get('/walk', (req, res) => {
     };
   };
 
-  const totalTokens = allIds.reduce(
-    (sum, id) => sum + (chunkMap.get(id)?.approxTokens ?? 0),
-    0,
-  );
+  const totalTokens = allIds.reduce((sum, id) => sum + (chunkMap.get(id)?.approxTokens ?? 0), 0);
 
   res.json({
     seed: toMeta(chunkId),

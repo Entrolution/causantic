@@ -431,7 +431,9 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
       // different install path) so we don't accumulate duplicates.
       config.hooks[event] = config.hooks[event].filter(
         (entry: { hooks?: Array<{ command?: string }> }) =>
-          !entry.hooks?.some((h: { command?: string }) => h.command && hookSubcommand(h.command) === subCmd),
+          !entry.hooks?.some(
+            (h: { command?: string }) => h.command && hookSubcommand(h.command) === subCmd,
+          ),
       );
 
       config.hooks[event].push({

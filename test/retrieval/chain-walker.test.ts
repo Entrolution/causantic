@@ -48,11 +48,7 @@ function makeChunk(id: string, overrides: Partial<StoredChunk> = {}): StoredChun
   };
 }
 
-function makeEdge(
-  source: string,
-  target: string,
-  id?: string,
-): StoredEdge {
+function makeEdge(source: string, target: string, id?: string): StoredEdge {
   return {
     id: id ?? `edge-${source}-${target}`,
     sourceChunkId: source,
@@ -332,9 +328,30 @@ describe('chain-walker', () => {
   describe('selectBestChain', () => {
     it('selects chain with highest medianScore', () => {
       const chains: Chain[] = [
-        { chunkIds: ['A', 'B'], chunks: [], nodeScores: [0.5, 0.5], score: 1.0, tokenCount: 200, medianScore: 0.5 },
-        { chunkIds: ['C', 'D'], chunks: [], nodeScores: [0.8, 0.7], score: 1.5, tokenCount: 200, medianScore: 0.75 },
-        { chunkIds: ['E', 'F'], chunks: [], nodeScores: [0.4, 0.4], score: 0.8, tokenCount: 200, medianScore: 0.4 },
+        {
+          chunkIds: ['A', 'B'],
+          chunks: [],
+          nodeScores: [0.5, 0.5],
+          score: 1.0,
+          tokenCount: 200,
+          medianScore: 0.5,
+        },
+        {
+          chunkIds: ['C', 'D'],
+          chunks: [],
+          nodeScores: [0.8, 0.7],
+          score: 1.5,
+          tokenCount: 200,
+          medianScore: 0.75,
+        },
+        {
+          chunkIds: ['E', 'F'],
+          chunks: [],
+          nodeScores: [0.4, 0.4],
+          score: 0.8,
+          tokenCount: 200,
+          medianScore: 0.4,
+        },
       ];
 
       const best = selectBestChain(chains);
@@ -346,8 +363,22 @@ describe('chain-walker', () => {
       // Chain 1: consistent but moderate scores
       // Chain 2: two strong nodes + one weak outlier — median should still win
       const chains: Chain[] = [
-        { chunkIds: ['A', 'B', 'C'], chunks: [], nodeScores: [0.6, 0.6, 0.6], score: 1.8, tokenCount: 300, medianScore: 0.6 },
-        { chunkIds: ['D', 'E', 'F'], chunks: [], nodeScores: [0.85, 0.3, 0.82], score: 1.97, tokenCount: 300, medianScore: 0.82 },
+        {
+          chunkIds: ['A', 'B', 'C'],
+          chunks: [],
+          nodeScores: [0.6, 0.6, 0.6],
+          score: 1.8,
+          tokenCount: 300,
+          medianScore: 0.6,
+        },
+        {
+          chunkIds: ['D', 'E', 'F'],
+          chunks: [],
+          nodeScores: [0.85, 0.3, 0.82],
+          score: 1.97,
+          tokenCount: 300,
+          medianScore: 0.82,
+        },
       ];
 
       const best = selectBestChain(chains);
@@ -359,8 +390,22 @@ describe('chain-walker', () => {
 
     it('requires chains with at least 2 chunks', () => {
       const chains: Chain[] = [
-        { chunkIds: ['A'], chunks: [], nodeScores: [0.9], score: 10, tokenCount: 100, medianScore: 0.9 },
-        { chunkIds: ['B', 'C'], chunks: [], nodeScores: [0.5, 0.5], score: 1, tokenCount: 200, medianScore: 0.5 },
+        {
+          chunkIds: ['A'],
+          chunks: [],
+          nodeScores: [0.9],
+          score: 10,
+          tokenCount: 100,
+          medianScore: 0.9,
+        },
+        {
+          chunkIds: ['B', 'C'],
+          chunks: [],
+          nodeScores: [0.5, 0.5],
+          score: 1,
+          tokenCount: 200,
+          medianScore: 0.5,
+        },
       ];
 
       const best = selectBestChain(chains);
@@ -370,7 +415,14 @@ describe('chain-walker', () => {
 
     it('returns null when no chain has 2+ chunks', () => {
       const chains: Chain[] = [
-        { chunkIds: ['A'], chunks: [], nodeScores: [0.9], score: 10, tokenCount: 100, medianScore: 0.9 },
+        {
+          chunkIds: ['A'],
+          chunks: [],
+          nodeScores: [0.9],
+          score: 10,
+          tokenCount: 100,
+          medianScore: 0.9,
+        },
       ];
 
       expect(selectBestChain(chains)).toBeNull();

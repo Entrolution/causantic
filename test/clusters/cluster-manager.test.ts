@@ -604,9 +604,7 @@ describe('cluster-manager', () => {
           memberIds: new Set(),
         },
       ];
-      const newClusters: NewClusterInfo[] = [
-        { clusterId: 'new-1', memberIds: new Set() },
-      ];
+      const newClusters: NewClusterInfo[] = [{ clusterId: 'new-1', memberIds: new Set() }];
 
       const matches = matchClustersByOverlap(old, newClusters);
 

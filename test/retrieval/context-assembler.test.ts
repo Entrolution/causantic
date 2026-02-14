@@ -16,9 +16,7 @@ import type { EpisodicResponse } from '../../src/retrieval/chain-assembler.js';
 let mockSearchResponse: SearchResponse = {
   text: 'Search result text',
   tokenCount: 100,
-  chunks: [
-    { id: 'c1', sessionSlug: 'test', weight: 0.9, preview: 'Preview 1', source: 'vector' },
-  ],
+  chunks: [{ id: 'c1', sessionSlug: 'test', weight: 0.9, preview: 'Preview 1', source: 'vector' }],
   totalConsidered: 5,
   durationMs: 25,
   queryEmbedding: [1, 0, 0],
@@ -28,9 +26,7 @@ let mockSearchResponse: SearchResponse = {
 let mockRecallResponse: EpisodicResponse = {
   text: 'Recall chain',
   tokenCount: 200,
-  chunks: [
-    { id: 'r1', sessionSlug: 'test', weight: 0.8, preview: 'Recall chunk' },
-  ],
+  chunks: [{ id: 'r1', sessionSlug: 'test', weight: 0.8, preview: 'Recall chunk' }],
   mode: 'chain',
   chainLength: 3,
   durationMs: 50,
@@ -39,9 +35,7 @@ let mockRecallResponse: EpisodicResponse = {
 let mockPredictResponse: EpisodicResponse = {
   text: 'Predict chain',
   tokenCount: 150,
-  chunks: [
-    { id: 'p1', sessionSlug: 'test', weight: 0.7, preview: 'Predict chunk' },
-  ],
+  chunks: [{ id: 'p1', sessionSlug: 'test', weight: 0.7, preview: 'Predict chunk' }],
   mode: 'chain',
   chainLength: 2,
   durationMs: 40,
@@ -85,9 +79,7 @@ describe('context-assembler', () => {
     mockRecallResponse = {
       text: 'Recall chain',
       tokenCount: 200,
-      chunks: [
-        { id: 'r1', sessionSlug: 'test', weight: 0.8, preview: 'Recall chunk' },
-      ],
+      chunks: [{ id: 'r1', sessionSlug: 'test', weight: 0.8, preview: 'Recall chunk' }],
       mode: 'chain',
       chainLength: 3,
       durationMs: 50,
@@ -96,9 +88,7 @@ describe('context-assembler', () => {
     mockPredictResponse = {
       text: 'Predict chain',
       tokenCount: 150,
-      chunks: [
-        { id: 'p1', sessionSlug: 'test', weight: 0.7, preview: 'Predict chunk' },
-      ],
+      chunks: [{ id: 'p1', sessionSlug: 'test', weight: 0.7, preview: 'Predict chunk' }],
       mode: 'chain',
       chainLength: 2,
       durationMs: 40,

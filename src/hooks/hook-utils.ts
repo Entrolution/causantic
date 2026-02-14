@@ -8,6 +8,8 @@
  * - Graceful degradation on failure
  */
 
+import type { recordHookStatus as RecordHookStatusFn } from './hook-status.js';
+
 /** Log entry structure */
 export interface HookLogEntry {
   timestamp: string;
@@ -206,7 +208,7 @@ export async function executeHook<T>(
 ): Promise<{ result: T; metrics: HookMetrics }> {
   // Late import to keep hook-status optional; uses static import path
   // but deferred so the module only loads when executeHook is called.
-  let recordStatus: typeof import('./hook-status.js').recordHookStatus = () => {};
+  let recordStatus: typeof RecordHookStatusFn = () => {};
   try {
     const mod = await import('./hook-status.js');
     recordStatus = mod.recordHookStatus;

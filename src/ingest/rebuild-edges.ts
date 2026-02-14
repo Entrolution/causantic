@@ -44,9 +44,7 @@ function storedChunkToParserChunk(stored: StoredChunk): Chunk {
 /**
  * Rebuild all edges across all sessions.
  */
-export async function rebuildEdges(
-  onProgress?: (msg: string) => void,
-): Promise<RebuildResult> {
+export async function rebuildEdges(onProgress?: (msg: string) => void): Promise<RebuildResult> {
   const sessionIds = getSessionIds();
   let totalDeleted = 0;
   let totalCreated = 0;
