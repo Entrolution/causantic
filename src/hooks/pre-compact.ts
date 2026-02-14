@@ -73,7 +73,7 @@ async function internalHandlePreCompact(sessionPath: string): Promise<PreCompact
  */
 export async function handlePreCompact(
   sessionPath: string,
-  options: PreCompactOptions = {},
+  options: PreCompactOptions & { project?: string; sessionId?: string } = {},
 ): Promise<PreCompactResult> {
   const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
 
@@ -87,7 +87,7 @@ export async function handlePreCompact(
     degraded: true,
   };
 
-  const project = basename(process.cwd());
+  const project = options.project ?? basename(process.cwd());
 
   const { result, metrics } = await executeHook(
     'pre-compact',
@@ -101,6 +101,7 @@ export async function handlePreCompact(
         : undefined,
       fallback: gracefulDegradation ? fallbackResult : undefined,
       project,
+      sessionId: options.sessionId,
     },
   );
 

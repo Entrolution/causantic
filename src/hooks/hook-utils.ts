@@ -200,6 +200,8 @@ export async function executeHook<T>(
     fallback?: T;
     /** Project name for status tracking. */
     project?: string;
+    /** Session ID for status tracking. */
+    sessionId?: string;
   } = {},
 ): Promise<{ result: T; metrics: HookMetrics }> {
   // Late import to keep hook-status optional; uses static import path
@@ -243,6 +245,7 @@ export async function executeHook<T>(
       success: true,
       durationMs: metrics.durationMs ?? 0,
       project: options.project ?? null,
+      sessionId: options.sessionId,
       error: null,
     });
 
@@ -264,6 +267,7 @@ export async function executeHook<T>(
       success: false,
       durationMs: metrics.durationMs ?? 0,
       project: options.project ?? null,
+      sessionId: options.sessionId,
       error: err.message,
     });
 
