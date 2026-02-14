@@ -55,10 +55,7 @@ export interface Chain {
  * @param options - Walk options
  * @returns Array of chains (one per seed that yielded results)
  */
-export async function walkChains(
-  seedIds: string[],
-  options: ChainWalkerOptions,
-): Promise<Chain[]> {
+export async function walkChains(seedIds: string[], options: ChainWalkerOptions): Promise<Chain[]> {
   const { direction, tokenBudget, queryEmbedding, maxDepth = 50 } = options;
 
   const visited = new Set<string>();

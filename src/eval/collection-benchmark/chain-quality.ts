@@ -53,9 +53,7 @@ export async function runChainQualityBenchmarks(
 
   const totalQueries = chainCount + fallbackCount;
   const meanChainLength =
-    chainLengths.length > 0
-      ? chainLengths.reduce((a, b) => a + b, 0) / chainLengths.length
-      : 0;
+    chainLengths.length > 0 ? chainLengths.reduce((a, b) => a + b, 0) / chainLengths.length : 0;
   const meanScorePerToken =
     scoresPerToken.length > 0
       ? scoresPerToken.reduce((a, b) => a + b, 0) / scoresPerToken.length

@@ -3,7 +3,7 @@
  * then refresh cluster labels via Haiku if an API key is available.
  */
 
-import type { MaintenanceResult } from '../scheduler.js';
+import type { MaintenanceResult } from '../types.js';
 import type { ClusteringResult } from '../../clusters/cluster-manager.js';
 
 export interface UpdateClustersDeps {

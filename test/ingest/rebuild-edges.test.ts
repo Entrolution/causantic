@@ -174,9 +174,7 @@ describe('rebuildEdges', () => {
 
   it('should call progress callback', async () => {
     mockGetSessionIds.mockReturnValue(['s1']);
-    mockGetChunksBySession.mockReturnValue([
-      makeStoredChunk({ id: 'c1', sessionId: 's1' }),
-    ]);
+    mockGetChunksBySession.mockReturnValue([makeStoredChunk({ id: 'c1', sessionId: 's1' })]);
     mockCreateEdgesFromTransitions.mockResolvedValue({ totalCount: 1 });
 
     const messages: string[] = [];

@@ -25,11 +25,7 @@ import { getModel } from '../models/model-registry.js';
 import { insertChunks, isSessionIngested } from '../storage/chunk-store.js';
 import { vectorStore } from '../storage/vector-store.js';
 import { detectCausalTransitions } from './edge-detector.js';
-import {
-  createEdgesFromTransitions,
-  createBriefEdge,
-  createDebriefEdge,
-} from './edge-creator.js';
+import { createEdgesFromTransitions, createBriefEdge, createDebriefEdge } from './edge-creator.js';
 import { linkCrossSession } from './cross-session-linker.js';
 import {
   detectBriefPoints,
@@ -391,8 +387,7 @@ export async function ingestSession(
 
       // Create debrief edges (single: last sub-agent chunk → first parent chunk after return)
       for (const debrief of debriefPoints) {
-        const lastAgentChunkId =
-          debrief.agentFinalChunkIds[debrief.agentFinalChunkIds.length - 1];
+        const lastAgentChunkId = debrief.agentFinalChunkIds[debrief.agentFinalChunkIds.length - 1];
         const firstParentChunkId = debrief.parentChunkIds[0];
 
         await createDebriefEdge(lastAgentChunkId, firstParentChunkId);

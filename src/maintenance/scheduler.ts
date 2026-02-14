@@ -20,38 +20,11 @@ import { scanProjects } from './tasks/scan-projects.js';
 import { updateClusters } from './tasks/update-clusters.js';
 import { vacuum } from './tasks/vacuum.js';
 import { cleanupVectors } from './tasks/cleanup-vectors.js';
+import type { CronSchedule, MaintenanceResult, MaintenanceTask, TaskRun } from './types.js';
+
+export type { CronSchedule, MaintenanceResult, MaintenanceTask, TaskRun };
 
 const log = createLogger('scheduler');
-
-/** Cron-style schedule expression */
-export type CronSchedule = string;
-
-/** Result of a maintenance task run */
-export interface MaintenanceResult {
-  success: boolean;
-  duration: number;
-  message: string;
-  details?: Record<string, unknown>;
-}
-
-/** Maintenance task definition */
-export interface MaintenanceTask {
-  name: string;
-  description: string;
-  schedule: CronSchedule;
-  requiresApiKey: boolean;
-  handler: () => Promise<MaintenanceResult>;
-}
-
-/** Task run record */
-export interface TaskRun {
-  taskName: string;
-  startTime: string;
-  endTime: string;
-  success: boolean;
-  message: string;
-  details?: Record<string, unknown>;
-}
 
 /** Scheduler state */
 interface SchedulerState {

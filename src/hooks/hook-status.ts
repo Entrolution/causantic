@@ -40,10 +40,7 @@ export const STATUS_FILE_PATH = join(homedir(), '.causantic', 'hook-status.json'
  *
  * Failures are silently swallowed — recording must never break a hook.
  */
-export function recordHookStatus(
-  hookName: string,
-  update: Partial<HookStatusEntry>,
-): void {
+export function recordHookStatus(hookName: string, update: Partial<HookStatusEntry>): void {
   try {
     const current = readHookStatus();
     const existing = current[hookName] ?? {};
@@ -113,7 +110,9 @@ export function formatHookStatus(status: HookStatusMap): string {
     }
 
     const suffix = extra ? ` ${extra}` : '';
-    lines.push(`  ${name.padEnd(16)} ${ago.padEnd(14)} ${state.padEnd(9)} ${duration.padEnd(8)} ${project}${session}${suffix}`);
+    lines.push(
+      `  ${name.padEnd(16)} ${ago.padEnd(14)} ${state.padEnd(9)} ${duration.padEnd(8)} ${project}${session}${suffix}`,
+    );
   }
 
   const summary = hasFailure

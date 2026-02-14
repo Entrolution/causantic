@@ -83,7 +83,12 @@ vi.mock('../../src/utils/token-counter.js', () => ({
 
 // --- Tests ---
 
-import { recallContext, predictContext, type EpisodicRequest, type EpisodicResponse } from '../../src/retrieval/chain-assembler.js';
+import {
+  recallContext,
+  predictContext,
+  type EpisodicRequest,
+  type EpisodicResponse,
+} from '../../src/retrieval/chain-assembler.js';
 
 describe('chain-assembler', () => {
   beforeEach(() => {
@@ -202,9 +207,7 @@ describe('chain-assembler', () => {
       const response: EpisodicResponse = {
         text: 'chain narrative',
         tokenCount: 300,
-        chunks: [
-          { id: 'c1', sessionSlug: 'proj', weight: 0.8, preview: 'Preview...' },
-        ],
+        chunks: [{ id: 'c1', sessionSlug: 'proj', weight: 0.8, preview: 'Preview...' }],
         mode: 'chain',
         chainLength: 3,
         durationMs: 42,

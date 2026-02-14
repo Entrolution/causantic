@@ -28,8 +28,12 @@ vi.mock('../../src/storage/vector-store.js', () => ({
 vi.mock('../../src/storage/keyword-store.js', () => {
   return {
     KeywordStore: class MockKeywordStore {
-      search() { return mockKeywordResults; }
-      searchByProject() { return mockKeywordResults; }
+      search() {
+        return mockKeywordResults;
+      }
+      searchByProject() {
+        return mockKeywordResults;
+      }
     },
   };
 });
@@ -38,7 +42,9 @@ vi.mock('../../src/models/embedder.js', () => {
   return {
     Embedder: class MockEmbedder {
       async load() {}
-      async embed() { return { embedding: mockEmbedding }; }
+      async embed() {
+        return { embedding: mockEmbedding };
+      }
       async dispose() {}
     },
   };
@@ -100,7 +106,11 @@ function makeChunk(id: string, overrides: Partial<StoredChunk> = {}): StoredChun
 
 // --- Tests ---
 
-import { searchContext, disposeSearch, type SearchRequest } from '../../src/retrieval/search-assembler.js';
+import {
+  searchContext,
+  disposeSearch,
+  type SearchRequest,
+} from '../../src/retrieval/search-assembler.js';
 
 describe('search-assembler', () => {
   beforeEach(() => {
@@ -255,10 +265,13 @@ describe('search-assembler', () => {
     });
 
     it('formats chunks with session metadata', async () => {
-      mockChunks.set('c1', makeChunk('c1', {
-        sessionSlug: 'my-project',
-        startTime: '2024-06-15T10:00:00Z',
-      }));
+      mockChunks.set(
+        'c1',
+        makeChunk('c1', {
+          sessionSlug: 'my-project',
+          startTime: '2024-06-15T10:00:00Z',
+        }),
+      );
       mockVectorResults = [{ id: 'c1', distance: 0.1 }];
 
       const result = await searchContext({ query: 'test' });

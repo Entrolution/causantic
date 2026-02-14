@@ -38,7 +38,8 @@ describe('cross-session-linker', () => {
     });
 
     it('detects continuation with [User] role prefix', () => {
-      const content = '[User]\nThis session is being continued from a previous conversation that ran out of context.';
+      const content =
+        '[User]\nThis session is being continued from a previous conversation that ran out of context.';
       expect(isContinuedSession(content)).toBe(true);
     });
 

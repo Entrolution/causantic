@@ -94,7 +94,8 @@ export function generateTuningRecommendations(
         currentValue: `${health.edgeCount} edges for ${health.chunkCount} chunks`,
         suggestedValue: 'Re-ingest with latest parser or run rebuild-edges',
         configPath: '(action)',
-        impact: 'Edges are sparse; re-ingesting or rebuilding edges creates sequential chains for walking',
+        impact:
+          'Edges are sparse; re-ingesting or rebuilding edges creates sequential chains for walking',
         priority: 'high',
       });
     } else {
@@ -190,7 +191,8 @@ export function generateTuningRecommendations(
       currentValue: `${(chain.fallbackRate * 100).toFixed(0)}% of queries fall back to search`,
       suggestedValue: 'Run `npx causantic maintenance rebuild-edges`',
       configPath: '(action)',
-      impact: 'Most queries cannot form chains. Rebuild edges to create sequential linked-list structure.',
+      impact:
+        'Most queries cannot form chains. Rebuild edges to create sequential linked-list structure.',
       priority: 'medium',
     });
   }
