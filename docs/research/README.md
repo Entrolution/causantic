@@ -33,7 +33,7 @@ HDBSCAN clustering with angular distance achieves 100% precision and 88.7% recal
 
 > In v0.3.0, decay switched from vector-clock hops to hop-based traversal depth (turn count difference). The relative curve rankings remain valid.
 
-See [experiments/decay-curves.md](experiments/decay-curves.md).
+See [archive/decay-curves.md](archive/decay-curves.md).
 
 ### Graph Traversal
 
@@ -89,7 +89,7 @@ See [approach/why-causal-graphs.md](approach/why-causal-graphs.md).
 
 The original design used vector clocks for logical hop counting. This was replaced with simpler hop-based edge decay (turn count difference) while preserving the causal graph structure.
 
-See [approach/vector-clocks.md](approach/vector-clocks.md) for the historical rationale.
+See [archive/vector-clocks.md](archive/vector-clocks.md) for the historical rationale.
 
 ### Why Dual Integration?
 
