@@ -7,6 +7,7 @@ import { searchContext } from '../retrieval/search-assembler.js';
 import { getConfig } from '../config/memory-config.js';
 import { getDistinctProjects, getSessionsForProject } from '../storage/chunk-store.js';
 import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
+import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 import type { SearchResponse } from '../retrieval/search-assembler.js';
 
@@ -332,6 +333,24 @@ export const reconstructTool: ToolDefinition = {
 };
 
 /**
+ * Hook status tool: check when hooks last ran and whether they succeeded.
+ */
+export const hookStatusTool: ToolDefinition = {
+  name: 'hook-status',
+  description:
+    'Check when causantic hooks last ran and whether they succeeded. Use for diagnosing whether hooks are firing correctly after setup or configuration changes.',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+    required: [],
+  },
+  handler: async () => {
+    const status = readHookStatus();
+    return formatHookStatusMcp(status);
+  },
+};
+
+/**
  * All available tools.
  */
 export const tools: ToolDefinition[] = [
@@ -341,6 +360,7 @@ export const tools: ToolDefinition[] = [
   listProjectsTool,
   listSessionsTool,
   reconstructTool,
+  hookStatusTool,
 ];
 
 /**

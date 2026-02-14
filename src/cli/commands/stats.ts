@@ -2,6 +2,7 @@ import type { Command } from '../types.js';
 import { getChunkCount, getSessionIds } from '../../storage/chunk-store.js';
 import { getEdgeCount } from '../../storage/edge-store.js';
 import { getClusterCount } from '../../storage/cluster-store.js';
+import { readHookStatus, formatHookStatus } from '../../hooks/hook-status.js';
 
 export const statsCommand: Command = {
   name: 'stats',
@@ -18,6 +19,11 @@ export const statsCommand: Command = {
     console.log(`  Chunks: ${chunks}`);
     console.log(`  Edges: ${edges}`);
     console.log(`  Clusters: ${clusters}`);
+
+    console.log('');
+
+    const hookStatus = readHookStatus();
+    console.log(formatHookStatus(hookStatus));
   },
 };
 

@@ -131,8 +131,8 @@ describe('mcp-tools', () => {
   });
 
   describe('tools array', () => {
-    it('contains all six tools', () => {
-      expect(tools.length).toBe(6);
+    it('contains all seven tools', () => {
+      expect(tools.length).toBe(7);
     });
 
     it('contains search tool', () => {
@@ -153,6 +153,10 @@ describe('mcp-tools', () => {
 
     it('contains list-projects tool', () => {
       expect(tools.find((t) => t.name === 'list-projects')).toBeTruthy();
+    });
+
+    it('contains hook-status tool', () => {
+      expect(tools.find((t) => t.name === 'hook-status')).toBeTruthy();
     });
 
     it('all tools have required fields', () => {
@@ -271,7 +275,7 @@ describe('mcp-tools', () => {
         inputSchema: t.inputSchema,
       }));
 
-      expect(toolList.length).toBe(6);
+      expect(toolList.length).toBe(7);
       expect(toolList[0]).not.toHaveProperty('handler'); // Handler not included
       expect(toolList[0]).toHaveProperty('name');
       expect(toolList[0]).toHaveProperty('description');

@@ -10,6 +10,7 @@
  * - Graceful degradation on failure
  */
 
+import { basename } from 'node:path';
 import { getAllClusters, getClusterChunkIds } from '../storage/cluster-store.js';
 import {
   getChunksByIds,
@@ -216,6 +217,7 @@ export async function handleSessionStart(
           }
         : undefined,
       fallback: gracefulDegradation ? fallbackResult : undefined,
+      project: basename(projectPath) || projectPath,
     },
   );
 
