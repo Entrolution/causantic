@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo } from 'react';
 import * as d3 from 'd3';
-import { CLUSTER_COLORS } from './ClusterLegend';
-import type { ClusterInfo } from './TimelineView';
+import { CLUSTER_COLORS } from '../../lib/constants';
+import type { ClusterInfo } from '../../lib/constants';
 
 interface TimelineChunk {
   id: string;

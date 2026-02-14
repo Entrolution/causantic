@@ -2,7 +2,7 @@
  * Maintenance task: Remove expired vectors (TTL-based) and enforce FIFO cap.
  */
 
-import type { MaintenanceResult } from '../scheduler.js';
+import type { MaintenanceResult } from '../types.js';
 
 export interface CleanupVectorsDeps {
   cleanupExpired: (ttlDays: number) => Promise<number>;

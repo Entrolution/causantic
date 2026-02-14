@@ -1,6 +1,9 @@
 import { useRef, useEffect } from 'react';
 import * as d3 from 'd3';
-import { CLUSTER_COLORS } from './ClusterLegend';
+import { CLUSTER_COLORS } from '../../lib/constants';
+import type { ClusterInfo } from '../../lib/constants';
+
+export type { ClusterInfo };
 
 interface TimelineChunk {
   id: string;
@@ -17,13 +20,6 @@ interface TimelineEdge {
   sourceId: string;
   targetId: string;
   referenceType: string | null;
-}
-
-export interface ClusterInfo {
-  id: string;
-  name: string | null;
-  description: string | null;
-  memberCount: number;
 }
 
 interface TimelineViewProps {

@@ -3,7 +3,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import type { MaintenanceResult } from '../scheduler.js';
+import type { MaintenanceResult } from '../types.js';
 
 export interface ScanProjectsDeps {
   batchIngest: (dirs: string[], opts: Record<string, unknown>) => Promise<{ successCount: number }>;

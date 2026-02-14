@@ -3,7 +3,7 @@
  */
 
 import type Database from 'better-sqlite3-multiple-ciphers';
-import type { MaintenanceResult } from '../scheduler.js';
+import type { MaintenanceResult } from '../types.js';
 
 export interface VacuumDeps {
   getDb: () => Database.Database;
