@@ -7,6 +7,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ── Mock dependencies before importing the command ──────────────────────────
 
@@ -403,24 +405,27 @@ describe('initCommand', () => {
       );
     });
 
-    it('skips when hooks are already configured', async () => {
+    it('skips when hooks already match the current install path', async () => {
+      // Build the exact command strings that init would generate
+      const cliEntry = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'src', 'cli', 'index.js');
+      const nodeBin = process.execPath;
       const existingHooks = {
         PreCompact: [
           {
             matcher: '',
-            hooks: [{ type: 'command', command: 'node /some/path causantic hook pre-compact' }],
+            hooks: [{ type: 'command', command: `${nodeBin} ${cliEntry} hook pre-compact`, timeout: 300 }],
           },
         ],
         SessionStart: [
           {
             matcher: '',
-            hooks: [{ type: 'command', command: 'node /some/path causantic hook session-start' }],
+            hooks: [{ type: 'command', command: `${nodeBin} ${cliEntry} hook session-start`, timeout: 60 }],
           },
         ],
         SessionEnd: [
           {
             matcher: '',
-            hooks: [{ type: 'command', command: 'node /some/path causantic hook session-end' }],
+            hooks: [{ type: 'command', command: `${nodeBin} ${cliEntry} hook session-end`, timeout: 60 }],
           },
         ],
       };
@@ -444,6 +449,54 @@ describe('initCommand', () => {
       expect(console.log).toHaveBeenCalledWith(
         expect.stringContaining('Claude Code hooks already configured'),
       );
+    });
+
+    it('replaces hooks from a different install path without duplicating', async () => {
+      const existingHooks = {
+        PreCompact: [
+          {
+            matcher: '',
+            hooks: [{ type: 'command', command: 'node /old/path hook pre-compact' }],
+          },
+        ],
+        SessionStart: [
+          {
+            matcher: '',
+            hooks: [{ type: 'command', command: 'node /old/path hook session-start' }],
+          },
+        ],
+        SessionEnd: [
+          {
+            matcher: '',
+            hooks: [{ type: 'command', command: 'node /old/path hook session-end' }],
+          },
+        ],
+      };
+      mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
+        const s = String(p);
+        if (s === CLAUDE_CONFIG_PATH) {
+          return JSON.stringify(
+            {
+              mcpServers: { causantic: { command: process.execPath, args: ['x', 'serve'] } },
+              hooks: existingHooks,
+            },
+            null,
+            2,
+          );
+        }
+        return '';
+      });
+
+      await initCommand.handler([]);
+
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Configured 3 Claude Code hooks'),
+      );
+      // Verify no duplicates — each event should have exactly 1 entry
+      const written = JSON.parse(mockFs.writeFileSync.mock.calls.at(-1)![1] as string);
+      expect(written.hooks.PreCompact).toHaveLength(1);
+      expect(written.hooks.SessionStart).toHaveLength(1);
+      expect(written.hooks.SessionEnd).toHaveLength(1);
     });
 
     it('handles unreadable config gracefully', async () => {

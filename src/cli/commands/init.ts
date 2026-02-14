@@ -404,30 +404,47 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
       config.hooks = {};
     }
 
-    let hooksAdded = 0;
+    // Extract the hook subcommand (e.g. "hook pre-compact") used to detect
+    // existing entries regardless of the install path that preceded it.
+    const hookSubcommand = (cmd: string): string => {
+      const match = cmd.match(/hook\s+\S+/);
+      return match ? match[0] : cmd;
+    };
+
+    let hooksChanged = 0;
     for (const { event, matcher, hook } of causanticHooks) {
       if (!config.hooks[event]) {
         config.hooks[event] = [];
       }
 
-      const alreadyConfigured = config.hooks[event].some(
+      const subCmd = hookSubcommand(hook.command);
+
+      // Check if an identical entry already exists (same full command).
+      const exactMatch = config.hooks[event].some(
         (entry: { hooks?: Array<{ command?: string }> }) =>
-          entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic')),
+          entry.hooks?.some((h: { command?: string }) => h.command === hook.command),
       );
 
-      if (!alreadyConfigured) {
-        config.hooks[event].push({
-          matcher,
-          hooks: [hook],
-        });
-        hooksAdded++;
-      }
+      if (exactMatch) continue;
+
+      // Remove any stale entries for the same hook subcommand (e.g. from a
+      // different install path) so we don't accumulate duplicates.
+      config.hooks[event] = config.hooks[event].filter(
+        (entry: { hooks?: Array<{ command?: string }> }) =>
+          !entry.hooks?.some((h: { command?: string }) => h.command && hookSubcommand(h.command) === subCmd),
+      );
+
+      config.hooks[event].push({
+        matcher,
+        hooks: [hook],
+      });
+      hooksChanged++;
     }
 
-    if (hooksAdded > 0) {
+    if (hooksChanged > 0) {
       fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
       const hookNames = causanticHooks.map((h) => h.event).join(', ');
-      console.log(`\u2713 Configured ${hooksAdded} Claude Code hooks (${hookNames})`);
+      console.log(`\u2713 Configured ${hooksChanged} Claude Code hooks (${hookNames})`);
     } else {
       console.log('\u2713 Claude Code hooks already configured');
     }
