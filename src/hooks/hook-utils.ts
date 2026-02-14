@@ -202,7 +202,16 @@ export async function executeHook<T>(
     project?: string;
   } = {},
 ): Promise<{ result: T; metrics: HookMetrics }> {
-  const { recordHookStatus } = await import('./hook-status.js');
+  // Late import to keep hook-status optional; uses static import path
+  // but deferred so the module only loads when executeHook is called.
+  let recordStatus: typeof import('./hook-status.js').recordHookStatus = () => {};
+  try {
+    const mod = await import('./hook-status.js');
+    recordStatus = mod.recordHookStatus;
+  } catch {
+    // hook-status unavailable — continue without recording
+  }
+
   const metrics = createMetrics(hookName);
 
   logHook({
@@ -229,7 +238,7 @@ export async function executeHook<T>(
       durationMs: metrics.durationMs,
     });
 
-    recordHookStatus(hookName, {
+    recordStatus(hookName, {
       lastRun: new Date().toISOString(),
       success: true,
       durationMs: metrics.durationMs ?? 0,
@@ -250,7 +259,7 @@ export async function executeHook<T>(
       error: err.message,
     });
 
-    recordHookStatus(hookName, {
+    recordStatus(hookName, {
       lastRun: new Date().toISOString(),
       success: false,
       durationMs: metrics.durationMs ?? 0,
