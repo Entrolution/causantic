@@ -176,6 +176,33 @@ describe('hook-status', () => {
       expect(status['test-hook']).toBeTruthy();
     });
 
+    it('records sessionId when provided', () => {
+      recordHookStatus('session-end', {
+        lastRun: '2026-02-14T21:30:00.000Z',
+        success: true,
+        durationMs: 3200,
+        project: 'my-project',
+        sessionId: 'abc-123-def-456',
+        error: null,
+      });
+
+      const status = readHookStatus();
+      expect(status['session-end']?.sessionId).toBe('abc-123-def-456');
+    });
+
+    it('omits sessionId when not provided', () => {
+      recordHookStatus('session-start', {
+        lastRun: '2026-02-14T21:30:00.000Z',
+        success: true,
+        durationMs: 142,
+        project: 'my-project',
+        error: null,
+      });
+
+      const status = readHookStatus();
+      expect(status['session-start']?.sessionId).toBeUndefined();
+    });
+
     it('records error message on failure', () => {
       recordHookStatus('pre-compact', {
         lastRun: '2026-02-14T19:00:00.000Z',
@@ -337,6 +364,37 @@ describe('hook-status', () => {
       expect(result).toContain('8 edges');
     });
 
+    it('formats sessionId (truncated to 8 chars) when present', () => {
+      const status: HookStatusMap = {
+        'session-end': {
+          lastRun: new Date().toISOString(),
+          success: true,
+          durationMs: 3200,
+          project: 'my-project',
+          sessionId: 'abcdef12-3456-7890-abcd-ef1234567890',
+          error: null,
+        },
+      };
+
+      const result = formatHookStatus(status);
+      expect(result).toContain('[abcdef12]');
+    });
+
+    it('does not show sessionId bracket when absent', () => {
+      const status: HookStatusMap = {
+        'session-start': {
+          lastRun: new Date().toISOString(),
+          success: true,
+          durationMs: 142,
+          project: 'my-project',
+          error: null,
+        },
+      };
+
+      const result = formatHookStatus(status);
+      expect(result).not.toContain('[');
+    });
+
     it('formats duration in seconds for large values', () => {
       const status: HookStatusMap = {
         'session-end': {
@@ -391,6 +449,22 @@ describe('hook-status', () => {
       const result = formatHookStatusMcp(status);
       expect(result).toContain('FAILED');
       expect(result).toMatch(/— database is locked/);
+    });
+
+    it('includes sessionId in MCP format when present', () => {
+      const status: HookStatusMap = {
+        'session-end': {
+          lastRun: new Date().toISOString(),
+          success: true,
+          durationMs: 3200,
+          project: 'my-project',
+          sessionId: 'abcdef12-3456-7890-abcd-ef1234567890',
+          error: null,
+        },
+      };
+
+      const result = formatHookStatusMcp(status);
+      expect(result).toContain('session:abcdef12');
     });
 
     it('includes ingestion details', () => {

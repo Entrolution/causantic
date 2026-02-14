@@ -73,7 +73,7 @@ async function internalHandleSessionEnd(sessionPath: string): Promise<SessionEnd
  */
 export async function handleSessionEnd(
   sessionPath: string,
-  options: SessionEndOptions = {},
+  options: SessionEndOptions & { project?: string; sessionId?: string } = {},
 ): Promise<SessionEndResult> {
   const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
 
@@ -87,7 +87,7 @@ export async function handleSessionEnd(
     degraded: true,
   };
 
-  const project = basename(process.cwd());
+  const project = options.project ?? basename(process.cwd());
 
   const { result, metrics } = await executeHook(
     'session-end',
@@ -101,6 +101,7 @@ export async function handleSessionEnd(
         : undefined,
       fallback: gracefulDegradation ? fallbackResult : undefined,
       project,
+      sessionId: options.sessionId,
     },
   );
 

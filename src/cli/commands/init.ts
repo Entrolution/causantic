@@ -395,7 +395,7 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
         hook: {
           type: 'command',
           command: `${nodeBin} ${cliEntry} hook session-end`,
-          timeout: 60,
+          timeout: 300,
         },
       },
     ];

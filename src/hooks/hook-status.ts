@@ -18,6 +18,7 @@ export interface HookStatusEntry {
   success: boolean;
   durationMs: number;
   project: string | null;
+  sessionId?: string;
   details?: Record<string, unknown>;
   error: string | null;
 }
@@ -98,6 +99,7 @@ export function formatHookStatus(status: HookStatusMap): string {
     if (!entry.success) hasFailure = true;
     const duration = formatDuration(entry.durationMs);
     const project = entry.project ? `(${entry.project})` : '';
+    const session = entry.sessionId ? ` [${entry.sessionId.slice(0, 8)}]` : '';
 
     let extra = '';
     if (entry.details) {
@@ -111,7 +113,7 @@ export function formatHookStatus(status: HookStatusMap): string {
     }
 
     const suffix = extra ? ` ${extra}` : '';
-    lines.push(`  ${name.padEnd(16)} ${ago.padEnd(14)} ${state.padEnd(9)} ${duration.padEnd(8)} ${project}${suffix}`);
+    lines.push(`  ${name.padEnd(16)} ${ago.padEnd(14)} ${state.padEnd(9)} ${duration.padEnd(8)} ${project}${session}${suffix}`);
   }
 
   const summary = hasFailure
@@ -139,6 +141,7 @@ export function formatHookStatusMcp(status: HookStatusMap): string {
     if (!entry.success) hasFailure = true;
     const duration = formatDuration(entry.durationMs);
     const project = entry.project ? ` for ${entry.project}` : '';
+    const session = entry.sessionId ? ` session:${entry.sessionId.slice(0, 8)}` : '';
 
     let extra = '';
     if (entry.details) {
@@ -151,7 +154,7 @@ export function formatHookStatusMcp(status: HookStatusMap): string {
       extra = ` — ${entry.error}`;
     }
 
-    lines.push(`- ${name}: last ran ${ago} (${state}, ${duration})${project}${extra}`);
+    lines.push(`- ${name}: last ran ${ago} (${state}, ${duration})${project}${session}${extra}`);
   }
 
   const summary = hasFailure
