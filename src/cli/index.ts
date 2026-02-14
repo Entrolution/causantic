@@ -5,6 +5,9 @@
  * Usage: npx causantic <command> [options]
  */
 
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Command } from './types.js';
 import { initCommand } from './commands/init.js';
 import { serveCommand } from './commands/serve.js';
@@ -20,7 +23,9 @@ import { uninstallCommand } from './commands/uninstall.js';
 import { dashboardCommand } from './commands/dashboard.js';
 import { benchmarkCollectionCommand } from './commands/benchmark-collection.js';
 
-const VERSION = '0.2.1';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf-8'));
+const VERSION: string = pkg.version;
 
 const commands: Command[] = [
   initCommand,
