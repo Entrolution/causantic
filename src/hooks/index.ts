@@ -2,6 +2,10 @@
  * Hook handlers exports.
  */
 
+// Hook status tracking
+export { recordHookStatus, readHookStatus, formatHookStatus, formatHookStatusMcp } from './hook-status.js';
+export type { HookStatusEntry, HookStatusMap } from './hook-status.js';
+
 // Hook utilities
 export {
   executeHook,

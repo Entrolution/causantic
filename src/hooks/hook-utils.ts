@@ -190,7 +190,7 @@ export function completeMetrics(
 }
 
 /**
- * Wrap a hook function with logging, metrics, and error handling.
+ * Wrap a hook function with logging, metrics, error handling, and status recording.
  */
 export async function executeHook<T>(
   hookName: string,
@@ -198,8 +198,11 @@ export async function executeHook<T>(
   options: {
     retry?: RetryOptions;
     fallback?: T;
+    /** Project name for status tracking. */
+    project?: string;
   } = {},
 ): Promise<{ result: T; metrics: HookMetrics }> {
+  const { recordHookStatus } = await import('./hook-status.js');
   const metrics = createMetrics(hookName);
 
   logHook({
@@ -226,6 +229,14 @@ export async function executeHook<T>(
       durationMs: metrics.durationMs,
     });
 
+    recordHookStatus(hookName, {
+      lastRun: new Date().toISOString(),
+      success: true,
+      durationMs: metrics.durationMs ?? 0,
+      project: options.project ?? null,
+      error: null,
+    });
+
     return { result, metrics };
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
@@ -236,6 +247,14 @@ export async function executeHook<T>(
       hook: hookName,
       event: 'hook_failed',
       durationMs: metrics.durationMs,
+      error: err.message,
+    });
+
+    recordHookStatus(hookName, {
+      lastRun: new Date().toISOString(),
+      success: false,
+      durationMs: metrics.durationMs ?? 0,
+      project: options.project ?? null,
       error: err.message,
     });
 

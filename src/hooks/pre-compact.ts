@@ -10,12 +10,14 @@
  * - Graceful degradation on failure
  */
 
+import { basename } from 'node:path';
 import {
   executeHook,
   isTransientError,
   ingestCurrentSession,
   type HookMetrics,
 } from './hook-utils.js';
+import { recordHookStatus } from './hook-status.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('pre-compact');
@@ -85,6 +87,8 @@ export async function handlePreCompact(
     degraded: true,
   };
 
+  const project = basename(process.cwd());
+
   const { result, metrics } = await executeHook(
     'pre-compact',
     () => internalHandlePreCompact(sessionPath),
@@ -96,8 +100,16 @@ export async function handlePreCompact(
           }
         : undefined,
       fallback: gracefulDegradation ? fallbackResult : undefined,
+      project,
     },
   );
+
+  // Enrich status with ingestion details (chunks, edges)
+  if (!result.degraded && !result.skipped) {
+    recordHookStatus('pre-compact', {
+      details: { chunks: result.chunkCount, edges: result.edgeCount },
+    });
+  }
 
   return {
     ...result,
