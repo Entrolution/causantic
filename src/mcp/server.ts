@@ -18,8 +18,15 @@ import { getChunkCount } from '../storage/chunk-store.js';
 import { getEdgeCount } from '../storage/edge-store.js';
 import { getClusterCount } from '../storage/cluster-store.js';
 import { createLogger } from '../utils/logger.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
 const log = createLogger('mcp-server');
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf-8'));
+const VERSION: string = pkg.version;
 
 /** MCP Server configuration */
 export interface McpServerConfig {
@@ -393,7 +400,7 @@ export class McpServer {
 
     const status: HealthStatus = {
       status: dbOk && vectorOk ? 'healthy' : dbOk ? 'degraded' : 'unhealthy',
-      version: '0.2.1',
+      version: VERSION,
       uptime: Date.now() - this.startTime,
       checks: {
         database: dbOk,
@@ -427,7 +434,7 @@ export class McpServer {
         },
         serverInfo: {
           name: 'causantic',
-          version: '0.2.1',
+          version: VERSION,
         },
       },
     };
