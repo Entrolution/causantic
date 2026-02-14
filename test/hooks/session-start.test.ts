@@ -3,10 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type {
-  SessionStartOptions,
-  SessionStartResult,
-} from '../../src/hooks/session-start.js';
+import type { SessionStartOptions, SessionStartResult } from '../../src/hooks/session-start.js';
 
 describe('session-start', () => {
   describe('SessionStartOptions interface', () => {
@@ -141,7 +138,8 @@ describe('session-start', () => {
     it('formats recent chunks correctly', () => {
       const chunks = [
         {
-          content: 'First chunk content that is quite long and should be truncated after 200 characters...',
+          content:
+            'First chunk content that is quite long and should be truncated after 200 characters...',
           startTime: '2024-01-15T10:00:00Z',
         },
         {
@@ -183,7 +181,9 @@ describe('session-start', () => {
 
       const section = `### ${cluster.name}\n${cluster.description}`;
 
-      expect(section).toBe('### Authentication\nTopics related to user authentication and authorization.');
+      expect(section).toBe(
+        '### Authentication\nTopics related to user authentication and authorization.',
+      );
     });
 
     it('handles unnamed cluster', () => {
@@ -228,10 +228,7 @@ describe('session-start', () => {
     });
 
     it('returns 0 for non-matching project', () => {
-      const chunks = [
-        { sessionSlug: 'other-project' },
-        { sessionSlug: 'another-project' },
-      ];
+      const chunks = [{ sessionSlug: 'other-project' }, { sessionSlug: 'another-project' }];
       const projectPath = 'my-project';
 
       const projectCount = chunks.filter((c) => c.sessionSlug === projectPath).length;
@@ -352,7 +349,7 @@ ${result.summary}
     });
 
     it('generates degraded section', () => {
-      const result: SessionStartResult = {
+      const _result: SessionStartResult = {
         summary: 'Memory context temporarily unavailable.',
         tokenCount: 0,
         clustersIncluded: 0,

@@ -13,10 +13,7 @@ import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('session-reader');
 
-const NOISE_TYPES: Set<RawMessageType> = new Set([
-  'progress',
-  'file-history-snapshot',
-]);
+const NOISE_TYPES: Set<RawMessageType> = new Set(['progress', 'file-history-snapshot']);
 
 export interface ReadOptions {
   /** Include sidechain (subagent) messages. Default: false. */
@@ -89,7 +86,7 @@ export async function* streamSessionMessages(
  * Extract session metadata without loading all messages into memory.
  */
 export async function getSessionInfo(filePath: string): Promise<SessionInfo> {
-  const fileStats = await stat(filePath);
+  await stat(filePath);
   let sessionId = '';
   let slug = '';
   let cwd = '';
@@ -172,7 +169,7 @@ export async function discoverSubAgents(sessionPath: string): Promise<SubAgentIn
         filePath: join(subagentsDir, file),
       });
     }
-  } catch (error) {
+  } catch {
     // Directory exists but can't be read - log and continue
     log.warn(`Could not read subagents directory: ${subagentsDir}`);
   }
@@ -208,10 +205,7 @@ export async function hasSubAgents(sessionPath: string): Promise<boolean> {
  *   If two projects share the same basename (e.g., ~/Work/api and ~/Personal/api),
  *   the last two path components are used instead: "Work/api" vs "Personal/api".
  */
-export function deriveProjectSlug(
-  info: SessionInfo,
-  knownSlugs?: Map<string, string>,
-): string {
+export function deriveProjectSlug(info: SessionInfo, knownSlugs?: Map<string, string>): string {
   if (info.cwd) {
     let slug = basename(info.cwd);
 

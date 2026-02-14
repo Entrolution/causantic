@@ -31,7 +31,7 @@ Technical reference documentation:
 - [MCP Tools](reference/mcp-tools.md) - MCP server tool documentation (6 tools)
 - [Configuration Reference](reference/configuration.md) - All configuration options
 - [Storage API](reference/storage-api.md) - Storage layer internals
-- [Traversal Algorithm](reference/traversal-algorithm.md) - Graph traversal and sum-product semantics
+- [Traversal Algorithm](reference/traversal-algorithm.md) - Chain walking algorithm reference
 
 ## Research
 

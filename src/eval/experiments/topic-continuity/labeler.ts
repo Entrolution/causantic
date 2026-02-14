@@ -8,12 +8,7 @@
 import { readSessionMessages } from '../../../parser/session-reader.js';
 import { assembleTurns } from '../../../parser/turn-assembler.js';
 import type { Turn, TextBlock, ContentBlock } from '../../../parser/types.js';
-import type {
-  TurnTransition,
-  TransitionLabel,
-  Confidence,
-  DatasetStats,
-} from './types.js';
+import type { TurnTransition, TransitionLabel, Confidence, DatasetStats } from './types.js';
 
 /** Boilerplate prefix indicating a continued session. */
 const CONTINUATION_BOILERPLATE = 'This session is being continued from a previous conversation';
@@ -256,9 +251,7 @@ export async function generateTransitionLabels(
         allTransitions.push(t);
       }
 
-      console.log(
-        `  ${session.sessionSlug}: ${transitions.length} transitions`,
-      );
+      console.log(`  ${session.sessionSlug}: ${transitions.length} transitions`);
     } catch (err) {
       console.warn(`  Failed to process ${session.path}: ${err}`);
     }
@@ -311,10 +304,7 @@ export function filterHighConfidence(transitions: TurnTransition[]): TurnTransit
 /**
  * Balance dataset by undersampling the majority class.
  */
-export function balanceDataset(
-  transitions: TurnTransition[],
-  seed: number = 42,
-): TurnTransition[] {
+export function balanceDataset(transitions: TurnTransition[], seed: number = 42): TurnTransition[] {
   const continuations = transitions.filter((t) => t.label === 'continuation');
   const newTopics = transitions.filter((t) => t.label === 'new_topic');
 
@@ -324,10 +314,7 @@ export function balanceDataset(
   const shuffledContinuations = seededShuffle(continuations, seed);
   const shuffledNewTopics = seededShuffle(newTopics, seed + 1);
 
-  return [
-    ...shuffledContinuations.slice(0, minCount),
-    ...shuffledNewTopics.slice(0, minCount),
-  ];
+  return [...shuffledContinuations.slice(0, minCount), ...shuffledNewTopics.slice(0, minCount)];
 }
 
 /**

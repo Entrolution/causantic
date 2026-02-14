@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type * as NodeFs from 'node:fs';
 
 // Mock all dynamically imported dependencies
 vi.mock('../../../src/config/loader.js', () => ({
@@ -32,7 +33,7 @@ vi.mock('../../../src/cli/utils.js', () => ({
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs')>();
+  const actual = (await importOriginal()) as typeof NodeFs;
   return {
     ...actual,
     existsSync: vi.fn(),
@@ -174,9 +175,9 @@ describe('encryptionCommand', () => {
     it('merges with existing config.json', async () => {
       // existsSync: dbPath -> false, configPath -> true, configDir -> true
       mockExistsSync
-        .mockReturnValueOnce(false)  // dbPath
-        .mockReturnValueOnce(true)   // configPath
-        .mockReturnValueOnce(true);  // configDir
+        .mockReturnValueOnce(false) // dbPath
+        .mockReturnValueOnce(true) // configPath
+        .mockReturnValueOnce(true); // configDir
 
       mockReadFileSync.mockReturnValue('{"llm":{"clusterRefreshModel":"claude-3-haiku"}}');
       mockGeneratePassword.mockReturnValue('key456');
@@ -278,7 +279,11 @@ describe('encryptionCommand', () => {
       } as ReturnType<typeof loadConfig>);
       mockGetDbKeyAsync.mockResolvedValue('current-key');
       mockGeneratePassword.mockReturnValue('new-key');
-      const mockDb = { pragma: vi.fn(() => { throw new Error('Rekey failed'); }) };
+      const mockDb = {
+        pragma: vi.fn(() => {
+          throw new Error('Rekey failed');
+        }),
+      };
       mockGetDb.mockReturnValue(mockDb as unknown as ReturnType<typeof getDb>);
 
       await encryptionCommand.handler(['rotate-key']);
@@ -291,9 +296,7 @@ describe('encryptionCommand', () => {
   describe('backup-key subcommand', () => {
     it('backs up key to specified path', async () => {
       mockGetDbKeyAsync.mockResolvedValue('my-db-key');
-      mockPromptPassword
-        .mockResolvedValueOnce('backup-pass')
-        .mockResolvedValueOnce('backup-pass');
+      mockPromptPassword.mockResolvedValueOnce('backup-pass').mockResolvedValueOnce('backup-pass');
       mockEncryptString.mockReturnValue('encrypted-key-data');
 
       await encryptionCommand.handler(['backup-key', '/tmp/backup.enc']);
@@ -307,17 +310,12 @@ describe('encryptionCommand', () => {
 
     it('uses default filename when no path specified', async () => {
       mockGetDbKeyAsync.mockResolvedValue('my-db-key');
-      mockPromptPassword
-        .mockResolvedValueOnce('pass')
-        .mockResolvedValueOnce('pass');
+      mockPromptPassword.mockResolvedValueOnce('pass').mockResolvedValueOnce('pass');
       mockEncryptString.mockReturnValue('encrypted');
 
       await encryptionCommand.handler(['backup-key']);
 
-      expect(mockWriteFileSync).toHaveBeenCalledWith(
-        'causantic-key-backup.enc',
-        'encrypted',
-      );
+      expect(mockWriteFileSync).toHaveBeenCalledWith('causantic-key-backup.enc', 'encrypted');
     });
 
     it('exits with code 1 when no encryption key is found', async () => {
@@ -341,9 +339,7 @@ describe('encryptionCommand', () => {
 
     it('exits with code 2 when passwords do not match', async () => {
       mockGetDbKeyAsync.mockResolvedValue('key');
-      mockPromptPassword
-        .mockResolvedValueOnce('password1')
-        .mockResolvedValueOnce('password2');
+      mockPromptPassword.mockResolvedValueOnce('password1').mockResolvedValueOnce('password2');
 
       await encryptionCommand.handler(['backup-key']);
 
@@ -379,9 +375,7 @@ describe('encryptionCommand', () => {
 
       await encryptionCommand.handler(['restore-key', '/nonexistent/path.enc']);
 
-      expect(console.error).toHaveBeenCalledWith(
-        'Error: File not found: /nonexistent/path.enc',
-      );
+      expect(console.error).toHaveBeenCalledWith('Error: File not found: /nonexistent/path.enc');
       expect(process.exit).toHaveBeenCalledWith(1);
     });
 
@@ -395,9 +389,7 @@ describe('encryptionCommand', () => {
 
       await encryptionCommand.handler(['restore-key', '/tmp/backup.enc']);
 
-      expect(console.error).toHaveBeenCalledWith(
-        'Error: Failed to decrypt. Wrong password?',
-      );
+      expect(console.error).toHaveBeenCalledWith('Error: Failed to decrypt. Wrong password?');
       expect(process.exit).toHaveBeenCalledWith(1);
     });
   });
@@ -405,8 +397,18 @@ describe('encryptionCommand', () => {
   describe('audit subcommand', () => {
     it('displays audit entries', async () => {
       const entries = [
-        { timestamp: '2026-02-10T10:00:00Z', action: 'open' as const, details: 'DB opened', pid: 1234 },
-        { timestamp: '2026-02-10T10:01:00Z', action: 'key-rotate' as const, details: 'Key rotated', pid: 1234 },
+        {
+          timestamp: '2026-02-10T10:00:00Z',
+          action: 'open' as const,
+          details: 'DB opened',
+          pid: 1234,
+        },
+        {
+          timestamp: '2026-02-10T10:01:00Z',
+          action: 'key-rotate' as const,
+          details: 'Key rotated',
+          pid: 1234,
+        },
       ];
       mockReadAuditLog.mockReturnValue(entries);
       mockFormatAuditEntries.mockReturnValue('formatted-entries-output');
@@ -435,9 +437,7 @@ describe('encryptionCommand', () => {
       await encryptionCommand.handler(['audit']);
 
       expect(console.log).toHaveBeenCalledWith('No audit entries found.');
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('audit logging'),
-      );
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('audit logging'));
     });
   });
 

@@ -6,7 +6,7 @@
 import { clusterRefresher } from '../src/clusters/cluster-refresh.js';
 import { getAllClusters, getStaleClusters } from '../src/storage/cluster-store.js';
 import { closeDb } from '../src/storage/db.js';
-import { getApiKey, setInKeychain } from '../src/utils/keychain.js';
+import { createSecretStore, getApiKey } from '../src/utils/secret-store.js';
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -20,9 +20,10 @@ async function main(): Promise<void> {
       maxAge = parseInt(args[i + 1], 10) * 60 * 60 * 1000; // Hours to ms
       i++;
     } else if (args[i] === '--set-key' && args[i + 1]) {
-      // Store API key in Keychain
-      setInKeychain('ANTHROPIC_API_KEY', args[i + 1]);
-      console.log('API key stored in macOS Keychain');
+      // Store API key in secret store
+      const store = createSecretStore();
+      await store.set('ANTHROPIC_API_KEY', args[i + 1]);
+      console.log('API key stored in secret store');
       process.exit(0);
     } else if (args[i] === '--help') {
       console.log(`
@@ -31,10 +32,10 @@ Usage: npm run refresh-clusters -- [options]
 Options:
   --all             Refresh all clusters (not just stale ones)
   --max-age <h>     Max age in hours before refresh (default: 24)
-  --set-key <key>   Store Anthropic API key in macOS Keychain
+  --set-key <key>   Store Anthropic API key in secret store
   --help            Show this help message
 
-API Key: Set via ANTHROPIC_API_KEY env var or store in Keychain with --set-key
+API Key: Set via ANTHROPIC_API_KEY env var or store with --set-key
 
 Example:
   npm run refresh-clusters -- --set-key sk-ant-...
@@ -45,8 +46,8 @@ Example:
     }
   }
 
-  // Check for API key (env var or Keychain)
-  const apiKey = getApiKey('ANTHROPIC_API_KEY');
+  // Check for API key (env var or secret store)
+  const apiKey = await getApiKey('ANTHROPIC_API_KEY');
   if (!apiKey) {
     console.error('Error: ANTHROPIC_API_KEY not found');
     console.error('Set via environment variable or run: npm run refresh-clusters -- --set-key <your-key>');

@@ -5,16 +5,9 @@
  * prediction.
  */
 
-import type {
-  TurnTransition,
-  TransitionFeatures,
-  ClassificationResult,
-} from './types.js';
+import type { TurnTransition, TransitionFeatures, ClassificationResult } from './types.js';
 import { extractLexicalFeatures, computeLexicalScore } from './lexical-features.js';
-import {
-  type EmbeddedTransition,
-  embeddingDistanceToScore,
-} from './embedding-classifier.js';
+import { type EmbeddedTransition } from './embedding-classifier.js';
 
 /**
  * Weight configuration for hybrid classifier.
@@ -130,9 +123,7 @@ export function classifyWithHybrid(
 /**
  * Classify using lexical features only (no embedding).
  */
-export function classifyWithLexicalOnly(
-  transitions: TurnTransition[],
-): ClassificationResult[] {
+export function classifyWithLexicalOnly(transitions: TurnTransition[]): ClassificationResult[] {
   return transitions
     .filter((t) => t.prevAssistantText.trim()) // Skip transitions without prior context
     .map((t) => {
@@ -254,15 +245,63 @@ export function classifyWithAblation(
  * Named ablation configurations for experiment.
  */
 export const ABLATION_CONFIGS: { name: string; flags: FeatureFlags }[] = [
-  { name: 'time-gap-only', flags: { ...LEXICAL_ONLY, useTopicShiftMarker: false, useContinuationMarker: false, useFilePathOverlap: false, useKeywordOverlap: false } },
-  { name: 'shift-markers-only', flags: { ...LEXICAL_ONLY, useTimeGap: false, useContinuationMarker: false, useFilePathOverlap: false, useKeywordOverlap: false } },
-  { name: 'continuation-markers-only', flags: { ...LEXICAL_ONLY, useTimeGap: false, useTopicShiftMarker: false, useFilePathOverlap: false, useKeywordOverlap: false } },
-  { name: 'file-path-overlap-only', flags: { ...LEXICAL_ONLY, useTimeGap: false, useTopicShiftMarker: false, useContinuationMarker: false, useKeywordOverlap: false } },
-  { name: 'keyword-overlap-only', flags: { ...LEXICAL_ONLY, useTimeGap: false, useTopicShiftMarker: false, useContinuationMarker: false, useFilePathOverlap: false } },
+  {
+    name: 'time-gap-only',
+    flags: {
+      ...LEXICAL_ONLY,
+      useTopicShiftMarker: false,
+      useContinuationMarker: false,
+      useFilePathOverlap: false,
+      useKeywordOverlap: false,
+    },
+  },
+  {
+    name: 'shift-markers-only',
+    flags: {
+      ...LEXICAL_ONLY,
+      useTimeGap: false,
+      useContinuationMarker: false,
+      useFilePathOverlap: false,
+      useKeywordOverlap: false,
+    },
+  },
+  {
+    name: 'continuation-markers-only',
+    flags: {
+      ...LEXICAL_ONLY,
+      useTimeGap: false,
+      useTopicShiftMarker: false,
+      useFilePathOverlap: false,
+      useKeywordOverlap: false,
+    },
+  },
+  {
+    name: 'file-path-overlap-only',
+    flags: {
+      ...LEXICAL_ONLY,
+      useTimeGap: false,
+      useTopicShiftMarker: false,
+      useContinuationMarker: false,
+      useKeywordOverlap: false,
+    },
+  },
+  {
+    name: 'keyword-overlap-only',
+    flags: {
+      ...LEXICAL_ONLY,
+      useTimeGap: false,
+      useTopicShiftMarker: false,
+      useContinuationMarker: false,
+      useFilePathOverlap: false,
+    },
+  },
   { name: 'all-lexical', flags: LEXICAL_ONLY },
   { name: 'embedding-only', flags: EMBEDDING_ONLY },
   { name: 'embedding+time-gap', flags: { ...EMBEDDING_ONLY, useTimeGap: true } },
-  { name: 'embedding+markers', flags: { ...EMBEDDING_ONLY, useTopicShiftMarker: true, useContinuationMarker: true } },
+  {
+    name: 'embedding+markers',
+    flags: { ...EMBEDDING_ONLY, useTopicShiftMarker: true, useContinuationMarker: true },
+  },
   { name: 'embedding+paths', flags: { ...EMBEDDING_ONLY, useFilePathOverlap: true } },
   { name: 'embedding+keywords', flags: { ...EMBEDDING_ONLY, useKeywordOverlap: true } },
   { name: 'all-features', flags: ALL_FEATURES },

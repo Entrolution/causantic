@@ -32,8 +32,4 @@ export {
   computeKeywordOverlap,
 } from './lexical-features.js';
 
-export type {
-  ModelBenchmarkResult,
-  BenchmarkResult,
-  BenchmarkOptions,
-} from './benchmark-types.js';
+export type { ModelBenchmarkResult, BenchmarkResult, BenchmarkOptions } from './benchmark-types.js';

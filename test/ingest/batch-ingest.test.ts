@@ -243,11 +243,7 @@ describe('batch-ingest', () => {
     });
 
     it('sums chunk counts across sessions', () => {
-      const results = [
-        { chunkCount: 10 },
-        { chunkCount: 15 },
-        { chunkCount: 5 },
-      ];
+      const results = [{ chunkCount: 10 }, { chunkCount: 15 }, { chunkCount: 5 }];
 
       const totalChunks = results.reduce((sum, r) => sum + r.chunkCount, 0);
 
@@ -255,11 +251,7 @@ describe('batch-ingest', () => {
     });
 
     it('sums edge counts across sessions', () => {
-      const results = [
-        { edgeCount: 20 },
-        { edgeCount: 30 },
-        { edgeCount: 10 },
-      ];
+      const results = [{ edgeCount: 20 }, { edgeCount: 30 }, { edgeCount: 10 }];
 
       const totalEdges = results.reduce((sum, r) => sum + r.edgeCount, 0);
 

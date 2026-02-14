@@ -43,7 +43,7 @@ export class KDTree {
    */
   private buildTree(
     points: Array<{ point: number[]; index: number }>,
-    depth: number
+    depth: number,
   ): KDNode | null {
     if (points.length === 0) {
       return null;

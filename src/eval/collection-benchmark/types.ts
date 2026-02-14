@@ -10,7 +10,7 @@ import type { ReferenceType } from '../../storage/types.js';
 
 export type BenchmarkProfile = 'quick' | 'standard' | 'full';
 
-export type BenchmarkCategory = 'health' | 'retrieval' | 'graph' | 'latency';
+export type BenchmarkCategory = 'health' | 'retrieval' | 'chain' | 'latency';
 
 // ─── Health Results ──────────────────────────────────────────────────────────
 
@@ -71,31 +71,17 @@ export interface RetrievalResult {
   meanUsefulTokensPerQuery: number;
 }
 
-// ─── Graph Value Results ─────────────────────────────────────────────────────
+// ─── Chain Quality Results ───────────────────────────────────────────────────
 
-export interface SourceAttribution {
-  vectorPercentage: number;
-  keywordPercentage: number;
-  clusterPercentage: number;
-  graphPercentage: number;
-  augmentationRatio: number;
-}
-
-export interface EdgeTypeEffectiveness {
-  type: ReferenceType;
-  chunksSurfaced: number;
-  recallContribution: number;
-}
-
-export interface GraphValueResult {
-  sourceAttribution: SourceAttribution;
-  fullRecallAt10: number;
-  vectorOnlyRecallAt10: number;
-  uniqueGraphFinds: number;
-  /** Total chunks boosted by graph agreement (found by both vector and graph) across all queries */
-  graphBoostedCount: number;
-  lift: number;
-  edgeTypeEffectiveness: EdgeTypeEffectiveness[];
+export interface ChainQualityResult {
+  /** Mean number of chunks per chain (higher = richer narrative) */
+  meanChainLength: number;
+  /** Mean chain score / token count (higher = more relevant per token) */
+  meanScorePerToken: number;
+  /** Fraction of queries that produced a chain (vs search fallback) */
+  chainCoverage: number;
+  /** Fraction of queries that fell back to search (no qualifying chain) */
+  fallbackRate: number;
 }
 
 // ─── Latency Results ─────────────────────────────────────────────────────────
@@ -108,7 +94,7 @@ export interface LatencyPercentiles {
 
 export interface LatencyResult {
   recall: LatencyPercentiles;
-  explain: LatencyPercentiles;
+  search: LatencyPercentiles;
   predict: LatencyPercentiles;
   reconstruct: LatencyPercentiles;
 }
@@ -216,7 +202,7 @@ export interface CollectionBenchmarkResult {
   profile: BenchmarkProfile;
   collectionStats: HealthResult;
   retrieval?: RetrievalResult;
-  graphValue?: GraphValueResult;
+  chainQuality?: ChainQualityResult;
   latency?: LatencyResult;
   overallScore: number;
   highlights: string[];

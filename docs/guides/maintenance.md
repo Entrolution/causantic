@@ -4,13 +4,12 @@ This guide covers maintaining your Causantic installation for optimal performanc
 
 ## Chunk Lifecycle
 
-Chunks follow a defined lifecycle through the system:
+Chunks follow a simple lifecycle:
 
-1. **Active**: Chunk is on the causal graph (has edges) and searchable via vector, keyword, and graph queries.
-2. **Orphaned**: Chunk loses all edges after pruning. Its vector is marked with an `orphaned_at` timestamp. The chunk remains searchable via vector and keyword queries but is no longer reachable via graph traversal.
-3. **Expired**: After the TTL period (default 90 days), the chunk and its vector are permanently deleted. Empty clusters left behind are cleaned up automatically.
+1. **Active**: Chunk has edges and is searchable via vector, keyword, and graph queries.
+2. **Expired**: After the TTL period (default 90 days since last access), the chunk and its vector are permanently deleted. FK CASCADE removes associated edges and cluster assignments automatically.
 
-This design ensures chunks remain discoverable through non-graph search paths even after they fall off the causal graph.
+If a FIFO cap is configured (`vectors.maxCount`), the oldest vectors (by last access time) are evicted when the collection exceeds the limit.
 
 ## Maintenance Tasks
 
@@ -46,37 +45,21 @@ npx causantic maintenance run update-clusters
 
 **Note**: Label refresh requires an Anthropic API key but is not fatal if unavailable. Causantic works without cluster descriptions.
 
-### prune-graph
-
-Removes dead edges from the causal graph.
-
-```bash
-npx causantic maintenance run prune-graph
-```
-
-**Frequency**: Daily (1 hour after `update-clusters`)
-
-**What it does**:
-- Calculates decay weights for all edges
-- Removes edges with zero weight (fully decayed)
-- Marks chunks that lose all edges as orphaned (starts TTL countdown)
-
-The pruner only manages edges — it never deletes chunks directly. Chunks that fall off the graph remain searchable via vector and keyword queries until their TTL expires.
-
 ### cleanup-vectors
 
-Removes expired orphaned vectors and their chunks.
+Removes expired vectors and chunks, and enforces the FIFO cap.
 
 ```bash
 npx causantic maintenance run cleanup-vectors
 ```
 
-**Frequency**: Daily (1.5 hours after `update-clusters`)
+**Frequency**: Daily (1 hour after `update-clusters`)
 
 **What it does**:
-- Finds vectors marked as orphaned longer than the TTL period (default 90 days)
-- Deletes the expired chunks (FK cascades remove cluster assignments and edges)
-- Deletes the expired vectors
+- Finds vectors not accessed within the TTL period (default 90 days)
+- Deletes expired chunks (FK CASCADE removes edges and cluster assignments)
+- Deletes expired vectors
+- If `vectors.maxCount` is configured, evicts the oldest vectors to stay under the limit
 - Removes empty clusters left behind after chunk deletion
 
 ### vacuum
@@ -99,7 +82,7 @@ npx causantic maintenance run vacuum
 
 ```bash
 # Run a specific task
-npx causantic maintenance run prune-graph
+npx causantic maintenance run cleanup-vectors
 
 # Run all tasks
 npx causantic maintenance run all
@@ -124,13 +107,12 @@ npx causantic maintenance daemon
 Uses cron-style scheduling (assuming default `clusterHour` of 2):
 - `scan-projects`: Every hour
 - `update-clusters`: Daily at 2am
-- `prune-graph`: Daily at 3am
-- `cleanup-vectors`: Daily at 3:30am
+- `cleanup-vectors`: Daily at 3am
 - `vacuum`: Sundays at 5am
 
 ### Session-Start Stale Checks
 
-When a new Claude Code session starts, the session-start hook automatically checks if `prune-graph` or `update-clusters` haven't run in the last 24 hours. If stale, they run in the background. This covers cases where scheduled cron times were missed (e.g. laptop was asleep overnight).
+When a new Claude Code session starts, the session-start hook automatically checks if `update-clusters` hasn't run in the last 24 hours. If stale, it runs in the background.
 
 ## Configuration
 
@@ -152,19 +134,22 @@ Or via environment variable:
 export CAUSANTIC_MAINTENANCE_CLUSTER_HOUR=4
 ```
 
-Prune and cleanup schedules adjust automatically (1h and 1.5h after the cluster hour respectively).
+Cleanup schedule adjusts automatically (1h after the cluster hour).
 
 ### Vector TTL
 
-The TTL for orphaned vectors (time between losing all edges and being deleted):
+The TTL for vectors (time since last access before deletion):
 
 ```json
 {
   "vectors": {
-    "ttlDays": 90
+    "ttlDays": 90,
+    "maxCount": 0
   }
 }
 ```
+
+Set `maxCount` to a positive value to enable FIFO eviction (e.g., `50000`). Default `0` means unlimited.
 
 ## Storage Management
 
@@ -224,17 +209,17 @@ Shows:
 
 If queries are slow:
 
-1. Run prune-graph to remove dead edges
-2. Run update-clusters to optimize clustering
-3. Check for very large clusters (may need threshold adjustment)
+1. Run update-clusters to optimize clustering
+2. Check for very large clusters (may need threshold adjustment)
+3. Run vacuum to optimize database
 
 ### High Memory Usage
 
 If memory usage is high:
 
 1. Run vacuum to optimize database
-2. Consider adjusting `diesAtHops` to prune edges faster
-3. Archive old sessions if needed
+2. Configure `vectors.maxCount` to cap collection size
+3. Lower `vectors.ttlDays` to expire old vectors sooner
 
 ### Missing Context
 

@@ -19,7 +19,7 @@ import type { MSTEdge } from './types.js';
 export function buildMST(
   points: number[][],
   coreDistances: number[],
-  metric: 'euclidean' | 'angular' = 'euclidean'
+  metric: 'euclidean' | 'angular' = 'euclidean',
 ): MSTEdge[] {
   const n = points.length;
 
@@ -93,7 +93,7 @@ export function mutualReachabilityDistance(
   pointB: number[],
   coreDistA: number,
   coreDistB: number,
-  metric: 'euclidean' | 'angular' = 'euclidean'
+  metric: 'euclidean' | 'angular' = 'euclidean',
 ): number {
   const distFn = metric === 'euclidean' ? euclideanDistance : angularDistance;
   const rawDist = distFn(pointA, pointB);

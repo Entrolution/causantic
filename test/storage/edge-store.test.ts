@@ -5,12 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type Database from 'better-sqlite3-multiple-ciphers';
-import {
-  createTestDb,
-  createSampleChunk,
-  insertTestChunk,
-  insertTestEdge,
-} from './test-utils.js';
+import { createTestDb, createSampleChunk, insertTestChunk, insertTestEdge } from './test-utils.js';
 
 describe('edge-store', () => {
   let db: Database.Database;
@@ -34,9 +29,8 @@ describe('edge-store', () => {
         sourceChunkId: 'chunk-1',
         targetChunkId: 'chunk-2',
         edgeType: 'forward',
-        referenceType: 'file-path',
+        referenceType: 'within-chain',
         initialWeight: 0.8,
-        vectorClock: { ui: 5, human: 3 },
       });
 
       const row = db.prepare('SELECT * FROM edges WHERE id = ?').get('edge-1') as {
@@ -46,7 +40,6 @@ describe('edge-store', () => {
         edge_type: string;
         reference_type: string | null;
         initial_weight: number;
-        vector_clock: string | null;
         link_count: number;
       };
 
@@ -54,9 +47,8 @@ describe('edge-store', () => {
       expect(row.source_chunk_id).toBe('chunk-1');
       expect(row.target_chunk_id).toBe('chunk-2');
       expect(row.edge_type).toBe('forward');
-      expect(row.reference_type).toBe('file-path');
+      expect(row.reference_type).toBe('within-chain');
       expect(row.initial_weight).toBeCloseTo(0.8);
-      expect(JSON.parse(row.vector_clock!)).toEqual({ ui: 5, human: 3 });
       expect(row.link_count).toBe(1);
     });
 
@@ -70,11 +62,9 @@ describe('edge-store', () => {
 
       const row = db.prepare('SELECT * FROM edges WHERE id = ?').get('edge-2') as {
         reference_type: string | null;
-        vector_clock: string | null;
       };
 
       expect(row.reference_type).toBeNull();
-      expect(row.vector_clock).toBeNull();
     });
   });
 
@@ -104,76 +94,196 @@ describe('edge-store', () => {
     });
 
     it('returns outgoing edges from a chunk', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
-      insertTestEdge(db, { id: 'e2', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-3', edgeType: 'forward' });
-      insertTestEdge(db, { id: 'e3', sourceChunkId: 'chunk-2', targetChunkId: 'chunk-3', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e2',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-3',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e3',
+        sourceChunkId: 'chunk-2',
+        targetChunkId: 'chunk-3',
+        edgeType: 'forward',
+      });
 
       const rows = db.prepare('SELECT * FROM edges WHERE source_chunk_id = ?').all('chunk-1');
       expect(rows.length).toBe(2);
     });
 
     it('filters by edge type', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
-      insertTestEdge(db, { id: 'e2', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-3', edgeType: 'backward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e2',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-3',
+        edgeType: 'backward',
+      });
 
-      const forwardEdges = db.prepare(
-        'SELECT * FROM edges WHERE source_chunk_id = ? AND edge_type = ?'
-      ).all('chunk-1', 'forward');
+      const forwardEdges = db
+        .prepare('SELECT * FROM edges WHERE source_chunk_id = ? AND edge_type = ?')
+        .all('chunk-1', 'forward');
       expect(forwardEdges.length).toBe(1);
 
-      const backwardEdges = db.prepare(
-        'SELECT * FROM edges WHERE source_chunk_id = ? AND edge_type = ?'
-      ).all('chunk-1', 'backward');
+      const backwardEdges = db
+        .prepare('SELECT * FROM edges WHERE source_chunk_id = ? AND edge_type = ?')
+        .all('chunk-1', 'backward');
       expect(backwardEdges.length).toBe(1);
     });
   });
 
   describe('getIncomingEdges', () => {
     it('returns incoming edges to a chunk', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-3', edgeType: 'forward' });
-      insertTestEdge(db, { id: 'e2', sourceChunkId: 'chunk-2', targetChunkId: 'chunk-3', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-3',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e2',
+        sourceChunkId: 'chunk-2',
+        targetChunkId: 'chunk-3',
+        edgeType: 'forward',
+      });
 
       const rows = db.prepare('SELECT * FROM edges WHERE target_chunk_id = ?').all('chunk-3');
       expect(rows.length).toBe(2);
     });
   });
 
-  describe('hasAnyEdges', () => {
+  describe('getForwardEdges', () => {
+    it('returns forward edges from a chunk (source_chunk_id match)', () => {
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e2',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-3',
+        edgeType: 'forward',
+      });
+
+      const rows = db
+        .prepare("SELECT * FROM edges WHERE source_chunk_id = ? AND edge_type = 'forward'")
+        .all('chunk-1');
+      expect(rows.length).toBe(2);
+    });
+
+    it('returns empty array when no forward edges exist', () => {
+      const rows = db
+        .prepare("SELECT * FROM edges WHERE source_chunk_id = ? AND edge_type = 'forward'")
+        .all('chunk-1');
+      expect(rows).toEqual([]);
+    });
+  });
+
+  describe('getBackwardEdges', () => {
+    it('returns edges pointing to a chunk (target_chunk_id match with forward type)', () => {
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e2',
+        sourceChunkId: 'chunk-3',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
+
+      const rows = db
+        .prepare("SELECT * FROM edges WHERE target_chunk_id = ? AND edge_type = 'forward'")
+        .all('chunk-2');
+      expect(rows.length).toBe(2);
+    });
+
+    it('returns empty array when no backward edges exist', () => {
+      const rows = db
+        .prepare("SELECT * FROM edges WHERE target_chunk_id = ? AND edge_type = 'forward'")
+        .all('chunk-1');
+      expect(rows).toEqual([]);
+    });
+  });
+
+  describe('edge existence queries', () => {
     it('returns false for chunk with no edges', () => {
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT 1 FROM edges
         WHERE source_chunk_id = ? OR target_chunk_id = ?
         LIMIT 1
-      `).get('chunk-1', 'chunk-1');
+      `,
+        )
+        .get('chunk-1', 'chunk-1');
       expect(row).toBeUndefined();
     });
 
     it('returns true for chunk with outgoing edges', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
 
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT 1 FROM edges
         WHERE source_chunk_id = ? OR target_chunk_id = ?
         LIMIT 1
-      `).get('chunk-1', 'chunk-1');
+      `,
+        )
+        .get('chunk-1', 'chunk-1');
       expect(row).toBeDefined();
     });
 
     it('returns true for chunk with incoming edges', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
 
-      const row = db.prepare(`
+      const row = db
+        .prepare(
+          `
         SELECT 1 FROM edges
         WHERE source_chunk_id = ? OR target_chunk_id = ?
         LIMIT 1
-      `).get('chunk-2', 'chunk-2');
+      `,
+        )
+        .get('chunk-2', 'chunk-2');
       expect(row).toBeDefined();
     });
   });
 
   describe('deleteEdge', () => {
     it('deletes an edge', () => {
-      insertTestEdge(db, { id: 'to-delete', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'to-delete',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
 
       const result = db.prepare('DELETE FROM edges WHERE id = ?').run('to-delete');
       expect(result.changes).toBe(1);
@@ -190,16 +300,33 @@ describe('edge-store', () => {
 
   describe('deleteEdgesForChunk', () => {
     it('deletes all edges for a chunk', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
-      insertTestEdge(db, { id: 'e2', sourceChunkId: 'chunk-3', targetChunkId: 'chunk-1', edgeType: 'forward' });
-      insertTestEdge(db, { id: 'e3', sourceChunkId: 'chunk-2', targetChunkId: 'chunk-3', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e2',
+        sourceChunkId: 'chunk-3',
+        targetChunkId: 'chunk-1',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e3',
+        sourceChunkId: 'chunk-2',
+        targetChunkId: 'chunk-3',
+        edgeType: 'forward',
+      });
 
-      const result = db.prepare(
-        'DELETE FROM edges WHERE source_chunk_id = ? OR target_chunk_id = ?'
-      ).run('chunk-1', 'chunk-1');
+      const result = db
+        .prepare('DELETE FROM edges WHERE source_chunk_id = ? OR target_chunk_id = ?')
+        .run('chunk-1', 'chunk-1');
       expect(result.changes).toBe(2);
 
-      const remaining = db.prepare('SELECT COUNT(*) as count FROM edges').get() as { count: number };
+      const remaining = db.prepare('SELECT COUNT(*) as count FROM edges').get() as {
+        count: number;
+      };
       expect(remaining.count).toBe(1);
     });
   });
@@ -211,8 +338,18 @@ describe('edge-store', () => {
     });
 
     it('returns correct count', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
-      insertTestEdge(db, { id: 'e2', sourceChunkId: 'chunk-2', targetChunkId: 'chunk-3', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e2',
+        sourceChunkId: 'chunk-2',
+        targetChunkId: 'chunk-3',
+        edgeType: 'forward',
+      });
 
       const row = db.prepare('SELECT COUNT(*) as count FROM edges').get() as { count: number };
       expect(row.count).toBe(2);
@@ -221,20 +358,40 @@ describe('edge-store', () => {
 
   describe('unique constraint', () => {
     it('prevents duplicate edges with same source, target, type', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
 
       expect(() => {
-        insertTestEdge(db, { id: 'e2', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
+        insertTestEdge(db, {
+          id: 'e2',
+          sourceChunkId: 'chunk-1',
+          targetChunkId: 'chunk-2',
+          edgeType: 'forward',
+        });
       }).toThrow(/UNIQUE constraint failed/);
     });
 
     it('allows same source/target with different edge type', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
-      insertTestEdge(db, { id: 'e2', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'backward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
+      insertTestEdge(db, {
+        id: 'e2',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'backward',
+      });
 
-      const rows = db.prepare(
-        'SELECT * FROM edges WHERE source_chunk_id = ? AND target_chunk_id = ?'
-      ).all('chunk-1', 'chunk-2');
+      const rows = db
+        .prepare('SELECT * FROM edges WHERE source_chunk_id = ? AND target_chunk_id = ?')
+        .all('chunk-1', 'chunk-2');
       expect(rows.length).toBe(2);
     });
   });
@@ -249,7 +406,9 @@ describe('edge-store', () => {
         linkCount: 5,
       });
 
-      const row = db.prepare('SELECT link_count FROM edges WHERE id = ?').get('e1') as { link_count: number };
+      const row = db.prepare('SELECT link_count FROM edges WHERE id = ?').get('e1') as {
+        link_count: number;
+      };
       expect(row.link_count).toBe(5);
     });
 
@@ -261,7 +420,9 @@ describe('edge-store', () => {
         edgeType: 'forward',
       });
 
-      const row = db.prepare('SELECT link_count FROM edges WHERE id = ?').get('e1') as { link_count: number };
+      const row = db.prepare('SELECT link_count FROM edges WHERE id = ?').get('e1') as {
+        link_count: number;
+      };
       expect(row.link_count).toBe(1);
     });
 
@@ -275,43 +436,15 @@ describe('edge-store', () => {
 
       db.prepare('UPDATE edges SET link_count = link_count + 1 WHERE id = ?').run('e1');
 
-      const row = db.prepare('SELECT link_count FROM edges WHERE id = ?').get('e1') as { link_count: number };
+      const row = db.prepare('SELECT link_count FROM edges WHERE id = ?').get('e1') as {
+        link_count: number;
+      };
       expect(row.link_count).toBe(2);
     });
   });
 
-  describe('vector clock serialization', () => {
-    it('round-trips vector clock data', () => {
-      const originalClock = { ui: 10, human: 5 };
-      insertTestEdge(db, {
-        id: 'clock-test',
-        sourceChunkId: 'chunk-1',
-        targetChunkId: 'chunk-2',
-        edgeType: 'forward',
-        vectorClock: originalClock,
-      });
-
-      const row = db.prepare('SELECT vector_clock FROM edges WHERE id = ?').get('clock-test') as {
-        vector_clock: string;
-      };
-
-      const restored = JSON.parse(row.vector_clock);
-      expect(restored).toEqual(originalClock);
-    });
-  });
-
   describe('reference types', () => {
-    const referenceTypes = [
-      'file-path',
-      'code-entity',
-      'explicit-backref',
-      'error-fragment',
-      'tool-output',
-      'adjacent',
-      'cross-session',
-      'brief',
-      'debrief',
-    ];
+    const referenceTypes = ['within-chain', 'cross-session', 'brief', 'debrief'];
 
     for (const refType of referenceTypes) {
       it(`stores ${refType} reference type`, () => {
@@ -323,7 +456,9 @@ describe('edge-store', () => {
           referenceType: refType,
         });
 
-        const row = db.prepare('SELECT reference_type FROM edges WHERE id = ?').get(`edge-${refType}`) as {
+        const row = db
+          .prepare('SELECT reference_type FROM edges WHERE id = ?')
+          .get(`edge-${refType}`) as {
           reference_type: string;
         };
         expect(row.reference_type).toBe(refType);
@@ -333,7 +468,12 @@ describe('edge-store', () => {
 
   describe('cascade deletion', () => {
     it('deletes edges when source chunk is deleted', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
 
       db.prepare('DELETE FROM chunks WHERE id = ?').run('chunk-1');
 
@@ -342,7 +482,12 @@ describe('edge-store', () => {
     });
 
     it('deletes edges when target chunk is deleted', () => {
-      insertTestEdge(db, { id: 'e1', sourceChunkId: 'chunk-1', targetChunkId: 'chunk-2', edgeType: 'forward' });
+      insertTestEdge(db, {
+        id: 'e1',
+        sourceChunkId: 'chunk-1',
+        targetChunkId: 'chunk-2',
+        edgeType: 'forward',
+      });
 
       db.prepare('DELETE FROM chunks WHERE id = ?').run('chunk-2');
 

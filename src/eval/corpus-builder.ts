@@ -5,7 +5,7 @@
  */
 
 import { readdir, stat } from 'node:fs/promises';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import { readSessionMessages, getSessionInfo } from '../parser/session-reader.js';
 import { assembleTurns } from '../parser/turn-assembler.js';
 import { chunkTurns, resetChunkCounter } from '../parser/chunker.js';
@@ -111,9 +111,7 @@ export async function buildCorpus(config: CorpusConfig): Promise<Corpus> {
 /**
  * Discover session JSONL files in a Claude Code projects directory.
  */
-export async function discoverSessions(
-  projectDir: string,
-): Promise<string[]> {
+export async function discoverSessions(projectDir: string): Promise<string[]> {
   const entries = await readdir(projectDir);
   const jsonlFiles: string[] = [];
 

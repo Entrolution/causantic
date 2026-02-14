@@ -5,7 +5,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { BenchmarkSample, SamplerThresholds } from '../../../src/eval/collection-benchmark/types.js';
+import type {
+  BenchmarkSample,
+  SamplerThresholds,
+} from '../../../src/eval/collection-benchmark/types.js';
 
 // Mock chunk-store
 vi.mock('../../../src/storage/chunk-store.js', () => ({
@@ -48,9 +51,7 @@ function makeSample(overrides: Partial<BenchmarkSample> = {}): BenchmarkSample {
       { queryChunkId: 'c1', adjacentChunkId: 'c2', sessionId: 's1' },
       { queryChunkId: 'c2', adjacentChunkId: 'c3', sessionId: 's1' },
     ],
-    crossSessionPairs: [
-      { chunkIdA: 'c1', chunkIdB: 'c3-s2', edgeType: 'file-path' },
-    ],
+    crossSessionPairs: [{ chunkIdA: 'c1', chunkIdB: 'c3-s2', edgeType: 'cross-session' }],
     crossProjectPairs: [
       { chunkIdA: 'c1', projectA: 'proj-a', chunkIdB: 'proj-b-c1', projectB: 'proj-b' },
     ],
@@ -76,7 +77,7 @@ describe('runRetrievalBenchmarks', () => {
     });
 
     const sample = makeSample();
-    const { result, skipped } = await runRetrievalBenchmarks(sample, 10);
+    const { result, skipped: _skipped } = await runRetrievalBenchmarks(sample, 10);
 
     // c2 is found for c1's query (top 5 and top 10), c3 is found for c2's query (top 10)
     expect(result.adjacentRecallAt5).toBeGreaterThan(0);
@@ -130,7 +131,7 @@ describe('runRetrievalBenchmarks', () => {
 
     const { skipped } = await runRetrievalBenchmarks(sample, 10);
 
-    const bridgingSkip = skipped.find(s => s.name === 'Cross-Session Bridging');
+    const bridgingSkip = skipped.find((s) => s.name === 'Cross-Session Bridging');
     expect(bridgingSkip).toBeDefined();
   });
 
@@ -149,7 +150,7 @@ describe('runRetrievalBenchmarks', () => {
 
     const { skipped } = await runRetrievalBenchmarks(sample, 10);
 
-    const precisionSkip = skipped.find(s => s.name === 'Precision@K');
+    const precisionSkip = skipped.find((s) => s.name === 'Precision@K');
     expect(precisionSkip).toBeDefined();
   });
 
@@ -157,7 +158,12 @@ describe('runRetrievalBenchmarks', () => {
     // Return chunks from the same project = relevant
     mockAssembleContext.mockResolvedValue({
       chunks: [
-        { id: 'c2', preview: 'relevant chunk content here', sessionSlug: 'proj-a', source: 'vector' },
+        {
+          id: 'c2',
+          preview: 'relevant chunk content here',
+          sessionSlug: 'proj-a',
+          source: 'vector',
+        },
         { id: 'c3', preview: 'also relevant content', sessionSlug: 'proj-a', source: 'vector' },
       ],
       tokenCount: 200,
@@ -196,14 +202,14 @@ describe('runRetrievalBenchmarks', () => {
     await runRetrievalBenchmarks(sample, 10, (msg) => progressMessages.push(msg));
 
     expect(progressMessages.length).toBeGreaterThan(0);
-    expect(progressMessages.some(m => m.includes('Adjacent chunk recall'))).toBe(true);
+    expect(progressMessages.some((m) => m.includes('Adjacent chunk recall'))).toBe(true);
   });
 
   it('should compute bridging recall when cross-session pairs found', async () => {
     // First calls for adjacent recall, then bridging
-    let callCount = 0;
+    let _callCount = 0;
     mockAssembleContext.mockImplementation(async () => {
-      callCount++;
+      _callCount++;
       // Return the cross-session target chunk in bridging queries
       return {
         chunks: [

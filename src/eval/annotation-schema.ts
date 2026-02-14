@@ -10,10 +10,7 @@
 
 import type { Chunk } from '../parser/types.js';
 
-export type PairLabel =
-  | 'related'
-  | 'unrelated'
-  | 'code-nl-pair';
+export type PairLabel = 'related' | 'unrelated' | 'code-nl-pair';
 
 export type Confidence = 'high' | 'medium' | 'low';
 
@@ -151,9 +148,7 @@ export function generateLabeledPairs(
   let crossCount = 0;
   for (const projectChunks of byProject.values()) {
     if (crossCount >= crossSessionPairs) break;
-    const sessionIds = [
-      ...new Set(projectChunks.map((c) => c.metadata.sessionId)),
-    ];
+    const sessionIds = [...new Set(projectChunks.map((c) => c.metadata.sessionId))];
     if (sessionIds.length < 2) continue;
 
     const shuffled = seededShuffle(projectChunks, seed + 1);
@@ -205,10 +200,7 @@ export function generateLabeledPairs(
     for (let i = 0; i < sessionChunks.length - 1 && codeNLCount < codeNLPairs; i++) {
       const a = sessionChunks[i];
       const b = sessionChunks[i + 1];
-      if (
-        (isCodeHeavy(a) && isNLHeavy(b)) ||
-        (isNLHeavy(a) && isCodeHeavy(b))
-      ) {
+      if ((isCodeHeavy(a) && isNLHeavy(b)) || (isNLHeavy(a) && isCodeHeavy(b))) {
         pairs.push({
           chunkIdA: a.id,
           chunkIdB: b.id,

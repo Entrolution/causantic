@@ -10,20 +10,17 @@
  *                           └─> SubAgent2: D_s3 ─T─> D_s4 ─[DEBRIEF]─┴─> D5 ─T─> D6
  */
 
-import type { Turn, ContentBlock, ToolUseBlock, RawMessage } from '../parser/types.js';
+import type { Turn, ToolUseBlock } from '../parser/types.js';
 import type { Chunk } from '../parser/types.js';
-import type { VectorClock } from '../temporal/vector-clock.js';
 
 /**
  * A brief point marks where a sub-agent is spawned.
  */
 export interface BriefPoint {
-  /** ID of the parent chunk that spawned the sub-agent */
-  parentChunkId: string;
+  /** IDs of all parent chunks at the spawn turn */
+  parentChunkIds: string[];
   /** ID of the spawned sub-agent */
   agentId: string;
-  /** Vector clock at spawn time */
-  clock: VectorClock;
   /** Turn index where spawn occurred */
   turnIndex: number;
   /** Spawn depth (0 = main, 1 = first sub-agent level, etc.) */
@@ -38,10 +35,8 @@ export interface DebriefPoint {
   agentId: string;
   /** IDs of the sub-agent's final chunk(s) */
   agentFinalChunkIds: string[];
-  /** ID of the parent chunk that receives the results */
-  parentChunkId: string;
-  /** Vector clock at debrief time */
-  clock: VectorClock;
+  /** IDs of all parent chunks at the return turn */
+  parentChunkIds: string[];
   /** Turn index where debrief occurred */
   turnIndex: number;
   /** Spawn depth of the sub-agent */
@@ -115,15 +110,14 @@ function findTurnForToolUse(turns: Turn[], toolUseId: string): number {
  *
  * @param turns - Turns from the main session
  * @param chunkIdsByTurn - Map of turn index → chunk IDs created from that turn
- * @param currentClock - Current vector clock at start of processing
  * @param spawnDepth - Current spawn depth (0 for main session)
  * @returns Array of detected brief points
  */
 export function detectBriefPoints(
   turns: Turn[],
   chunkIdsByTurn: Map<number, string[]>,
-  currentClock: VectorClock,
-  spawnDepth: number = 0
+  _currentClock?: unknown,
+  spawnDepth: number = 0,
 ): BriefPoint[] {
   const briefPoints: BriefPoint[] = [];
 
@@ -135,17 +129,13 @@ export function detectBriefPoints(
     const spawnTurnIndex = findTurnForToolUse(turns, spawnInfo.toolUseId);
     if (spawnTurnIndex === -1) continue;
 
-    // Get chunk ID(s) for the spawn turn
+    // Get all chunk IDs for the spawn turn
     const chunkIds = chunkIdsByTurn.get(spawnTurnIndex);
     if (!chunkIds || chunkIds.length === 0) continue;
 
-    // Use the first chunk as the parent (if turn spans multiple chunks)
-    const parentChunkId = chunkIds[0];
-
     briefPoints.push({
-      parentChunkId,
+      parentChunkIds: [...chunkIds],
       agentId,
-      clock: { ...currentClock },
       turnIndex: spawnTurnIndex,
       spawnDepth,
     });
@@ -211,7 +201,6 @@ function extractSpawnedAgentIds(turn: Turn): string[] {
  * @param subAgentChunks - Map of agent ID → chunks from that agent
  * @param mainChunks - Chunks from the main session
  * @param chunkIdsByTurn - Map of turn index → chunk IDs
- * @param currentClock - Current vector clock
  * @param spawnDepth - Spawn depth of sub-agents
  * @returns Array of detected debrief points
  */
@@ -220,8 +209,8 @@ export function detectDebriefPoints(
   subAgentChunks: Map<string, Chunk[]>,
   mainChunks: Chunk[],
   chunkIdsByTurn: Map<number, string[]>,
-  currentClock: VectorClock,
-  spawnDepth: number = 1
+  _currentClock?: unknown,
+  spawnDepth: number = 1,
 ): DebriefPoint[] {
   const debriefPoints: DebriefPoint[] = [];
 
@@ -244,14 +233,13 @@ export function detectDebriefPoints(
       for (let i = 0; i < mainTurns.length; i++) {
         const turn = mainTurns[i];
         if (extractSpawnedAgentIds(turn).includes(agentId)) {
-          // Link to the next turn's chunk
+          // Link to the next turn's chunks (all of them)
           const nextChunkIds = chunkIdsByTurn.get(i + 1);
           if (nextChunkIds && nextChunkIds.length > 0) {
             debriefPoints.push({
               agentId,
               agentFinalChunkIds: finalChunkIds,
-              parentChunkId: nextChunkIds[0],
-              clock: { ...currentClock },
+              parentChunkIds: [...nextChunkIds],
               turnIndex: i + 1,
               spawnDepth,
             });
@@ -262,15 +250,14 @@ export function detectDebriefPoints(
       continue;
     }
 
-    // Get chunk ID for the debrief turn
+    // Get all chunk IDs for the debrief turn
     const debriefChunkIds = chunkIdsByTurn.get(debriefTurnIndex);
     if (!debriefChunkIds || debriefChunkIds.length === 0) continue;
 
     debriefPoints.push({
       agentId,
       agentFinalChunkIds: finalChunkIds,
-      parentChunkId: debriefChunkIds[0],
-      clock: { ...currentClock },
+      parentChunkIds: [...debriefChunkIds],
       turnIndex: debriefTurnIndex,
       spawnDepth,
     });
@@ -283,11 +270,7 @@ export function detectDebriefPoints(
  * Find the turn index where sub-agent results are debriefed.
  * Looks for tool results or references to the sub-agent's output.
  */
-function findDebriefTurn(
-  turns: Turn[],
-  agentId: string,
-  finalChunk: Chunk
-): number {
+function findDebriefTurn(turns: Turn[], agentId: string, _finalChunk: Chunk): number {
   // Strategy 1: Look for turns with tool results that explicitly mention this agent
   for (let i = 0; i < turns.length; i++) {
     const turn = turns[i];
@@ -327,7 +310,6 @@ function findDebriefTurn(
 
   return -1;
 }
-
 
 /**
  * Build a map of turn index → chunk IDs for efficient lookup.

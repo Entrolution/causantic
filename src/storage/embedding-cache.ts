@@ -24,17 +24,14 @@ export function computeContentHash(content: string): string {
  * Get a cached embedding for a single content hash.
  * Returns null if not found. Updates hit count on cache hit.
  */
-export function getCachedEmbedding(
-  contentHash: string,
-  modelId: string
-): number[] | null {
+export function getCachedEmbedding(contentHash: string, modelId: string): number[] | null {
   const db = getDb();
   const row = db
     .prepare(
       `
     SELECT embedding FROM embedding_cache
     WHERE content_hash = ? AND model_id = ?
-  `
+  `,
     )
     .get(contentHash, modelId) as { embedding: Buffer } | undefined;
 
@@ -45,7 +42,7 @@ export function getCachedEmbedding(
     `
     UPDATE embedding_cache SET hit_count = hit_count + 1
     WHERE content_hash = ? AND model_id = ?
-  `
+  `,
   ).run(contentHash, modelId);
 
   // Deserialize from Buffer to number[]
@@ -58,7 +55,7 @@ export function getCachedEmbedding(
  */
 export function getCachedEmbeddingsBatch(
   contentHashes: string[],
-  modelId: string
+  modelId: string,
 ): Map<string, number[]> {
   const cache = new Map<string, number[]>();
 
@@ -71,7 +68,7 @@ export function getCachedEmbeddingsBatch(
       `
     SELECT content_hash, embedding FROM embedding_cache
     WHERE content_hash IN (${placeholders}) AND model_id = ?
-  `
+  `,
     )
     .all(...contentHashes, modelId) as Array<{
     content_hash: string;
@@ -90,7 +87,7 @@ export function getCachedEmbeddingsBatch(
       `
       UPDATE embedding_cache SET hit_count = hit_count + 1
       WHERE content_hash IN (${updatePlaceholders}) AND model_id = ?
-    `
+    `,
     ).run(...foundHashes, modelId);
   }
 
@@ -100,11 +97,7 @@ export function getCachedEmbeddingsBatch(
 /**
  * Cache a single embedding.
  */
-export function cacheEmbedding(
-  contentHash: string,
-  modelId: string,
-  embedding: number[]
-): void {
+export function cacheEmbedding(contentHash: string, modelId: string, embedding: number[]): void {
   const db = getDb();
   const blob = serializeEmbedding(embedding);
 
@@ -113,7 +106,7 @@ export function cacheEmbedding(
     INSERT OR REPLACE INTO embedding_cache
     (content_hash, model_id, embedding, created_at, hit_count)
     VALUES (?, ?, ?, CURRENT_TIMESTAMP, 0)
-  `
+  `,
   ).run(contentHash, modelId, blob);
 }
 
@@ -122,7 +115,7 @@ export function cacheEmbedding(
  */
 export function cacheEmbeddingsBatch(
   items: Array<{ contentHash: string; embedding: number[] }>,
-  modelId: string
+  modelId: string,
 ): void {
   if (items.length === 0) return;
 
@@ -139,7 +132,7 @@ export function cacheEmbeddingsBatch(
         const blob = serializeEmbedding(item.embedding);
         stmt.run(item.contentHash, modelId, blob);
       }
-    }
+    },
   );
 
   insertMany(items);
@@ -154,9 +147,9 @@ export function cacheEmbeddingsBatch(
  */
 export function evictOldestIfNeeded(): void {
   const db = getDb();
-  const countResult = db
-    .prepare('SELECT COUNT(*) as count FROM embedding_cache')
-    .get() as { count: number };
+  const countResult = db.prepare('SELECT COUNT(*) as count FROM embedding_cache').get() as {
+    count: number;
+  };
 
   if (countResult.count > MAX_CACHE_ENTRIES) {
     const toEvict = countResult.count - MAX_CACHE_ENTRIES + EVICTION_BUFFER;
@@ -167,7 +160,7 @@ export function evictOldestIfNeeded(): void {
         ORDER BY created_at ASC
         LIMIT ?
       )
-    `
+    `,
     ).run(toEvict);
   }
 }
@@ -186,7 +179,7 @@ export function getCacheStats(): {
       `
     SELECT COUNT(*) as count, COALESCE(SUM(hit_count), 0) as total_hits, COALESCE(AVG(hit_count), 0) as avg_hits
     FROM embedding_cache
-  `
+  `,
     )
     .get() as { count: number; total_hits: number; avg_hits: number };
 
@@ -212,4 +205,3 @@ export function clearCacheForModel(modelId: string): void {
   const db = getDb();
   db.prepare('DELETE FROM embedding_cache WHERE model_id = ?').run(modelId);
 }
-

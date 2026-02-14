@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { join } from 'node:path';
-import { readSession, readSessionMessages, getSessionInfo, deriveProjectSlug } from '../../src/parser/session-reader.js';
+import {
+  readSession,
+  readSessionMessages,
+  getSessionInfo,
+  deriveProjectSlug,
+} from '../../src/parser/session-reader.js';
 import type { SessionInfo } from '../../src/parser/types.js';
 
 const FIXTURE = join(import.meta.dirname, '..', 'fixtures', 'sample-session.jsonl');

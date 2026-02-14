@@ -3,15 +3,12 @@
  *
  * The storage layer provides persistence for the Causantic system.
  * Key data structures include:
- * - **Chunks**: Segments of conversation with metadata and vector clocks
+ * - **Chunks**: Segments of conversation with metadata
  * - **Edges**: Weighted directional connections between chunks
  * - **Clusters**: Topic groupings of chunks (via HDBSCAN)
- * - **Vector clocks**: For causality tracking and decay computation
  *
  * @module storage/types
  */
-
-import type { VectorClock } from '../temporal/vector-clock.js';
 
 /**
  * Edge direction for graph traversal.
@@ -25,40 +22,28 @@ import type { VectorClock } from '../temporal/vector-clock.js';
 export type EdgeType = 'backward' | 'forward';
 
 /**
- * Reference types for edges.
+ * Structural roles for causal graph edges.
  *
- * Indicates the evidence used to create the edge. Higher-evidence types
- * receive higher initial weights:
+ * The causal graph is purely causal — semantic association is handled by
+ * vector similarity and clustering. Edges represent structural relationships:
  *
  * | Type | Weight | Description |
  * |------|--------|-------------|
- * | `file-path` | 1.0 | Shared file path reference |
- * | `explicit-backref` | 0.9 | Explicit "the error", "that function" |
- * | `error-fragment` | 0.9 | Discussing specific error message |
- * | `brief` | 0.9 | Parent spawning sub-agent |
- * | `debrief` | 0.9 | Sub-agent returning to parent |
- * | `code-entity` | 0.8 | Shared function/class/variable name |
- * | `tool-output` | 0.8 | Referencing tool results |
+ * | `within-chain` | 1.0 | D-T-D causal edge within one thinking entity |
+ * | `brief` | 0.9 | Parent spawning sub-agent (× depth penalty) |
+ * | `debrief` | 0.9 | Sub-agent returning to parent (× depth penalty) |
  * | `cross-session` | 0.7 | Session continuation |
- * | `adjacent` | 0.5 | Consecutive chunks (weak link) |
+ *
+ * All within-chain edges use m×n all-pairs creation at D-T-D boundaries,
+ * with topic-shift gating to omit edges across topic changes.
  */
-export type ReferenceType =
-  | 'file-path'
-  | 'code-entity'
-  | 'explicit-backref'
-  | 'error-fragment'
-  | 'tool-output'
-  | 'adjacent'
-  | 'cross-session'
-  | 'brief'
-  | 'debrief';
+export type ReferenceType = 'within-chain' | 'cross-session' | 'brief' | 'debrief';
 
 /**
  * A chunk stored in the database.
  *
  * Chunks are the fundamental unit of storage, representing segments of
- * conversation. Each chunk contains one or more turns and is assigned
- * a vector clock for causality tracking.
+ * conversation. Each chunk contains one or more turns.
  */
 export interface StoredChunk {
   /** Unique identifier (UUID format) */
@@ -85,8 +70,6 @@ export interface StoredChunk {
   createdAt: string;
   /** Agent ID for sub-agent chunks, 'ui' for main session */
   agentId: string | null;
-  /** Vector clock at time of chunk creation (for decay) */
-  vectorClock: VectorClock | null;
   /** Nesting depth: 0=main, 1=sub-agent, 2=nested sub-agent */
   spawnDepth: number;
   /** Full cwd path for project disambiguation (optional) */
@@ -122,8 +105,6 @@ export interface ChunkInput {
   approxTokens: number;
   /** Agent ID (optional, defaults to 'ui') */
   agentId?: string;
-  /** Vector clock (optional, enables clock-based decay) */
-  vectorClock?: VectorClock;
   /** Spawn depth (optional, defaults to 0) */
   spawnDepth?: number;
   /** Full cwd path for project disambiguation */
@@ -135,7 +116,6 @@ export interface ChunkInput {
  *
  * Edges represent causal connections between chunks. They have:
  * - An `initialWeight` set at creation based on reference type
- * - A `vectorClock` for computing time-based decay
  * - A `linkCount` that increases when the same edge is created multiple times
  */
 export interface StoredEdge {
@@ -153,8 +133,6 @@ export interface StoredEdge {
   initialWeight: number;
   /** ISO timestamp when edge was created */
   createdAt: string;
-  /** JSON-serialized vector clock for decay computation */
-  vectorClock: string | null;
   /** Times this edge was created (boosted on duplicate) */
   linkCount: number;
 }
@@ -177,8 +155,6 @@ export interface EdgeInput {
   referenceType?: ReferenceType;
   /** Explicit weight (overrides type-based default) */
   initialWeight: number;
-  /** Vector clock for decay computation */
-  vectorClock?: VectorClock;
 }
 
 /**

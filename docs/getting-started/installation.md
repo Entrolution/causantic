@@ -71,7 +71,6 @@ During setup, Causantic will detect existing Claude Code sessions in `~/.claude/
 For large session histories, the initial import may take a few minutes.
 
 After importing sessions, Causantic automatically:
-- **Prunes graph**: Removes dead edges and orphan nodes
 - **Builds clusters**: Groups related chunks by topic using HDBSCAN
 
 ### Cluster Labeling (Optional)

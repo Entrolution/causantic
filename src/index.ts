@@ -26,9 +26,6 @@ export * from './retrieval/index.js';
 // Clustering
 export * from './clusters/index.js';
 
-// Temporal
-export * from './temporal/index.js';
-
 // Maintenance
 export * from './maintenance/index.js';
 

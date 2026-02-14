@@ -82,7 +82,7 @@ export async function runBoilerplateExperiment(
 
   console.log(
     `  ${affectedCount}/${chunks.length} chunks contained boilerplate ` +
-    `(${((affectedCount / chunks.length) * 100).toFixed(1)}%)`,
+      `(${((affectedCount / chunks.length) * 100).toFixed(1)}%)`,
   );
 
   if (affectedCount === 0) {
@@ -106,9 +106,13 @@ export async function runBoilerplateExperiment(
   const delta = computeDelta(baselineSnap, variantSnap);
 
   console.log(`  Baseline ROC AUC: ${baselineSnap.rocAuc.toFixed(3)}`);
-  console.log(`  Filtered ROC AUC: ${variantSnap.rocAuc.toFixed(3)} (delta: ${delta.rocAuc >= 0 ? '+' : ''}${delta.rocAuc.toFixed(3)})`);
+  console.log(
+    `  Filtered ROC AUC: ${variantSnap.rocAuc.toFixed(3)} (delta: ${delta.rocAuc >= 0 ? '+' : ''}${delta.rocAuc.toFixed(3)})`,
+  );
   console.log(`  Baseline Silhouette: ${baselineSnap.silhouetteScore.toFixed(3)}`);
-  console.log(`  Filtered Silhouette: ${variantSnap.silhouetteScore.toFixed(3)} (delta: ${delta.silhouetteScore >= 0 ? '+' : ''}${delta.silhouetteScore.toFixed(3)})`);
+  console.log(
+    `  Filtered Silhouette: ${variantSnap.silhouetteScore.toFixed(3)} (delta: ${delta.silhouetteScore >= 0 ? '+' : ''}${delta.silhouetteScore.toFixed(3)})`,
+  );
 
   return {
     name: 'boilerplate-filter',

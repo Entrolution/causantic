@@ -35,13 +35,14 @@ Edges capture how chunks relate:
 
 ### Temporal Flow
 
-Vector clocks track logical ordering:
+Edge decay tracks logical distance via hop count (traversal depth):
 
 ```
-Chunk A (clock: {ui: 5})  happened before  Chunk B (clock: {ui: 7})
+Chunk A ──1 hop──▶ Chunk B    (weight: 0.87)
+Chunk A ──5 hops──▶ Chunk F   (weight: 0.50)
 ```
 
-This works even if sessions were days apart.
+This works even if sessions were days apart — logical hops, not wall-clock time.
 
 ### Context Assembly
 
@@ -52,7 +53,7 @@ Graph traversal finds related context that vector search misses:
 2. Graph traversal adds:
    - The error that triggered it (1 hop back)
    - The test that validated it (1 hop forward)
-   - The config file involved (file-path edge)
+   - The config change involved (causal edge)
 ```
 
 ## Why Chunks, Not Clusters?
@@ -91,31 +92,28 @@ Clusters serve as a **lens for browsing and labeling** rather than a **unit of c
 
 ## Edge Types
 
-Causantic tracks multiple relationship types, organized by evidence strength:
-
-### Strong Evidence (0.9-1.0)
+Causantic uses purely structural edge types — semantic association is handled by vector search and clustering. Edges encode causal structure only:
 
 | Type | Weight | Description |
 |------|--------|-------------|
-| `file-path` | 1.0 | Explicit file path reference shared between chunks |
-| `explicit-backref` | 0.9 | Explicit references like "the error", "that function" |
-| `error-fragment` | 0.9 | Discussing a specific error message |
-| `brief` | 0.9 | Parent agent spawning a sub-agent |
-| `debrief` | 0.9 | Sub-agent returning results to parent |
+| `within-chain` | 1.0 | D-T-D causal edge within one thinking entity. Created as m×n all-pairs at each consecutive turn boundary, with topic-shift gating. |
+| `brief` | 0.9 | Parent agent spawning a sub-agent. m×n all-pairs between parent turn chunks and sub-agent first-turn chunks. 0.9^depth penalty for nested agents. |
+| `debrief` | 0.9 | Sub-agent returning results to parent. m×n all-pairs between sub-agent final-turn chunks and parent turn chunks. 0.9^depth penalty. |
+| `cross-session` | 0.7 | Session continuation. m×n between previous session's final-turn chunks and new session's first-turn chunks. |
 
-### Medium Evidence (0.7-0.8)
+### Design evolution: from max entropy to sequential edges
 
-| Type | Weight | Description |
-|------|--------|-------------|
-| `code-entity` | 0.8 | Shared function, class, or variable name |
-| `tool-output` | 0.8 | Referencing tool execution results |
-| `cross-session` | 0.7 | Continuation from a previous session |
+| Aspect | v0.2 (m×n all-pairs) | v0.3 (sequential) |
+|--------|----------------------|-------------------|
+| Edge topology | m×n at each turn boundary | 1-to-1 linked list |
+| Edges per transition | O(m×n), e.g. 5×5 = 25 | O(max(m,n)), e.g. 5 |
+| Retrieval mechanism | Sum-product traversal with decay | Chain walking with cosine scoring |
+| Scoring | Multiplicative path products | Independent cosine similarity per hop |
+| Edge types | 4 structural (within-chain, cross-session, brief, debrief) | Sequential + cross-session + brief/debrief |
 
-### Weak Evidence (0.5)
-
-| Type | Weight | Description |
-|------|--------|-------------|
-| `adjacent` | 0.5 | Consecutive chunks with no stronger link detected |
+> **Historical note**: v0.2 used m×n all-pairs edges with sum-product traversal. This was theoretically motivated by maximum entropy (don't impose false structure), but in practice the graph contributed only ~2% of retrieval results. v0.3 uses sequential 1-to-1 edges — simpler, fewer edges, and the graph's value is structural ordering (episodic narratives) rather than semantic ranking.
+>
+> Earlier versions (pre-v0.3) also used 9 semantic reference types (file-path, code-entity, explicit-backref, etc.) with evidence-based weights. This conflated semantic and causal association. Both redesigns (v0.2 structural types, v0.3 sequential edges) moved toward separating concerns.
 
 ## Comparison
 
@@ -127,6 +125,6 @@ Causantic tracks multiple relationship types, organized by evidence strength:
 
 ## Results
 
-Graph-augmented retrieval provides 221% more relevant context than vector search alone.
+> **Caveat**: The 221% (3.21×) figure below was measured in v0.2 using sum-product traversal with m×n all-pairs edges and file-path ground truth. v0.3 collection benchmarks showed the graph contributing ~2% of results with that architecture. The current v0.3 chain-walking architecture provides value through episodic narrative ordering rather than augmentation ratio. See [../experiments/graph-traversal.md](../experiments/graph-traversal.md) for both v0.2 and current results.
 
-See [../experiments/graph-traversal.md](../experiments/graph-traversal.md) for benchmark data.
+Graph-augmented retrieval in v0.2 provided 221% more relevant context than vector search alone (single-project baseline, 10 queries, file-path ground truth).

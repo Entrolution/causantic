@@ -8,7 +8,6 @@ import { readdir, stat } from 'fs/promises';
 import { join, basename } from 'path';
 import { Embedder } from '../models/embedder.js';
 import { getModel } from '../models/model-registry.js';
-import { isSessionIngested } from '../storage/chunk-store.js';
 import { ingestSession, type IngestResult, type IngestOptions } from './ingest-session.js';
 import { linkAllSessions } from './cross-session-linker.js';
 import { createLogger } from '../utils/logger.js';
@@ -135,7 +134,7 @@ export async function discoverSessions(dir: string): Promise<string[]> {
         });
         return { path, mtime: 0 };
       }
-    })
+    }),
   );
 
   withStats.sort((a, b) => a.mtime - b.mtime);
@@ -156,7 +155,7 @@ export async function filterAlreadyIngested(sessionPaths: string[]): Promise<str
  */
 export async function batchIngest(
   sessionPaths: string[],
-  options: BatchIngestOptions = {}
+  options: BatchIngestOptions = {},
 ): Promise<BatchIngestResult> {
   const startTime = Date.now();
 
@@ -266,7 +265,7 @@ export async function batchIngest(
  */
 export async function batchIngestDirectory(
   dir: string,
-  options: BatchIngestOptions = {}
+  options: BatchIngestOptions = {},
 ): Promise<BatchIngestResult> {
   const sessionPaths = await discoverSessions(dir);
   return batchIngest(sessionPaths, options);

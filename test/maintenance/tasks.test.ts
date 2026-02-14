@@ -8,7 +8,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { scanProjects } from '../../src/maintenance/tasks/scan-projects.js';
 import { updateClusters } from '../../src/maintenance/tasks/update-clusters.js';
-import { pruneGraph } from '../../src/maintenance/tasks/prune-graph.js';
 import { vacuum } from '../../src/maintenance/tasks/vacuum.js';
 import { cleanupVectors } from '../../src/maintenance/tasks/cleanup-vectors.js';
 
@@ -105,7 +104,9 @@ describe('updateClusters', () => {
     const result = await updateClusters({ recluster, refreshLabels });
 
     expect(result.success).toBe(true);
-    expect(result.message).toBe('5 clusters, 150 assigned, 8 noise points rescued, 2 labels refreshed');
+    expect(result.message).toBe(
+      '5 clusters, 150 assigned, 8 noise points rescued, 2 labels refreshed',
+    );
   });
 
   it('succeeds even when label refresh fails', async () => {
@@ -125,36 +126,6 @@ describe('updateClusters', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('no embeddings');
-  });
-});
-
-describe('pruneGraph', () => {
-  it('returns success with deletion counts', async () => {
-    const flushNow = vi.fn().mockResolvedValue({ edgesDeleted: 3, chunksOrphaned: 1 });
-
-    const result = await pruneGraph({ flushNow });
-
-    expect(result.success).toBe(true);
-    expect(result.message).toBe('Pruned 3 edges, marked 1 chunks for TTL cleanup');
-    expect(result.details).toBeDefined();
-  });
-
-  it('returns failure when flush throws', async () => {
-    const flushNow = vi.fn().mockRejectedValue(new Error('db locked'));
-
-    const result = await pruneGraph({ flushNow });
-
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('db locked');
-  });
-
-  it('handles zero deletions', async () => {
-    const flushNow = vi.fn().mockResolvedValue({ edgesDeleted: 0, chunksOrphaned: 0 });
-
-    const result = await pruneGraph({ flushNow });
-
-    expect(result.success).toBe(true);
-    expect(result.message).toBe('Pruned 0 edges, marked 0 chunks for TTL cleanup');
   });
 });
 
@@ -199,19 +170,21 @@ describe('vacuum', () => {
 describe('cleanupVectors', () => {
   it('returns success with deletion count', async () => {
     const cleanupExpired = vi.fn().mockResolvedValue(10);
+    const evictOldest = vi.fn().mockResolvedValue(0);
 
-    const result = await cleanupVectors({ cleanupExpired, ttlDays: 90 });
+    const result = await cleanupVectors({ cleanupExpired, evictOldest, ttlDays: 90, maxCount: 0 });
 
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Cleaned up 10 expired orphaned vectors');
-    expect(result.details).toEqual({ deletedCount: 10, ttlDays: 90 });
+    expect(result.message).toBe('Cleaned up 10 vectors (10 expired, 0 evicted by FIFO cap)');
+    expect(result.details).toEqual({ expiredCount: 10, evictedCount: 0, ttlDays: 90, maxCount: 0 });
     expect(cleanupExpired).toHaveBeenCalledWith(90);
   });
 
   it('returns failure when cleanup throws', async () => {
     const cleanupExpired = vi.fn().mockRejectedValue(new Error('vector store unavailable'));
+    const evictOldest = vi.fn().mockResolvedValue(0);
 
-    const result = await cleanupVectors({ cleanupExpired, ttlDays: 30 });
+    const result = await cleanupVectors({ cleanupExpired, evictOldest, ttlDays: 30, maxCount: 0 });
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('vector store unavailable');
@@ -219,17 +192,19 @@ describe('cleanupVectors', () => {
 
   it('handles zero deletions', async () => {
     const cleanupExpired = vi.fn().mockResolvedValue(0);
+    const evictOldest = vi.fn().mockResolvedValue(0);
 
-    const result = await cleanupVectors({ cleanupExpired, ttlDays: 90 });
+    const result = await cleanupVectors({ cleanupExpired, evictOldest, ttlDays: 90, maxCount: 0 });
 
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Cleaned up 0 expired orphaned vectors');
+    expect(result.message).toBe('Cleaned up 0 vectors (0 expired, 0 evicted by FIFO cap)');
   });
 
   it('passes correct TTL days to cleanup function', async () => {
     const cleanupExpired = vi.fn().mockResolvedValue(0);
+    const evictOldest = vi.fn().mockResolvedValue(0);
 
-    await cleanupVectors({ cleanupExpired, ttlDays: 45 });
+    await cleanupVectors({ cleanupExpired, evictOldest, ttlDays: 45, maxCount: 0 });
 
     expect(cleanupExpired).toHaveBeenCalledWith(45);
   });

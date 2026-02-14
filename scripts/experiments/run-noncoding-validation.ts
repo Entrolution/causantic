@@ -6,9 +6,8 @@
  * Usage: npm run noncoding-validation -- [options]
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { readdir, stat, writeFile, mkdir } from 'node:fs/promises';
+import { readdir, stat, writeFile } from 'node:fs/promises';
 import { discoverSessions } from '../src/eval/corpus-builder.js';
 import { getSessionInfo } from '../src/parser/session-reader.js';
 import { runEdgeDecayExperiments } from '../src/eval/experiments/edge-decay/run-experiments.js';
@@ -81,7 +80,7 @@ async function main(): Promise<void> {
   let maxSessions = 20;
   let outputPath = 'benchmark-results/noncoding-validation.json';
   let compareWithCoding = true;
-  let codingProjectFilter = 'semansiation'; // A coding project for comparison
+  const codingProjectFilter = 'semansiation'; // A coding project for comparison
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--sessions-dir' && args[i + 1]) {

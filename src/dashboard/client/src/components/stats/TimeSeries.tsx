@@ -33,9 +33,12 @@ export function TimeSeries({ data }: TimeSeriesProps) {
       count: d.count,
     }));
 
+    const [minDate, maxDate] = d3.extent(parsed, (d) => d.date) as [Date, Date];
+    // Pad domain by one week on each side when there's a single data point
+    const pad = minDate.getTime() === maxDate.getTime() ? 7 * 24 * 60 * 60 * 1000 : 0;
     const x = d3
       .scaleTime()
-      .domain(d3.extent(parsed, (d) => d.date) as [Date, Date])
+      .domain([new Date(minDate.getTime() - pad), new Date(maxDate.getTime() + pad)])
       .range([0, innerWidth]);
 
     const y = d3

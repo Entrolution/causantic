@@ -145,11 +145,7 @@ describe('MinHeap', () => {
 
       expect(heap.size).toBe(3);
 
-      const values = [
-        heap.extractMin()?.value,
-        heap.extractMin()?.value,
-        heap.extractMin()?.value,
-      ];
+      const values = [heap.extractMin()?.value, heap.extractMin()?.value, heap.extractMin()?.value];
 
       expect(values).toContain('a');
       expect(values).toContain('b');

@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type * as HookUtils from '../../src/hooks/hook-utils.js';
 
 vi.mock('../../src/ingest/ingest-session.js', () => ({
   ingestSession: vi.fn(),
@@ -21,7 +22,7 @@ vi.mock('../../src/storage/vector-store.js', () => ({
 }));
 
 vi.mock('../../src/hooks/hook-utils.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/hooks/hook-utils.js')>();
+  const actual = (await importOriginal()) as typeof HookUtils;
   return {
     ...actual,
     executeHook: vi.fn(async (_name: string, fn: () => Promise<unknown>, _opts?: unknown) => {

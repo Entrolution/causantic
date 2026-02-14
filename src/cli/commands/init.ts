@@ -62,7 +62,9 @@ async function setupEncryption(causanticDir: string): Promise<boolean> {
   if (existingDbIsUnencrypted) {
     console.log('');
     console.log('\u26a0  Existing unencrypted database detected.');
-    console.log('  Enabling encryption will back up the existing database and create a new encrypted one.');
+    console.log(
+      '  Enabling encryption will back up the existing database and create a new encrypted one.',
+    );
     console.log('  Your data will be migrated automatically.');
   }
 
@@ -91,10 +93,17 @@ async function setupEncryption(causanticDir: string): Promise<boolean> {
   const existingConfig = fs.existsSync(configPath)
     ? JSON.parse(fs.readFileSync(configPath, 'utf-8'))
     : {};
-  fs.writeFileSync(configPath, JSON.stringify({
-    ...existingConfig,
-    encryption: { enabled: true, cipher: 'chacha20', keySource: 'keychain' },
-  }, null, 2));
+  fs.writeFileSync(
+    configPath,
+    JSON.stringify(
+      {
+        ...existingConfig,
+        encryption: { enabled: true, cipher: 'chacha20', keySource: 'keychain' },
+      },
+      null,
+      2,
+    ),
+  );
 
   console.log('\u2713 Key stored in system keychain');
   console.log('\u2713 Encryption enabled with ChaCha20-Poly1305');
@@ -113,8 +122,12 @@ async function migrateToEncryptedDb(dbPath: string): Promise<void> {
     const Database = (await import('better-sqlite3-multiple-ciphers')).default;
     const oldDb = new Database(backupPath);
 
+    // Skip schema_version (handled by migrations) and FTS5 shadow tables
+    // (populated automatically via triggers when chunks are inserted)
     const tables = oldDb
-      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_version'")
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_version' AND name NOT LIKE 'chunks_fts%'",
+      )
       .all() as Array<{ name: string }>;
 
     let migratedRows = 0;
@@ -130,7 +143,7 @@ async function migrateToEncryptedDb(dbPath: string): Promise<void> {
       const columns = Object.keys(rows[0] as Record<string, unknown>);
       const placeholders = columns.map(() => '?').join(', ');
       const insert = newDb.prepare(
-        `INSERT OR IGNORE INTO "${name}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`
+        `INSERT OR IGNORE INTO "${name}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES (${placeholders})`,
       );
 
       const batchInsert = newDb.transaction((rowBatch: Array<Record<string, unknown>>) => {
@@ -238,7 +251,10 @@ async function patchProjectMcpFiles(): Promise<void> {
         const mcpContent = JSON.parse(fs.readFileSync(mcpPath, 'utf-8'));
         if (!mcpContent.mcpServers) continue;
 
-        const readableName = projectPath.replace(new RegExp(`^/Users/${os.userInfo().username}/`), '~/');
+        const readableName = projectPath.replace(
+          new RegExp(`^/Users/${os.userInfo().username}/`),
+          '~/',
+        );
         if (mcpContent.mcpServers.memory && !mcpContent.mcpServers[CAUSANTIC_KEY]) {
           projectsToFix.push({ name: readableName, mcpPath, needsMigrate: true });
         } else if (!mcpContent.mcpServers[CAUSANTIC_KEY]) {
@@ -329,7 +345,10 @@ async function installSkillsAndClaudeMd(): Promise<void> {
       const startIdx = claudeMd.indexOf(CAUSANTIC_START);
       const endIdx = claudeMd.indexOf(CAUSANTIC_END);
       if (endIdx > startIdx) {
-        claudeMd = claudeMd.slice(0, startIdx) + memoryInstructions + claudeMd.slice(endIdx + CAUSANTIC_END.length);
+        claudeMd =
+          claudeMd.slice(0, startIdx) +
+          memoryInstructions +
+          claudeMd.slice(endIdx + CAUSANTIC_END.length);
         fs.writeFileSync(claudeMdPath, claudeMd);
         console.log('\u2713 Updated CLAUDE.md with skill references');
       }
@@ -393,7 +412,7 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
 
       const alreadyConfigured = config.hooks[event].some(
         (entry: { hooks?: Array<{ command?: string }> }) =>
-          entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))
+          entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic')),
       );
 
       if (!alreadyConfigured) {
@@ -407,7 +426,7 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
 
     if (hooksAdded > 0) {
       fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
-      const hookNames = causanticHooks.map(h => h.event).join(', ');
+      const hookNames = causanticHooks.map((h) => h.event).join(', ');
       console.log(`\u2713 Configured ${hooksAdded} Claude Code hooks (${hookNames})`);
     } else {
       console.log('\u2713 Claude Code hooks already configured');
@@ -434,7 +453,18 @@ async function runHealthCheck(): Promise<void> {
 
 /** Create a terminal spinner for progress display. */
 function createSpinner() {
-  const frames = ['\u280b', '\u2819', '\u2839', '\u2838', '\u283c', '\u2834', '\u2826', '\u2827', '\u2807', '\u280f'];
+  const frames = [
+    '\u280b',
+    '\u2819',
+    '\u2839',
+    '\u2838',
+    '\u283c',
+    '\u2834',
+    '\u2826',
+    '\u2827',
+    '\u2807',
+    '\u280f',
+  ];
   let idx = 0;
   let timer: ReturnType<typeof setInterval> | null = null;
   let text = '';
@@ -488,9 +518,10 @@ async function offerBatchIngest(): Promise<void> {
       if (entry.isDirectory() && !entry.name.startsWith('.')) {
         const projectPath = path.join(claudeProjectsDir, entry.name);
         const files = fs.readdirSync(projectPath);
-        const sessionCount = files.filter((f: string) =>
-          f.endsWith('.jsonl') &&
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(f)
+        const sessionCount = files.filter(
+          (f: string) =>
+            f.endsWith('.jsonl') &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i.test(f),
         ).length;
         if (sessionCount > 0) {
           const readableName = entry.name
@@ -580,7 +611,8 @@ async function offerBatchIngest(): Promise<void> {
   let totalEdges = 0;
 
   for (const projectPath of projectsToIngest) {
-    const projectName = path.basename(projectPath)
+    const projectName = path
+      .basename(projectPath)
       .replace(/^-/, '')
       .replace(/-/g, '/')
       .replace(/^Users\/[^/]+\//, '~/');
@@ -598,13 +630,17 @@ async function offerBatchIngest(): Promise<void> {
       embeddingDevice: detectedDevice.device,
       embedder: sharedEmbedder,
       progressCallback: (progress) => {
-        spinner.update(`${shortName}: ${progress.done}/${progress.total} sessions, ${progress.totalChunks} chunks`);
+        spinner.update(
+          `${shortName}: ${progress.done}/${progress.total} sessions, ${progress.totalChunks} chunks`,
+        );
       },
     });
 
     spinner.stop();
     if (result.successCount > 0) {
-      console.log(`  \u2713 ${shortName}: ${result.successCount} sessions, ${result.totalChunks} chunks, ${result.totalEdges} edges`);
+      console.log(
+        `  \u2713 ${shortName}: ${result.successCount} sessions, ${result.totalChunks} chunks, ${result.totalEdges} edges`,
+      );
     } else if (result.skippedCount > 0) {
       console.log(`  \u2713 ${shortName}: ${result.skippedCount} sessions (already ingested)`);
     }
@@ -626,45 +662,40 @@ async function offerBatchIngest(): Promise<void> {
   } else {
     console.log('');
     const skippedSuffix = totalSkipped > 0 ? `, ${totalSkipped} skipped` : '';
-    console.log(`\u2713 Total: ${totalIngested} sessions, ${totalChunks} chunks, ${totalEdges} edges${skippedSuffix}`);
+    console.log(
+      `\u2713 Total: ${totalIngested} sessions, ${totalChunks} chunks, ${totalEdges} edges${skippedSuffix}`,
+    );
   }
 
   // Run post-ingestion maintenance tasks
   const existingChunks = getChunkCount();
   if (existingChunks > 0) {
+    // Offer API key BEFORE clustering so labels can be generated in one pass
+    await offerApiKeySetup();
+
     console.log('');
     console.log('Running post-ingestion processing...');
 
     const { setLogLevel: setPostLogLevel } = await import('../../utils/logger.js');
     setPostLogLevel('warn');
 
-    spinner.start('Pruning graph...');
-    try {
-      const pruneResult = await runTask('prune-graph');
-      spinner.stop(pruneResult.success
-        ? '  \u2713 Graph pruned'
-        : `  \u26a0 Pruning: ${pruneResult.message}`);
-    } catch (err) {
-      spinner.stop(`  \u2717 Pruning error: ${(err as Error).message}`);
-    }
-
     spinner.start('Building clusters...');
     try {
       const clusterResult = await runTask('update-clusters');
-      spinner.stop(clusterResult.success
-        ? '  \u2713 Clusters built'
-        : `  \u26a0 Clustering: ${clusterResult.message}`);
+      spinner.stop(
+        clusterResult.success
+          ? `  \u2713 ${clusterResult.message}`
+          : `  \u26a0 Clustering: ${clusterResult.message}`,
+      );
     } catch (err) {
       spinner.stop(`  \u2717 Clustering error: ${(err as Error).message}`);
     }
-
-    await offerApiKeySetup(spinner);
 
     setPostLogLevel('info');
   }
 }
 
-async function offerApiKeySetup(spinner: ReturnType<typeof createSpinner>): Promise<void> {
+async function offerApiKeySetup(): Promise<void> {
   console.log('');
   console.log('Cluster labeling uses Claude Haiku to generate human-readable');
   console.log('descriptions for topic clusters.');
@@ -678,25 +709,14 @@ async function offerApiKeySetup(spinner: ReturnType<typeof createSpinner>): Prom
     await store.set('anthropic-api-key', apiKey);
     console.log('\u2713 API key stored in system keychain');
 
+    // Set in env so update-clusters can use it for labeling
     process.env.ANTHROPIC_API_KEY = apiKey;
-
-    spinner.start('Labeling clusters (0/?)...');
-    try {
-      const { clusterRefresher } = await import('../../clusters/cluster-refresh.js');
-      const results = await clusterRefresher.refreshAllClusters({
-        onProgress: (current, total) => {
-          spinner.update(`Labeling clusters (${current}/${total})...`);
-        },
-      });
-      spinner.stop(`  \u2713 ${results.length} clusters labeled`);
-    } catch (err) {
-      spinner.stop(`  \u2717 Labeling error: ${(err as Error).message}`);
-    }
   } else if (apiKey) {
     console.log('\u26a0 Invalid API key format (should start with sk-ant-)');
     console.log('  You can add it later with: causantic config set-key anthropic-api-key');
   } else {
-    console.log('  Skipping cluster labeling.');
+    console.log('  Skipping — clusters will be unlabeled.');
+    console.log('  Add a key later with: causantic config set-key anthropic-api-key');
   }
 }
 

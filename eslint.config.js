@@ -17,7 +17,7 @@ export default [
     },
     rules: {
       // TypeScript-aware rules
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/consistent-type-imports': ['warn', { prefer: 'type-imports' }],
 
@@ -42,6 +42,12 @@ export default [
   },
   {
     files: ['src/report/reporter.ts'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+  {
+    files: ['scripts/**/*.ts', 'test/**/*.ts'],
     rules: {
       'no-console': 'off',
     },

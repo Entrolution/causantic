@@ -3,15 +3,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  buildChunkIdsByTurn,
-} from '../../src/ingest/brief-debrief-detector.js';
+import { buildChunkIdsByTurn } from '../../src/ingest/brief-debrief-detector.js';
 import type { Chunk } from '../../src/parser/types.js';
 
-function createTestChunk(overrides: Partial<{
-  id: string;
-  turnIndices: number[];
-}>): Chunk {
+function createTestChunk(
+  overrides: Partial<{
+    id: string;
+    turnIndices: number[];
+  }>,
+): Chunk {
   return {
     id: overrides.id ?? `chunk-${Math.random().toString(36).slice(2, 10)}`,
     text: 'Test chunk content',
@@ -38,18 +38,14 @@ describe('brief-debrief-detector', () => {
     });
 
     it('maps single turn index to chunk', () => {
-      const chunks = [
-        createTestChunk({ id: 'c1', turnIndices: [0] }),
-      ];
+      const chunks = [createTestChunk({ id: 'c1', turnIndices: [0] })];
 
       const map = buildChunkIdsByTurn(chunks);
       expect(map.get(0)).toEqual(['c1']);
     });
 
     it('maps multiple turn indices from one chunk', () => {
-      const chunks = [
-        createTestChunk({ id: 'c1', turnIndices: [0, 1, 2] }),
-      ];
+      const chunks = [createTestChunk({ id: 'c1', turnIndices: [0, 1, 2] })];
 
       const map = buildChunkIdsByTurn(chunks);
       expect(map.get(0)).toEqual(['c1']);

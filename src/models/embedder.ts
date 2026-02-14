@@ -70,10 +70,11 @@ export class Embedder {
     }
 
     try {
-       
-      this.pipe = await (pipeline as any)(
-        'feature-extraction', config.hfId, pipelineOptions,
-      ) as FeatureExtractionPipeline;
+      this.pipe = (await (pipeline as any)(
+        'feature-extraction',
+        config.hfId,
+        pipelineOptions,
+      )) as FeatureExtractionPipeline;
     } catch (epError) {
       // If accelerated EP fails, retry with plain CPU (no execution providers)
       if (detection.device !== 'cpu' && detection.device !== 'wasm') {
@@ -87,10 +88,11 @@ export class Embedder {
           source: detection.source,
           notes: `${detection.label} failed: ${(epError as Error).message}`,
         };
-         
-        this.pipe = await (pipeline as any)(
-          'feature-extraction', config.hfId, { dtype: 'fp32', device: 'cpu' },
-        ) as FeatureExtractionPipeline;
+
+        this.pipe = (await (pipeline as any)('feature-extraction', config.hfId, {
+          dtype: 'fp32',
+          device: 'cpu',
+        })) as FeatureExtractionPipeline;
       } else {
         throw epError;
       }
@@ -130,10 +132,7 @@ export class Embedder {
     const inferenceMs = performance.now() - start;
 
     // Output is a Tensor — convert to number[]
-    const embedding = Array.from(output.data as Float32Array).slice(
-      0,
-      this.config.dims,
-    );
+    const embedding = Array.from(output.data as Float32Array).slice(0, this.config.dims);
 
     return { embedding, inferenceMs };
   }
@@ -142,10 +141,7 @@ export class Embedder {
    * Embed multiple texts. Returns embeddings in the same order.
    * @deprecated Use embedBatchTrue() for better performance.
    */
-  async embedBatch(
-    texts: string[],
-    isQuery: boolean = false,
-  ): Promise<EmbedResult[]> {
+  async embedBatch(texts: string[], isQuery: boolean = false): Promise<EmbedResult[]> {
     const results: EmbedResult[] = [];
     for (const text of texts) {
       results.push(await this.embed(text, isQuery));
@@ -184,7 +180,7 @@ export class Embedder {
       const prefixed = batch.map((t) =>
         this.config!.usesPrefix
           ? (isQuery ? this.config!.queryPrefix : this.config!.documentPrefix) + t
-          : t
+          : t,
       );
 
       const start = performance.now();

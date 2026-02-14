@@ -39,7 +39,7 @@ function sanitizeQuery(query: string): string {
   const terms = sanitized.split(/\s+/).filter(Boolean);
   if (terms.length === 0) return '';
 
-  return terms.map(t => `"${t}"`).join(' ');
+  return terms.map((t) => `"${t}"`).join(' ');
 }
 
 export class KeywordStore {
@@ -59,17 +59,21 @@ export class KeywordStore {
     const db = this.getDatabase();
 
     try {
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT chunks.id, bm25(chunks_fts) as score
         FROM chunks_fts
         JOIN chunks ON chunks.rowid = chunks_fts.rowid
         WHERE chunks_fts MATCH ?
         ORDER BY bm25(chunks_fts)
         LIMIT ?
-      `).all(sanitized, limit) as Array<{ id: string; score: number }>;
+      `,
+        )
+        .all(sanitized, limit) as Array<{ id: string; score: number }>;
 
       // bm25() returns negative scores (lower = better match), negate for conventional scoring
-      return rows.map(r => ({
+      return rows.map((r) => ({
         id: r.id,
         score: -r.score,
       }));
@@ -97,7 +101,9 @@ export class KeywordStore {
     const placeholders = projectList.map(() => '?').join(',');
 
     try {
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT chunks.id, bm25(chunks_fts) as score
         FROM chunks_fts
         JOIN chunks ON chunks.rowid = chunks_fts.rowid
@@ -105,9 +111,11 @@ export class KeywordStore {
           AND chunks.session_slug IN (${placeholders})
         ORDER BY bm25(chunks_fts)
         LIMIT ?
-      `).all(sanitized, ...projectList, limit) as Array<{ id: string; score: number }>;
+      `,
+        )
+        .all(sanitized, ...projectList, limit) as Array<{ id: string; score: number }>;
 
-      return rows.map(r => ({
+      return rows.map((r) => ({
         id: r.id,
         score: -r.score,
       }));

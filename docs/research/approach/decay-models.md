@@ -1,10 +1,10 @@
 # Decay Models
 
-This document explains Causantic's approach to edge weight decay and why hop-based decay outperforms time-based decay.
+This document explains Causantic's approach to edge weight decay.
 
 ## The Problem
 
-Memory edges become less relevant over time, but how do we model this decay?
+Memory edges become less relevant with distance from the query, but how do we model this decay?
 
 ### Naive Approach: Wall-Clock Time
 
@@ -26,22 +26,16 @@ function timeDecay(edge: Edge, now: Date): number {
 
 ### Our Approach: Hop-Based Decay
 
-Causantic measures distance in "hops" (logical steps in the causal graph):
+Causantic measures distance in "hops" — the traversal depth from the query ingress point in the causal graph:
 
 ```typescript
-function hopDecay(edge: Edge, hopsFromAnchor: number): number {
-  const { diesAtHops, holdHops } = edge.decayConfig;
-
-  if (hopsFromAnchor <= holdHops) {
-    return 1.0;  // Full weight during hold period
-  }
-
-  const decayHops = hopsFromAnchor - holdHops;
-  const maxDecayHops = diesAtHops - holdHops;
-
-  return Math.max(0, 1 - decayHops / maxDecayHops);
+function hopDecay(hops: number, config: HopDecayConfig): number {
+  // Exponential: steep initial drop, long tail
+  return Math.pow(config.weightPerHop, hops);
 }
 ```
+
+The graph topology already encodes causality by construction. When traversing from an ingress node, the traversal depth IS the causal distance — no external clocking mechanism needed.
 
 ## Why Hops Work Better
 
@@ -57,157 +51,119 @@ Day 4: Auth bug fix            ↓
                            Chunk C (auth test)
 
 Time-based: 3 days apart   Hop-based: 2 hops apart
-Weight: 0.9 (mostly dead)  Weight: 0.8 (still relevant)
+Weight: 0.9 (mostly dead)  Weight: 0.76 (still relevant)
 ```
 
-### The Vector Clock Connection
+### Compaction-Based Ingestion
 
-Causantic's vector clocks capture "happens-before" relationships across parallel thought streams:
-
-```typescript
-interface VectorClock {
-  [agentId: string]: number;  // One entry per thought stream
-}
-
-// Example with main agent and two sub-agents:
-{
-  "ui": 5,              // Main UI agent: 5 D-T-D cycles
-  "human": 3,           // Human input cycles
-  "agent-abc123": 2,    // Sub-agent thought stream
-  "agent-def456": 1     // Another sub-agent thought stream
-}
-```
-
-D-T-D (Data-Transformation-Data) abstractly represents any `f(input) → output` step - whether that's Claude reasoning, human thinking, or tool execution. Each thought stream gets its own vector clock entry. When a sub-agent spawns, it inherits the parent's clock; when it completes, its clock merges back. This enables accurate hop distance calculation even with parallel processing.
-
-Hops are measured by vector clock distance, not wall time.
+Chunks are ingested at compaction, not continuously. The query ingress on the causal graph is at the last compaction point, not the current conversation turn. This means the distance metric must be based on graph structure, not session-relative position.
 
 ## Direction-Specific Decay
 
-A key insight: backward and forward edges need different decay curves.
+A key finding from the v0.3 experiments: backward and forward edges need fundamentally different treatment, but not for the reasons originally assumed.
 
 ### Backward Edges (Historical Context)
 
-"What led to this?" → We want *recent* history, not ancient history.
+"What led to this?" — The empirical reference rate curve shows two regimes:
 
 ```
-Backward decay: Linear, dies at 10 hops
+Empirical reference rate by hop distance (30 sessions, 5,505 references):
 
+  Hop 1:     100% ████████████████████████████████████████
+  Hop 2-3:    12% █████
+  Hop 4-6:    11% ████
+  Hop 7-10:    9% ████
+  Hop 11-20:   8% ███
+  Hop 21+:     3% █
+```
+
+**Key insight**: 88% drop from hop 1→2, then a long slow tail. Exponential decay matches this naturally.
+
+**Configuration**: Exponential, half-life ~5 hops, effective range ~30
+
+```
 Weight
 1.0 │●
     │ ●
     │  ●
-0.5 │   ●
-    │    ●
-0.0 │     ●────────
-    ├─────────────────
-    0  5  10  15  Hops
+0.5 │    ●
+    │       ●
+    │           ●
+0.1 │                    ●
+0.0 │                              ●
+    ├──────────────────────────────────
+    0     5     10    20    30     Hops
 ```
 
-**Configuration**:
-- Type: linear
-- Dies at: 10 hops
-- Hold: 0 hops
+**What was validated**:
+- No hold period — hold periods hurt backward MRR (0.423 vs 0.985) by creating ties at short range
+- Strictly monotonic — all strictly monotonic models score identically (ρ=1.0 with reference rate)
+- Long range needed — previous linear dies@10 killed real signal at 11-30 hops (3-9% reference rate)
 
 ### Forward Edges (Predictive Context)
 
-"What might come next?" → Recent predictions are most valuable.
+"What might come next?" — Experiments showed all 9 decay models produce identical forward prediction MRR at every distance stratum (0.992 overall, 0.372 non-adjacent, 0.365 long-range).
+
+**Key insight**: Forward decay shape is irrelevant. Only monotonicity matters.
+
+**Configuration**: Simple linear, dies at ~30 hops
 
 ```
-Forward decay: Delayed linear, 5-hop hold, dies at 20 hops
-
 Weight
-1.0 │●●●●●●
-    │      ╲
-0.5 │       ╲
-    │        ╲
-0.0 │         ╲────
-    ├─────────────────
-    0  5  10  15  20  Hops
+1.0 │●
+    │  ●
+    │    ●
+0.5 │        ●
+    │            ●
+    │                ●
+0.0 │                      ●
+    ├──────────────────────────
+    0     5     10    20   30  Hops
 ```
 
-**Configuration**:
-- Type: delayed-linear
-- Hold: 5 hops (immediate predictions stay strong)
-- Dies at: 20 hops
+**Why simple linear**: Since shape doesn't matter (experimentally confirmed), the simplest monotonic function wins. No hold period — experimentally confirmed zero benefit for forward prediction.
 
-## Decay Curve Types
+## Experimental Evidence
 
-Causantic supports multiple decay curve shapes:
+### What matters (high impact)
 
-### Linear
+1. **Monotonicity**: All strictly monotonic models score MRR=0.985 backward, 0.992 forward
+2. **Effective range**: Must extend to 30+ hops — references exist at 21+ hops (3% rate)
+3. **No hold period for backward**: Creates ties at short range, drops MRR by 57%
+
+### What doesn't matter (low impact)
+
+1. **Exact curve shape**: Linear, exponential, power-law all perform identically when strictly monotonic
+2. **Forward curve shape**: All 9 models identical at every stratum
+3. **Hold periods for forward**: Confirmed zero benefit
+
+### The real insight
+
+Decay curves are most important at short range (1-3 hops) for discrimination. At long range (>5 hops), content relevance dominates — the graph topology and vector/keyword search do the heavy lifting. Decay just needs to be monotonic and not kill the signal.
+
+## Code Reference (Historical — v0.2)
+
+> **Removed in v0.3.0**: `src/storage/decay.ts` has been deleted. Hop-based decay curves and the traverser that used them (`src/retrieval/traverser.ts`) were removed when sum-product traversal was replaced by chain walking. The chain walker (`src/retrieval/chain-walker.ts`) scores each hop by direct cosine similarity against the query — no decay functions needed.
+
+The v0.2 implementation was in `src/storage/decay.ts`:
 
 ```typescript
-function linear(hop: number, diesAt: number): number {
-  return Math.max(0, 1 - hop / diesAt);
-}
+// Backward: Exponential (half-life ~5 hops, effective range ~30)
+export const BACKWARD_HOP_DECAY: HopDecayConfig = {
+  type: 'exponential',
+  weightPerHop: 0.87,
+  minWeight: 0.01,
+};
+
+// Forward: Linear (dies at ~30 hops)
+export const FORWARD_HOP_DECAY: HopDecayConfig = {
+  type: 'linear',
+  decayPerHop: 0.033,
+  minWeight: 0.01,
+};
 ```
-
-### Exponential
-
-```typescript
-function exponential(hop: number, halfLife: number): number {
-  return Math.pow(0.5, hop / halfLife);
-}
-```
-
-### Delayed Linear
-
-```typescript
-function delayedLinear(hop: number, hold: number, diesAt: number): number {
-  if (hop <= hold) return 1.0;
-  return Math.max(0, 1 - (hop - hold) / (diesAt - hold));
-}
-```
-
-## Experimental Results
-
-### Backward Edge Decay Sweep
-
-| Config | MRR | Precision@5 |
-|--------|-----|-------------|
-| Linear, dies@5 | 0.612 | 0.58 |
-| **Linear, dies@10** | **0.688** | **0.71** |
-| Linear, dies@15 | 0.654 | 0.68 |
-| Exponential, half@5 | 0.641 | 0.65 |
-
-### Forward Edge Decay Sweep
-
-| Config | MRR | Precision@5 |
-|--------|-----|-------------|
-| Linear, dies@10 | 0.723 | 0.75 |
-| Linear, dies@20 | 0.801 | 0.83 |
-| **Delayed, hold@5, dies@20** | **0.849** | **0.89** |
-| Delayed, hold@10, dies@30 | 0.812 | 0.85 |
-
-## Configuration
-
-Causantic's decay configuration:
-
-```json
-{
-  "decay": {
-    "backward": {
-      "type": "linear",
-      "diesAtHops": 10
-    },
-    "forward": {
-      "type": "delayed-linear",
-      "holdHops": 5,
-      "diesAtHops": 20
-    }
-  }
-}
-```
-
-## Key Insights
-
-1. **Hops > Time**: Logical distance matters more than physical time
-2. **Direction matters**: Backward and forward edges serve different purposes
-3. **Hold periods help**: Immediate context should stay strong
-4. **Linear is fine**: Simple curves work as well as complex ones
 
 ## Related
 
-- [Vector Clocks](./vector-clocks.md) - How hops are measured
-- [Decay Curves Experiments](../experiments/decay-curves.md) - Full experimental data
+- [Decay Curves Experiments](../experiments/decay-curves.md) - Full experimental data and methodology
+- [Lessons Learned](../experiments/lessons-learned.md) - Why sum-product traversal and decay were removed

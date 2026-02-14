@@ -6,11 +6,7 @@
  */
 
 import { getConfig } from '../config/memory-config.js';
-import {
-  getChunksByTimeRange,
-  getSessionsForProject,
-  getPreviousSession,
-} from '../storage/chunk-store.js';
+import { getChunksByTimeRange, getPreviousSession } from '../storage/chunk-store.js';
 import type { SessionInfo } from '../storage/chunk-store.js';
 import type { StoredChunk } from '../storage/types.js';
 
@@ -63,7 +59,11 @@ export interface ReconstructResult {
 /**
  * Resolve the time window from a ReconstructRequest into concrete from/to ISO dates.
  */
-export function resolveTimeWindow(req: ReconstructRequest): { from: string; to: string; sessionId?: string } {
+export function resolveTimeWindow(req: ReconstructRequest): {
+  from: string;
+  to: string;
+  sessionId?: string;
+} {
   if (req.previousSession) {
     if (!req.currentSessionId) {
       throw new Error('currentSessionId is required when previousSession is true');
@@ -107,7 +107,7 @@ export function resolveTimeWindow(req: ReconstructRequest): { from: string; to: 
 export function applyTokenBudget(
   chunks: StoredChunk[],
   maxTokens: number,
-  keepNewest: boolean
+  keepNewest: boolean,
 ): { kept: StoredChunk[]; truncated: boolean } {
   let totalTokens = 0;
   for (const c of chunks) {
@@ -142,14 +142,18 @@ export function applyTokenBudget(
  */
 function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  }) + ', ' + d.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  return (
+    d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    }) +
+    ', ' +
+    d.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+  );
 }
 
 /**
@@ -217,7 +221,7 @@ export function reconstructSession(req: ReconstructRequest): ReconstructResult {
     req.project,
     window.from,
     window.to,
-    window.sessionId ? { sessionId: window.sessionId } : undefined
+    window.sessionId ? { sessionId: window.sessionId } : undefined,
   );
 
   const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);

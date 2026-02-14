@@ -6,7 +6,7 @@
  * cross-project negative controls.
  */
 
-import { getAllChunks, getSessionIds, getDistinctProjects } from '../../storage/chunk-store.js';
+import { getAllChunks } from '../../storage/chunk-store.js';
 import { getAllEdges } from '../../storage/edge-store.js';
 import type { StoredChunk, StoredEdge, ReferenceType } from '../../storage/types.js';
 import type {
@@ -35,10 +35,7 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 /**
  * Check minimum thresholds for each benchmark type.
  */
-export function checkThresholds(
-  chunks: StoredChunk[],
-  edges: StoredEdge[],
-): SamplerThresholds {
+export function checkThresholds(chunks: StoredChunk[], edges: StoredEdge[]): SamplerThresholds {
   const reasons = new Map<string, string>();
 
   // Group chunks by session
@@ -50,10 +47,13 @@ export function checkThresholds(
   }
 
   // Adjacent recall: need >= 2 sessions with >= 3 chunks each
-  const sessionsWithEnoughChunks = [...sessionChunks.values()].filter(c => c.length >= 3);
+  const sessionsWithEnoughChunks = [...sessionChunks.values()].filter((c) => c.length >= 3);
   const canRunAdjacentRecall = sessionsWithEnoughChunks.length >= 2;
   if (!canRunAdjacentRecall) {
-    reasons.set('adjacentRecall', `need >=2 sessions with >=3 chunks each, you have ${sessionsWithEnoughChunks.length}`);
+    reasons.set(
+      'adjacentRecall',
+      `need >=2 sessions with >=3 chunks each, you have ${sessionsWithEnoughChunks.length}`,
+    );
   }
 
   // Cross-session bridging: need >= 3 sessions in same project with cross-session edges
@@ -64,16 +64,20 @@ export function checkThresholds(
     projectSessions.set(chunk.sessionSlug, sessions);
   }
 
-  const crossSessionEdges = edges.filter(e =>
-    e.referenceType === 'file-path' || e.referenceType === 'code-entity'
+  const crossSessionEdges = edges.filter(
+    (e) => e.referenceType === 'cross-session' || e.referenceType === 'within-chain',
   );
   const projectsWithCrossSession = [...projectSessions.entries()].filter(
-    ([, sessions]) => sessions.size >= 3
+    ([, sessions]) => sessions.size >= 3,
   );
-  const canRunCrossSessionBridging = projectsWithCrossSession.length > 0 && crossSessionEdges.length > 0;
+  const canRunCrossSessionBridging =
+    projectsWithCrossSession.length > 0 && crossSessionEdges.length > 0;
   if (!canRunCrossSessionBridging) {
-    const sessCount = Math.max(...[...projectSessions.values()].map(s => s.size), 0);
-    reasons.set('crossSessionBridging', `need >=3 sessions in same project with cross-session edges, best project has ${sessCount} sessions`);
+    const sessCount = Math.max(...[...projectSessions.values()].map((s) => s.size), 0);
+    reasons.set(
+      'crossSessionBridging',
+      `need >=3 sessions in same project with cross-session edges, best project has ${sessCount} sessions`,
+    );
   }
 
   // Precision@K: need >= 2 projects with >= 10 chunks each
@@ -81,10 +85,15 @@ export function checkThresholds(
   for (const chunk of chunks) {
     projectChunkCounts.set(chunk.sessionSlug, (projectChunkCounts.get(chunk.sessionSlug) ?? 0) + 1);
   }
-  const projectsWithEnoughChunks = [...projectChunkCounts.entries()].filter(([, count]) => count >= 10);
+  const projectsWithEnoughChunks = [...projectChunkCounts.entries()].filter(
+    ([, count]) => count >= 10,
+  );
   const canRunPrecisionAtK = projectsWithEnoughChunks.length >= 2;
   if (!canRunPrecisionAtK) {
-    reasons.set('precisionAtK', `need >=2 projects with >=10 chunks each, you have ${projectsWithEnoughChunks.length}`);
+    reasons.set(
+      'precisionAtK',
+      `need >=2 projects with >=10 chunks each, you have ${projectsWithEnoughChunks.length}`,
+    );
   }
 
   return {
@@ -106,9 +115,9 @@ export function generateSamples(options: SamplerOptions): BenchmarkSample {
 
   // Apply project filter if specified
   if (projectFilter) {
-    chunks = chunks.filter(c => c.sessionSlug === projectFilter);
-    const chunkIds = new Set(chunks.map(c => c.id));
-    edges = edges.filter(e => chunkIds.has(e.sourceChunkId) || chunkIds.has(e.targetChunkId));
+    chunks = chunks.filter((c) => c.sessionSlug === projectFilter);
+    const chunkIds = new Set(chunks.map((c) => c.id));
+    edges = edges.filter((e) => chunkIds.has(e.sourceChunkId) || chunkIds.has(e.targetChunkId));
   }
 
   const thresholds = checkThresholds(chunks, edges);
@@ -126,7 +135,7 @@ export function generateSamples(options: SamplerOptions): BenchmarkSample {
 
   // Sample query chunk IDs
   const shuffledChunks = seededShuffle(chunks, seed);
-  const queryChunkIds = shuffledChunks.slice(0, sampleSize).map(c => c.id);
+  const queryChunkIds = shuffledChunks.slice(0, sampleSize).map((c) => c.id);
 
   // Generate adjacent pairs
   const adjacentPairs: AdjacentPair[] = [];
@@ -142,7 +151,7 @@ export function generateSamples(options: SamplerOptions): BenchmarkSample {
         const idx = shuffled[k];
         const chunk = sessionList[idx];
         // Pick one adjacent (previous or next)
-        const adjacentIdx = (pairSeed++ % 2 === 0) ? idx - 1 : idx + 1;
+        const adjacentIdx = pairSeed++ % 2 === 0 ? idx - 1 : idx + 1;
         if (adjacentIdx >= 0 && adjacentIdx < sessionList.length) {
           adjacentPairs.push({
             queryChunkId: chunk.id,
@@ -162,11 +171,15 @@ export function generateSamples(options: SamplerOptions): BenchmarkSample {
       chunkSessionMap.set(chunk.id, chunk.sessionId);
     }
 
-    const bridgingEdges = edges.filter(e => {
+    const bridgingEdges = edges.filter((e) => {
       const srcSession = chunkSessionMap.get(e.sourceChunkId);
       const tgtSession = chunkSessionMap.get(e.targetChunkId);
-      return srcSession && tgtSession && srcSession !== tgtSession &&
-        (e.referenceType === 'file-path' || e.referenceType === 'code-entity');
+      return (
+        srcSession &&
+        tgtSession &&
+        srcSession !== tgtSession &&
+        (e.referenceType === 'cross-session' || e.referenceType === 'within-chain')
+      );
     });
 
     const shuffledEdges = seededShuffle(bridgingEdges, seed + 200);
@@ -190,7 +203,7 @@ export function generateSamples(options: SamplerOptions): BenchmarkSample {
     }
 
     const projectKeys = [...projectChunks.keys()].filter(
-      k => (projectChunks.get(k)?.length ?? 0) >= 10
+      (k) => (projectChunks.get(k)?.length ?? 0) >= 10,
     );
 
     if (projectKeys.length >= 2) {

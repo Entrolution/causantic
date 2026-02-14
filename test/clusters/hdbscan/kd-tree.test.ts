@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { KDTree, euclideanDistance, angularDistance } from '../../../src/clusters/hdbscan/kd-tree.js';
+import {
+  KDTree,
+  euclideanDistance,
+  angularDistance,
+} from '../../../src/clusters/hdbscan/kd-tree.js';
 
 describe('KDTree', () => {
   describe('construction', () => {

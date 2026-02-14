@@ -10,11 +10,7 @@
 export type RawMessageType = 'user' | 'assistant' | 'progress' | 'file-history-snapshot';
 
 /** A single content block inside an assistant message. */
-export type ContentBlock =
-  | TextBlock
-  | ThinkingBlock
-  | ToolUseBlock
-  | ToolResultBlock;
+export type ContentBlock = TextBlock | ThinkingBlock | ToolUseBlock | ToolResultBlock;
 
 export interface TextBlock {
   type: 'text';

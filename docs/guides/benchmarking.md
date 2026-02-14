@@ -31,11 +31,11 @@ npx causantic benchmark-collection --full
 - Does project filtering work? (Precision@K)
 - How much of the returned context is useful? (Token Efficiency)
 
-### Graph Value (full only)
+### Chain Quality (full only)
 
-- What does the knowledge graph add vs pure vector search?
-- Which edge types are most valuable?
-- How much "lift" does graph traversal provide?
+- How well does episodic chain walking work?
+- What percentage of queries produce chains vs falling back to search?
+- How long are chains and how relevant per token?
 
 ### Latency (full only)
 
@@ -48,9 +48,9 @@ The overall score (0-100) is a weighted composite:
 
 | Category | Weight | What it means |
 |----------|--------|---------------|
-| Health | 20% | Collection structure and organization |
+| Health | 25% | Collection structure and organization |
 | Retrieval | 35% | Can the system find the right context? |
-| Graph Value | 30% | Does the knowledge graph improve results? |
+| Chain Quality | 25% | Does episodic chain walking produce useful narratives? |
 | Latency | 15% | Is query performance acceptable? |
 
 Only scored categories contribute; weights renormalize. A `--quick` run scores health only.
@@ -88,27 +88,22 @@ Using the same `--seed` ensures comparable results.
 
 **Low cluster coverage (<70%)**
 
-- Lower `clustering.threshold` (default: 0.09, try 0.12)
+- Lower `clustering.threshold` (default: 0.10, try 0.12)
 - Lower `clustering.minClusterSize` (default: 4, try 3)
 - Then run `npx causantic cluster --refresh`
 
-**Low graph value (augmentation <1.5x)**
+**Low chain quality (high fallback rate)**
 
-- Increase `traversal.maxDepth` (default: 15, try 25)
-- Increase `traversal.graphAgreementBoost` (default: 2.0) to amplify the graph signal
-- If graph-boosted count is 0, edges may be missing — re-ingest with the latest parser
-- Check edge type distribution — missing types mean missing connections
+- Rebuild edges: `npx causantic maintenance rebuild-edges`
+- Check edge count — if edges are missing, re-ingest with the latest parser
+- Ensure cross-session edges exist by checking edge type distribution
 
-**High latency (p95 >200ms)**
+**High latency (p95 >5s)**
 
-- Reduce `traversal.maxDepth` (try 15)
+- Reduce `traversal.maxDepth` (default: 50, try 30)
 - Reduce cluster expansion: `clusterExpansion.maxSiblings: 3`
-- For large collections: set `vectors.ttlDays: 60` to prune old vectors
-
-**High orphan rate (>20%)**
-
-- Re-ingest: `npx causantic ingest --reprocess`
-- Check that sessions have enough turns for edge extraction
+- For large collections (>5,000 chunks): set `vectors.ttlDays: 60` to reduce search space
+- Note: first-call latency includes embedding model load (~500ms). Subsequent calls are faster.
 
 ## Tracking Progress
 

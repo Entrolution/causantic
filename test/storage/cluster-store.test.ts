@@ -28,16 +28,18 @@ describe('cluster-store', () => {
       const centroid = new Float32Array([0.1, 0.2, 0.3]);
       const centroidBuffer = Buffer.from(centroid.buffer);
 
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO clusters (id, name, description, centroid, exemplar_ids, membership_hash, created_at)
         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-      `).run(
+      `,
+      ).run(
         'cluster-1',
         'Test Cluster',
         'A test description',
         centroidBuffer,
         JSON.stringify(['chunk-1', 'chunk-2']),
-        'hash123'
+        'hash123',
       );
 
       const row = db.prepare('SELECT * FROM clusters WHERE id = ?').get('cluster-1') as {
@@ -58,10 +60,12 @@ describe('cluster-store', () => {
     });
 
     it('creates a cluster with null optional fields', () => {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO clusters (id, created_at)
         VALUES (?, datetime('now'))
-      `).run('cluster-2');
+      `,
+      ).run('cluster-2');
 
       const row = db.prepare('SELECT * FROM clusters WHERE id = ?').get('cluster-2') as {
         name: string | null;
@@ -75,15 +79,17 @@ describe('cluster-store', () => {
     });
 
     it('updates existing cluster', () => {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO clusters (id, name, created_at)
         VALUES (?, ?, datetime('now'))
-      `).run('cluster-1', 'Original Name');
+      `,
+      ).run('cluster-1', 'Original Name');
 
       db.prepare('UPDATE clusters SET name = ?, description = ? WHERE id = ?').run(
         'Updated Name',
         'New description',
-        'cluster-1'
+        'cluster-1',
       );
 
       const row = db.prepare('SELECT * FROM clusters WHERE id = ?').get('cluster-1') as {
@@ -135,9 +141,9 @@ describe('cluster-store', () => {
     it('creates a chunk-cluster assignment', () => {
       assignChunkToCluster(db, 'chunk-1', 'cluster-1', 0.25);
 
-      const row = db.prepare(
-        'SELECT * FROM chunk_clusters WHERE chunk_id = ? AND cluster_id = ?'
-      ).get('chunk-1', 'cluster-1') as {
+      const row = db
+        .prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ? AND cluster_id = ?')
+        .get('chunk-1', 'cluster-1') as {
         chunk_id: string;
         cluster_id: string;
         distance: number;
@@ -151,14 +157,16 @@ describe('cluster-store', () => {
       assignChunkToCluster(db, 'chunk-1', 'cluster-1', 0.5);
 
       // Update with new distance using INSERT OR REPLACE
-      db.prepare(`
+      db.prepare(
+        `
         INSERT OR REPLACE INTO chunk_clusters (chunk_id, cluster_id, distance)
         VALUES (?, ?, ?)
-      `).run('chunk-1', 'cluster-1', 0.3);
+      `,
+      ).run('chunk-1', 'cluster-1', 0.3);
 
-      const row = db.prepare(
-        'SELECT distance FROM chunk_clusters WHERE chunk_id = ? AND cluster_id = ?'
-      ).get('chunk-1', 'cluster-1') as { distance: number };
+      const row = db
+        .prepare('SELECT distance FROM chunk_clusters WHERE chunk_id = ? AND cluster_id = ?')
+        .get('chunk-1', 'cluster-1') as { distance: number };
 
       expect(row.distance).toBeCloseTo(0.3);
     });
@@ -172,9 +180,9 @@ describe('cluster-store', () => {
     });
 
     it('returns empty array for unassigned chunk', () => {
-      const rows = db.prepare(
-        'SELECT * FROM chunk_clusters WHERE chunk_id = ? ORDER BY distance'
-      ).all('chunk-1');
+      const rows = db
+        .prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ? ORDER BY distance')
+        .all('chunk-1');
       expect(rows).toEqual([]);
     });
 
@@ -182,9 +190,9 @@ describe('cluster-store', () => {
       assignChunkToCluster(db, 'chunk-1', 'cluster-1', 0.5);
       assignChunkToCluster(db, 'chunk-1', 'cluster-2', 0.2);
 
-      const rows = db.prepare(
-        'SELECT * FROM chunk_clusters WHERE chunk_id = ? ORDER BY distance'
-      ).all('chunk-1') as { cluster_id: string; distance: number }[];
+      const rows = db
+        .prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ? ORDER BY distance')
+        .all('chunk-1') as { cluster_id: string; distance: number }[];
 
       expect(rows.length).toBe(2);
       expect(rows[0].cluster_id).toBe('cluster-2'); // Closer first
@@ -205,9 +213,9 @@ describe('cluster-store', () => {
       assignChunkToCluster(db, 'chunk-2', 'cluster-1', 0.1);
       assignChunkToCluster(db, 'chunk-3', 'cluster-1', 0.5);
 
-      const rows = db.prepare(
-        'SELECT chunk_id FROM chunk_clusters WHERE cluster_id = ? ORDER BY distance'
-      ).all('cluster-1') as { chunk_id: string }[];
+      const rows = db
+        .prepare('SELECT chunk_id FROM chunk_clusters WHERE cluster_id = ? ORDER BY distance')
+        .all('cluster-1') as { chunk_id: string }[];
       const ids = rows.map((r) => r.chunk_id);
 
       expect(ids).toEqual(['chunk-2', 'chunk-1', 'chunk-3']); // Ordered by distance
@@ -227,7 +235,9 @@ describe('cluster-store', () => {
       const result = db.prepare('DELETE FROM chunk_clusters WHERE chunk_id = ?').run('chunk-1');
       expect(result.changes).toBe(2);
 
-      const remaining = db.prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ?').all('chunk-1');
+      const remaining = db
+        .prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ?')
+        .all('chunk-1');
       expect(remaining).toEqual([]);
     });
   });
@@ -245,7 +255,9 @@ describe('cluster-store', () => {
       const result = db.prepare('DELETE FROM chunk_clusters WHERE cluster_id = ?').run('cluster-1');
       expect(result.changes).toBe(2);
 
-      const remaining = db.prepare('SELECT * FROM chunk_clusters WHERE cluster_id = ?').all('cluster-1');
+      const remaining = db
+        .prepare('SELECT * FROM chunk_clusters WHERE cluster_id = ?')
+        .all('cluster-1');
       expect(remaining).toEqual([]);
     });
   });
@@ -266,7 +278,9 @@ describe('cluster-store', () => {
       const cluster = db.prepare('SELECT * FROM clusters WHERE id = ?').get('cluster-1');
       expect(cluster).toBeUndefined();
 
-      const assignments = db.prepare('SELECT * FROM chunk_clusters WHERE cluster_id = ?').all('cluster-1');
+      const assignments = db
+        .prepare('SELECT * FROM chunk_clusters WHERE cluster_id = ?')
+        .all('cluster-1');
       expect(assignments).toEqual([]);
     });
   });
@@ -293,10 +307,12 @@ describe('cluster-store', () => {
       const float32 = new Float32Array(originalCentroid);
       const buffer = Buffer.from(float32.buffer);
 
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO clusters (id, centroid, created_at)
         VALUES (?, ?, datetime('now'))
-      `).run('centroid-test', buffer);
+      `,
+      ).run('centroid-test', buffer);
 
       const row = db.prepare('SELECT centroid FROM clusters WHERE id = ?').get('centroid-test') as {
         centroid: Buffer;
@@ -305,7 +321,7 @@ describe('cluster-store', () => {
       const restored = new Float32Array(
         row.centroid.buffer,
         row.centroid.byteOffset,
-        row.centroid.length / Float32Array.BYTES_PER_ELEMENT
+        row.centroid.length / Float32Array.BYTES_PER_ELEMENT,
       );
 
       expect(Array.from(restored)).toEqual(originalCentroid.map((v) => expect.closeTo(v, 5)));
@@ -321,7 +337,9 @@ describe('cluster-store', () => {
         exemplarIds,
       });
 
-      const row = db.prepare('SELECT exemplar_ids FROM clusters WHERE id = ?').get('exemplar-test') as {
+      const row = db
+        .prepare('SELECT exemplar_ids FROM clusters WHERE id = ?')
+        .get('exemplar-test') as {
         exemplar_ids: string;
       };
 
@@ -331,15 +349,19 @@ describe('cluster-store', () => {
 
   describe('stale cluster detection', () => {
     it('identifies clusters without refreshed_at', () => {
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO clusters (id, name, created_at, refreshed_at)
         VALUES (?, ?, datetime('now'), NULL)
-      `).run('stale-1', 'Stale Cluster');
+      `,
+      ).run('stale-1', 'Stale Cluster');
 
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO clusters (id, name, created_at, refreshed_at)
         VALUES (?, ?, datetime('now'), datetime('now'))
-      `).run('fresh-1', 'Fresh Cluster');
+      `,
+      ).run('fresh-1', 'Fresh Cluster');
 
       const stale = db.prepare('SELECT * FROM clusters WHERE refreshed_at IS NULL').all();
       expect(stale.length).toBe(1);
@@ -354,7 +376,9 @@ describe('cluster-store', () => {
 
       db.prepare('DELETE FROM chunks WHERE id = ?').run('chunk-1');
 
-      const assignments = db.prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ?').all('chunk-1');
+      const assignments = db
+        .prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ?')
+        .all('chunk-1');
       expect(assignments).toEqual([]);
     });
 
@@ -365,7 +389,9 @@ describe('cluster-store', () => {
 
       db.prepare('DELETE FROM clusters WHERE id = ?').run('cluster-1');
 
-      const assignments = db.prepare('SELECT * FROM chunk_clusters WHERE cluster_id = ?').all('cluster-1');
+      const assignments = db
+        .prepare('SELECT * FROM chunk_clusters WHERE cluster_id = ?')
+        .all('cluster-1');
       expect(assignments).toEqual([]);
     });
   });

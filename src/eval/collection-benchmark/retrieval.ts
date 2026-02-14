@@ -6,13 +6,9 @@
  */
 
 import { getChunkById } from '../../storage/chunk-store.js';
-import { assembleContext, type RetrievalRequest } from '../../retrieval/context-assembler.js';
+import { assembleContext } from '../../retrieval/context-assembler.js';
 import { approximateTokens } from '../../utils/token-counter.js';
-import type {
-  RetrievalResult,
-  BenchmarkSample,
-  SkippedBenchmark,
-} from './types.js';
+import type { RetrievalResult, BenchmarkSample, SkippedBenchmark } from './types.js';
 
 /**
  * Run retrieval quality benchmarks.
@@ -46,7 +42,7 @@ export async function runRetrievalBenchmarks(
         vectorSearchLimit: topK * 2,
       });
 
-      const resultIds = response.chunks.map(c => c.id);
+      const resultIds = response.chunks.map((c) => c.id);
       const foundInTop5 = resultIds.slice(0, 5).includes(pair.adjacentChunkId);
       const foundInTop10 = resultIds.slice(0, topK).includes(pair.adjacentChunkId);
 
@@ -91,7 +87,7 @@ export async function runRetrievalBenchmarks(
         vectorSearchLimit: topK * 2,
       });
 
-      const resultIds = response.chunks.map(c => c.id);
+      const resultIds = response.chunks.map((c) => c.id);
       if (resultIds.slice(0, topK).includes(pair.chunkIdB)) {
         bridgingRecallAt10++;
       }
@@ -100,7 +96,10 @@ export async function runRetrievalBenchmarks(
 
     // Random baseline: use cross-project pairs as negative control
     if (sample.crossProjectPairs.length > 0) {
-      const randomSample = sample.crossProjectPairs.slice(0, Math.min(20, sample.crossProjectPairs.length));
+      const randomSample = sample.crossProjectPairs.slice(
+        0,
+        Math.min(20, sample.crossProjectPairs.length),
+      );
       for (const pair of randomSample) {
         const queryChunk = getChunkById(pair.chunkIdA);
         if (!queryChunk) continue;
@@ -113,7 +112,7 @@ export async function runRetrievalBenchmarks(
           vectorSearchLimit: topK * 2,
         });
 
-        const resultIds = response.chunks.map(c => c.id);
+        const resultIds = response.chunks.map((c) => c.id);
         if (resultIds.slice(0, topK).includes(pair.chunkIdB)) {
           randomRecallAt10++;
         }
@@ -151,7 +150,9 @@ export async function runRetrievalBenchmarks(
         const queryChunk = getChunkById(chunkId);
         if (!queryChunk) continue;
 
-        onProgress?.(`[${++processed}/${Math.min(20, [...projectASamples.values()].flat().length)}] Precision@K...`);
+        onProgress?.(
+          `[${++processed}/${Math.min(20, [...projectASamples.values()].flat().length)}] Precision@K...`,
+        );
 
         const response = await assembleContext({
           query: queryChunk.content.slice(0, 500),
@@ -161,8 +162,12 @@ export async function runRetrievalBenchmarks(
           vectorSearchLimit: topK * 2,
         });
 
-        const top5FromProject = response.chunks.slice(0, 5).filter(c => c.sessionSlug === project).length;
-        const top10FromProject = response.chunks.slice(0, topK).filter(c => c.sessionSlug === project).length;
+        const top5FromProject = response.chunks
+          .slice(0, 5)
+          .filter((c) => c.sessionSlug === project).length;
+        const top10FromProject = response.chunks
+          .slice(0, topK)
+          .filter((c) => c.sessionSlug === project).length;
 
         precisionAt5 += top5FromProject / Math.min(5, response.chunks.length || 1);
         precisionAt10 += top10FromProject / Math.min(topK, response.chunks.length || 1);
@@ -202,7 +207,7 @@ export async function runRetrievalBenchmarks(
 
       // Relevant = same session or same project
       const relevantChunks = response.chunks.filter(
-        c => c.sessionSlug === queryChunk.sessionSlug
+        (c) => c.sessionSlug === queryChunk.sessionSlug,
       );
 
       const totalTokens = response.tokenCount || 1;
@@ -222,9 +227,12 @@ export async function runRetrievalBenchmarks(
     adjacentRecallAt10: adjacentCount > 0 ? adjacentRecallAt10 / adjacentCount : 0,
     mrr: adjacentCount > 0 ? mrrSum / adjacentCount : 0,
     bridgingRecallAt10: bridgingCount > 0 ? bridgingRecallAt10 / bridgingCount : 0,
-    bridgingVsRandom: randomCount > 0 && randomRecallAt10 > 0
-      ? (bridgingRecallAt10 / bridgingCount) / (randomRecallAt10 / randomCount)
-      : bridgingCount > 0 ? bridgingRecallAt10 / bridgingCount : 0,
+    bridgingVsRandom:
+      randomCount > 0 && randomRecallAt10 > 0
+        ? bridgingRecallAt10 / bridgingCount / (randomRecallAt10 / randomCount)
+        : bridgingCount > 0
+          ? bridgingRecallAt10 / bridgingCount
+          : 0,
     precisionAt5: precisionCount > 0 ? precisionAt5 / precisionCount : 0,
     precisionAt10: precisionCount > 0 ? precisionAt10 / precisionCount : 0,
     tokenEfficiency: tokenEfficiencyCount > 0 ? tokenEfficiencySum / tokenEfficiencyCount : 0,

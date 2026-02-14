@@ -1,5 +1,9 @@
 /**
  * Implementation of various decay curve functions.
+ *
+ * Distance metric: hop distance (turn count difference).
+ * All functions take a generic numeric distance — the unit is determined
+ * by how the caller parameterizes the DecayModelConfig.
  */
 
 import type { DecayTier, DecayModelConfig } from './types.js';
@@ -7,30 +11,26 @@ import type { DecayTier, DecayModelConfig } from './types.js';
 /**
  * Calculate weight for a single linear decay tier.
  */
-export function tierWeight(tier: DecayTier, ageMs: number): number {
-  if (ageMs < tier.holdPeriodMs) {
+export function tierWeight(tier: DecayTier, distance: number): number {
+  if (distance < tier.holdPeriodMs) {
     return tier.initialWeight;
   }
-  const decayTime = ageMs - tier.holdPeriodMs;
-  return Math.max(0, tier.initialWeight - tier.decayRatePerMs * decayTime);
+  const decayDist = distance - tier.holdPeriodMs;
+  return Math.max(0, tier.initialWeight - tier.decayRatePerMs * decayDist);
 }
 
 /**
  * Calculate total weight for multi-linear decay (sum of tiers).
  */
-export function multiLinearWeight(tiers: DecayTier[], ageMs: number): number {
-  return tiers.reduce((sum, tier) => sum + tierWeight(tier, ageMs), 0);
+export function multiLinearWeight(tiers: DecayTier[], distance: number): number {
+  return tiers.reduce((sum, tier) => sum + tierWeight(tier, distance), 0);
 }
 
 /**
  * Calculate weight for simple linear decay.
  */
-export function linearWeight(
-  initialWeight: number,
-  decayRatePerMs: number,
-  ageMs: number,
-): number {
-  return Math.max(0, initialWeight - decayRatePerMs * ageMs);
+export function linearWeight(initialWeight: number, decayRate: number, distance: number): number {
+  return Math.max(0, initialWeight - decayRate * distance);
 }
 
 /**
@@ -38,15 +38,15 @@ export function linearWeight(
  */
 export function delayedLinearWeight(
   initialWeight: number,
-  holdPeriodMs: number,
-  decayRatePerMs: number,
-  ageMs: number,
+  holdPeriod: number,
+  decayRate: number,
+  distance: number,
 ): number {
-  if (ageMs < holdPeriodMs) {
+  if (distance < holdPeriod) {
     return initialWeight;
   }
-  const decayTime = ageMs - holdPeriodMs;
-  return Math.max(0, initialWeight - decayRatePerMs * decayTime);
+  const decayDist = distance - holdPeriod;
+  return Math.max(0, initialWeight - decayRate * decayDist);
 }
 
 /**
@@ -54,86 +54,80 @@ export function delayedLinearWeight(
  */
 export function exponentialWeight(
   initialWeight: number,
-  decayRatePerMs: number,
-  ageMs: number,
+  decayRate: number,
+  distance: number,
 ): number {
-  return initialWeight * Math.exp(-decayRatePerMs * ageMs);
+  return initialWeight * Math.exp(-decayRate * distance);
 }
 
 /**
  * Calculate weight for power-law decay.
- * w(t) = w₀ * (1 + k*t)^(-α)
+ * w(d) = w₀ * (1 + k*d)^(-α)
  */
 export function powerLawWeight(
   initialWeight: number,
-  decayRatePerMs: number,
+  decayRate: number,
   powerExponent: number,
-  ageMs: number,
+  distance: number,
 ): number {
-  return initialWeight * Math.pow(1 + decayRatePerMs * ageMs, -powerExponent);
+  return initialWeight * Math.pow(1 + decayRate * distance, -powerExponent);
 }
 
 /**
- * Calculate death time for linear decay (when weight reaches zero).
+ * Calculate death distance for linear decay (when weight reaches zero).
  */
-export function linearDeathTime(initialWeight: number, decayRatePerMs: number): number {
-  return initialWeight / decayRatePerMs;
+export function linearDeathDistance(initialWeight: number, decayRate: number): number {
+  return initialWeight / decayRate;
 }
 
 /**
- * Calculate death time for a single tier.
+ * Calculate death distance for a single tier.
  */
-export function tierDeathTime(tier: DecayTier): number {
+export function tierDeathDistance(tier: DecayTier): number {
   return tier.holdPeriodMs + tier.initialWeight / tier.decayRatePerMs;
 }
 
 /**
- * Calculate death time for multi-linear decay (when total reaches zero).
+ * Calculate death distance for multi-linear decay (when total reaches zero).
  * This is when the longest-lived tier dies.
  */
-export function multiLinearDeathTime(tiers: DecayTier[]): number {
-  return Math.max(...tiers.map(tierDeathTime));
+export function multiLinearDeathDistance(tiers: DecayTier[]): number {
+  return Math.max(...tiers.map(tierDeathDistance));
 }
 
 /**
  * Generic weight calculation based on model config.
+ * @param config - Decay model configuration
+ * @param distance - Hop distance (turn count difference)
  */
-export function calculateWeight(config: DecayModelConfig, ageMs: number): number {
+export function calculateWeight(config: DecayModelConfig, distance: number): number {
   switch (config.type) {
     case 'linear':
-      return linearWeight(
-        config.initialWeight ?? 1.0,
-        config.decayRate ?? 0.0001,
-        ageMs,
-      );
+      return linearWeight(config.initialWeight ?? 1.0, config.decayRate ?? 0.0001, distance);
 
     case 'delayed-linear':
       return delayedLinearWeight(
         config.initialWeight ?? 1.0,
         config.holdPeriodMs ?? 0,
         config.decayRate ?? 0.0001,
-        ageMs,
+        distance,
       );
 
     case 'multi-linear':
       if (!config.tiers || config.tiers.length === 0) {
         throw new Error('Multi-linear model requires tiers');
       }
-      return multiLinearWeight(config.tiers, ageMs);
+      return multiLinearWeight(config.tiers, distance);
 
     case 'exponential':
-      return exponentialWeight(
-        config.initialWeight ?? 1.0,
-        config.decayRate ?? 0.0001,
-        ageMs,
-      );
+      return exponentialWeight(config.initialWeight ?? 1.0, config.decayRate ?? 0.0001, distance);
 
     case 'power-law':
       return powerLawWeight(
         config.initialWeight ?? 1.0,
         config.decayRate ?? 0.001,
         config.powerExponent ?? 1.0,
-        ageMs,
+        distance,
       );
 
     default:
@@ -142,27 +136,24 @@ export function calculateWeight(config: DecayModelConfig, ageMs: number): number
 }
 
 /**
- * Calculate death time for a model (null if asymptotic).
+ * Calculate death distance for a model (null if asymptotic).
  */
-export function calculateDeathTime(config: DecayModelConfig): number | null {
+export function calculateDeathDistance(config: DecayModelConfig): number | null {
   switch (config.type) {
     case 'linear':
-      return linearDeathTime(
-        config.initialWeight ?? 1.0,
-        config.decayRate ?? 0.0001,
-      );
+      return linearDeathDistance(config.initialWeight ?? 1.0, config.decayRate ?? 0.0001);
 
     case 'delayed-linear':
-      return (config.holdPeriodMs ?? 0) + linearDeathTime(
-        config.initialWeight ?? 1.0,
-        config.decayRate ?? 0.0001,
+      return (
+        (config.holdPeriodMs ?? 0) +
+        linearDeathDistance(config.initialWeight ?? 1.0, config.decayRate ?? 0.0001)
       );
 
     case 'multi-linear':
       if (!config.tiers || config.tiers.length === 0) {
         return null;
       }
-      return multiLinearDeathTime(config.tiers);
+      return multiLinearDeathDistance(config.tiers);
 
     case 'exponential':
     case 'power-law':
@@ -175,14 +166,14 @@ export function calculateDeathTime(config: DecayModelConfig): number | null {
 }
 
 /**
- * Check if edge is alive (weight > 0) at given time.
+ * Check if edge is alive (weight > 0) at given distance.
  */
-export function isAlive(config: DecayModelConfig, ageMs: number): boolean {
-  return calculateWeight(config, ageMs) > 0;
+export function isAlive(config: DecayModelConfig, distance: number): boolean {
+  return calculateWeight(config, distance) > 0;
 }
 
 /**
- * Find peak weight (at t=0) for a model.
+ * Find peak weight (at d=0) for a model.
  */
 export function peakWeight(config: DecayModelConfig): number {
   return calculateWeight(config, 0);

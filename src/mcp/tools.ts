@@ -2,11 +2,13 @@
  * MCP tool definitions for memory operations.
  */
 
-import { recall, explain, predict } from '../retrieval/context-assembler.js';
+import { recall, predict } from '../retrieval/context-assembler.js';
+import { searchContext } from '../retrieval/search-assembler.js';
 import { getConfig } from '../config/memory-config.js';
 import { getDistinctProjects, getSessionsForProject } from '../storage/chunk-store.js';
 import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
+import type { SearchResponse } from '../retrieval/search-assembler.js';
 
 /**
  * Tool definition for MCP.
@@ -35,39 +37,83 @@ function formatResponse(response: RetrievalResponse): string {
 }
 
 /**
- * Recall tool: retrieve relevant context from memory.
+ * Format search response as text output.
  */
-export const recallTool: ToolDefinition = {
-  name: 'recall',
+function formatSearchResponse(response: SearchResponse): string {
+  if (response.chunks.length === 0) {
+    return 'No relevant memory found.';
+  }
+
+  const header = `Found ${response.chunks.length} relevant memory chunks (${response.tokenCount} tokens):\n\n`;
+  return header + response.text;
+}
+
+/**
+ * Search tool: semantic discovery across memory.
+ */
+export const searchTool: ToolDefinition = {
+  name: 'search',
   description:
-    'Retrieve relevant context from memory based on a query. Use this to recall past conversations, decisions, or context that might be relevant to the current task.',
+    'Search memory semantically to discover relevant past context. Returns ranked results by relevance. Use this for broad discovery — "what do I know about X?"',
   inputSchema: {
     type: 'object',
     properties: {
       query: {
         type: 'string',
-        description: 'What to look up in memory. Be specific about what context you need.',
-      },
-      range: {
-        type: 'string',
-        description: 'Time range hint: "short" for recent context (last few turns), "long" for historical/cross-session context. Default: "short".',
+        description: 'What to search for in memory. Be specific about what context you need.',
       },
       project: {
         type: 'string',
-        description: 'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
+        description:
+          'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
       },
     },
     required: ['query'],
   },
   handler: async (args) => {
     const query = args.query as string;
-    const range = (args.range as 'short' | 'long') || 'short';
+    const project = args.project as string | undefined;
+    const config = getConfig();
+
+    const response = await searchContext({
+      query,
+      maxTokens: config.mcpMaxResponseTokens,
+      projectFilter: project,
+    });
+
+    return formatSearchResponse(response);
+  },
+};
+
+/**
+ * Recall tool: episodic memory walking backward through causal chains.
+ */
+export const recallTool: ToolDefinition = {
+  name: 'recall',
+  description:
+    'Recall episodic memory — walk backward through causal chains to reconstruct narrative context. Use for "how did we solve the auth bug?" or "what led to this decision?" Returns ordered narrative (problem → solution).',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'What to recall from memory. Be specific about what context you need.',
+      },
+      project: {
+        type: 'string',
+        description:
+          'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
+      },
+    },
+    required: ['query'],
+  },
+  handler: async (args) => {
+    const query = args.query as string;
     const project = args.project as string | undefined;
     const config = getConfig();
 
     const response = await recall(query, {
       maxTokens: config.mcpMaxResponseTokens,
-      range,
       projectFilter: project,
     });
 
@@ -76,53 +122,12 @@ export const recallTool: ToolDefinition = {
 };
 
 /**
- * Explain tool: get explanation of what led to current state.
- */
-export const explainTool: ToolDefinition = {
-  name: 'explain',
-  description:
-    'Get an explanation of the context and history behind a topic. Use this to understand how we got to the current state or why certain decisions were made. Uses long-range retrieval by default for historical context.',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      topic: {
-        type: 'string',
-        description: 'What topic or aspect to explain. E.g., "the authentication system" or "why we chose React".',
-      },
-      range: {
-        type: 'string',
-        description: 'Time range: "short" for recent context, "long" for full history. Default: "long".',
-      },
-      project: {
-        type: 'string',
-        description: 'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
-      },
-    },
-    required: ['topic'],
-  },
-  handler: async (args) => {
-    const topic = args.topic as string;
-    const range = (args.range as 'short' | 'long') || 'long'; // Default to long for explain
-    const project = args.project as string | undefined;
-    const config = getConfig();
-
-    const response = await explain(topic, {
-      maxTokens: config.mcpMaxResponseTokens,
-      range,
-      projectFilter: project,
-    });
-
-    return formatResponse(response);
-  },
-};
-
-/**
- * Predict tool: predict what might be relevant next.
+ * Predict tool: episodic memory walking forward through causal chains.
  */
 export const predictTool: ToolDefinition = {
   name: 'predict',
   description:
-    'Predict what context or topics might be relevant based on current discussion. Use this proactively to surface potentially useful past context.',
+    'Predict what context or topics might be relevant based on current discussion. Walks forward through causal chains to surface likely next steps. Use this proactively to surface potentially useful past context.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -132,7 +137,8 @@ export const predictTool: ToolDefinition = {
       },
       project: {
         type: 'string',
-        description: 'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
+        description:
+          'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
       },
     },
     required: ['context'],
@@ -143,7 +149,7 @@ export const predictTool: ToolDefinition = {
     const config = getConfig();
 
     const response = await predict(context, {
-      maxTokens: Math.floor(config.mcpMaxResponseTokens / 2), // Smaller for predictions
+      maxTokens: config.mcpMaxResponseTokens,
       projectFilter: project,
     });
 
@@ -162,7 +168,7 @@ export const predictTool: ToolDefinition = {
 export const listProjectsTool: ToolDefinition = {
   name: 'list-projects',
   description:
-    'List all projects in memory with chunk counts and date ranges. Use to discover available project names for filtering recall/explain/predict.',
+    'List all projects in memory with chunk counts and date ranges. Use to discover available project names for filtering search/recall/predict.',
   inputSchema: {
     type: 'object',
     properties: {},
@@ -176,8 +182,14 @@ export const listProjectsTool: ToolDefinition = {
     }
 
     const lines = projects.map((p) => {
-      const first = new Date(p.firstSeen).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      const last = new Date(p.lastSeen).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      const first = new Date(p.firstSeen).toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
+      const last = new Date(p.lastSeen).toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric',
+      });
       const range = first === last ? first : `${first} – ${last}`;
       return `- ${p.slug} (${p.chunkCount} chunks, ${range})`;
     });
@@ -323,8 +335,8 @@ export const reconstructTool: ToolDefinition = {
  * All available tools.
  */
 export const tools: ToolDefinition[] = [
+  searchTool,
   recallTool,
-  explainTool,
   predictTool,
   listProjectsTool,
   listSessionsTool,

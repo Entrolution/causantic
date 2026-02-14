@@ -46,11 +46,12 @@ export {
   getEdgeById,
   getOutgoingEdges,
   getIncomingEdges,
-  getWeightedEdges,
-  hasAnyEdges,
+  getForwardEdges,
+  getBackwardEdges,
   deleteEdge,
   deleteEdges,
   deleteEdgesForChunk,
+  deleteEdgesForSession,
   getEdgeCount,
   getAllEdges,
 } from './edge-store.js';
@@ -79,10 +80,3 @@ export { vectorStore } from './vector-store.js';
 // Keyword store
 export { KeywordStore } from './keyword-store.js';
 export type { KeywordSearchResult } from './keyword-store.js';
-
-// Decay calculation
-export { calculateDecayWeight, getDeathTime } from './decay.js';
-
-// Pruner
-export { pruner, initStartupPrune } from './pruner.js';
-export type { PruneResult, FullPruneProgress } from './pruner.js';

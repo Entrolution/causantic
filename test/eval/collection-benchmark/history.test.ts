@@ -160,7 +160,7 @@ describe('computeTrend', () => {
 
     const trend = computeTrend(previous, current);
 
-    const coverageDelta = trend.metricDeltas.find(d => d.metric === 'Cluster Coverage');
+    const coverageDelta = trend.metricDeltas.find((d) => d.metric === 'Cluster Coverage');
     expect(coverageDelta).toBeDefined();
     expect(coverageDelta!.improved).toBe(true);
     expect(coverageDelta!.delta).toBeCloseTo(0.15);
@@ -175,7 +175,7 @@ describe('computeTrend', () => {
       bridgingRecallAt10: 0.4,
       bridgingVsRandom: 3,
       precisionAt5: 0.85,
-      precisionAt10: 0.80,
+      precisionAt10: 0.8,
       tokenEfficiency: 0.7,
       meanUsefulTokensPerQuery: 1000,
     };
@@ -194,7 +194,7 @@ describe('computeTrend', () => {
 
     const trend = computeTrend(previous, current);
 
-    const recallDelta = trend.metricDeltas.find(d => d.metric === 'Adjacent Recall@10');
+    const recallDelta = trend.metricDeltas.find((d) => d.metric === 'Adjacent Recall@10');
     expect(recallDelta).toBeDefined();
     expect(recallDelta!.improved).toBe(true);
   });
@@ -203,21 +203,21 @@ describe('computeTrend', () => {
     const previous = makeResult(78, '2025-01-08T10:00:00Z');
     previous.latency = {
       recall: { p50: 20, p95: 38, p99: 80 },
-      explain: { p50: 25, p95: 42, p99: 85 },
+      search: { p50: 25, p95: 42, p99: 85 },
       predict: { p50: 22, p95: 40, p99: 82 },
       reconstruct: { p50: 10, p95: 20, p99: 35 },
     };
     const current = makeResult(75, '2025-01-12T10:00:00Z');
     current.latency = {
       recall: { p50: 30, p95: 55, p99: 120 },
-      explain: { p50: 35, p95: 60, p99: 130 },
+      search: { p50: 35, p95: 60, p99: 130 },
       predict: { p50: 32, p95: 57, p99: 125 },
       reconstruct: { p50: 15, p95: 30, p99: 50 },
     };
 
     const trend = computeTrend(previous, current);
 
-    const latencyDelta = trend.metricDeltas.find(d => d.metric.includes('Latency'));
+    const latencyDelta = trend.metricDeltas.find((d) => d.metric.includes('Latency'));
     expect(latencyDelta).toBeDefined();
     expect(latencyDelta!.improved).toBe(false); // Higher latency = worse
   });

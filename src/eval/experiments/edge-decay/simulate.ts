@@ -9,8 +9,8 @@ import type {
   SimulationParams,
   DecayModelComparison,
 } from './types.js';
-import { formatTime, MS_PER_HOUR, MS_PER_DAY, MS_PER_WEEK } from './types.js';
-import { calculateWeight, calculateDeathTime, peakWeight } from './decay-curves.js';
+import { formatTime, MS_PER_HOUR, MS_PER_DAY } from './types.js';
+import { calculateWeight, calculateDeathDistance, peakWeight } from './decay-curves.js';
 
 /**
  * Default simulation parameters.
@@ -69,7 +69,7 @@ export function simulateModel(
   return {
     config,
     points,
-    deathTimeMs: calculateDeathTime(config),
+    deathTimeMs: calculateDeathDistance(config),
     peakWeight: peakWeight(config),
     weightAt1Hour: calculateWeight(config, MS_PER_HOUR),
     weightAt24Hours: calculateWeight(config, 24 * MS_PER_HOUR),
@@ -119,9 +119,7 @@ export function generateComparisonTable(comparison: DecayModelComparison): strin
 
   // Rows
   for (const curve of comparison.curves) {
-    const deathStr = curve.deathTimeMs !== null
-      ? formatTime(curve.deathTimeMs)
-      : 'asymptotic';
+    const deathStr = curve.deathTimeMs !== null ? formatTime(curve.deathTimeMs) : 'asymptotic';
 
     const row = [
       pad(curve.config.name, 25),
@@ -173,7 +171,7 @@ export function findTimeAtWeight(
   config: DecayModelConfig,
   targetWeight: number,
   maxSearchMs: number = 30 * MS_PER_DAY,
-  tolerance: number = 0.001,
+  _tolerance: number = 0.001,
 ): number | null {
   // Binary search for the time
   let low = 0;
@@ -214,10 +212,7 @@ export function generateMilestonesTable(configs: DecayModelConfig[]): string {
   lines.push('='.repeat(90));
 
   // Header
-  const header = [
-    pad('Model', 25),
-    ...thresholds.map((t) => pad(`w=${t}`, 10)),
-  ];
+  const header = [pad('Model', 25), ...thresholds.map((t) => pad(`w=${t}`, 10))];
   lines.push(header.join(' | '));
   lines.push('-'.repeat(90));
 
@@ -230,10 +225,7 @@ export function generateMilestonesTable(configs: DecayModelConfig[]): string {
       return time !== null ? formatTime(time) : 'never';
     });
 
-    const row = [
-      pad(config.name, 25),
-      ...times.map((t) => pad(t, 10)),
-    ];
+    const row = [pad(config.name, 25), ...times.map((t) => pad(t, 10))];
     lines.push(row.join(' | '));
   }
 
@@ -275,11 +267,7 @@ export function generateAUCTable(comparison: DecayModelComparison): string {
 
   for (const { name, auc } of aucs) {
     const relative = (auc / maxAuc) * 100;
-    const row = [
-      pad(name, 30),
-      pad(formatTime(auc), 15),
-      pad(`${relative.toFixed(1)}%`, 15),
-    ];
+    const row = [pad(name, 30), pad(formatTime(auc), 15), pad(`${relative.toFixed(1)}%`, 15)];
     lines.push(row.join(' | '));
   }
 

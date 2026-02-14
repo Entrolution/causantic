@@ -38,7 +38,7 @@ The wizard performs the following steps:
 8. Updates `~/.claude/CLAUDE.md` with Causantic reference block
 9. Runs a health check
 10. Offers to import existing Claude Code sessions
-11. Runs post-ingestion processing (graph pruning, clustering)
+11. Runs post-ingestion processing (clustering)
 12. Offers Anthropic API key setup for cluster labeling
 
 **Example**:
@@ -163,13 +163,12 @@ npx causantic maintenance <subcommand> [options]
 |------|-------------|
 | `scan-projects` | Discover and ingest new sessions |
 | `update-clusters` | Re-run HDBSCAN clustering and refresh labels |
-| `prune-graph` | Remove dead edges, mark orphaned chunks for TTL cleanup |
-| `cleanup-vectors` | Remove expired orphaned vectors and chunks (TTL-based) |
+| `cleanup-vectors` | Remove expired vectors and chunks (TTL + FIFO cap) |
 | `vacuum` | Optimize database |
 
 **Example**:
 ```bash
-npx causantic maintenance run prune-graph
+npx causantic maintenance run cleanup-vectors
 npx causantic maintenance run all
 npx causantic maintenance status
 npx causantic maintenance daemon

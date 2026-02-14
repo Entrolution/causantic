@@ -10,8 +10,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../src/retrieval/context-assembler.js', () => ({
   recall: vi.fn(),
-  explain: vi.fn(),
   predict: vi.fn(),
+}));
+
+vi.mock('../../src/retrieval/search-assembler.js', () => ({
+  searchContext: vi.fn(),
 }));
 
 vi.mock('../../src/storage/chunk-store.js', () => ({
@@ -29,21 +32,25 @@ vi.mock('../../src/config/memory-config.js', () => ({
 }));
 
 import {
+  searchTool,
   recallTool,
-  explainTool,
   predictTool,
   listProjectsTool,
   listSessionsTool,
   reconstructTool,
 } from '../../src/mcp/tools.js';
 
-import { recall, explain, predict } from '../../src/retrieval/context-assembler.js';
+import { recall, predict } from '../../src/retrieval/context-assembler.js';
+import { searchContext } from '../../src/retrieval/search-assembler.js';
 import { getDistinctProjects, getSessionsForProject } from '../../src/storage/chunk-store.js';
-import { reconstructSession, formatReconstruction } from '../../src/retrieval/session-reconstructor.js';
+import {
+  reconstructSession,
+  formatReconstruction,
+} from '../../src/retrieval/session-reconstructor.js';
 
 const mockRecall = vi.mocked(recall);
-const mockExplain = vi.mocked(explain);
 const mockPredict = vi.mocked(predict);
+const mockSearchContext = vi.mocked(searchContext);
 const mockGetDistinctProjects = vi.mocked(getDistinctProjects);
 const mockGetSessionsForProject = vi.mocked(getSessionsForProject);
 const mockReconstructSession = vi.mocked(reconstructSession);
@@ -51,31 +58,122 @@ const mockFormatReconstruction = vi.mocked(formatReconstruction);
 
 /** Helper to build a minimal RetrievalResponse. */
 function makeResponse(
-  chunks: Array<{ id: string; sessionSlug: string; weight: number; preview: string; source?: 'vector' | 'keyword' | 'cluster' | 'graph' }>,
+  chunks: Array<{
+    id: string;
+    sessionSlug: string;
+    weight: number;
+    preview: string;
+    source?: 'vector' | 'keyword' | 'cluster';
+  }>,
   text: string,
   tokenCount: number,
 ) {
-  return { chunks, text, tokenCount, totalConsidered: chunks.length, elapsedMs: 10 };
+  return { chunks, text, tokenCount, totalConsidered: chunks.length, durationMs: 10 };
+}
+
+/** Helper to build a minimal SearchResponse. */
+function makeSearchResponse(
+  chunks: Array<{
+    id: string;
+    sessionSlug: string;
+    weight: number;
+    preview: string;
+    source?: 'vector' | 'keyword' | 'cluster';
+  }>,
+  text: string,
+  tokenCount: number,
+) {
+  return {
+    chunks,
+    text,
+    tokenCount,
+    totalConsidered: chunks.length,
+    durationMs: 10,
+    queryEmbedding: [1, 0, 0],
+    seedIds: chunks.map((c) => c.id),
+  };
 }
 
 const emptyResponse = makeResponse([], '', 0);
+const emptySearchResponse = makeSearchResponse([], '', 0);
 
 const sampleChunks = [
-  { id: 'c1', sessionSlug: 'proj', weight: 0.9, preview: 'chunk 1 preview', source: 'vector' as const },
-  { id: 'c2', sessionSlug: 'proj', weight: 0.7, preview: 'chunk 2 preview', source: 'keyword' as const },
+  {
+    id: 'c1',
+    sessionSlug: 'proj',
+    weight: 0.9,
+    preview: 'chunk 1 preview',
+    source: 'vector' as const,
+  },
+  {
+    id: 'c2',
+    sessionSlug: 'proj',
+    weight: 0.7,
+    preview: 'chunk 2 preview',
+    source: 'keyword' as const,
+  },
 ];
 
 const sampleResponse = makeResponse(sampleChunks, 'Assembled context text', 350);
+const sampleSearchResponse = makeSearchResponse(sampleChunks, 'Search results text', 350);
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
 // ---------------------------------------------------------------------------
+// searchTool.handler
+// ---------------------------------------------------------------------------
+describe('searchTool.handler', () => {
+  it('calls searchContext with correct params', async () => {
+    mockSearchContext.mockResolvedValue(sampleSearchResponse);
+
+    await searchTool.handler({ query: 'authentication flow' });
+
+    expect(mockSearchContext).toHaveBeenCalledOnce();
+    expect(mockSearchContext).toHaveBeenCalledWith({
+      query: 'authentication flow',
+      maxTokens: 2000,
+      projectFilter: undefined,
+    });
+  });
+
+  it('passes project filter', async () => {
+    mockSearchContext.mockResolvedValue(sampleSearchResponse);
+
+    await searchTool.handler({ query: 'schema migration', project: 'my-proj' });
+
+    expect(mockSearchContext).toHaveBeenCalledWith({
+      query: 'schema migration',
+      maxTokens: 2000,
+      projectFilter: 'my-proj',
+    });
+  });
+
+  it('returns formatted text with chunk count for non-empty results', async () => {
+    mockSearchContext.mockResolvedValue(sampleSearchResponse);
+
+    const result = await searchTool.handler({ query: 'anything' });
+
+    expect(result).toContain('Found 2 relevant memory chunks');
+    expect(result).toContain('350 tokens');
+    expect(result).toContain('Search results text');
+  });
+
+  it('returns "No relevant memory found." for empty results', async () => {
+    mockSearchContext.mockResolvedValue(emptySearchResponse);
+
+    const result = await searchTool.handler({ query: 'unknown topic' });
+
+    expect(result).toBe('No relevant memory found.');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // recallTool.handler
 // ---------------------------------------------------------------------------
 describe('recallTool.handler', () => {
-  it('calls recall with correct params and default range "short"', async () => {
+  it('calls recall with correct params', async () => {
     mockRecall.mockResolvedValue(sampleResponse);
 
     await recallTool.handler({ query: 'authentication flow' });
@@ -83,19 +181,17 @@ describe('recallTool.handler', () => {
     expect(mockRecall).toHaveBeenCalledOnce();
     expect(mockRecall).toHaveBeenCalledWith('authentication flow', {
       maxTokens: 2000,
-      range: 'short',
       projectFilter: undefined,
     });
   });
 
-  it('passes explicit range and project filter', async () => {
+  it('passes project filter', async () => {
     mockRecall.mockResolvedValue(sampleResponse);
 
-    await recallTool.handler({ query: 'schema migration', range: 'long', project: 'my-proj' });
+    await recallTool.handler({ query: 'schema migration', project: 'my-proj' });
 
     expect(mockRecall).toHaveBeenCalledWith('schema migration', {
       maxTokens: 2000,
-      range: 'long',
       projectFilter: 'my-proj',
     });
   });
@@ -120,76 +216,17 @@ describe('recallTool.handler', () => {
 });
 
 // ---------------------------------------------------------------------------
-// explainTool.handler
-// ---------------------------------------------------------------------------
-describe('explainTool.handler', () => {
-  it('calls explain with default range "long"', async () => {
-    mockExplain.mockResolvedValue(sampleResponse);
-
-    await explainTool.handler({ topic: 'why we chose React' });
-
-    expect(mockExplain).toHaveBeenCalledOnce();
-    expect(mockExplain).toHaveBeenCalledWith('why we chose React', {
-      maxTokens: 2000,
-      range: 'long',
-      projectFilter: undefined,
-    });
-  });
-
-  it('passes explicit range "short" when provided', async () => {
-    mockExplain.mockResolvedValue(sampleResponse);
-
-    await explainTool.handler({ topic: 'database setup', range: 'short' });
-
-    expect(mockExplain).toHaveBeenCalledWith('database setup', {
-      maxTokens: 2000,
-      range: 'short',
-      projectFilter: undefined,
-    });
-  });
-
-  it('passes project filter', async () => {
-    mockExplain.mockResolvedValue(sampleResponse);
-
-    await explainTool.handler({ topic: 'auth', project: 'backend' });
-
-    expect(mockExplain).toHaveBeenCalledWith('auth', {
-      maxTokens: 2000,
-      range: 'long',
-      projectFilter: 'backend',
-    });
-  });
-
-  it('returns formatted text for non-empty results', async () => {
-    mockExplain.mockResolvedValue(sampleResponse);
-
-    const result = await explainTool.handler({ topic: 'auth' });
-
-    expect(result).toContain('Found 2 relevant memory chunks');
-    expect(result).toContain('Assembled context text');
-  });
-
-  it('returns "No relevant memory found." for empty results', async () => {
-    mockExplain.mockResolvedValue(emptyResponse);
-
-    const result = await explainTool.handler({ topic: 'nothing here' });
-
-    expect(result).toBe('No relevant memory found.');
-  });
-});
-
-// ---------------------------------------------------------------------------
 // predictTool.handler
 // ---------------------------------------------------------------------------
 describe('predictTool.handler', () => {
-  it('calls predict with half the token budget', async () => {
+  it('calls predict with full token budget', async () => {
     mockPredict.mockResolvedValue(sampleResponse);
 
     await predictTool.handler({ context: 'working on migrations' });
 
     expect(mockPredict).toHaveBeenCalledOnce();
     expect(mockPredict).toHaveBeenCalledWith('working on migrations', {
-      maxTokens: 1000, // 2000 / 2
+      maxTokens: 2000,
       projectFilter: undefined,
     });
   });
@@ -200,7 +237,7 @@ describe('predictTool.handler', () => {
     await predictTool.handler({ context: 'refactoring', project: 'core-lib' });
 
     expect(mockPredict).toHaveBeenCalledWith('refactoring', {
-      maxTokens: 1000,
+      maxTokens: 2000,
       projectFilter: 'core-lib',
     });
   });
@@ -237,7 +274,12 @@ describe('listProjectsTool.handler', () => {
 
   it('returns formatted project list', async () => {
     mockGetDistinctProjects.mockReturnValue([
-      { slug: 'test-project', chunkCount: 10, firstSeen: '2025-01-01T00:00:00Z', lastSeen: '2025-02-01T00:00:00Z' },
+      {
+        slug: 'test-project',
+        chunkCount: 10,
+        firstSeen: '2025-01-01T00:00:00Z',
+        lastSeen: '2025-02-01T00:00:00Z',
+      },
     ]);
 
     const result = await listProjectsTool.handler({});
@@ -249,8 +291,18 @@ describe('listProjectsTool.handler', () => {
 
   it('lists multiple projects', async () => {
     mockGetDistinctProjects.mockReturnValue([
-      { slug: 'alpha', chunkCount: 5, firstSeen: '2025-01-01T00:00:00Z', lastSeen: '2025-01-15T00:00:00Z' },
-      { slug: 'beta', chunkCount: 20, firstSeen: '2025-02-01T00:00:00Z', lastSeen: '2025-03-01T00:00:00Z' },
+      {
+        slug: 'alpha',
+        chunkCount: 5,
+        firstSeen: '2025-01-01T00:00:00Z',
+        lastSeen: '2025-01-15T00:00:00Z',
+      },
+      {
+        slug: 'beta',
+        chunkCount: 20,
+        firstSeen: '2025-02-01T00:00:00Z',
+        lastSeen: '2025-03-01T00:00:00Z',
+      },
     ]);
 
     const result = await listProjectsTool.handler({});
@@ -263,19 +315,19 @@ describe('listProjectsTool.handler', () => {
 
   it('shows single date when first and last month are the same', async () => {
     mockGetDistinctProjects.mockReturnValue([
-      { slug: 'single-month', chunkCount: 3, firstSeen: '2025-06-01T00:00:00Z', lastSeen: '2025-06-28T00:00:00Z' },
+      {
+        slug: 'single-month',
+        chunkCount: 3,
+        firstSeen: '2025-06-01T00:00:00Z',
+        lastSeen: '2025-06-28T00:00:00Z',
+      },
     ]);
 
     const result = await listProjectsTool.handler({});
 
-    // When first === last the range should be displayed once, not with a separator
-    // The exact formatted month depends on locale, but there should be no dash/en-dash
-    // between two identical months
     const lines = result.split('\n').filter((l: string) => l.startsWith('- '));
     expect(lines.length).toBe(1);
-    // Should NOT contain an en-dash between identical dates
     const dateSegment = lines[0].match(/\(.*\)/)?.[0] ?? '';
-    // Split by the separator and ensure both sides (if any) are the same
     expect(dateSegment).toBeTruthy();
   });
 });
@@ -380,9 +432,23 @@ describe('listSessionsTool.handler', () => {
 describe('reconstructTool.handler', () => {
   const sampleReconstructResult = {
     chunks: [
-      { id: 'r1', sessionId: 's1', text: 'chunk text', tokens: 100, startTime: '2025-01-15T14:30:00Z' },
+      {
+        id: 'r1',
+        sessionId: 's1',
+        text: 'chunk text',
+        tokens: 100,
+        startTime: '2025-01-15T14:30:00Z',
+      },
     ],
-    sessions: [{ sessionId: 's1', chunkCount: 1, totalTokens: 100, firstChunkTime: '2025-01-15T14:30:00Z', lastChunkTime: '2025-01-15T14:30:00Z' }],
+    sessions: [
+      {
+        sessionId: 's1',
+        chunkCount: 1,
+        totalTokens: 100,
+        firstChunkTime: '2025-01-15T14:30:00Z',
+        lastChunkTime: '2025-01-15T14:30:00Z',
+      },
+    ],
     totalTokens: 100,
     truncated: false,
     timeRange: { from: '2025-01-15T00:00:00Z', to: '2025-01-15T23:59:59Z' },
@@ -451,7 +517,7 @@ describe('reconstructTool.handler', () => {
 
   it('catches non-Error thrown values', async () => {
     mockReconstructSession.mockImplementation(() => {
-      throw 'unexpected string error';  
+      throw 'unexpected string error';
     });
 
     const result = await reconstructTool.handler({ project: 'my-app' });

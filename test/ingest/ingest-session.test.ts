@@ -3,21 +3,22 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { chunkToInput, chunkWithClockToInput } from '../../src/ingest/ingest-session.js';
+import { chunkToInput } from '../../src/ingest/ingest-session.js';
 import type { IngestOptions, IngestResult } from '../../src/ingest/ingest-session.js';
 import type { Chunk } from '../../src/parser/types.js';
 
 describe('ingest-session', () => {
   describe('IngestOptions interface', () => {
     it('has sensible defaults', () => {
-      const defaults: Required<Omit<IngestOptions, 'embedder'>> = {
+      const defaults: Required<Omit<IngestOptions, 'embedder' | 'embeddingDevice'>> = {
         maxTokensPerChunk: 4096,
         includeThinking: true,
         embeddingModel: 'jina-small',
         skipIfExists: true,
         linkCrossSessions: true,
         processSubAgents: true,
-        useVectorClocks: true,
+        useIncrementalIngestion: true,
+        useEmbeddingCache: true,
       };
 
       expect(defaults.maxTokensPerChunk).toBe(4096);
@@ -122,64 +123,6 @@ describe('ingest-session', () => {
     });
   });
 
-  describe('chunkWithClockToInput', () => {
-    it('includes vector clock data', () => {
-      const chunk = {
-        id: 'chunk-1',
-        text: 'Test content',
-        metadata: {
-          sessionId: 'session-abc',
-          sessionSlug: 'my-project',
-          turnIndices: [0],
-          startTime: '2024-01-15T10:00:00Z',
-          endTime: '2024-01-15T10:05:00Z',
-          codeBlockCount: 0,
-          toolUseCount: 0,
-          hasThinking: false,
-          renderMode: 'full' as const,
-          approxTokens: 100,
-          agentId: 'ui',
-          vectorClock: { ui: 5, human: 3 },
-          spawnDepth: 0,
-        },
-      };
-
-      const input = chunkWithClockToInput(chunk);
-
-      expect(input.agentId).toBe('ui');
-      expect(input.vectorClock).toEqual({ ui: 5, human: 3 });
-      expect(input.spawnDepth).toBe(0);
-    });
-
-    it('handles sub-agent chunks', () => {
-      const chunk = {
-        id: 'subagent-chunk-1',
-        text: 'Sub-agent content',
-        metadata: {
-          sessionId: 'session-abc',
-          sessionSlug: 'my-project',
-          turnIndices: [0, 1],
-          startTime: '2024-01-15T10:00:00Z',
-          endTime: '2024-01-15T10:05:00Z',
-          codeBlockCount: 0,
-          toolUseCount: 0,
-          hasThinking: false,
-          renderMode: 'full' as const,
-          approxTokens: 100,
-          agentId: 'explore-agent',
-          vectorClock: { ui: 5, human: 3, 'explore-agent': 2 },
-          spawnDepth: 1,
-        },
-      };
-
-      const input = chunkWithClockToInput(chunk);
-
-      expect(input.agentId).toBe('explore-agent');
-      expect(input.spawnDepth).toBe(1);
-      expect(input.vectorClock?.['explore-agent']).toBe(2);
-    });
-  });
-
   describe('ingestion workflow', () => {
     it('processes in correct order', () => {
       const steps = [
@@ -204,16 +147,12 @@ describe('ingest-session', () => {
   });
 
   describe('sub-agent processing', () => {
-    it('initializes sub-agent clock from parent', () => {
-      const parentClock = { ui: 10, human: 5 };
+    it('tracks sub-agent data', () => {
       const subAgentId = 'explore-agent';
+      const subAgentData = new Map<string, { agentId: string }>();
+      subAgentData.set(subAgentId, { agentId: subAgentId });
 
-      // Merge parent clock with sub-agent's initial state
-      const subClock = { ...parentClock, [subAgentId]: 0 };
-
-      expect(subClock.ui).toBe(10);
-      expect(subClock.human).toBe(5);
-      expect(subClock[subAgentId]).toBe(0);
+      expect(subAgentData.get(subAgentId)?.agentId).toBe('explore-agent');
     });
 
     it('tracks sub-agent data for brief/debrief detection', () => {

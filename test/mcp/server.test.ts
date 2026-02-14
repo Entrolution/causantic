@@ -206,7 +206,7 @@ describe('mcp-server', () => {
 
     it('skips authentication when no token configured', () => {
       const authToken = '';
-      const params = { query: 'test' };
+      const _params = { query: 'test' };
 
       const shouldAuth = authToken !== '';
       expect(shouldAuth).toBe(false);

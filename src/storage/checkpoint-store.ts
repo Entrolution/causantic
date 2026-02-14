@@ -13,7 +13,6 @@ export interface IngestionCheckpoint {
   projectSlug: string;
   lastTurnIndex: number;
   lastChunkId: string | null;
-  vectorClock: string | null;
   fileMtime: string | null;
   updatedAt: string;
 }
@@ -27,9 +26,9 @@ export function getCheckpoint(sessionId: string): IngestionCheckpoint | null {
   const row = db
     .prepare(
       `
-    SELECT session_id, project_slug, last_turn_index, last_chunk_id, vector_clock, file_mtime, updated_at
+    SELECT session_id, project_slug, last_turn_index, last_chunk_id, file_mtime, updated_at
     FROM ingestion_checkpoints WHERE session_id = ?
-  `
+  `,
     )
     .get(sessionId) as
     | {
@@ -37,7 +36,6 @@ export function getCheckpoint(sessionId: string): IngestionCheckpoint | null {
         project_slug: string;
         last_turn_index: number;
         last_chunk_id: string | null;
-        vector_clock: string | null;
         file_mtime: string | null;
         updated_at: string;
       }
@@ -50,7 +48,6 @@ export function getCheckpoint(sessionId: string): IngestionCheckpoint | null {
     projectSlug: row.project_slug,
     lastTurnIndex: row.last_turn_index,
     lastChunkId: row.last_chunk_id,
-    vectorClock: row.vector_clock,
     fileMtime: row.file_mtime,
     updatedAt: row.updated_at,
   };
@@ -59,23 +56,20 @@ export function getCheckpoint(sessionId: string): IngestionCheckpoint | null {
 /**
  * Save or update an ingestion checkpoint.
  */
-export function saveCheckpoint(
-  checkpoint: Omit<IngestionCheckpoint, 'updatedAt'>
-): void {
+export function saveCheckpoint(checkpoint: Omit<IngestionCheckpoint, 'updatedAt'>): void {
   const db = getDb();
   db.prepare(
     `
     INSERT OR REPLACE INTO ingestion_checkpoints
-    (session_id, project_slug, last_turn_index, last_chunk_id, vector_clock, file_mtime, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-  `
+    (session_id, project_slug, last_turn_index, last_chunk_id, file_mtime, updated_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `,
   ).run(
     checkpoint.sessionId,
     checkpoint.projectSlug,
     checkpoint.lastTurnIndex,
     checkpoint.lastChunkId,
-    checkpoint.vectorClock,
-    checkpoint.fileMtime
+    checkpoint.fileMtime,
   );
 }
 
@@ -84,9 +78,7 @@ export function saveCheckpoint(
  */
 export function deleteCheckpoint(sessionId: string): void {
   const db = getDb();
-  db.prepare('DELETE FROM ingestion_checkpoints WHERE session_id = ?').run(
-    sessionId
-  );
+  db.prepare('DELETE FROM ingestion_checkpoints WHERE session_id = ?').run(sessionId);
 }
 
 /**
@@ -94,31 +86,26 @@ export function deleteCheckpoint(sessionId: string): void {
  */
 export function deleteProjectCheckpoints(projectSlug: string): void {
   const db = getDb();
-  db.prepare('DELETE FROM ingestion_checkpoints WHERE project_slug = ?').run(
-    projectSlug
-  );
+  db.prepare('DELETE FROM ingestion_checkpoints WHERE project_slug = ?').run(projectSlug);
 }
 
 /**
  * Get all checkpoints for a project.
  */
-export function getProjectCheckpoints(
-  projectSlug: string
-): IngestionCheckpoint[] {
+export function getProjectCheckpoints(projectSlug: string): IngestionCheckpoint[] {
   const db = getDb();
   const rows = db
     .prepare(
       `
-    SELECT session_id, project_slug, last_turn_index, last_chunk_id, vector_clock, file_mtime, updated_at
+    SELECT session_id, project_slug, last_turn_index, last_chunk_id, file_mtime, updated_at
     FROM ingestion_checkpoints WHERE project_slug = ?
-  `
+  `,
     )
     .all(projectSlug) as Array<{
     session_id: string;
     project_slug: string;
     last_turn_index: number;
     last_chunk_id: string | null;
-    vector_clock: string | null;
     file_mtime: string | null;
     updated_at: string;
   }>;
@@ -128,7 +115,6 @@ export function getProjectCheckpoints(
     projectSlug: row.project_slug,
     lastTurnIndex: row.last_turn_index,
     lastChunkId: row.last_chunk_id,
-    vectorClock: row.vector_clock,
     fileMtime: row.file_mtime,
     updatedAt: row.updated_at,
   }));

@@ -3,8 +3,16 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeOverallScore, generateHighlights } from '../../../src/eval/collection-benchmark/runner.js';
-import type { HealthResult, RetrievalResult, GraphValueResult, LatencyResult } from '../../../src/eval/collection-benchmark/types.js';
+import {
+  computeOverallScore,
+  generateHighlights,
+} from '../../../src/eval/collection-benchmark/runner.js';
+import type {
+  HealthResult,
+  RetrievalResult,
+  ChainQualityResult,
+  LatencyResult,
+} from '../../../src/eval/collection-benchmark/types.js';
 
 function makeHealth(overrides: Partial<HealthResult> = {}): HealthResult {
   return {
@@ -40,21 +48,12 @@ function makeRetrieval(overrides: Partial<RetrievalResult> = {}): RetrievalResul
   };
 }
 
-function makeGraph(overrides: Partial<GraphValueResult> = {}): GraphValueResult {
+function makeChain(overrides: Partial<ChainQualityResult> = {}): ChainQualityResult {
   return {
-    sourceAttribution: {
-      vectorPercentage: 0.45,
-      keywordPercentage: 0.20,
-      clusterPercentage: 0.15,
-      graphPercentage: 0.20,
-      augmentationRatio: 2.3,
-    },
-    fullRecallAt10: 0.82,
-    vectorOnlyRecallAt10: 0.61,
-    uniqueGraphFinds: 42,
-    graphBoostedCount: 5,
-    lift: 0.34,
-    edgeTypeEffectiveness: [],
+    meanChainLength: 4.2,
+    meanScorePerToken: 0.015,
+    chainCoverage: 0.65,
+    fallbackRate: 0.35,
     ...overrides,
   };
 }
@@ -62,7 +61,7 @@ function makeGraph(overrides: Partial<GraphValueResult> = {}): GraphValueResult 
 function makeLatency(overrides: Partial<LatencyResult> = {}): LatencyResult {
   return {
     recall: { p50: 23, p95: 45, p99: 89 },
-    explain: { p50: 31, p95: 52, p99: 95 },
+    search: { p50: 31, p95: 52, p99: 95 },
     predict: { p50: 28, p95: 48, p99: 91 },
     reconstruct: { p50: 12, p95: 28, p99: 42 },
     ...overrides,
@@ -87,16 +86,24 @@ describe('computeOverallScore', () => {
   it('should score all categories (full profile)', () => {
     const health = makeHealth();
     const retrieval = makeRetrieval();
-    const graph = makeGraph();
+    const chain = makeChain();
     const latency = makeLatency();
-    const score = computeOverallScore(health, retrieval, graph, latency);
+    const score = computeOverallScore(health, retrieval, chain, latency);
     expect(score).toBeGreaterThan(0);
     expect(score).toBeLessThanOrEqual(100);
   });
 
   it('should give lower score for poor health', () => {
-    const goodHealth = makeHealth({ edgeToChunkRatio: 3, clusterCoverage: 0.9, orphanChunkPercentage: 0.02 });
-    const poorHealth = makeHealth({ edgeToChunkRatio: 0.1, clusterCoverage: 0.2, orphanChunkPercentage: 0.5 });
+    const goodHealth = makeHealth({
+      edgeToChunkRatio: 3,
+      clusterCoverage: 0.9,
+      orphanChunkPercentage: 0.02,
+    });
+    const poorHealth = makeHealth({
+      edgeToChunkRatio: 0.1,
+      clusterCoverage: 0.2,
+      orphanChunkPercentage: 0.5,
+    });
 
     const goodScore = computeOverallScore(goodHealth);
     const poorScore = computeOverallScore(poorHealth);
@@ -154,7 +161,7 @@ describe('generateHighlights', () => {
     const highlights = generateHighlights(health);
 
     expect(highlights.length).toBeGreaterThan(0);
-    expect(highlights.some(h => h.includes('cluster'))).toBe(true);
+    expect(highlights.some((h) => h.includes('cluster'))).toBe(true);
   });
 
   it('should include retrieval highlights when available', () => {
@@ -162,15 +169,15 @@ describe('generateHighlights', () => {
     const retrieval = makeRetrieval();
     const highlights = generateHighlights(health, retrieval);
 
-    expect(highlights.some(h => h.includes('recall') || h.includes('Recall'))).toBe(true);
+    expect(highlights.some((h) => h.includes('recall') || h.includes('Recall'))).toBe(true);
   });
 
-  it('should include graph highlights when available', () => {
+  it('should include chain quality highlights when available', () => {
     const health = makeHealth();
-    const graph = makeGraph();
-    const highlights = generateHighlights(health, undefined, graph);
+    const chain = makeChain();
+    const highlights = generateHighlights(health, undefined, chain);
 
-    expect(highlights.some(h => h.includes('Graph') || h.includes('graph'))).toBe(true);
+    expect(highlights.some((h) => h.includes('Chain') || h.includes('chain'))).toBe(true);
   });
 
   it('should include latency highlights when available', () => {
@@ -178,6 +185,6 @@ describe('generateHighlights', () => {
     const latency = makeLatency();
     const highlights = generateHighlights(health, undefined, undefined, latency);
 
-    expect(highlights.some(h => h.includes('p95') || h.includes('latency'))).toBe(true);
+    expect(highlights.some((h) => h.includes('p95') || h.includes('latency'))).toBe(true);
   });
 });

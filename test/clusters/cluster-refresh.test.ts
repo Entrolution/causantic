@@ -2,7 +2,7 @@
  * Tests for cluster refresh and API key handling.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 describe('cluster-refresh', () => {
   const originalEnv = process.env.ANTHROPIC_API_KEY;
@@ -140,14 +140,16 @@ Description: [brief description]`;
 
   describe('response parsing', () => {
     it('extracts name from response', () => {
-      const response = 'Name: Database Optimization\nDescription: Techniques for improving query performance.';
+      const response =
+        'Name: Database Optimization\nDescription: Techniques for improving query performance.';
       const nameMatch = response.match(/Name:\s*(.+?)(?:\n|$)/i);
 
       expect(nameMatch?.[1]?.trim()).toBe('Database Optimization');
     });
 
     it('extracts description from response', () => {
-      const response = 'Name: Database Optimization\nDescription: Techniques for improving query performance.';
+      const response =
+        'Name: Database Optimization\nDescription: Techniques for improving query performance.';
       const descMatch = response.match(/Description:\s*(.+?)(?:\n\n|$)/is);
 
       expect(descMatch?.[1]?.trim()).toBe('Techniques for improving query performance.');

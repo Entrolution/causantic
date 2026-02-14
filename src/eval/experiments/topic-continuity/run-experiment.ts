@@ -11,23 +11,16 @@ import { getAllModelIds } from '../../../models/model-registry.js';
 import { discoverSessions } from '../../corpus-builder.js';
 import { getSessionInfo } from '../../../parser/session-reader.js';
 import type {
-  TurnTransition,
   ClassificationResult,
   ClassifierMetrics,
   ModelResults,
   FeatureAblation,
   ExperimentReport,
-  DatasetStats,
 } from './types.js';
-import {
-  generateTransitionLabels,
-  computeDatasetStats,
-  type SessionSource,
-} from './labeler.js';
+import { generateTransitionLabels, computeDatasetStats, type SessionSource } from './labeler.js';
 import {
   embedTransitions,
   classifyWithEmbeddings,
-  createEmbeddingCache,
   type EmbeddedTransition,
 } from './embedding-classifier.js';
 import {
@@ -98,7 +91,10 @@ function computeRates(
   results: ClassificationResult[],
   threshold: number,
 ): { tpr: number; fpr: number } {
-  let tp = 0, fn = 0, fp = 0, tn = 0;
+  let tp = 0,
+    fn = 0,
+    fp = 0,
+    tn = 0;
 
   for (const r of results) {
     const predicted = r.continuationScore >= threshold ? 'continuation' : 'new_topic';
@@ -123,7 +119,9 @@ function computePRF(
   results: ClassificationResult[],
   threshold: number,
 ): { precision: number; recall: number; f1: number } {
-  let tp = 0, fp = 0, fn = 0;
+  let tp = 0,
+    fp = 0,
+    fn = 0;
 
   for (const r of results) {
     const predicted = r.continuationScore >= threshold ? 'continuation' : 'new_topic';
@@ -260,7 +258,9 @@ export async function runTopicContinuityExperiment(
   const lexicalResults = classifyWithLexicalOnly(validTransitions);
   const lexicalMetrics = computeMetrics(lexicalResults);
   console.log(`  ROC AUC: ${lexicalMetrics.rocAuc.toFixed(3)}`);
-  console.log(`  F1: ${lexicalMetrics.f1.toFixed(3)} @ threshold ${lexicalMetrics.threshold.toFixed(3)}`);
+  console.log(
+    `  F1: ${lexicalMetrics.f1.toFixed(3)} @ threshold ${lexicalMetrics.threshold.toFixed(3)}`,
+  );
 
   // Step 5: Evaluate each model
   const modelResults: ModelResults[] = [];
@@ -293,8 +293,12 @@ export async function runTopicContinuityExperiment(
         hybrid: hybridMetrics,
       });
 
-      console.log(`  Embedding-only: AUC=${embeddingMetrics.rocAuc.toFixed(3)}, F1=${embeddingMetrics.f1.toFixed(3)}`);
-      console.log(`  Hybrid: AUC=${hybridMetrics.rocAuc.toFixed(3)}, F1=${hybridMetrics.f1.toFixed(3)}`);
+      console.log(
+        `  Embedding-only: AUC=${embeddingMetrics.rocAuc.toFixed(3)}, F1=${embeddingMetrics.f1.toFixed(3)}`,
+      );
+      console.log(
+        `  Hybrid: AUC=${hybridMetrics.rocAuc.toFixed(3)}, F1=${hybridMetrics.f1.toFixed(3)}`,
+      );
     } catch (err) {
       console.error(`  Failed: ${err}`);
     }
@@ -320,7 +324,9 @@ export async function runTopicContinuityExperiment(
         deltaRocAuc: ablatedAuc - baselineAuc,
       });
 
-      console.log(`  ${config.name}: AUC=${ablatedAuc.toFixed(3)} (delta=${(ablatedAuc - baselineAuc >= 0 ? '+' : '')}${(ablatedAuc - baselineAuc).toFixed(3)})`);
+      console.log(
+        `  ${config.name}: AUC=${ablatedAuc.toFixed(3)} (delta=${ablatedAuc - baselineAuc >= 0 ? '+' : ''}${(ablatedAuc - baselineAuc).toFixed(3)})`,
+      );
     }
   }
 
@@ -353,9 +359,7 @@ function generateRecommendations(
 
   // Find best model
   if (modelResults.length > 0) {
-    const bestHybrid = modelResults.reduce((a, b) =>
-      b.hybrid.rocAuc > a.hybrid.rocAuc ? b : a,
-    );
+    const bestHybrid = modelResults.reduce((a, b) => (b.hybrid.rocAuc > a.hybrid.rocAuc ? b : a));
     recommendations.push(
       `Best hybrid model: ${bestHybrid.modelId} (AUC=${bestHybrid.hybrid.rocAuc.toFixed(3)})`,
     );
@@ -435,21 +439,13 @@ function printAblationTable(ablation: FeatureAblation[]): void {
   console.log('  FEATURE ABLATION');
   console.log('='.repeat(70));
 
-  const header = [
-    pad('Configuration', 30),
-    pad('ROC AUC', 10),
-    pad('Delta', 10),
-  ];
+  const header = [pad('Configuration', 30), pad('ROC AUC', 10), pad('Delta', 10)];
   console.log(header.join(' | '));
   console.log('-'.repeat(70));
 
   for (const a of ablation) {
     const delta = a.deltaRocAuc >= 0 ? `+${a.deltaRocAuc.toFixed(3)}` : a.deltaRocAuc.toFixed(3);
-    const row = [
-      pad(a.featureName, 30),
-      pad(a.withFeatureRocAuc.toFixed(3), 10),
-      pad(delta, 10),
-    ];
+    const row = [pad(a.featureName, 30), pad(a.withFeatureRocAuc.toFixed(3), 10), pad(delta, 10)];
     console.log(row.join(' | '));
   }
 

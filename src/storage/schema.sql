@@ -14,9 +14,7 @@ CREATE TABLE IF NOT EXISTS chunks (
   tool_use_count INTEGER DEFAULT 0,
   approx_tokens INTEGER DEFAULT 0,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  -- v2: Vector clock support
   agent_id TEXT,               -- Agent that created this chunk (null = main UI agent)
-  vector_clock TEXT,           -- JSON: {"agentId": tick, ...}
   spawn_depth INTEGER DEFAULT 0, -- Nesting level: 0=main, 1=sub-agent, 2=sub-sub-agent
   project_path TEXT              -- Full cwd path for disambiguation
 );
@@ -33,18 +31,16 @@ CREATE TABLE IF NOT EXISTS clusters (
   refreshed_at TEXT             -- When description was last updated
 );
 
--- Edges with decay
+-- Edges (sequential linked-list, forward-only)
 CREATE TABLE IF NOT EXISTS edges (
   id TEXT PRIMARY KEY,
   source_chunk_id TEXT NOT NULL,
   target_chunk_id TEXT NOT NULL,
-  edge_type TEXT NOT NULL,      -- 'backward' or 'forward'
-  reference_type TEXT,          -- 'file-path', 'code-entity', 'brief', 'debrief', etc.
+  edge_type TEXT NOT NULL,      -- 'forward' (direction inferred at query time)
+  reference_type TEXT,          -- 'within-chain', 'cross-session', 'brief', 'debrief'
   initial_weight REAL NOT NULL DEFAULT 1.0,
   created_at TEXT NOT NULL,
-  -- v2: Vector clock support
-  vector_clock TEXT,            -- JSON: {"agentId": tick, ...} for hop-based decay
-  link_count INTEGER DEFAULT 1, -- Number of times this edge was created (for boosting)
+  link_count INTEGER DEFAULT 1,
   FOREIGN KEY (source_chunk_id) REFERENCES chunks(id) ON DELETE CASCADE,
   FOREIGN KEY (target_chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
 );
@@ -67,16 +63,9 @@ CREATE INDEX IF NOT EXISTS idx_chunks_slug_start_time ON chunks(session_slug, st
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_chunk_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_chunk_id);
 CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(edge_type);
+CREATE INDEX IF NOT EXISTS idx_edges_source_type ON edges(source_chunk_id, edge_type);
+CREATE INDEX IF NOT EXISTS idx_edges_target_type ON edges(target_chunk_id, edge_type);
 CREATE INDEX IF NOT EXISTS idx_chunk_clusters_cluster ON chunk_clusters(cluster_id);
-
--- Vector clocks for logical time tracking
-CREATE TABLE IF NOT EXISTS vector_clocks (
-  id TEXT PRIMARY KEY,           -- "project:<slug>" or "agent:<slug>:<agentId>"
-  project_slug TEXT NOT NULL,
-  clock_data TEXT NOT NULL,      -- JSON: {"agentId": tick, ...}
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX IF NOT EXISTS idx_vector_clocks_project ON vector_clocks(project_slug);
 
 -- Ingestion checkpoints for incremental ingestion
 CREATE TABLE IF NOT EXISTS ingestion_checkpoints (
@@ -84,7 +73,6 @@ CREATE TABLE IF NOT EXISTS ingestion_checkpoints (
   project_slug TEXT NOT NULL,
   last_turn_index INTEGER NOT NULL,
   last_chunk_id TEXT,
-  vector_clock TEXT,
   file_mtime TEXT,              -- ISO timestamp of file mtime at last ingest
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -129,5 +117,5 @@ CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks
   INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
 
--- Insert initial version if not exists (v6 adds composite index for session reconstruction)
-INSERT OR IGNORE INTO schema_version (version) VALUES (6);
+-- Insert initial version if not exists (v8 adds chain-walking indices, simplifies edges)
+INSERT OR IGNORE INTO schema_version (version) VALUES (8);

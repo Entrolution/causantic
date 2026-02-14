@@ -210,8 +210,7 @@ describe('claudemd-generator', () => {
   describe('hasMemorySection', () => {
     it('returns true when both markers exist', async () => {
       const claudeMdPath = join(tempDir, 'CLAUDE.md');
-      const content =
-        '# Title\n<!-- MEMORY_START -->\nstuff\n<!-- MEMORY_END -->\n';
+      const content = '# Title\n<!-- MEMORY_START -->\nstuff\n<!-- MEMORY_END -->\n';
       await writeFile(claudeMdPath, content, 'utf-8');
 
       const has = await hasMemorySection(claudeMdPath);

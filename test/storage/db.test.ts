@@ -4,8 +4,6 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3-multiple-ciphers';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 
 // Create an in-memory DB for testing without relying on the singleton
 function createTestDb(): Database.Database {
@@ -104,7 +102,7 @@ describe('database', () => {
 
   describe('schema', () => {
     it('has chunks table with required columns', () => {
-      const columns = db.prepare("PRAGMA table_info(chunks)").all() as { name: string }[];
+      const columns = db.prepare('PRAGMA table_info(chunks)').all() as { name: string }[];
       const names = columns.map((c) => c.name);
 
       expect(names).toContain('id');
@@ -116,7 +114,7 @@ describe('database', () => {
     });
 
     it('has edges table with required columns', () => {
-      const columns = db.prepare("PRAGMA table_info(edges)").all() as { name: string }[];
+      const columns = db.prepare('PRAGMA table_info(edges)').all() as { name: string }[];
       const names = columns.map((c) => c.name);
 
       expect(names).toContain('id');
@@ -128,7 +126,7 @@ describe('database', () => {
     });
 
     it('has clusters table', () => {
-      const columns = db.prepare("PRAGMA table_info(clusters)").all() as { name: string }[];
+      const columns = db.prepare('PRAGMA table_info(clusters)').all() as { name: string }[];
       const names = columns.map((c) => c.name);
 
       expect(names).toContain('id');
@@ -137,7 +135,7 @@ describe('database', () => {
     });
 
     it('has chunk_clusters join table', () => {
-      const columns = db.prepare("PRAGMA table_info(chunk_clusters)").all() as { name: string }[];
+      const columns = db.prepare('PRAGMA table_info(chunk_clusters)').all() as { name: string }[];
       const names = columns.map((c) => c.name);
 
       expect(names).toContain('chunk_id');
@@ -146,7 +144,7 @@ describe('database', () => {
     });
 
     it('has vector_clocks table', () => {
-      const columns = db.prepare("PRAGMA table_info(vector_clocks)").all() as { name: string }[];
+      const columns = db.prepare('PRAGMA table_info(vector_clocks)').all() as { name: string }[];
       const names = columns.map((c) => c.name);
 
       expect(names).toContain('id');
@@ -155,12 +153,14 @@ describe('database', () => {
     });
 
     it('has schema version 4', () => {
-      const row = db.prepare('SELECT MAX(version) as version FROM schema_version').get() as { version: number };
+      const row = db.prepare('SELECT MAX(version) as version FROM schema_version').get() as {
+        version: number;
+      };
       expect(row.version).toBe(4);
     });
 
     it('has project_path column on chunks', () => {
-      const columns = db.prepare("PRAGMA table_info(chunks)").all() as { name: string }[];
+      const columns = db.prepare('PRAGMA table_info(chunks)').all() as { name: string }[];
       const names = columns.map((c) => c.name);
       expect(names).toContain('project_path');
     });
@@ -168,7 +168,7 @@ describe('database', () => {
 
   describe('indexes', () => {
     it('has chunks indexes', () => {
-      const indexes = db.prepare("PRAGMA index_list(chunks)").all() as { name: string }[];
+      const indexes = db.prepare('PRAGMA index_list(chunks)').all() as { name: string }[];
       const names = indexes.map((i) => i.name);
 
       expect(names).toContain('idx_chunks_session');
@@ -177,12 +177,12 @@ describe('database', () => {
     });
 
     it('has edges indexes', () => {
-      const indexes = db.prepare("PRAGMA index_list(edges)").all() as { name: string }[];
+      const indexes = db.prepare('PRAGMA index_list(edges)').all() as { name: string }[];
       const names = indexes.map((i) => i.name);
 
       // SQLite also creates an automatic index for the unique constraint
-      expect(names.some(n => n.includes('edges_source') || n === 'idx_edges_source')).toBe(true);
-      expect(names.some(n => n.includes('edges_target') || n === 'idx_edges_target')).toBe(true);
+      expect(names.some((n) => n.includes('edges_source') || n === 'idx_edges_source')).toBe(true);
+      expect(names.some((n) => n.includes('edges_target') || n === 'idx_edges_target')).toBe(true);
     });
   });
 
@@ -194,22 +194,28 @@ describe('database', () => {
 
     it('cascades chunk deletion to edges', () => {
       // Insert a chunk
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content)
         VALUES ('chunk1', 'sess1', 'test-project', '[]', '2024-01-01', '2024-01-01', 'content')
-      `).run();
+      `,
+      ).run();
 
       // Insert another chunk
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content)
         VALUES ('chunk2', 'sess1', 'test-project', '[]', '2024-01-01', '2024-01-01', 'content2')
-      `).run();
+      `,
+      ).run();
 
       // Insert an edge
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO edges (id, source_chunk_id, target_chunk_id, edge_type, initial_weight, created_at)
         VALUES ('edge1', 'chunk1', 'chunk2', 'forward', 1.0, datetime('now'))
-      `).run();
+      `,
+      ).run();
 
       // Verify edge exists
       const edgeBefore = db.prepare('SELECT * FROM edges WHERE id = ?').get('edge1');
@@ -225,32 +231,42 @@ describe('database', () => {
 
     it('cascades chunk deletion to cluster assignments', () => {
       // Insert a chunk
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content)
         VALUES ('chunk1', 'sess1', 'test-project', '[]', '2024-01-01', '2024-01-01', 'content')
-      `).run();
+      `,
+      ).run();
 
       // Insert a cluster
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO clusters (id, name)
         VALUES ('cluster1', 'Test Cluster')
-      `).run();
+      `,
+      ).run();
 
       // Assign chunk to cluster
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO chunk_clusters (chunk_id, cluster_id, distance)
         VALUES ('chunk1', 'cluster1', 0.5)
-      `).run();
+      `,
+      ).run();
 
       // Verify assignment exists
-      const assignmentBefore = db.prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ?').get('chunk1');
+      const assignmentBefore = db
+        .prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ?')
+        .get('chunk1');
       expect(assignmentBefore).toBeDefined();
 
       // Delete chunk
       db.prepare('DELETE FROM chunks WHERE id = ?').run('chunk1');
 
       // Assignment should be deleted
-      const assignmentAfter = db.prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ?').get('chunk1');
+      const assignmentAfter = db
+        .prepare('SELECT * FROM chunk_clusters WHERE chunk_id = ?')
+        .get('chunk1');
       expect(assignmentAfter).toBeUndefined();
     });
   });
@@ -258,47 +274,61 @@ describe('database', () => {
   describe('constraints', () => {
     it('enforces unique edge constraint', () => {
       // Insert chunks
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content)
         VALUES ('chunk1', 'sess1', 'test-project', '[]', '2024-01-01', '2024-01-01', 'content')
-      `).run();
-      db.prepare(`
+      `,
+      ).run();
+      db.prepare(
+        `
         INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content)
         VALUES ('chunk2', 'sess1', 'test-project', '[]', '2024-01-01', '2024-01-01', 'content2')
-      `).run();
+      `,
+      ).run();
 
       // Insert first edge
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO edges (id, source_chunk_id, target_chunk_id, edge_type, initial_weight, created_at)
         VALUES ('edge1', 'chunk1', 'chunk2', 'forward', 1.0, datetime('now'))
-      `).run();
+      `,
+      ).run();
 
       // Attempt to insert duplicate should fail
       expect(() => {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO edges (id, source_chunk_id, target_chunk_id, edge_type, initial_weight, created_at)
           VALUES ('edge2', 'chunk1', 'chunk2', 'forward', 1.0, datetime('now'))
-        `).run();
+        `,
+        ).run();
       }).toThrow(/UNIQUE constraint failed/);
     });
 
     it('enforces edge type check constraint', () => {
       // Insert chunks
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content)
         VALUES ('chunk1', 'sess1', 'test-project', '[]', '2024-01-01', '2024-01-01', 'content')
-      `).run();
-      db.prepare(`
+      `,
+      ).run();
+      db.prepare(
+        `
         INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content)
         VALUES ('chunk2', 'sess1', 'test-project', '[]', '2024-01-01', '2024-01-01', 'content2')
-      `).run();
+      `,
+      ).run();
 
       // Attempt to insert invalid edge type
       expect(() => {
-        db.prepare(`
+        db.prepare(
+          `
           INSERT INTO edges (id, source_chunk_id, target_chunk_id, edge_type, initial_weight, created_at)
           VALUES ('edge1', 'chunk1', 'chunk2', 'invalid', 1.0, datetime('now'))
-        `).run();
+        `,
+        ).run();
       }).toThrow(/CHECK constraint failed/);
     });
   });

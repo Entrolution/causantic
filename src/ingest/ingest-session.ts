@@ -1,7 +1,7 @@
 /**
  * Session ingestion orchestrator.
  * Parses, chunks, embeds, and stores a single session.
- * Supports sub-agent discovery, vector clock tracking, and performance optimizations:
+ * Supports sub-agent discovery and performance optimizations:
  * - True batch embedding for faster inference
  * - Content-hash caching to skip unchanged content
  * - Incremental ingestion via checkpoints
@@ -19,22 +19,16 @@ import {
   type SubAgentInfo,
 } from '../parser/session-reader.js';
 import { assembleTurns, assembleTurnsFromStream } from '../parser/turn-assembler.js';
-import {
-  chunkTurns,
-  chunkTurnsWithClock,
-  resetChunkCounter,
-  type ChunkWithClock,
-  type ChunkMetadataWithClock,
-} from '../parser/chunker.js';
+import { chunkTurns } from '../parser/chunker.js';
 import { Embedder } from '../models/embedder.js';
 import { getModel } from '../models/model-registry.js';
 import { insertChunks, isSessionIngested } from '../storage/chunk-store.js';
 import { vectorStore } from '../storage/vector-store.js';
-import { detectTransitions } from './edge-detector.js';
+import { detectCausalTransitions } from './edge-detector.js';
 import {
   createEdgesFromTransitions,
-  createBriefEdges,
-  createDebriefEdges,
+  createBriefEdge,
+  createDebriefEdge,
 } from './edge-creator.js';
 import { linkCrossSession } from './cross-session-linker.js';
 import {
@@ -42,21 +36,7 @@ import {
   detectDebriefPoints,
   buildChunkIdsByTurn,
 } from './brief-debrief-detector.js';
-import {
-  getAgentClock,
-  updateAgentClock,
-  getReferenceClock,
-} from '../storage/clock-store.js';
-import {
-  type VectorClock,
-  merge,
-  MAIN_AGENT_ID,
-} from '../temporal/vector-clock.js';
-import {
-  getCheckpoint,
-  saveCheckpoint,
-  type IngestionCheckpoint,
-} from '../storage/checkpoint-store.js';
+import { getCheckpoint, saveCheckpoint } from '../storage/checkpoint-store.js';
 import {
   computeContentHash,
   getCachedEmbeddingsBatch,
@@ -86,8 +66,6 @@ export interface IngestOptions {
   embedder?: Embedder;
   /** Process sub-agents. Default: true. */
   processSubAgents?: boolean;
-  /** Use vector clocks. Default: true. */
-  useVectorClocks?: boolean;
   /** Use incremental ingestion (resume from checkpoints). Default: true. */
   useIncrementalIngestion?: boolean;
   /** Use embedding cache. Default: true. */
@@ -131,7 +109,7 @@ export interface IngestResult {
  */
 export async function ingestSession(
   sessionPath: string,
-  options: IngestOptions = {}
+  options: IngestOptions = {},
 ): Promise<IngestResult> {
   const startTime = Date.now();
 
@@ -142,7 +120,6 @@ export async function ingestSession(
     skipIfExists = true,
     linkCrossSessions = true,
     processSubAgents = true,
-    useVectorClocks = true,
     useIncrementalIngestion = true,
     useEmbeddingCache = true,
     embeddingDevice,
@@ -202,10 +179,16 @@ export async function ingestSession(
   // Include noise (progress messages) to get agent_progress for brief/debrief detection
   let turns: Turn[];
   if (useStreaming) {
-    const messageStream = streamSessionMessages(sessionPath, { includeSidechains: false, includeNoise: true });
+    const messageStream = streamSessionMessages(sessionPath, {
+      includeSidechains: false,
+      includeNoise: true,
+    });
     turns = await assembleTurnsFromStream(messageStream);
   } else {
-    const messages = await readSessionMessages(sessionPath, { includeSidechains: false, includeNoise: true });
+    const messages = await readSessionMessages(sessionPath, {
+      includeSidechains: false,
+      includeNoise: true,
+    });
     turns = assembleTurns(messages);
   }
 
@@ -258,19 +241,11 @@ export async function ingestSession(
       await embedder.load(getModel(embeddingModel), { device: embeddingDevice });
     }
 
-    // Get initial clock state for this project
-    // Resume from checkpoint clock if available
-    let mainClock = useVectorClocks
-      ? (checkpoint?.vectorClock
-          ? JSON.parse(checkpoint.vectorClock)
-          : getAgentClock(projectSlug, MAIN_AGENT_ID))
-      : {};
-
     // Track all chunks and sub-agent data
     let totalChunkCount = 0;
     let totalEdgeCount = 0;
     let subAgentEdges = 0;
-    const subAgentData = new Map<string, { turns: Turn[]; chunks: ChunkWithClock[] }>();
+    const subAgentData = new Map<string, { turns: Turn[]; chunks: Chunk[] }>();
 
     // 1. Discover and process sub-agents first (if enabled)
     let subAgentInfos: SubAgentInfo[] = [];
@@ -278,49 +253,34 @@ export async function ingestSession(
       subAgentInfos = await discoverSubAgents(sessionPath);
 
       for (const subAgent of subAgentInfos) {
-        // Initialize sub-agent clock by merging parent context
-        let subClock = useVectorClocks
-          ? merge(getAgentClock(projectSlug, MAIN_AGENT_ID), { [subAgent.agentId]: 0 })
-          : {};
-
         // Parse sub-agent session
-        const subMessages = await readSessionMessages(subAgent.filePath, { includeSidechains: true });
+        const subMessages = await readSessionMessages(subAgent.filePath, {
+          includeSidechains: true,
+        });
         const subTurns = assembleTurns(subMessages);
 
         if (subTurns.length === 0) continue;
 
-        // Chunk with clock tracking
-        const subChunks = useVectorClocks
-          ? chunkTurnsWithClock(subTurns, {
-              maxTokens: maxTokensPerChunk,
-              includeThinking,
-              sessionId: info.sessionId,
-              sessionSlug: projectSlug,
-              agentId: subAgent.agentId,
-              initialClock: subClock,
-              onTick: (c) => { subClock = c; },
-              spawnDepth: 1,
-            })
-          : chunkTurns(subTurns, {
-              maxTokens: maxTokensPerChunk,
-              includeThinking,
-              sessionId: info.sessionId,
-              sessionSlug: projectSlug,
-            }).map(c => c as ChunkWithClock);
+        // Chunk sub-agent turns
+        const subChunks = chunkTurns(subTurns, {
+          maxTokens: maxTokensPerChunk,
+          includeThinking,
+          sessionId: info.sessionId,
+          sessionSlug: projectSlug,
+        });
 
         if (subChunks.length === 0) continue;
 
         // Store sub-agent chunks
-        const subChunkInputs = subChunks.map((chunk) => ({ ...chunkWithClockToInput(chunk), projectPath }));
+        const subChunkInputs = subChunks.map((chunk) => ({ ...chunkToInput(chunk), projectPath }));
         const subChunkIds = insertChunks(subChunkInputs);
 
         // Embed with caching and true batch embedding
-        const { embeddings: subEmbeddings, cacheHits, cacheMisses } = await embedChunksWithCache(
-          subChunks,
-          embedAllFn,
-          embeddingModel,
-          useEmbeddingCache
-        );
+        const {
+          embeddings: subEmbeddings,
+          cacheHits,
+          cacheMisses,
+        } = await embedChunksWithCache(subChunks, embedAllFn, embeddingModel, useEmbeddingCache);
         totalCacheHits += cacheHits;
         totalCacheMisses += cacheMisses;
 
@@ -328,24 +288,15 @@ export async function ingestSession(
           subChunkIds.map((id, i) => ({
             id,
             embedding: subEmbeddings[i],
-          }))
+          })),
         );
 
         // Create intra-agent edges
-        const subTransitions = detectTransitions(subChunks);
-        const subEdgeResult = await createEdgesFromTransitions(
-          subTransitions,
-          subChunkIds,
-          { vectorClock: subClock, useBoostMode: true }
-        );
+        const subTransitions = detectCausalTransitions(subChunks);
+        const subEdgeResult = await createEdgesFromTransitions(subTransitions, subChunkIds);
 
         totalChunkCount += subChunkIds.length;
         totalEdgeCount += subEdgeResult.totalCount;
-
-        // Update sub-agent clock
-        if (useVectorClocks) {
-          updateAgentClock(projectSlug, subAgent.agentId, subClock);
-        }
 
         // Store for brief/debrief detection
         subAgentData.set(subAgent.agentId, {
@@ -355,24 +306,13 @@ export async function ingestSession(
       }
     }
 
-    // 2. Chunk main session with clock tracking (only new turns)
-    const mainChunks = useVectorClocks
-      ? chunkTurnsWithClock(turnsToProcess, {
-          maxTokens: maxTokensPerChunk,
-          includeThinking,
-          sessionId: info.sessionId,
-          sessionSlug: projectSlug,
-          agentId: MAIN_AGENT_ID,
-          initialClock: mainClock,
-          onTick: (c) => { mainClock = c; },
-          spawnDepth: 0,
-        })
-      : chunkTurns(turnsToProcess, {
-          maxTokens: maxTokensPerChunk,
-          includeThinking,
-          sessionId: info.sessionId,
-          sessionSlug: projectSlug,
-        }).map(c => c as ChunkWithClock);
+    // 2. Chunk main session (only new turns)
+    const mainChunks = chunkTurns(turnsToProcess, {
+      maxTokens: maxTokensPerChunk,
+      includeThinking,
+      sessionId: info.sessionId,
+      sessionSlug: projectSlug,
+    });
 
     if (mainChunks.length === 0) {
       return {
@@ -391,16 +331,15 @@ export async function ingestSession(
     }
 
     // Store main chunks
-    const mainChunkInputs = mainChunks.map((chunk) => ({ ...chunkWithClockToInput(chunk), projectPath }));
+    const mainChunkInputs = mainChunks.map((chunk) => ({ ...chunkToInput(chunk), projectPath }));
     const mainChunkIds = insertChunks(mainChunkInputs);
 
     // Embed with caching and true batch embedding
-    const { embeddings: mainEmbeddings, cacheHits, cacheMisses } = await embedChunksWithCache(
-      mainChunks,
-      embedAllFn,
-      embeddingModel,
-      useEmbeddingCache
-    );
+    const {
+      embeddings: mainEmbeddings,
+      cacheHits,
+      cacheMisses,
+    } = await embedChunksWithCache(mainChunks, embedAllFn, embeddingModel, useEmbeddingCache);
     totalCacheHits += cacheHits;
     totalCacheMisses += cacheMisses;
 
@@ -408,21 +347,12 @@ export async function ingestSession(
       mainChunkIds.map((id, i) => ({
         id,
         embedding: mainEmbeddings[i],
-      }))
+      })),
     );
 
-    // Update main clock
-    if (useVectorClocks) {
-      updateAgentClock(projectSlug, MAIN_AGENT_ID, mainClock);
-    }
-
-    // Create main intra-session edges
-    const mainTransitions = detectTransitions(mainChunks);
-    const mainEdgeResult = await createEdgesFromTransitions(
-      mainTransitions,
-      mainChunkIds,
-      { vectorClock: mainClock, useBoostMode: true }
-    );
+    // Create main intra-session edges (sequential linked-list)
+    const mainTransitions = detectCausalTransitions(mainChunks);
+    const mainEdgeResult = await createEdgesFromTransitions(mainTransitions, mainChunkIds);
 
     totalChunkCount += mainChunkIds.length;
     totalEdgeCount += mainEdgeResult.totalCount;
@@ -431,47 +361,42 @@ export async function ingestSession(
     if (processSubAgents && subAgentData.size > 0) {
       // Build chunk ID lookup by turn
       const chunkIdsByTurn = buildChunkIdsByTurn(
-        mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] }))
+        mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] })),
       );
 
       // Detect brief points (spawns)
-      const briefPoints = detectBriefPoints(turnsToProcess, chunkIdsByTurn, mainClock, 0);
+      const briefPoints = detectBriefPoints(turnsToProcess, chunkIdsByTurn, undefined, 0);
 
-      // Create brief edges
+      // Create brief edges (single: last parent chunk → first sub-agent chunk)
       for (const brief of briefPoints) {
         const subData = subAgentData.get(brief.agentId);
         if (subData && subData.chunks.length > 0) {
-          await createBriefEdges(
-            brief.parentChunkId,
-            subData.chunks[0].id,
-            brief.clock,
-            brief.spawnDepth
-          );
-          subAgentEdges += 2; // backward + forward
+          const lastParentChunkId = brief.parentChunkIds[brief.parentChunkIds.length - 1];
+          const firstSubAgentChunkId = subData.chunks[0].id;
+
+          await createBriefEdge(lastParentChunkId, firstSubAgentChunkId);
+          subAgentEdges += 1;
         }
       }
 
       // Detect debrief points (returns)
       const debriefPoints = detectDebriefPoints(
         turnsToProcess,
-        new Map(
-          Array.from(subAgentData.entries()).map(([k, v]) => [k, v.chunks])
-        ),
+        new Map(Array.from(subAgentData.entries()).map(([k, v]) => [k, v.chunks])),
         mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] })),
         chunkIdsByTurn,
-        mainClock,
-        1
+        undefined,
+        1,
       );
 
-      // Create debrief edges
+      // Create debrief edges (single: last sub-agent chunk → first parent chunk after return)
       for (const debrief of debriefPoints) {
-        await createDebriefEdges(
-          debrief.agentFinalChunkIds,
-          debrief.parentChunkId,
-          debrief.clock,
-          debrief.spawnDepth
-        );
-        subAgentEdges += debrief.agentFinalChunkIds.length * 2; // backward + forward per chunk
+        const lastAgentChunkId =
+          debrief.agentFinalChunkIds[debrief.agentFinalChunkIds.length - 1];
+        const firstParentChunkId = debrief.parentChunkIds[0];
+
+        await createDebriefEdge(lastAgentChunkId, firstParentChunkId);
+        subAgentEdges += 1;
       }
     }
 
@@ -482,7 +407,6 @@ export async function ingestSession(
         projectSlug,
         lastTurnIndex: startTurnIndex + turnsToProcess.length - 1,
         lastChunkId: mainChunkIds[mainChunkIds.length - 1],
-        vectorClock: JSON.stringify(mainClock),
         fileMtime,
       });
     }
@@ -525,16 +449,16 @@ export async function ingestSession(
  * returned instantly from SQLite without any inference.
  */
 async function embedChunksWithCache(
-  chunks: ChunkWithClock[],
+  chunks: Chunk[],
   embedAllFn: (texts: string[]) => Promise<number[][]>,
   modelId: string,
-  useCache: boolean
+  useCache: boolean,
 ): Promise<{ embeddings: number[][]; cacheHits: number; cacheMisses: number }> {
   if (chunks.length === 0) {
     return { embeddings: [], cacheHits: 0, cacheMisses: 0 };
   }
 
-  const texts = chunks.map(c => c.text);
+  const texts = chunks.map((c) => c.text);
   const embeddings: number[][] = new Array(chunks.length);
 
   if (!useCache) {
@@ -546,7 +470,7 @@ async function embedChunksWithCache(
   }
 
   // Compute content hashes for all chunks
-  const contentHashes = texts.map(t => computeContentHash(t));
+  const contentHashes = texts.map((t) => computeContentHash(t));
 
   // Check cache for existing embeddings
   const cachedEmbeddings = getCachedEmbeddingsBatch(contentHashes, modelId);
@@ -604,27 +528,5 @@ export function chunkToInput(chunk: Chunk): ChunkInput {
     codeBlockCount: chunk.metadata.codeBlockCount,
     toolUseCount: chunk.metadata.toolUseCount,
     approxTokens: chunk.metadata.approxTokens,
-  };
-}
-
-/**
- * Convert parser ChunkWithClock to storage ChunkInput.
- */
-export function chunkWithClockToInput(chunk: ChunkWithClock): ChunkInput {
-  const meta = chunk.metadata as ChunkMetadataWithClock;
-  return {
-    id: chunk.id,
-    sessionId: meta.sessionId,
-    sessionSlug: meta.sessionSlug,
-    turnIndices: meta.turnIndices,
-    startTime: meta.startTime,
-    endTime: meta.endTime,
-    content: chunk.text,
-    codeBlockCount: meta.codeBlockCount,
-    toolUseCount: meta.toolUseCount,
-    approxTokens: meta.approxTokens,
-    agentId: meta.agentId,
-    vectorClock: meta.vectorClock,
-    spawnDepth: meta.spawnDepth,
   };
 }

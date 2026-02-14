@@ -73,7 +73,7 @@ async function runBenchmarks() {
         return h.fit(embeddings);
       });
       nativeParallel = { ms: result.ms, numClusters: result.value.numClusters };
-    } catch (e) {
+    } catch (_e) {
       nativeParallel = { ms: 'error' };
     }
 
@@ -85,7 +85,7 @@ async function runBenchmarks() {
         return h.fit(embeddings);
       });
       nativeSingle = { ms: result.ms, numClusters: result.value.numClusters };
-    } catch (e) {
+    } catch (_e) {
       nativeSingle = { ms: 'error' };
     }
 
@@ -100,7 +100,7 @@ async function runBenchmarks() {
         const labels = result.value as number[];
         const numClusters = new Set(labels.filter((l: number) => l >= 0)).size;
         oldLib = { ms: result.ms, numClusters };
-      } catch (e) {
+      } catch (_e) {
         oldLib = { ms: 'error' };
       }
     } else {
@@ -163,7 +163,7 @@ async function runBenchmarks() {
     const oldClusters = new Set(oldLabels.filter((l: number) => l >= 0)).size;
     const oldNoise = oldLabels.filter((l: number) => l < 0).length;
     console.log(`hdbscan-ts clusters: ${oldClusters}, noise: ${oldNoise}`);
-  } catch (e) {
+  } catch (_e) {
     console.log('hdbscan-ts: error');
   }
 }

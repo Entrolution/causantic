@@ -5,10 +5,7 @@
  * This surfaces topically related chunks that neither vector nor keyword search found.
  */
 
-import {
-  getChunkClusterAssignments,
-  getClusterChunkIds,
-} from '../storage/cluster-store.js';
+import { getChunkClusterAssignments, getClusterChunkIds } from '../storage/cluster-store.js';
 import { vectorStore } from '../storage/vector-store.js';
 import type { RankedItem } from './rrf.js';
 
@@ -46,7 +43,7 @@ export function expandViaClusters(
 ): RankedItem[] {
   if (hits.length === 0) return [];
 
-  const existingIds = new Set(hits.map(h => h.chunkId));
+  const existingIds = new Set(hits.map((h) => h.chunkId));
   const siblingItems: RankedItem[] = [];
 
   // Build project filter set
@@ -88,7 +85,9 @@ export function expandViaClusters(
 
         // Look up this sibling's distance in the cluster for scoring
         const siblingAssignments = getChunkClusterAssignments(siblingId);
-        const siblingAssignment = siblingAssignments.find(a => a.clusterId === assignment.clusterId);
+        const siblingAssignment = siblingAssignments.find(
+          (a) => a.clusterId === assignment.clusterId,
+        );
         const distance = siblingAssignment?.distance ?? 0.5;
 
         // Score: best hit score * boost * (1 - distance)

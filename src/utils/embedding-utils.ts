@@ -29,7 +29,7 @@ export function deserializeEmbedding(buffer: Buffer): number[] {
   const float32 = new Float32Array(
     buffer.buffer,
     buffer.byteOffset,
-    buffer.length / Float32Array.BYTES_PER_ELEMENT
+    buffer.length / Float32Array.BYTES_PER_ELEMENT,
   );
   return Array.from(float32);
 }

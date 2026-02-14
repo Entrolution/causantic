@@ -34,7 +34,7 @@ describe('keyword-store', () => {
 
       expect(results.length).toBeGreaterThanOrEqual(2);
       // Both authentication chunks should be returned
-      const ids = results.map(r => r.id);
+      const ids = results.map((r) => r.id);
       expect(ids).toContain('c1');
       expect(ids).toContain('c3');
       // Scores should be positive (negated BM25)
@@ -75,7 +75,7 @@ describe('keyword-store', () => {
       const results = store.search('user authentication', 10);
       expect(results.length).toBeGreaterThan(0);
 
-      const ids = results.map(r => r.id);
+      const ids = results.map((r) => r.id);
       expect(ids).toContain('c1');
     });
 
@@ -116,7 +116,7 @@ describe('keyword-store', () => {
 
       const results = store.searchByProject('authentication', 'project-a', 10);
 
-      const ids = results.map(r => r.id);
+      const ids = results.map((r) => r.id);
       expect(ids).toContain('c1');
       expect(ids).toContain('c3');
       expect(ids).not.toContain('c2');
@@ -129,7 +129,7 @@ describe('keyword-store', () => {
 
       const results = store.searchByProject('authentication', ['project-a', 'project-b'], 10);
 
-      const ids = results.map(r => r.id);
+      const ids = results.map((r) => r.id);
       expect(ids).toContain('c1');
       expect(ids).toContain('c2');
       expect(ids).not.toContain('c3');

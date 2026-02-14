@@ -52,8 +52,10 @@ export function fuseRRF(sources: RRFSource[], k: number = DEFAULT_K): RankedItem
   // Convert to array and sort by fused score descending
   const results: RankedItem[] = [];
   for (const [chunkId, { score, sources }] of scoreMap) {
-    // Pick the first source as the primary one (vector > keyword > cluster > graph)
-    const priority = ['vector', 'keyword', 'cluster', 'graph'];
+    // Credit the most informative source (graph > cluster > keyword > vector).
+    // Vector is the baseline — rarer sources that also found this chunk
+    // represent added value from the graph/keyword/cluster pipeline stages.
+    const priority = ['graph', 'cluster', 'keyword', 'vector'];
     let bestSource: RankedItem['source'] = undefined;
     for (const p of priority) {
       if (sources.has(p)) {

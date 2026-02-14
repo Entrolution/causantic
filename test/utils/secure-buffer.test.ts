@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { SecureBuffer, withSecureBuffer, withSecureBufferSync } from '../../src/utils/secure-buffer.js';
+import {
+  SecureBuffer,
+  withSecureBuffer,
+  withSecureBufferSync,
+} from '../../src/utils/secure-buffer.js';
 
 describe('SecureBuffer', () => {
   it('creates from string', () => {

@@ -3,8 +3,6 @@ import { getChunkById } from '../src/storage/chunk-store.js';
 import { getOutgoingEdges } from '../src/storage/edge-store.js';
 import { Embedder } from '../src/models/embedder.js';
 import { getModel } from '../src/models/model-registry.js';
-import { getReferenceClock } from '../src/storage/clock-store.js';
-import { hopCount, deserialize } from '../src/temporal/vector-clock.js';
 import { closeDb } from '../src/storage/db.js';
 
 async function debug() {
@@ -32,23 +30,17 @@ async function debug() {
     console.log('  Backward edges: ' + backEdges.length);
     console.log('  Forward edges: ' + fwdEdges.length);
     
-    if (chunk && (backEdges.length > 0 || fwdEdges.length > 0)) {
-      const refClock = getReferenceClock(chunk.sessionSlug);
-      
+    if (backEdges.length > 0 || fwdEdges.length > 0) {
       for (const e of backEdges) {
         allTargets.add(e.targetChunkId);
-        const edgeClock = e.vectorClock ? deserialize(e.vectorClock) : {};
-        const hops = hopCount(edgeClock, refClock);
         const inVector = vectorIds.has(e.targetChunkId) ? ' (OVERLAP)' : '';
-        console.log('    BACK -> ' + e.targetChunkId.slice(-20) + ' hops=' + hops + ' w=' + e.initialWeight.toFixed(2) + inVector);
+        console.log('    BACK -> ' + e.targetChunkId.slice(-20) + ' w=' + e.initialWeight.toFixed(2) + ' links=' + e.linkCount + inVector);
       }
-      
+
       for (const e of fwdEdges) {
         allTargets.add(e.targetChunkId);
-        const edgeClock = e.vectorClock ? deserialize(e.vectorClock) : {};
-        const hops = hopCount(edgeClock, refClock);
         const inVector = vectorIds.has(e.targetChunkId) ? ' (OVERLAP)' : '';
-        console.log('    FWD  -> ' + e.targetChunkId.slice(-20) + ' hops=' + hops + ' w=' + e.initialWeight.toFixed(2) + inVector);
+        console.log('    FWD  -> ' + e.targetChunkId.slice(-20) + ' w=' + e.initialWeight.toFixed(2) + ' links=' + e.linkCount + inVector);
       }
     }
     console.log('');

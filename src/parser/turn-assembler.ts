@@ -10,7 +10,6 @@ import type {
   ContentBlock,
   RawMessage,
   TextBlock,
-  ThinkingBlock,
   ToolExchange,
   ToolResultBlock,
   ToolUseBlock,
@@ -137,7 +136,6 @@ export function assembleTurns(messages: RawMessage[]): Turn[] {
     if (currentGroup.length === 0) return;
 
     const firstMsg = currentGroup[0];
-    const lastMsg = currentGroup[currentGroup.length - 1];
 
     const allAssistantBlocks: ContentBlock[] = [];
     for (const msg of currentGroup) {
@@ -146,9 +144,7 @@ export function assembleTurns(messages: RawMessage[]): Turn[] {
       }
     }
 
-    const hasThinking = allAssistantBlocks.some(
-      (b) => b.type === 'thinking',
-    );
+    const hasThinking = allAssistantBlocks.some((b) => b.type === 'thinking');
 
     turns.push({
       index,

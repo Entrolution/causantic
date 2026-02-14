@@ -4,7 +4,6 @@
 
 import { getDb, generateId } from './db.js';
 import type { StoredChunk, ChunkInput } from './types.js';
-import { serialize, deserialize } from '../temporal/vector-clock.js';
 
 /**
  * Insert a single chunk.
@@ -17,8 +16,8 @@ export function insertChunk(chunk: ChunkInput): string {
     INSERT INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, vector_clock, spawn_depth, project_path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, spawn_depth, project_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -33,9 +32,8 @@ export function insertChunk(chunk: ChunkInput): string {
     chunk.toolUseCount,
     chunk.approxTokens,
     chunk.agentId ?? null,
-    chunk.vectorClock ? serialize(chunk.vectorClock) : null,
     chunk.spawnDepth ?? 0,
-    chunk.projectPath ?? null
+    chunk.projectPath ?? null,
   );
 
   invalidateProjectsCache();
@@ -54,8 +52,8 @@ export function insertChunks(chunks: ChunkInput[]): string[] {
     INSERT INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, vector_clock, spawn_depth, project_path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, spawn_depth, project_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertMany = db.transaction((chunks: ChunkInput[]) => {
@@ -73,9 +71,8 @@ export function insertChunks(chunks: ChunkInput[]): string[] {
         chunk.toolUseCount,
         chunk.approxTokens,
         chunk.agentId ?? null,
-        chunk.vectorClock ? serialize(chunk.vectorClock) : null,
         chunk.spawnDepth ?? 0,
-        chunk.projectPath ?? null
+        chunk.projectPath ?? null,
       );
       ids.push(id);
     }
@@ -110,7 +107,9 @@ export function getChunksByIds(ids: string[]): StoredChunk[] {
 
   const db = getDb();
   const placeholders = ids.map(() => '?').join(',');
-  const rows = db.prepare(`SELECT * FROM chunks WHERE id IN (${placeholders})`).all(...ids) as DbChunkRow[];
+  const rows = db
+    .prepare(`SELECT * FROM chunks WHERE id IN (${placeholders})`)
+    .all(...ids) as DbChunkRow[];
 
   return rows.map(rowToChunk);
 }
@@ -161,7 +160,7 @@ export function getChunksByCluster(clusterId: string): StoredChunk[] {
     JOIN chunk_clusters cc ON c.id = cc.chunk_id
     WHERE cc.cluster_id = ?
     ORDER BY cc.distance
-  `
+  `,
     )
     .all(clusterId) as DbChunkRow[];
 
@@ -173,9 +172,9 @@ export function getChunksByCluster(clusterId: string): StoredChunk[] {
  */
 export function isSessionIngested(sessionId: string): boolean {
   const db = getDb();
-  const row = db
-    .prepare('SELECT 1 FROM chunks WHERE session_id = ? LIMIT 1')
-    .get(sessionId) as { 1: number } | undefined;
+  const row = db.prepare('SELECT 1 FROM chunks WHERE session_id = ? LIMIT 1').get(sessionId) as
+    | { 1: number }
+    | undefined;
 
   return row !== undefined;
 }
@@ -208,7 +207,9 @@ export function deleteChunks(ids: string[]): number {
  */
 export function getSessionIds(): string[] {
   const db = getDb();
-  const rows = db.prepare('SELECT DISTINCT session_id FROM chunks').all() as { session_id: string }[];
+  const rows = db.prepare('SELECT DISTINCT session_id FROM chunks').all() as {
+    session_id: string;
+  }[];
   return rows.map((r) => r.session_id);
 }
 
@@ -226,9 +227,9 @@ export function getChunkCount(): number {
  */
 export function getChunkIdsByProject(projectSlug: string): string[] {
   const db = getDb();
-  const rows = db
-    .prepare('SELECT id FROM chunks WHERE session_slug = ?')
-    .all(projectSlug) as { id: string }[];
+  const rows = db.prepare('SELECT id FROM chunks WHERE session_slug = ?').all(projectSlug) as {
+    id: string;
+  }[];
   return rows.map((r) => r.id);
 }
 
@@ -260,7 +261,9 @@ export function getDistinctProjects(): ProjectInfo[] {
   if (cachedProjects) return cachedProjects;
 
   const db = getDb();
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT
       session_slug AS slug,
       COUNT(*) AS chunkCount,
@@ -270,7 +273,9 @@ export function getDistinctProjects(): ProjectInfo[] {
     WHERE session_slug != ''
     GROUP BY session_slug
     ORDER BY lastSeen DESC
-  `).all() as Array<{
+  `,
+    )
+    .all() as Array<{
     slug: string;
     chunkCount: number;
     firstSeen: string;
@@ -308,7 +313,7 @@ export function getChunksByTimeRange(
   project: string,
   from: string,
   to: string,
-  opts?: TimeRangeOptions
+  opts?: TimeRangeOptions,
 ): StoredChunk[] {
   const db = getDb();
 
@@ -335,11 +340,7 @@ export function getChunksByTimeRange(
  * List sessions for a project with aggregated metadata.
  * Optionally filtered by time range.
  */
-export function getSessionsForProject(
-  project: string,
-  from?: string,
-  to?: string
-): SessionInfo[] {
+export function getSessionsForProject(project: string, from?: string, to?: string): SessionInfo[] {
   const db = getDb();
 
   let sql = `
@@ -372,22 +373,22 @@ export function getSessionsForProject(
  * Find the most recent session before a given session.
  * Uses the composite index for efficient lookup.
  */
-export function getPreviousSession(
-  project: string,
-  currentSessionId: string
-): SessionInfo | null {
+export function getPreviousSession(project: string, currentSessionId: string): SessionInfo | null {
   const db = getDb();
 
   // Get the current session's earliest start_time
   const current = db
-    .prepare('SELECT MIN(start_time) AS minTime FROM chunks WHERE session_id = ? AND session_slug = ?')
+    .prepare(
+      'SELECT MIN(start_time) AS minTime FROM chunks WHERE session_id = ? AND session_slug = ?',
+    )
     .get(currentSessionId, project) as { minTime: string | null } | undefined;
 
   if (!current?.minTime) return null;
 
   // Find the latest session that ended before the current session started
   const row = db
-    .prepare(`
+    .prepare(
+      `
       SELECT
         session_id AS sessionId,
         MIN(start_time) AS firstChunkTime,
@@ -401,7 +402,8 @@ export function getPreviousSession(
       GROUP BY session_id
       ORDER BY lastChunkTime DESC
       LIMIT 1
-    `)
+    `,
+    )
     .get(project, currentSessionId, current.minTime) as SessionInfo | undefined;
 
   return row ?? null;
@@ -421,11 +423,8 @@ interface DbChunkRow {
   tool_use_count: number;
   approx_tokens: number;
   created_at: string;
-  // v2: Vector clock support
   agent_id: string | null;
-  vector_clock: string | null;
   spawn_depth: number | null;
-  // v4: Project path
   project_path: string | null;
 }
 
@@ -443,7 +442,6 @@ function rowToChunk(row: DbChunkRow): StoredChunk {
     approxTokens: row.approx_tokens,
     createdAt: row.created_at,
     agentId: row.agent_id,
-    vectorClock: row.vector_clock ? deserialize(row.vector_clock) : null,
     spawnDepth: row.spawn_depth ?? 0,
     projectPath: row.project_path,
   };

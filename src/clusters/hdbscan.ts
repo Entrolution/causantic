@@ -11,11 +11,7 @@
  * - Optional KD-tree for approximate k-NN
  */
 
-import type {
-  HDBSCANOptions,
-  HDBSCANResult,
-  HDBSCANModel,
-} from './hdbscan/types.js';
+import type { HDBSCANOptions, HDBSCANResult, HDBSCANModel } from './hdbscan/types.js';
 
 import { computeCoreDistances } from './hdbscan/core-distance.js';
 import { buildMST } from './hdbscan/mst.js';
@@ -84,7 +80,7 @@ export class HDBSCAN {
       embeddings,
       this.options.minSamples,
       this.options.metric,
-      this.options.approximateKNN
+      this.options.approximateKNN,
     );
 
     // Step 2: Build MST with mutual reachability distances
@@ -94,14 +90,14 @@ export class HDBSCAN {
     const { tree, memberPoints } = buildCondensedTreeWithMembers(
       mstEdges,
       n,
-      this.options.minClusterSize
+      this.options.minClusterSize,
     );
 
     // Step 4: Extract clusters using specified method
     const { selectedClusters, labels } = this.extractClustersAndLabels(
       tree,
       memberPoints,
-      this.options.clusterSelectionMethod
+      this.options.clusterSelectionMethod,
     );
 
     // Step 5: Compute probabilities and outlier scores
@@ -129,12 +125,17 @@ export class HDBSCAN {
   private extractClustersAndLabels(
     tree: ReturnType<typeof buildCondensedTreeWithMembers>['tree'],
     memberPoints: Map<number, Set<number>>,
-    method: 'eom' | 'leaf'
+    method: 'eom' | 'leaf',
   ): { selectedClusters: number[]; labels: number[] } {
     const labels = new Array<number>(tree.numPoints).fill(-1);
 
     // Get all cluster nodes
-    const clusterNodes: Array<{ id: number; children: number[]; lambdaBirth: number; lambdaDeath: number }> = [];
+    const clusterNodes: Array<{
+      id: number;
+      children: number[];
+      lambdaBirth: number;
+      lambdaDeath: number;
+    }> = [];
     for (const [id, node] of tree.nodes) {
       if (node.isCluster && id >= tree.numPoints) {
         clusterNodes.push({
@@ -163,9 +164,7 @@ export class HDBSCAN {
 
     if (method === 'leaf') {
       // Select leaf clusters (no children)
-      selectedClusters = clusterNodes
-        .filter((c) => c.children.length === 0)
-        .map((c) => c.id);
+      selectedClusters = clusterNodes.filter((c) => c.children.length === 0).map((c) => c.id);
     } else {
       // EOM: bottom-up selection
       const sorted = [...clusterNodes].sort((a, b) => b.lambdaBirth - a.lambdaBirth);
@@ -220,8 +219,8 @@ export class HDBSCAN {
   private computeProbabilities(
     tree: ReturnType<typeof buildCondensedTreeWithMembers>['tree'],
     labels: number[],
-    memberPoints: Map<number, Set<number>>,
-    selectedClusters: number[]
+    _memberPoints: Map<number, Set<number>>,
+    _selectedClusters: number[],
   ): number[] {
     const probabilities = new Array<number>(tree.numPoints).fill(0);
 
@@ -319,8 +318,8 @@ export class HDBSCAN {
     embeddings: number[][],
     coreDistances: number[],
     labels: number[],
-    selectedClusters: number[],
-    memberPoints: Map<number, Set<number>>
+    _selectedClusters: number[],
+    _memberPoints: Map<number, Set<number>>,
   ): void {
     const centroids = new Map<number, number[]>();
     const exemplars = new Map<number, number[]>();
@@ -348,7 +347,7 @@ export class HDBSCAN {
         embeddings,
         centroid,
         3,
-        this.options.metric
+        this.options.metric,
       );
       exemplars.set(label, clusterExemplars);
     }

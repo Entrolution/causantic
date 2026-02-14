@@ -26,27 +26,36 @@ afterEach(() => {
 
 describe('getChunksByTimeRange', () => {
   it('returns chunks within the time window', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:10:00Z',
-      endTime: '2024-01-15T10:15:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c3',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-16T10:00:00Z',
-      endTime: '2024-01-16T10:05:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c3',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:05:00Z',
+      }),
+    );
 
     const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z');
     expect(chunks).toHaveLength(2);
@@ -55,33 +64,42 @@ describe('getChunksByTimeRange', () => {
   });
 
   it('excludes chunks outside the time window', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-14T23:59:00Z',
-      endTime: '2024-01-14T23:59:59Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-14T23:59:00Z',
+        endTime: '2024-01-14T23:59:59Z',
+      }),
+    );
 
     const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z');
     expect(chunks).toHaveLength(0);
   });
 
   it('filters by project slug', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj-a',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj-b',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj-a',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj-b',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
 
     const chunks = getChunksByTimeRange('proj-a', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z');
     expect(chunks).toHaveLength(1);
@@ -89,20 +107,26 @@ describe('getChunksByTimeRange', () => {
   });
 
   it('filters by sessionId when provided', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:10:00Z',
-      endTime: '2024-01-15T10:15:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+      }),
+    );
 
     const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z', {
       sessionId: 's1',
@@ -113,13 +137,16 @@ describe('getChunksByTimeRange', () => {
 
   it('respects limit option', () => {
     for (let i = 0; i < 5; i++) {
-      insertTestChunk(db, createSampleChunk({
-        id: `c${i}`,
-        sessionId: 's1',
-        sessionSlug: 'proj',
-        startTime: `2024-01-15T${String(10 + i).padStart(2, '0')}:00:00Z`,
-        endTime: `2024-01-15T${String(10 + i).padStart(2, '0')}:05:00Z`,
-      }));
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: `c${i}`,
+          sessionId: 's1',
+          sessionSlug: 'proj',
+          startTime: `2024-01-15T${String(10 + i).padStart(2, '0')}:00:00Z`,
+          endTime: `2024-01-15T${String(10 + i).padStart(2, '0')}:05:00Z`,
+        }),
+      );
     }
 
     const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z', {
@@ -129,20 +156,26 @@ describe('getChunksByTimeRange', () => {
   });
 
   it('returns chunks ordered by start_time ASC', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T11:00:00Z',
-      endTime: '2024-01-15T11:05:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T11:00:00Z',
+        endTime: '2024-01-15T11:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
 
     const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z');
     expect(chunks[0].id).toBe('c1');
@@ -150,13 +183,16 @@ describe('getChunksByTimeRange', () => {
   });
 
   it('uses exclusive upper bound (start_time < to)', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-16T00:00:00Z',
-      endTime: '2024-01-16T00:05:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-16T00:00:00Z',
+        endTime: '2024-01-16T00:05:00Z',
+      }),
+    );
 
     const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z');
     expect(chunks).toHaveLength(0);
@@ -165,22 +201,28 @@ describe('getChunksByTimeRange', () => {
 
 describe('getSessionsForProject', () => {
   it('returns sessions with aggregated metadata', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-      approxTokens: 100,
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:10:00Z',
-      endTime: '2024-01-15T10:15:00Z',
-      approxTokens: 200,
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+        approxTokens: 200,
+      }),
+    );
 
     const sessions = getSessionsForProject('proj');
     expect(sessions).toHaveLength(1);
@@ -192,20 +234,26 @@ describe('getSessionsForProject', () => {
   });
 
   it('returns multiple sessions ordered by firstChunkTime DESC', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      startTime: '2024-01-16T10:00:00Z',
-      endTime: '2024-01-16T10:05:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:05:00Z',
+      }),
+    );
 
     const sessions = getSessionsForProject('proj');
     expect(sessions).toHaveLength(2);
@@ -214,20 +262,26 @@ describe('getSessionsForProject', () => {
   });
 
   it('filters by time range when from/to provided', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-14T10:00:00Z',
-      endTime: '2024-01-14T10:05:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-14T10:00:00Z',
+        endTime: '2024-01-14T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
 
     const sessions = getSessionsForProject('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z');
     expect(sessions).toHaveLength(1);
@@ -235,20 +289,26 @@ describe('getSessionsForProject', () => {
   });
 
   it('filters by project slug', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj-a',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj-b',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj-a',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj-b',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
 
     const sessions = getSessionsForProject('proj-a');
     expect(sessions).toHaveLength(1);
@@ -264,22 +324,28 @@ describe('getSessionsForProject', () => {
 describe('getPreviousSession', () => {
   it('finds the most recent session before the current one', () => {
     // Session 1 (older)
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:30:00Z',
-      approxTokens: 150,
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:30:00Z',
+        approxTokens: 150,
+      }),
+    );
     // Session 2 (current)
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      startTime: '2024-01-16T10:00:00Z',
-      endTime: '2024-01-16T10:30:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:30:00Z',
+      }),
+    );
 
     const prev = getPreviousSession('proj', 's2');
     expect(prev).not.toBeNull();
@@ -288,13 +354,16 @@ describe('getPreviousSession', () => {
   });
 
   it('returns null when there is no previous session', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:30:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:30:00Z',
+      }),
+    );
 
     const prev = getPreviousSession('proj', 's1');
     expect(prev).toBeNull();
@@ -306,47 +375,62 @@ describe('getPreviousSession', () => {
   });
 
   it('skips sessions from different projects', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'other-proj',
-      startTime: '2024-01-14T10:00:00Z',
-      endTime: '2024-01-14T10:30:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      startTime: '2024-01-16T10:00:00Z',
-      endTime: '2024-01-16T10:30:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'other-proj',
+        startTime: '2024-01-14T10:00:00Z',
+        endTime: '2024-01-14T10:30:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:30:00Z',
+      }),
+    );
 
     const prev = getPreviousSession('proj', 's2');
     expect(prev).toBeNull();
   });
 
   it('picks the most recent of multiple previous sessions', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-14T10:00:00Z',
-      endTime: '2024-01-14T10:30:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:30:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c3',
-      sessionId: 's3',
-      sessionSlug: 'proj',
-      startTime: '2024-01-16T10:00:00Z',
-      endTime: '2024-01-16T10:30:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-14T10:00:00Z',
+        endTime: '2024-01-14T10:30:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:30:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c3',
+        sessionId: 's3',
+        sessionSlug: 'proj',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:30:00Z',
+      }),
+    );
 
     const prev = getPreviousSession('proj', 's3');
     expect(prev).not.toBeNull();

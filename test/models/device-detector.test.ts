@@ -2,8 +2,8 @@
  * Tests for ONNX runtime device detection.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { detectDevice, type DeviceDetectionResult } from '../../src/models/device-detector.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { detectDevice } from '../../src/models/device-detector.js';
 
 describe('device-detector', () => {
   const originalPlatform = process.platform;
@@ -92,9 +92,7 @@ describe('device-detector', () => {
     it('auto override falls through to auto-detection', () => {
       const result = detectDevice('auto');
 
-      expect(result.source).toBe(
-        process.env.CAUSANTIC_EMBEDDING_DEVICE ? 'env' : 'auto'
-      );
+      expect(result.source).toBe(process.env.CAUSANTIC_EMBEDDING_DEVICE ? 'env' : 'auto');
     });
   });
 

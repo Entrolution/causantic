@@ -4,7 +4,7 @@
  * All step functions are internal to init.ts — we test through initCommand.handler().
  */
 
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 
@@ -45,12 +45,12 @@ vi.mock('../../../src/storage/encryption.js', () => ({
 }));
 
 vi.mock('../../../src/cli/skill-templates.js', () => ({
-  CAUSANTIC_SKILLS: [
-    { dirName: 'causantic-test-skill', content: '# Test Skill Content' },
-  ],
-  getMinimalClaudeMdBlock: vi.fn().mockReturnValue(
-    '<!-- CAUSANTIC_MEMORY_START -->\n## Memory (Causantic)\nMemory block\n<!-- CAUSANTIC_MEMORY_END -->',
-  ),
+  CAUSANTIC_SKILLS: [{ dirName: 'causantic-test-skill', content: '# Test Skill Content' }],
+  getMinimalClaudeMdBlock: vi
+    .fn()
+    .mockReturnValue(
+      '<!-- CAUSANTIC_MEMORY_START -->\n## Memory (Causantic)\nMemory block\n<!-- CAUSANTIC_MEMORY_END -->',
+    ),
 }));
 
 // ── Imports (after mocks) ───────────────────────────────────────────────────
@@ -78,7 +78,10 @@ function createMockDb() {
 }
 
 /** Build a minimal valid Claude Code settings.json. */
-function makeClaudeConfig(mcpServers: Record<string, unknown> = {}, hooks?: Record<string, unknown[]>) {
+function makeClaudeConfig(
+  mcpServers: Record<string, unknown> = {},
+  hooks?: Record<string, unknown[]>,
+) {
   return JSON.stringify({ mcpServers, ...(hooks ? { hooks } : {}) }, null, 2);
 }
 
@@ -91,7 +94,11 @@ beforeEach(() => {
   vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
 
   // Default: stdin is NOT a TTY (skips encryption, ingest, project mcp patching)
-  Object.defineProperty(process.stdin, 'isTTY', { value: false, writable: true, configurable: true });
+  Object.defineProperty(process.stdin, 'isTTY', {
+    value: false,
+    writable: true,
+    configurable: true,
+  });
 
   // Baseline fs mocks
   mockFs.existsSync.mockReturnValue(true);
@@ -146,7 +153,9 @@ describe('initCommand', () => {
       await initCommand.handler(['--skip-mcp']);
 
       expect(mockFs.mkdirSync).toHaveBeenCalledWith(CAUSANTIC_DIR, { recursive: true });
-      expect(mockFs.mkdirSync).toHaveBeenCalledWith(`${CAUSANTIC_DIR}/vectors`, { recursive: true });
+      expect(mockFs.mkdirSync).toHaveBeenCalledWith(`${CAUSANTIC_DIR}/vectors`, {
+        recursive: true,
+      });
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining(`Created ${CAUSANTIC_DIR}`));
     });
 
@@ -154,8 +163,12 @@ describe('initCommand', () => {
       // Default existsSync returns true
       await initCommand.handler(['--skip-mcp']);
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining(`Directory exists: ${CAUSANTIC_DIR}`));
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining(`Directory exists: ${CAUSANTIC_DIR}/vectors`));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining(`Directory exists: ${CAUSANTIC_DIR}`),
+      );
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining(`Directory exists: ${CAUSANTIC_DIR}/vectors`),
+      );
     });
   });
 
@@ -223,7 +236,9 @@ describe('initCommand', () => {
 
       await initCommand.handler([]);
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Claude Code config not found'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Claude Code config not found'),
+      );
     });
 
     it('migrates old "memory" key to "causantic"', async () => {
@@ -265,21 +280,27 @@ describe('initCommand', () => {
       expect(writeCalls.length).toBeGreaterThan(0);
       const written = JSON.parse(writeCalls[0][1] as string);
       expect(written.mcpServers.causantic.command).toBe(process.execPath);
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Updated Causantic config to use absolute paths'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Updated Causantic config to use absolute paths'),
+      );
     });
 
     it('skips when causantic is already configured with correct paths', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['some/path', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['some/path', 'serve'] },
+          });
         }
         return '';
       });
 
       await initCommand.handler([]);
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Causantic already configured in Claude Code'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Causantic already configured in Claude Code'),
+      );
     });
 
     it('prompts to add causantic when not present and user accepts', async () => {
@@ -292,14 +313,19 @@ describe('initCommand', () => {
 
       await initCommand.handler([]);
 
-      expect(mockPromptYesNo).toHaveBeenCalledWith('Add Causantic to Claude Code MCP config?', true);
+      expect(mockPromptYesNo).toHaveBeenCalledWith(
+        'Add Causantic to Claude Code MCP config?',
+        true,
+      );
       const writeCalls = mockFs.writeFileSync.mock.calls.filter(
         (c) => String(c[0]) === CLAUDE_CONFIG_PATH,
       );
       expect(writeCalls.length).toBeGreaterThan(0);
       const written = JSON.parse(writeCalls[0][1] as string);
       expect(written.mcpServers.causantic).toBeDefined();
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Added Causantic to Claude Code config'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Added Causantic to Claude Code config'),
+      );
     });
 
     it('does not add causantic when user declines', async () => {
@@ -334,7 +360,9 @@ describe('initCommand', () => {
 
       await initCommand.handler([]);
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Could not parse Claude Code config'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Could not parse Claude Code config'),
+      );
     });
   });
 
@@ -345,7 +373,9 @@ describe('initCommand', () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
         }
         return '';
       });
@@ -368,29 +398,52 @@ describe('initCommand', () => {
       expect(written.hooks.PreCompact[0].hooks[0].command).toContain('hook pre-compact');
       expect(written.hooks.SessionStart[0].hooks[0].command).toContain('hook session-start');
       expect(written.hooks.SessionEnd[0].hooks[0].command).toContain('hook session-end');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Configured 3 Claude Code hooks'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Configured 3 Claude Code hooks'),
+      );
     });
 
     it('skips when hooks are already configured', async () => {
       const existingHooks = {
-        PreCompact: [{ matcher: '', hooks: [{ type: 'command', command: 'node /some/path causantic hook pre-compact' }] }],
-        SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'node /some/path causantic hook session-start' }] }],
-        SessionEnd: [{ matcher: '', hooks: [{ type: 'command', command: 'node /some/path causantic hook session-end' }] }],
+        PreCompact: [
+          {
+            matcher: '',
+            hooks: [{ type: 'command', command: 'node /some/path causantic hook pre-compact' }],
+          },
+        ],
+        SessionStart: [
+          {
+            matcher: '',
+            hooks: [{ type: 'command', command: 'node /some/path causantic hook session-start' }],
+          },
+        ],
+        SessionEnd: [
+          {
+            matcher: '',
+            hooks: [{ type: 'command', command: 'node /some/path causantic hook session-end' }],
+          },
+        ],
       };
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return JSON.stringify({
-            mcpServers: { causantic: { command: process.execPath, args: ['x', 'serve'] } },
-            hooks: existingHooks,
-          }, null, 2);
+          return JSON.stringify(
+            {
+              mcpServers: { causantic: { command: process.execPath, args: ['x', 'serve'] } },
+              hooks: existingHooks,
+            },
+            null,
+            2,
+          );
         }
         return '';
       });
 
       await initCommand.handler([]);
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Claude Code hooks already configured'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Claude Code hooks already configured'),
+      );
     });
 
     it('handles unreadable config gracefully', async () => {
@@ -401,7 +454,10 @@ describe('initCommand', () => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
           callCount++;
-          if (callCount <= 1) return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          if (callCount <= 1)
+            return makeClaudeConfig({
+              causantic: { command: process.execPath, args: ['x', 'serve'] },
+            });
           throw new Error('Read error');
         }
         return '';
@@ -409,7 +465,9 @@ describe('initCommand', () => {
 
       await initCommand.handler([]);
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Could not configure Claude Code hooks'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Could not configure Claude Code hooks'),
+      );
     });
   });
 
@@ -427,7 +485,9 @@ describe('initCommand', () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
         }
         // CLAUDE.md exists with existing content
         if (s.includes('CLAUDE.md')) return '# My Claude Config\n';
@@ -436,18 +496,20 @@ describe('initCommand', () => {
 
       await initCommand.handler([]);
 
-      const skillDirCreate = mockFs.mkdirSync.mock.calls.find(
-        (c) => String(c[0]).includes('causantic-test-skill'),
+      const skillDirCreate = mockFs.mkdirSync.mock.calls.find((c) =>
+        String(c[0]).includes('causantic-test-skill'),
       );
       expect(skillDirCreate).toBeDefined();
 
-      const skillWrite = mockFs.writeFileSync.mock.calls.find(
-        (c) => String(c[0]).includes('SKILL.md'),
+      const skillWrite = mockFs.writeFileSync.mock.calls.find((c) =>
+        String(c[0]).includes('SKILL.md'),
       );
       expect(skillWrite).toBeDefined();
       expect(skillWrite![1]).toBe('# Test Skill Content');
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Installed 1 Causantic skills'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Installed 1 Causantic skills'),
+      );
     });
 
     it('creates CLAUDE.md when it does not exist', async () => {
@@ -460,19 +522,23 @@ describe('initCommand', () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
         }
         return '';
       });
 
       await initCommand.handler([]);
 
-      const claudeMdWrite = mockFs.writeFileSync.mock.calls.find(
-        (c) => String(c[0]).includes('CLAUDE.md'),
+      const claudeMdWrite = mockFs.writeFileSync.mock.calls.find((c) =>
+        String(c[0]).includes('CLAUDE.md'),
       );
       expect(claudeMdWrite).toBeDefined();
       expect(claudeMdWrite![1]).toContain('CAUSANTIC_MEMORY_START');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Added Causantic reference to CLAUDE.md'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Added Causantic reference to CLAUDE.md'),
+      );
     });
 
     it('updates existing CLAUDE.md section when markers are present', async () => {
@@ -482,7 +548,9 @@ describe('initCommand', () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
         }
         if (s.includes('CLAUDE.md')) return existingClaudeMd;
         return '';
@@ -490,8 +558,8 @@ describe('initCommand', () => {
 
       await initCommand.handler([]);
 
-      const claudeMdWrite = mockFs.writeFileSync.mock.calls.find(
-        (c) => String(c[0]).includes('CLAUDE.md'),
+      const claudeMdWrite = mockFs.writeFileSync.mock.calls.find((c) =>
+        String(c[0]).includes('CLAUDE.md'),
       );
       expect(claudeMdWrite).toBeDefined();
       const content = claudeMdWrite![1] as string;
@@ -499,14 +567,18 @@ describe('initCommand', () => {
       expect(content).toContain('CAUSANTIC_MEMORY_START');
       expect(content).not.toContain('Old content');
       expect(content).toContain('# Other');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Updated CLAUDE.md with skill references'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Updated CLAUDE.md with skill references'),
+      );
     });
 
     it('appends to existing CLAUDE.md when no markers are present', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
         }
         if (s.includes('CLAUDE.md')) return '# My Claude Config\n';
         return '';
@@ -514,14 +586,16 @@ describe('initCommand', () => {
 
       await initCommand.handler([]);
 
-      const claudeMdWrite = mockFs.writeFileSync.mock.calls.find(
-        (c) => String(c[0]).includes('CLAUDE.md'),
+      const claudeMdWrite = mockFs.writeFileSync.mock.calls.find((c) =>
+        String(c[0]).includes('CLAUDE.md'),
       );
       expect(claudeMdWrite).toBeDefined();
       const content = claudeMdWrite![1] as string;
       expect(content).toContain('# My Claude Config');
       expect(content).toContain('CAUSANTIC_MEMORY_START');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Added Causantic reference to CLAUDE.md'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Added Causantic reference to CLAUDE.md'),
+      );
     });
   });
 
@@ -554,8 +628,12 @@ describe('initCommand', () => {
       await initCommand.handler(['--skip-mcp']);
 
       // Should not attempt to read Claude config for MCP
-      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Claude Code config found'));
-      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Claude Code config not found'));
+      expect(console.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('Claude Code config found'),
+      );
+      expect(console.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('Claude Code config not found'),
+      );
       // Should not install skills
       expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Installed'));
       // Should still run health check and db init
@@ -569,7 +647,9 @@ describe('initCommand', () => {
       await initCommand.handler(['--skip-mcp', '--skip-encryption', '--skip-ingest']);
 
       // Should not prompt for encryption
-      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Enable database encryption'));
+      expect(console.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('Enable database encryption'),
+      );
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Database initialized'));
     });
 
@@ -577,13 +657,17 @@ describe('initCommand', () => {
       // Default: isTTY is false
       await initCommand.handler(['--skip-mcp']);
 
-      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Enable database encryption'));
+      expect(console.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('Enable database encryption'),
+      );
     });
 
     it('skips batch ingest when stdin is not a TTY', async () => {
       await initCommand.handler([]);
 
-      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Existing Claude Code sessions found'));
+      expect(console.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('Existing Claude Code sessions found'),
+      );
     });
 
     it('--skip-ingest skips batch ingest even with TTY', async () => {
@@ -593,7 +677,9 @@ describe('initCommand', () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
         }
         if (s.includes('CLAUDE.md')) return '';
         return '';
@@ -608,7 +694,9 @@ describe('initCommand', () => {
 
       await initCommand.handler(['--skip-ingest', '--skip-encryption']);
 
-      expect(console.log).not.toHaveBeenCalledWith(expect.stringContaining('Existing Claude Code sessions found'));
+      expect(console.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('Existing Claude Code sessions found'),
+      );
     });
 
     it('prints setup header and completion message', async () => {
@@ -622,7 +710,9 @@ describe('initCommand', () => {
     it('prints batch-ingest next step when not interactive', async () => {
       await initCommand.handler(['--skip-mcp']);
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('npx causantic batch-ingest'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('npx causantic batch-ingest'),
+      );
     });
 
     it('prints restart next step when interactive ingest ran', async () => {
@@ -631,7 +721,9 @@ describe('initCommand', () => {
       await initCommand.handler(['--skip-mcp', '--skip-encryption']);
 
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Restart Claude Code'));
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('What did we work on recently'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('What did we work on recently'),
+      );
     });
 
     it('full run with all flags skips mcp, encryption, and ingest', async () => {
@@ -664,7 +756,9 @@ describe('initCommand', () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
         }
         if (s.includes('CLAUDE.md')) return '';
         return '';
@@ -687,9 +781,9 @@ describe('initCommand', () => {
     it('enables encryption when user accepts (no existing db)', async () => {
       // First call to promptYesNo = "Enable encryption?" -> yes
       // Subsequent calls might be for other prompts -> false
-      let promptCount = 0;
+      let _promptCount = 0;
       mockPromptYesNo.mockImplementation(async (msg: string) => {
-        promptCount++;
+        _promptCount++;
         if (msg.includes('Enable encryption')) return true;
         return false;
       });
@@ -705,7 +799,9 @@ describe('initCommand', () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
         if (s === CLAUDE_CONFIG_PATH) {
-          return makeClaudeConfig({ causantic: { command: process.execPath, args: ['x', 'serve'] } });
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
         }
         if (s.includes('CLAUDE.md')) return '';
         return '';
@@ -713,9 +809,13 @@ describe('initCommand', () => {
 
       await initCommand.handler(['--skip-ingest']);
 
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Key stored in system keychain'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Key stored in system keychain'),
+      );
       expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Encryption enabled'));
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Database initialized (encrypted)'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Database initialized (encrypted)'),
+      );
     });
   });
 });

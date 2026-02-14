@@ -4,7 +4,14 @@
 
 import { describe, it, expect } from 'vitest';
 import type { ToolDefinition } from '../../src/mcp/tools.js';
-import { getTool, tools, recallTool, explainTool, predictTool, listProjectsTool } from '../../src/mcp/tools.js';
+import {
+  getTool,
+  tools,
+  searchTool,
+  recallTool,
+  predictTool,
+  listProjectsTool,
+} from '../../src/mcp/tools.js';
 
 describe('mcp-tools', () => {
   describe('ToolDefinition interface', () => {
@@ -31,14 +38,33 @@ describe('mcp-tools', () => {
     });
   });
 
+  describe('searchTool', () => {
+    it('has correct name', () => {
+      expect(searchTool.name).toBe('search');
+    });
+
+    it('has description', () => {
+      expect(searchTool.description).toBeTruthy();
+      expect(searchTool.description.toLowerCase()).toContain('search');
+    });
+
+    it('requires query parameter', () => {
+      expect(searchTool.inputSchema.required).toContain('query');
+    });
+
+    it('has query property with string type', () => {
+      expect(searchTool.inputSchema.properties.query.type).toBe('string');
+    });
+  });
+
   describe('recallTool', () => {
     it('has correct name', () => {
       expect(recallTool.name).toBe('recall');
     });
 
-    it('has description', () => {
+    it('has description mentioning episodic or narrative', () => {
       expect(recallTool.description).toBeTruthy();
-      expect(recallTool.description).toContain('context');
+      expect(recallTool.description.toLowerCase()).toContain('narrative');
     });
 
     it('requires query parameter', () => {
@@ -47,34 +73,6 @@ describe('mcp-tools', () => {
 
     it('has query property with string type', () => {
       expect(recallTool.inputSchema.properties.query.type).toBe('string');
-    });
-
-    it('has optional range parameter', () => {
-      expect(recallTool.inputSchema.properties.range).toBeTruthy();
-      expect(recallTool.inputSchema.required).not.toContain('range');
-    });
-  });
-
-  describe('explainTool', () => {
-    it('has correct name', () => {
-      expect(explainTool.name).toBe('explain');
-    });
-
-    it('has description mentioning history', () => {
-      expect(explainTool.description).toBeTruthy();
-      expect(explainTool.description.toLowerCase()).toContain('history');
-    });
-
-    it('requires topic parameter', () => {
-      expect(explainTool.inputSchema.required).toContain('topic');
-    });
-
-    it('has topic property with string type', () => {
-      expect(explainTool.inputSchema.properties.topic.type).toBe('string');
-    });
-
-    it('has optional range parameter', () => {
-      expect(explainTool.inputSchema.properties.range).toBeTruthy();
     });
   });
 
@@ -113,16 +111,16 @@ describe('mcp-tools', () => {
   });
 
   describe('project parameter', () => {
+    it('search has optional project parameter', () => {
+      expect(searchTool.inputSchema.properties.project).toBeTruthy();
+      expect(searchTool.inputSchema.properties.project.type).toBe('string');
+      expect(searchTool.inputSchema.required).not.toContain('project');
+    });
+
     it('recall has optional project parameter', () => {
       expect(recallTool.inputSchema.properties.project).toBeTruthy();
       expect(recallTool.inputSchema.properties.project.type).toBe('string');
       expect(recallTool.inputSchema.required).not.toContain('project');
-    });
-
-    it('explain has optional project parameter', () => {
-      expect(explainTool.inputSchema.properties.project).toBeTruthy();
-      expect(explainTool.inputSchema.properties.project.type).toBe('string');
-      expect(explainTool.inputSchema.required).not.toContain('project');
     });
 
     it('predict has optional project parameter', () => {
@@ -137,12 +135,16 @@ describe('mcp-tools', () => {
       expect(tools.length).toBe(6);
     });
 
+    it('contains search tool', () => {
+      expect(tools.find((t) => t.name === 'search')).toBeTruthy();
+    });
+
     it('contains recall tool', () => {
       expect(tools.find((t) => t.name === 'recall')).toBeTruthy();
     });
 
-    it('contains explain tool', () => {
-      expect(tools.find((t) => t.name === 'explain')).toBeTruthy();
+    it('does NOT contain explain tool', () => {
+      expect(tools.find((t) => t.name === 'explain')).toBeFalsy();
     });
 
     it('contains predict tool', () => {
@@ -173,16 +175,21 @@ describe('mcp-tools', () => {
   });
 
   describe('getTool', () => {
+    it('returns search tool by name', () => {
+      const tool = getTool('search');
+      expect(tool).toBeTruthy();
+      expect(tool?.name).toBe('search');
+    });
+
     it('returns recall tool by name', () => {
       const tool = getTool('recall');
       expect(tool).toBeTruthy();
       expect(tool?.name).toBe('recall');
     });
 
-    it('returns explain tool by name', () => {
+    it('returns undefined for explain (removed)', () => {
       const tool = getTool('explain');
-      expect(tool).toBeTruthy();
-      expect(tool?.name).toBe('explain');
+      expect(tool).toBeUndefined();
     });
 
     it('returns predict tool by name', () => {
@@ -216,9 +223,10 @@ describe('mcp-tools', () => {
         tokenCount: 0,
       };
 
-      const formatted = response.chunks.length === 0
-        ? 'No relevant memory found.'
-        : `Found ${response.chunks.length} relevant memory chunks.`;
+      const formatted =
+        response.chunks.length === 0
+          ? 'No relevant memory found.'
+          : `Found ${response.chunks.length} relevant memory chunks.`;
 
       expect(formatted).toBe('No relevant memory found.');
     });
@@ -239,34 +247,19 @@ describe('mcp-tools', () => {
   });
 
   describe('tool parameter validation', () => {
+    it('search requires query string', () => {
+      const queryProp = searchTool.inputSchema.properties.query;
+      expect(queryProp.type).toBe('string');
+    });
+
     it('recall requires query string', () => {
       const queryProp = recallTool.inputSchema.properties.query;
       expect(queryProp.type).toBe('string');
     });
 
-    it('explain requires topic string', () => {
-      const topicProp = explainTool.inputSchema.properties.topic;
-      expect(topicProp.type).toBe('string');
-    });
-
     it('predict requires context string', () => {
       const contextProp = predictTool.inputSchema.properties.context;
       expect(contextProp.type).toBe('string');
-    });
-  });
-
-  describe('range parameter', () => {
-    it('recall supports short and long range', () => {
-      const rangeProp = recallTool.inputSchema.properties.range;
-      expect(rangeProp).toBeTruthy();
-      expect(rangeProp.description).toContain('short');
-      expect(rangeProp.description).toContain('long');
-    });
-
-    it('explain defaults to long range', () => {
-      const rangeProp = explainTool.inputSchema.properties.range;
-      expect(rangeProp).toBeTruthy();
-      expect(rangeProp.description).toContain('long');
     });
   });
 

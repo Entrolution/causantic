@@ -13,7 +13,6 @@ The storage layer provides persistence for the Causantic memory system. It consi
 | Vector Store | Embedding vectors for similarity search | `vector-store.ts` |
 | Keyword Store | FTS5 full-text search with BM25 ranking | `keyword-store.ts` |
 | Cluster Store | Topic groupings | `cluster-store.ts` |
-| Clock Store | Session vector clocks | `clock-store.ts` |
 
 All stores use SQLite for persistence via `better-sqlite3`.
 
@@ -37,7 +36,6 @@ interface StoredChunk {
   approxTokens: number;    // Approximate token count
   createdAt: string;       // ISO timestamp when stored
   agentId: string | null;  // 'ui' for main, agent ID for sub-agents
-  vectorClock: VectorClock | null;  // For decay computation
   spawnDepth: number;      // 0=main, 1=sub-agent, 2=nested
 }
 ```
@@ -55,26 +53,20 @@ interface StoredEdge {
   referenceType: ReferenceType | null;
   initialWeight: number;    // 0-1, before decay
   createdAt: string;
-  vectorClock: string | null;  // JSON-serialized
   linkCount: number;        // Boost count for duplicates
 }
 ```
 
 ### Reference Types
 
-Edge reference types determine initial weight:
+Edge reference types are purely structural roles that determine initial weight:
 
 | Type | Weight | Description |
 |------|--------|-------------|
-| `file-path` | 1.0 | Shared file path reference |
-| `explicit-backref` | 0.9 | Explicit "the error", "that function" |
-| `error-fragment` | 0.9 | Discussing specific error message |
-| `brief` | 0.9 | Parent spawning sub-agent |
-| `debrief` | 0.9 | Sub-agent returning to parent |
-| `code-entity` | 0.8 | Shared function/class/variable name |
-| `tool-output` | 0.8 | Referencing tool results |
-| `cross-session` | 0.7 | Session continuation |
-| `adjacent` | 0.5 | Consecutive chunks (weak link) |
+| `within-chain` | 1.0 | D-T-D causal edge within one thinking entity (m×n all-pairs at turn boundaries) |
+| `brief` | 0.9 | Parent agent spawning a sub-agent (m×n all-pairs, with 0.9^depth penalty) |
+| `debrief` | 0.9 | Sub-agent returning results to parent (m×n all-pairs, with 0.9^depth penalty) |
+| `cross-session` | 0.7 | Session continuation (previous final chunks ↔ new first chunks, m×n) |
 
 ### Weighted Edges
 
@@ -82,7 +74,7 @@ During traversal, edges include computed weight after decay:
 
 ```typescript
 interface WeightedEdge extends StoredEdge {
-  weight: number;  // Computed: initialWeight × hopDecay × timeDecay
+  weight: number;  // Computed: initialWeight × hopDecay(depth) × linkBoost
 }
 ```
 
@@ -146,41 +138,18 @@ const id = createEdge({
   sourceChunkId: 'chunk-1',
   targetChunkId: 'chunk-2',
   edgeType: 'backward',
-  referenceType: 'file-path',
+  referenceType: 'within-chain',
   initialWeight: 1.0,
-  vectorClock: { ui: 5, human: 3 },
 });
 ```
 
-### createOrBoostEdge(edge: EdgeInput): string
+### getForwardEdges(chunkId: string): StoredEdge[]
 
-Create an edge, or if one exists with the same source/target/type/reference, boost its `linkCount` and add diminishing weight (10% of initial weight).
+Get edges where `source_chunk_id = chunkId AND edge_type = 'forward'`. Used by the chain walker for forward traversal.
 
-### getWeightedEdges(chunkId, queryTime, decayConfig, edgeType?, referenceClock?): WeightedEdge[]
+### getBackwardEdges(chunkId: string): StoredEdge[]
 
-Get outgoing edges with decay-computed weights. Filters out dead edges (weight <= 0).
-
-**Decay Logic**:
-1. If `referenceClock` provided and edge has `vectorClock`, uses hop-based decay
-2. Otherwise falls back to time-based decay
-3. Direction-specific curves:
-   - Backward: Linear, dies at 10 hops
-   - Forward: Delayed linear, 5-hop hold, dies at 20 hops
-4. Link boost applied for edges with `linkCount > 1`
-
-```typescript
-const edges = getWeightedEdges(
-  'chunk-123',
-  Date.now(),
-  config.shortRangeDecay,
-  'backward',
-  { ui: 10, human: 5 }
-);
-```
-
-### hasAnyEdges(chunkId: string): boolean
-
-Check if a chunk has any edges (for orphan detection).
+Get edges where `target_chunk_id = chunkId AND edge_type = 'forward'`. Used by the chain walker for backward traversal.
 
 ### deleteEdge(id: string): boolean
 
@@ -290,37 +259,6 @@ Get all chunk IDs in a cluster.
 ### deleteCluster(id: string): boolean
 
 Delete a cluster and its assignments.
-
-## Clock Store API
-
-### saveSessionClock(sessionId: string, clock: VectorClock): void
-
-Save the final vector clock for a session.
-
-### getSessionClock(sessionId: string): VectorClock | null
-
-Get the saved clock for a session.
-
-### getAllSessionClocks(): Map<string, VectorClock>
-
-Get all session clocks (for cross-session linking).
-
-## Decay Functions
-
-### calculateDecayWeight(config, age): number
-
-Calculate time-based decay weight.
-
-### calculateDirectionalDecayWeight(hops, direction): number
-
-Calculate hop-based decay with direction-specific curves.
-
-### applyLinkBoost(weight, linkCount): number
-
-Apply boost for edges created multiple times:
-```
-boostedWeight = weight × (1 + 0.1 × log2(linkCount))
-```
 
 ## Database
 

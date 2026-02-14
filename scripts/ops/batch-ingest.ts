@@ -3,7 +3,7 @@
  * Usage: npm run batch-ingest -- [options]
  */
 
-import { batchIngestDirectory, discoverSessions, batchIngest } from '../src/ingest/batch-ingest.js';
+import { discoverSessions, batchIngest } from '../src/ingest/batch-ingest.js';
 import { getDbStats, closeDb } from '../src/storage/db.js';
 
 async function main(): Promise<void> {

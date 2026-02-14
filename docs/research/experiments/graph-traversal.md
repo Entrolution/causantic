@@ -2,6 +2,8 @@
 
 This document details experiments on graph-augmented retrieval.
 
+> **Historical Document (v0.2)**: This experiment used sum-product traversal with m×n all-pairs edges. Both were removed in v0.3.0 — replaced by chain walking with sequential 1-to-1 edges. The traverser (`traverser.ts`), decay functions (`decay.ts`), and pruner (`pruner.ts`) have been deleted. Collection benchmarks showed graph traversal contributing only ~2% of results, motivating the redesign. The experimental data below remains valid as a record of the v0.2 architecture's measured performance.
+
 ## Hypothesis
 
 Graph traversal from vector search results can find additional relevant context that pure vector search misses.
@@ -70,7 +72,7 @@ The traverser uses **sum-product rules** inspired by Feynman diagrams:
 Cycles converge naturally since edge weights are < 1, so cyclic paths attenuate geometrically until pruned by minWeight.
 
 ```typescript
-async function visit(chunkId: string, depth: number, pathWeight: number): Promise<void> {
+function visit(chunkId: string, depth: number, pathWeight: number): void {
   // Prune paths that have attenuated below threshold (convergence criterion)
   // Since edge weights are <1, cyclic paths naturally attenuate until pruned
   if (pathWeight < minWeight) return;
@@ -85,36 +87,22 @@ async function visit(chunkId: string, depth: number, pathWeight: number): Promis
   minDepths.set(chunkId, Math.min(existingDepth, depth));
 
   // Get weighted edges from this chunk
-  const edges = getWeightedEdges(chunkId, queryTime, decayConfig, direction, referenceClock);
+  const edges = getWeightedEdges(chunkId, queryTime, decayConfig, direction);
 
   for (const edge of edges) {
     // Compute new path weight (product rule)
     const newWeight = pathWeight * edge.weight;
     // Recursively visit — cycles naturally attenuate via weight products <1
-    await visit(edge.targetChunkId, depth + 1, newWeight);
+    visit(edge.targetChunkId, depth + 1, newWeight);
   }
 }
 ```
 
 See [The Role of Entropy](/docs/research/approach/role-of-entropy.md) for the theoretical foundation.
 
-## Lazy Pruning
+## Edge Type Effectiveness (Historical, pre-v0.3)
 
-Dead edges (weight = 0) are removed during traversal:
-
-```typescript
-// During traversal
-if (computeDecay(edge) <= 0) {
-  markForDeletion(edge);  // Prune later
-  continue;
-}
-```
-
-This provides two benefits:
-1. Faster traversal (skip dead edges)
-2. Automatic cleanup (no separate maintenance pass)
-
-## Edge Type Effectiveness
+> This data was collected with the original 9 semantic edge types. Since v0.3, edges use 2 structural roles (within-chain, cross-session) with sequential 1-to-1 topology.
 
 | Edge Type | Augmentation Contribution |
 |-----------|--------------------------|
@@ -123,7 +111,7 @@ This provides two benefits:
 | topic | 15% |
 | cross-session | 6% |
 
-File-path edges are the most valuable for finding related context.
+File-path edges were the most valuable for finding related context under the semantic model. The v0.3 structural model replaces all edge types with sequential within-chain edges — the graph provides structural ordering (what came before/after), while vector+keyword search handles relevance ranking.
 
 ## Configuration Impact
 
@@ -146,12 +134,57 @@ File-path edges are the most valuable for finding related context.
 | maxDepth | 20 | Matches forward decay (dies at 20 hops) |
 | minWeight | 0.01 | Captures full context without noise |
 
+## v0.3 Results: Chain Walking Augmentation
+
+v0.3.0 replaced sum-product graph traversal with **chain walking** — following sequential edges backward/forward from vector search seeds to build ordered narrative chains. The cross-project experiment was re-run with the same methodology to allow direct comparison.
+
+### Cross-Project Chain Walking (297 queries, 15 projects)
+
+| Metric | v0.2 (sum-product) | v0.3 (chain walking) |
+|--------|-------------------|---------------------|
+| Weighted Average Augmentation | 4.65× | **2.46×** |
+| Queries | 492 | 297 |
+| Projects | 25 | 15 |
+| Queries producing chains | N/A | 100% |
+| Mean chain length | N/A | 3.8 chunks |
+
+### Why the Number Dropped
+
+The v0.2 4.65× figure counted all chunks reachable through m×n edges via sum-product traversal — including chunks only distantly related to the query. The v0.3 2.46× counts additional unique chunks found by walking sequential chains from the same vector seeds.
+
+Key differences:
+1. **Fewer edges**: Sequential linked-list (7,631 edges) vs m×n all-pairs (19,338 edges)
+2. **Ordered output**: Chain walking produces chronologically ordered narratives, not ranked scores
+3. **Quality over quantity**: Chain chunks are sequentially connected to seeds, not just reachable through any path
+
+### What Chain Walking Actually Provides
+
+The 2.46× number understates the value because it measures the same thing as v0.2 (additional chunks found). Chain walking's real contribution is **episodic ordering** — turning a bag of ranked results into a coherent narrative. The collection benchmark captures this better:
+
+| Metric | Value |
+|--------|-------|
+| Chain coverage | 97% of queries produce episodic chains |
+| Mean chain length | 4.3 chunks per narrative |
+| Token efficiency | 127% (returned context is relevant) |
+| p95 recall latency | 3,314ms (down from 16,952ms) |
+| Fallback rate | 3% (fall back to search-style results) |
+
+### Conclusion
+
+Chain walking provides meaningful context augmentation (2.46×) with dramatically better latency and coherent output ordering. The graph's value is structural (what came before/after), not semantic (what's similar) — a separation of concerns that the benchmark results validate.
+
 ## Reproducibility
 
-Run the traversal experiments:
+Run the chain walking experiment:
 
 ```bash
-npm run experiments
+npx tsx scripts/experiments/cross-project-experiment.ts
 ```
 
-See `src/eval/experiments/` for experiment code.
+Run the collection benchmark:
+
+```bash
+npx causantic benchmark-collection --full
+```
+
+See `src/eval/experiments/` and `src/eval/collection-benchmark/` for experiment code.

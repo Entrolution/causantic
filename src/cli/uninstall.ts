@@ -113,7 +113,12 @@ export function removeJsonKey(filePath: string, keyPath: string[]): boolean {
     }
 
     const targetKey = keyPath[keyPath.length - 1];
-    if (parent === null || parent === undefined || typeof parent !== 'object' || !(targetKey in parent)) {
+    if (
+      parent === null ||
+      parent === undefined ||
+      typeof parent !== 'object' ||
+      !(targetKey in parent)
+    ) {
       return false;
     }
 
@@ -274,7 +279,7 @@ function findHooksArtifact(): RemovalArtifact {
           if (!Array.isArray(entries)) continue;
           config.hooks[event] = entries.filter(
             (entry: { hooks?: Array<{ command?: string }> }) =>
-              !entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic'))
+              !entry.hooks?.some((h: { command?: string }) => h.command?.includes('causantic')),
           );
           if (config.hooks[event].length !== entries.length) {
             removed = true;
@@ -488,7 +493,9 @@ export async function handleUninstall(args: string[]): Promise<void> {
 
   // 4. If not --force and not --keep-data, suggest export
   if (!force && !keepData) {
-    console.log('Back up your data first? Run: causantic export --output ~/causantic-backup.causantic');
+    console.log(
+      'Back up your data first? Run: causantic export --output ~/causantic-backup.causantic',
+    );
     console.log('');
   }
 

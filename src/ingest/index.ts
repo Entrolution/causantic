@@ -16,22 +16,19 @@ export {
 export type { BatchIngestOptions, BatchIngestResult } from './batch-ingest.js';
 
 // Edge detection
-export { detectTransitions, getTimeGapMs } from './edge-detector.js';
+export { detectCausalTransitions, detectTransitions, getTimeGapMs } from './edge-detector.js';
 export type { TransitionResult, DetectionOptions } from './edge-detector.js';
 
 // Edge creation
 export {
   createEdgesFromTransitions,
-  createEdgePair,
+  createForwardEdge,
   createCrossSessionEdges,
-  TYPE_WEIGHTS,
+  createBriefEdge,
+  createDebriefEdge,
 } from './edge-creator.js';
 export type { EdgeCreationResult } from './edge-creator.js';
 
 // Cross-session linking
-export {
-  linkCrossSession,
-  linkAllSessions,
-  isContinuedSession,
-} from './cross-session-linker.js';
+export { linkCrossSession, linkAllSessions, isContinuedSession } from './cross-session-linker.js';
 export type { CrossSessionLinkResult } from './cross-session-linker.js';

@@ -1,18 +1,24 @@
 /**
- * Tests for edge detection (topic continuity) between chunks.
+ * Tests for causal transition detection between chunks.
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectTransitions, getTimeGapMs } from '../../src/ingest/edge-detector.js';
+import {
+  detectCausalTransitions,
+  detectTransitions,
+  getTimeGapMs,
+} from '../../src/ingest/edge-detector.js';
 import type { Chunk } from '../../src/parser/types.js';
 
-function createTestChunk(overrides: Partial<{
-  id: string;
-  text: string;
-  startTime: string;
-  endTime: string;
-  turnIndices: number[];
-}>): Chunk {
+function createTestChunk(
+  overrides: Partial<{
+    id: string;
+    text: string;
+    startTime: string;
+    endTime: string;
+    turnIndices: number[];
+  }>,
+): Chunk {
   return {
     id: overrides.id ?? `chunk-${Math.random().toString(36).slice(2, 10)}`,
     text: overrides.text ?? 'Test chunk content',
@@ -32,49 +38,113 @@ function createTestChunk(overrides: Partial<{
 }
 
 describe('edge-detector', () => {
-  describe('detectTransitions', () => {
+  describe('detectCausalTransitions', () => {
     it('returns empty array for single chunk', () => {
       const chunks = [createTestChunk({ id: 'c1' })];
-      const transitions = detectTransitions(chunks);
+      const transitions = detectCausalTransitions(chunks);
       expect(transitions).toEqual([]);
     });
 
-    it('detects adjacent transitions between consecutive chunks', () => {
+    it('detects within-chain transitions between consecutive turns', () => {
       const chunks = [
         createTestChunk({
           id: 'c1',
           text: 'hello there',
+          turnIndices: [0],
           endTime: '2024-01-01T00:01:00Z',
         }),
         createTestChunk({
           id: 'c2',
           text: 'yes please',
+          turnIndices: [1],
           startTime: '2024-01-01T00:02:00Z',
           endTime: '2024-01-01T00:03:00Z',
         }),
       ];
 
-      const transitions = detectTransitions(chunks);
+      const transitions = detectCausalTransitions(chunks);
       expect(transitions.length).toBe(1);
       expect(transitions[0].sourceIndex).toBe(0);
       expect(transitions[0].targetIndex).toBe(1);
-      expect(transitions[0].type).toBe('adjacent');
+      expect(transitions[0].type).toBe('within-chain');
+      expect(transitions[0].confidence).toBe(1.0);
+    });
+
+    it('creates sequential edges at turn boundaries (last→first)', () => {
+      // Turn 0 has 2 chunks, turn 1 has 2 chunks
+      // Sequential: c1→c2 (intra-turn 0), c2→c3 (inter-turn), c3→c4 (intra-turn 1) = 3 edges
+      const chunks = [
+        createTestChunk({
+          id: 'c1',
+          turnIndices: [0],
+          endTime: '2024-01-01T00:01:00Z',
+        }),
+        createTestChunk({
+          id: 'c2',
+          turnIndices: [0],
+          endTime: '2024-01-01T00:01:00Z',
+        }),
+        createTestChunk({
+          id: 'c3',
+          turnIndices: [1],
+          startTime: '2024-01-01T00:02:00Z',
+          endTime: '2024-01-01T00:03:00Z',
+        }),
+        createTestChunk({
+          id: 'c4',
+          turnIndices: [1],
+          startTime: '2024-01-01T00:02:00Z',
+          endTime: '2024-01-01T00:03:00Z',
+        }),
+      ];
+
+      const transitions = detectCausalTransitions(chunks);
+      // Intra-turn 0: c1→c2, inter-turn: c2→c3, intra-turn 1: c3→c4
+      expect(transitions.length).toBe(3);
+      // All should be within-chain with confidence 1.0
+      for (const t of transitions) {
+        expect(t.type).toBe('within-chain');
+        expect(t.confidence).toBe(1.0);
+      }
+    });
+
+    it('creates intra-turn sequential edges for multi-chunk turns', () => {
+      // Two chunks in the same turn → 1 intra-turn edge (c1→c2)
+      const chunks = [
+        createTestChunk({
+          id: 'c1',
+          turnIndices: [0],
+          endTime: '2024-01-01T00:01:00Z',
+        }),
+        createTestChunk({
+          id: 'c2',
+          turnIndices: [0],
+          endTime: '2024-01-01T00:01:00Z',
+        }),
+      ];
+
+      const transitions = detectCausalTransitions(chunks);
+      expect(transitions.length).toBe(1);
+      expect(transitions[0].sourceIndex).toBe(0);
+      expect(transitions[0].targetIndex).toBe(1);
     });
 
     it('skips transitions with large time gaps', () => {
       const chunks = [
         createTestChunk({
           id: 'c1',
+          turnIndices: [0],
           endTime: '2024-01-01T00:00:00Z',
         }),
         createTestChunk({
           id: 'c2',
+          turnIndices: [1],
           startTime: '2024-01-01T01:00:00Z', // 1 hour later
           endTime: '2024-01-01T01:01:00Z',
         }),
       ];
 
-      const transitions = detectTransitions(chunks);
+      const transitions = detectCausalTransitions(chunks);
       expect(transitions.length).toBe(0);
     });
 
@@ -82,21 +152,23 @@ describe('edge-detector', () => {
       const chunks = [
         createTestChunk({
           id: 'c1',
+          turnIndices: [0],
           endTime: '2024-01-01T00:00:00Z',
         }),
         createTestChunk({
           id: 'c2',
+          turnIndices: [1],
           startTime: '2024-01-01T00:45:00Z', // 45 min later
           endTime: '2024-01-01T00:46:00Z',
         }),
       ];
 
       // Default (30 min) should skip
-      const transitions30 = detectTransitions(chunks);
+      const transitions30 = detectCausalTransitions(chunks);
       expect(transitions30.length).toBe(0);
 
       // Custom (60 min) should include
-      const transitions60 = detectTransitions(chunks, { timeGapThresholdMs: 60 * 60 * 1000 });
+      const transitions60 = detectCausalTransitions(chunks, { timeGapThresholdMs: 60 * 60 * 1000 });
       expect(transitions60.length).toBe(1);
     });
 
@@ -105,124 +177,104 @@ describe('edge-detector', () => {
         createTestChunk({
           id: 'c1',
           text: '[User]\nHelp me with TypeScript',
+          turnIndices: [0],
           endTime: '2024-01-01T00:01:00Z',
         }),
         createTestChunk({
           id: 'c2',
-          text: '[User]\nActually, let\'s switch gears. Can you help with Python?',
+          text: "[User]\nActually, let's switch gears. Can you help with Python?",
+          turnIndices: [1],
           startTime: '2024-01-01T00:02:00Z',
         }),
       ];
 
-      const transitions = detectTransitions(chunks);
+      const transitions = detectCausalTransitions(chunks);
       expect(transitions.length).toBe(0);
     });
 
-    it('detects file-path transitions', () => {
-      const chunks = [
-        createTestChunk({
-          id: 'c1',
-          text: 'Reading /src/data/config.json now',
-          endTime: '2024-01-01T00:01:00Z',
-        }),
-        createTestChunk({
-          id: 'c2',
-          text: '[User]\nPlease update /src/data/config.json',
-          startTime: '2024-01-01T00:02:00Z',
-        }),
-      ];
-
-      const transitions = detectTransitions(chunks);
-      expect(transitions.length).toBe(1);
-      expect(transitions[0].type).toBe('file-path');
-      expect(transitions[0].confidence).toBeGreaterThan(0.7);
-    });
-
-    it('detects error-fragment transitions', () => {
-      const chunks = [
-        createTestChunk({
-          id: 'c1',
-          text: 'TypeError: x is not ok at row 5\n\noh no',
-          endTime: '2024-01-01T00:01:00Z',
-        }),
-        createTestChunk({
-          id: 'c2',
-          text: 'i see x is not ok at row 5 in the log',
-          startTime: '2024-01-01T00:02:00Z',
-        }),
-      ];
-
-      const transitions = detectTransitions(chunks);
-      expect(transitions.length).toBe(1);
-      expect(transitions[0].type).toBe('error-fragment');
-    });
-
-    it('detects explicit backreference transitions', () => {
-      const chunks = [
-        createTestChunk({
-          id: 'c1',
-          text: 'Here is the authentication function...',
-          endTime: '2024-01-01T00:01:00Z',
-        }),
-        createTestChunk({
-          id: 'c2',
-          text: '[User]\nThe error from the previous fix is still happening',
-          startTime: '2024-01-01T00:02:00Z',
-        }),
-      ];
-
-      const transitions = detectTransitions(chunks);
-      expect(transitions.length).toBe(1);
-      expect(transitions[0].type).toBe('explicit-backref');
-    });
-
-    it('detects code-entity transitions', () => {
-      const chunks = [
-        createTestChunk({
-          id: 'c1',
-          text: 'The getUserById function returns a Promise...',
-          endTime: '2024-01-01T00:01:00Z',
-        }),
-        createTestChunk({
-          id: 'c2',
-          text: '[User]\nNow getUserById throws when the user is not found',
-          startTime: '2024-01-01T00:02:00Z',
-        }),
-      ];
-
-      const transitions = detectTransitions(chunks);
-      expect(transitions.length).toBe(1);
-      expect(transitions[0].type).toBe('code-entity');
-    });
-
-    it('handles multiple chunks in sequence', () => {
+    it('handles multiple turns in sequence', () => {
       const chunks = [
         createTestChunk({
           id: 'c1',
           text: 'Chunk 1',
+          turnIndices: [0],
           startTime: '2024-01-01T00:00:00Z',
           endTime: '2024-01-01T00:01:00Z',
         }),
         createTestChunk({
           id: 'c2',
           text: '[User]\nChunk 2',
+          turnIndices: [1],
           startTime: '2024-01-01T00:02:00Z',
           endTime: '2024-01-01T00:03:00Z',
         }),
         createTestChunk({
           id: 'c3',
           text: '[User]\nChunk 3',
+          turnIndices: [2],
           startTime: '2024-01-01T00:04:00Z',
           endTime: '2024-01-01T00:05:00Z',
         }),
       ];
 
-      const transitions = detectTransitions(chunks);
+      const transitions = detectCausalTransitions(chunks);
       expect(transitions.length).toBe(2);
       expect(transitions[0].sourceIndex).toBe(0);
       expect(transitions[0].targetIndex).toBe(1);
       expect(transitions[1].sourceIndex).toBe(1);
       expect(transitions[1].targetIndex).toBe(2);
+    });
+
+    it('deduplicates pairs for chunks spanning multiple turns', () => {
+      // Chunk c2 spans turns 1 and 2, so it appears in both turn groups
+      const chunks = [
+        createTestChunk({
+          id: 'c1',
+          turnIndices: [0],
+          endTime: '2024-01-01T00:01:00Z',
+        }),
+        createTestChunk({
+          id: 'c2',
+          turnIndices: [1, 2],
+          startTime: '2024-01-01T00:02:00Z',
+          endTime: '2024-01-01T00:03:00Z',
+        }),
+        createTestChunk({
+          id: 'c3',
+          turnIndices: [3],
+          startTime: '2024-01-01T00:04:00Z',
+          endTime: '2024-01-01T00:05:00Z',
+        }),
+      ];
+
+      const transitions = detectCausalTransitions(chunks);
+      // Should have: c1→c2 (turn 0→1), c2→c3 (turn 2→3)
+      // No duplicate c1→c2 or c2→c3
+      const pairKeys = transitions.map((t) => `${t.sourceIndex}:${t.targetIndex}`);
+      const uniquePairKeys = new Set(pairKeys);
+      expect(pairKeys.length).toBe(uniquePairKeys.size);
+    });
+  });
+
+  describe('detectTransitions (legacy alias)', () => {
+    it('delegates to detectCausalTransitions', () => {
+      const chunks = [
+        createTestChunk({
+          id: 'c1',
+          turnIndices: [0],
+          endTime: '2024-01-01T00:01:00Z',
+        }),
+        createTestChunk({
+          id: 'c2',
+          turnIndices: [1],
+          startTime: '2024-01-01T00:02:00Z',
+          endTime: '2024-01-01T00:03:00Z',
+        }),
+      ];
+
+      const transitions = detectTransitions(chunks);
+      expect(transitions.length).toBe(1);
+      expect(transitions[0].type).toBe('within-chain');
     });
   });
 
@@ -252,80 +304,24 @@ describe('edge-detector', () => {
     });
   });
 
-  describe('confidence scoring', () => {
-    it('assigns higher confidence to file-path matches', () => {
-      const chunks = [
-        createTestChunk({
-          id: 'c1',
-          text: 'Working on /src/app.ts',
-          endTime: '2024-01-01T00:01:00Z',
-        }),
-        createTestChunk({
-          id: 'c2',
-          text: '[User]\nContinuing with /src/app.ts',
-          startTime: '2024-01-01T00:02:00Z',
-        }),
-      ];
-
-      const transitions = detectTransitions(chunks);
-      expect(transitions[0].confidence).toBeGreaterThanOrEqual(0.7);
-    });
-
-    it('assigns lower confidence to simple adjacent transitions', () => {
-      const chunks = [
-        createTestChunk({
-          id: 'c1',
-          text: 'Hello',
-          endTime: '2024-01-01T00:01:00Z',
-        }),
-        createTestChunk({
-          id: 'c2',
-          text: '[User]\nWorld',
-          startTime: '2024-01-01T00:02:00Z',
-        }),
-      ];
-
-      const transitions = detectTransitions(chunks);
-      expect(transitions[0].type).toBe('adjacent');
-      expect(transitions[0].confidence).toBeLessThan(0.7);
-    });
-  });
-
   describe('evidence', () => {
-    it('provides evidence for file-path transitions', () => {
+    it('provides evidence with turn numbers', () => {
       const chunks = [
         createTestChunk({
           id: 'c1',
-          text: 'Looking at /src/index.ts',
+          turnIndices: [0],
           endTime: '2024-01-01T00:01:00Z',
         }),
         createTestChunk({
           id: 'c2',
-          text: '[User]\nUpdated /src/index.ts',
+          turnIndices: [1],
           startTime: '2024-01-01T00:02:00Z',
         }),
       ];
 
-      const transitions = detectTransitions(chunks);
-      expect(transitions[0].evidence).toContain('Shared paths');
-    });
-
-    it('provides evidence for adjacent transitions', () => {
-      const chunks = [
-        createTestChunk({
-          id: 'c1',
-          text: 'Hello',
-          endTime: '2024-01-01T00:01:00Z',
-        }),
-        createTestChunk({
-          id: 'c2',
-          text: '[User]\nContinue',
-          startTime: '2024-01-01T00:02:00Z',
-        }),
-      ];
-
-      const transitions = detectTransitions(chunks);
-      expect(transitions[0].evidence).toContain('Adjacent');
+      const transitions = detectCausalTransitions(chunks);
+      expect(transitions[0].evidence).toContain('turn 0');
+      expect(transitions[0].evidence).toContain('turn 1');
     });
   });
 });

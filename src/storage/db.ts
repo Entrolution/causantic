@@ -38,14 +38,14 @@ function getKeyFromKeychainSync(): string | null {
       const result = execFileSync(
         'security',
         ['find-generic-password', '-a', DB_KEY_NAME, '-s', KEYCHAIN_SERVICE, '-w'],
-        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] },
       );
       return result.trim() || null;
     } else if (process.platform === 'linux') {
       const result = spawnSync(
         'secret-tool',
         ['lookup', 'service', KEYCHAIN_SERVICE, 'account', DB_KEY_NAME],
-        { encoding: 'utf-8' }
+        { encoding: 'utf-8' },
       );
       return (result.status === 0 && result.stdout?.trim()) || null;
     }
@@ -118,7 +118,7 @@ function getDbKeySync(): string | undefined {
     }
     case 'prompt':
       throw new Error(
-        'Database encryption with keySource=prompt requires running causantic init or causantic encryption unlock first'
+        'Database encryption with keySource=prompt requires running causantic init or causantic encryption unlock first',
       );
     default:
       return undefined;
@@ -223,7 +223,7 @@ export function getDb(dbPath?: string): Database.Database {
       logAudit('failed', 'No encryption key available');
       throw new Error(
         'Database encryption is enabled but no key is available. ' +
-        'Run "causantic encryption setup" or set CAUSANTIC_DB_KEY environment variable.'
+          'Run "causantic encryption setup" or set CAUSANTIC_DB_KEY environment variable.',
       );
     }
   } else {
@@ -273,9 +273,12 @@ export function clearAllData(database?: Database.Database): void {
 /**
  * Get database statistics.
  */
-export function getDbStats(
-  database?: Database.Database
-): { chunks: number; edges: number; clusters: number; assignments: number } {
+export function getDbStats(database?: Database.Database): {
+  chunks: number;
+  edges: number;
+  clusters: number;
+  assignments: number;
+} {
   const d = database ?? getDb();
 
   const chunks = (d.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number })

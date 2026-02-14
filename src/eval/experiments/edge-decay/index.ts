@@ -1,5 +1,7 @@
 /**
  * Edge decay modeling experiment module.
+ *
+ * Distance metric: hop distance (turn count difference).
  */
 
 // Types
@@ -29,11 +31,11 @@ export {
   delayedLinearWeight,
   exponentialWeight,
   powerLawWeight,
-  linearDeathTime,
-  tierDeathTime,
-  multiLinearDeathTime,
+  linearDeathDistance,
+  tierDeathDistance,
+  multiLinearDeathDistance,
   calculateWeight,
-  calculateDeathTime,
+  calculateDeathDistance,
   isAlive,
   peakWeight,
 } from './decay-curves.js';
@@ -71,8 +73,8 @@ export type {
   CandidateTurn,
   QueryEvaluation,
   RetrievalRankingResult,
-  TimeOffsetBin,
-  TimeOffsetCorrelationResult,
+  HopDistanceBin,
+  HopDistanceCorrelationResult,
   EdgeDecayExperimentResults,
   ReferenceType,
 } from './reference-types.js';
@@ -90,16 +92,13 @@ export {
   compareRetrievalRanking,
   evaluateForwardPrediction,
   compareForwardPrediction,
-  evaluateTimeOffsetCorrelation,
+  evaluateHopDistanceCorrelation,
   formatRetrievalRankingTable,
-  formatTimeOffsetTable,
+  formatHopDistanceTable,
   formatDirectionalComparison,
   filterLongRangeReferences,
   type ReferenceFilterOptions,
 } from './retrieval-ranking.js';
 
 // Experiment runner
-export {
-  runEdgeDecayExperiments,
-  type ExperimentOptions,
-} from './run-experiments.js';
+export { runEdgeDecayExperiments, type ExperimentOptions } from './run-experiments.js';

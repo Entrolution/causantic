@@ -16,7 +16,9 @@ describe('approximateTokens', () => {
 
   it('scales with text length', () => {
     const short = approximateTokens('short');
-    const long = approximateTokens('this is a much longer piece of text that should produce more tokens');
+    const long = approximateTokens(
+      'this is a much longer piece of text that should produce more tokens',
+    );
     expect(long).toBeGreaterThan(short);
   });
 

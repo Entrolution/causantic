@@ -54,21 +54,31 @@ function normalizeDevice(raw: string): DeviceName {
 
 function buildProviderList(device: DeviceName): string[] {
   switch (device) {
-    case 'coreml': return ['coreml', 'cpu'];
-    case 'cuda': return ['cuda', 'cpu'];
-    case 'cpu': return ['cpu'];
-    case 'wasm': return []; // WASM uses transformers.js built-in, no onnxruntime providers
-    default: return ['cpu'];
+    case 'coreml':
+      return ['coreml', 'cpu'];
+    case 'cuda':
+      return ['cuda', 'cpu'];
+    case 'cpu':
+      return ['cpu'];
+    case 'wasm':
+      return []; // WASM uses transformers.js built-in, no onnxruntime providers
+    default:
+      return ['cpu'];
   }
 }
 
 function deviceLabel(device: DeviceName): string {
   switch (device) {
-    case 'coreml': return 'CoreML (Apple Silicon)';
-    case 'cuda': return 'CUDA (NVIDIA GPU)';
-    case 'cpu': return 'CPU (native)';
-    case 'wasm': return 'WASM (fallback)';
-    default: return 'CPU (native)';
+    case 'coreml':
+      return 'CoreML (Apple Silicon)';
+    case 'cuda':
+      return 'CUDA (NVIDIA GPU)';
+    case 'cpu':
+      return 'CPU (native)';
+    case 'wasm':
+      return 'WASM (fallback)';
+    default:
+      return 'CPU (native)';
   }
 }
 
@@ -95,9 +105,10 @@ function autoDetect(): { device: DeviceName; notes?: string; available?: Availab
   //   causing 30+ context switches per inference and OOM kills
   // - CUDA: requires compatible driver/runtime, untested model combinations
   const available = detectAvailableAccelerators();
-  const hints = available.length > 0
-    ? `${available.join(', ')} available — set CAUSANTIC_EMBEDDING_DEVICE to enable`
-    : undefined;
+  const hints =
+    available.length > 0
+      ? `${available.join(', ')} available — set CAUSANTIC_EMBEDDING_DEVICE to enable`
+      : undefined;
 
   return { device: 'cpu', notes: hints, available };
 }

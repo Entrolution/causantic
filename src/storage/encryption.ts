@@ -4,12 +4,7 @@
  * Uses AES-256-GCM for authenticated encryption with Argon2id for key derivation.
  */
 
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-  scryptSync,
-} from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 
 /** Encryption algorithm */
 const ALGORITHM = 'aes-256-gcm';
@@ -45,9 +40,9 @@ export interface EncryptedData {
  */
 export function deriveKey(password: string, salt: Buffer): Buffer {
   return scryptSync(password, salt, KEY_LENGTH, {
-    N: 16384,  // CPU/memory cost
-    r: 8,      // Block size
-    p: 1,      // Parallelization
+    N: 16384, // CPU/memory cost
+    r: 8, // Block size
+    p: 1, // Parallelization
   });
 }
 
@@ -60,10 +55,7 @@ export function encrypt(plaintext: Buffer, password: string): EncryptedData {
   const key = deriveKey(password, salt);
 
   const cipher = createCipheriv(ALGORITHM, key, nonce);
-  const ciphertext = Buffer.concat([
-    cipher.update(plaintext),
-    cipher.final(),
-  ]);
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const authTag = cipher.getAuthTag();
 
   return { salt, nonce, authTag, ciphertext };
@@ -78,10 +70,7 @@ export function decrypt(encrypted: EncryptedData, password: string): Buffer {
   const decipher = createDecipheriv(ALGORITHM, key, encrypted.nonce);
   decipher.setAuthTag(encrypted.authTag);
 
-  return Buffer.concat([
-    decipher.update(encrypted.ciphertext),
-    decipher.final(),
-  ]);
+  return Buffer.concat([decipher.update(encrypted.ciphertext), decipher.final()]);
 }
 
 /**
@@ -125,12 +114,7 @@ export function decryptString(encryptedBase64: string, password: string): string
  * Serialize encrypted data to a buffer.
  */
 export function serializeEncrypted(encrypted: EncryptedData): Buffer {
-  return Buffer.concat([
-    encrypted.salt,
-    encrypted.nonce,
-    encrypted.authTag,
-    encrypted.ciphertext,
-  ]);
+  return Buffer.concat([encrypted.salt, encrypted.nonce, encrypted.authTag, encrypted.ciphertext]);
 }
 
 /**

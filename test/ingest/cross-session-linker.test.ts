@@ -8,7 +8,8 @@ import { isContinuedSession } from '../../src/ingest/cross-session-linker.js';
 describe('cross-session-linker', () => {
   describe('isContinuedSession', () => {
     it('detects standard continuation pattern', () => {
-      const content = 'This session is being continued from a previous conversation that ran out of context.';
+      const content =
+        'This session is being continued from a previous conversation that ran out of context.';
       expect(isContinuedSession(content)).toBe(true);
     });
 
@@ -36,7 +37,17 @@ describe('cross-session-linker', () => {
       expect(isContinuedSession('')).toBe(false);
     });
 
-    it('requires pattern at start of content', () => {
+    it('detects continuation with [User] role prefix', () => {
+      const content = '[User]\nThis session is being continued from a previous conversation that ran out of context.';
+      expect(isContinuedSession(content)).toBe(true);
+    });
+
+    it('detects continuation with [Assistant] role prefix', () => {
+      const content = '[Assistant]\nThis session is being continued from a previous conversation.';
+      expect(isContinuedSession(content)).toBe(true);
+    });
+
+    it('requires pattern at start of content (after role prefix)', () => {
       // Pattern must be at the beginning
       const content = 'Some text. This session is being continued from a previous conversation.';
       expect(isContinuedSession(content)).toBe(false);
@@ -104,23 +115,23 @@ describe('cross-session-linker', () => {
         const content = `${pattern} and more content here.`;
         expect(isContinuedSession(content)).toBe(true);
       });
+
+      it(`recognizes "${pattern.slice(0, 30)}..." with [User] prefix`, () => {
+        const content = `[User]\n${pattern} and more content here.`;
+        expect(isContinuedSession(content)).toBe(true);
+      });
     }
   });
 
   describe('edge count calculation', () => {
-    it('creates 2 edges per previous session final chunk', () => {
-      // For N final chunks from previous session:
-      // - N backward edges (new session → prev final)
-      // - N forward edges (prev final → new session)
-      // Total: 2N edges
-      const previousFinalChunkCount = 3;
-      const expectedEdgeCount = previousFinalChunkCount * 2;
-      expect(expectedEdgeCount).toBe(6);
+    it('creates a single edge: last prev chunk → first new chunk', () => {
+      // New model: single forward edge per cross-session link
+      const expectedEdgeCount = 1;
+      expect(expectedEdgeCount).toBe(1);
     });
 
     it('returns 0 edges when no previous chunks', () => {
-      const previousFinalChunkCount = 0;
-      const expectedEdgeCount = previousFinalChunkCount * 2;
+      const expectedEdgeCount = 0;
       expect(expectedEdgeCount).toBe(0);
     });
   });
@@ -197,12 +208,7 @@ describe('cross-session-linker', () => {
     });
 
     it('sums all edge counts', () => {
-      const results = [
-        { edgeCount: 0 },
-        { edgeCount: 6 },
-        { edgeCount: 6 },
-        { edgeCount: 0 },
-      ];
+      const results = [{ edgeCount: 0 }, { edgeCount: 6 }, { edgeCount: 6 }, { edgeCount: 0 }];
 
       const totalEdges = results.reduce((sum, r) => sum + r.edgeCount, 0);
       expect(totalEdges).toBe(12);

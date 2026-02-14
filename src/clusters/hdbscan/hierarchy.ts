@@ -25,7 +25,7 @@ interface ClusterNodeWithPoints extends CondensedTreeNode {
 export function buildCondensedTree(
   edges: MSTEdge[],
   numPoints: number,
-  minClusterSize: number
+  minClusterSize: number,
 ): CondensedTree {
   if (numPoints === 0) {
     return { nodes: new Map(), root: -1, numPoints: 0 };
@@ -231,13 +231,11 @@ export function buildCondensedTree(
 /**
  * Convert extended nodes to standard nodes (strip memberPoints).
  */
-function convertNodes(
-  nodes: Map<number, ClusterNodeWithPoints>
-): Map<number, CondensedTreeNode> {
+function convertNodes(nodes: Map<number, ClusterNodeWithPoints>): Map<number, CondensedTreeNode> {
   const result = new Map<number, CondensedTreeNode>();
 
   for (const [id, node] of nodes) {
-    const { memberPoints, ...rest } = node;
+    const { memberPoints: _memberPoints, ...rest } = node;
     result.set(id, {
       ...rest,
       // Store memberPoints in a way that can be accessed later
@@ -251,16 +249,13 @@ function convertNodes(
   return result;
 }
 
-// Store cluster member points separately for label assignment
-const clusterMemberPoints = new Map<number, Set<number>>();
-
 /**
  * Build a condensed cluster tree from the MST, with member point tracking.
  */
 export function buildCondensedTreeWithMembers(
   edges: MSTEdge[],
   numPoints: number,
-  minClusterSize: number
+  minClusterSize: number,
 ): { tree: CondensedTree; memberPoints: Map<number, Set<number>> } {
   if (numPoints === 0) {
     return { tree: { nodes: new Map(), root: -1, numPoints: 0 }, memberPoints: new Map() };
@@ -469,10 +464,7 @@ export function buildCondensedTreeWithMembers(
 /**
  * Get all point indices that belong to a cluster.
  */
-export function getClusterPoints(
-  tree: CondensedTree,
-  clusterId: number
-): number[] {
+export function getClusterPoints(tree: CondensedTree, clusterId: number): number[] {
   const points: number[] = [];
   const visited = new Set<number>();
 
@@ -502,7 +494,7 @@ export function getClusterPoints(
  */
 export function getPointLambda(
   tree: CondensedTree,
-  pointIndex: number
+  pointIndex: number,
 ): { birth: number; death: number } {
   const node = tree.nodes.get(pointIndex);
   if (!node) {

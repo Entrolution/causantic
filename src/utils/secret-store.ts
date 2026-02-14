@@ -14,7 +14,7 @@
 
 import { spawnSync, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { dirname } from 'node:path';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { resolvePath } from '../config/memory-config.js';
 
@@ -58,7 +58,7 @@ class KeychainStore implements SecretStore {
       const result = execFileSync(
         'security',
         ['find-generic-password', '-a', key, '-s', SERVICE_NAME, '-w'],
-        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] }
+        { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] },
       );
       return result.trim();
     } catch {
@@ -69,30 +69,24 @@ class KeychainStore implements SecretStore {
   async set(key: string, value: string): Promise<void> {
     // Delete existing entry if present
     try {
-      execFileSync(
-        'security',
-        ['delete-generic-password', '-a', key, '-s', SERVICE_NAME],
-        { stdio: ['pipe', 'ignore', 'ignore'] }
-      );
+      execFileSync('security', ['delete-generic-password', '-a', key, '-s', SERVICE_NAME], {
+        stdio: ['pipe', 'ignore', 'ignore'],
+      });
     } catch {
       // Ignore - entry may not exist
     }
 
     // Add new entry — uses execFileSync to avoid shell interpretation of special chars
-    execFileSync(
-      'security',
-      ['add-generic-password', '-a', key, '-s', SERVICE_NAME, '-w', value],
-      { encoding: 'utf-8' }
-    );
+    execFileSync('security', ['add-generic-password', '-a', key, '-s', SERVICE_NAME, '-w', value], {
+      encoding: 'utf-8',
+    });
   }
 
   async delete(key: string): Promise<boolean> {
     try {
-      execFileSync(
-        'security',
-        ['delete-generic-password', '-a', key, '-s', SERVICE_NAME],
-        { stdio: ['pipe', 'ignore', 'ignore'] }
-      );
+      execFileSync('security', ['delete-generic-password', '-a', key, '-s', SERVICE_NAME], {
+        stdio: ['pipe', 'ignore', 'ignore'],
+      });
       return true;
     } catch {
       return false;
@@ -120,11 +114,9 @@ class LibsecretStore implements SecretStore {
 
   async get(key: string): Promise<string | null> {
     try {
-      const result = spawnSync(
-        'secret-tool',
-        ['lookup', 'service', SERVICE_NAME, 'account', key],
-        { encoding: 'utf-8' }
-      );
+      const result = spawnSync('secret-tool', ['lookup', 'service', SERVICE_NAME, 'account', key], {
+        encoding: 'utf-8',
+      });
       if (result.status === 0 && result.stdout) {
         return result.stdout.trim();
       }
@@ -141,7 +133,7 @@ class LibsecretStore implements SecretStore {
       {
         input: value,
         encoding: 'utf-8',
-      }
+      },
     );
     if (result.status !== 0) {
       throw new Error(`Failed to store secret: ${result.stderr}`);
@@ -150,11 +142,9 @@ class LibsecretStore implements SecretStore {
 
   async delete(key: string): Promise<boolean> {
     try {
-      const result = spawnSync(
-        'secret-tool',
-        ['clear', 'service', SERVICE_NAME, 'account', key],
-        { encoding: 'utf-8' }
-      );
+      const result = spawnSync('secret-tool', ['clear', 'service', SERVICE_NAME, 'account', key], {
+        encoding: 'utf-8',
+      });
       return result.status === 0;
     } catch {
       return false;
@@ -192,7 +182,7 @@ class EncryptedFileStore implements SecretStore {
       } else {
         throw new Error(
           'No password set for encrypted file store. ' +
-          'Set CAUSANTIC_SECRET_PASSWORD environment variable or call setPassword().'
+            'Set CAUSANTIC_SECRET_PASSWORD environment variable or call setPassword().',
         );
       }
     }
@@ -221,10 +211,7 @@ class EncryptedFileStore implements SecretStore {
     const decipher = createDecipheriv('aes-256-gcm', key, nonce);
     decipher.setAuthTag(authTag);
 
-    const decrypted = Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final(),
-    ]);
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 
     return JSON.parse(decrypted.toString('utf-8'));
   }
@@ -238,10 +225,7 @@ class EncryptedFileStore implements SecretStore {
     const cipher = createCipheriv('aes-256-gcm', key, nonce);
     const plaintext = Buffer.from(JSON.stringify(secrets), 'utf-8');
 
-    const ciphertext = Buffer.concat([
-      cipher.update(plaintext),
-      cipher.final(),
-    ]);
+    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
     const authTag = cipher.getAuthTag();
 
     // Ensure directory exists

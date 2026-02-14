@@ -19,7 +19,7 @@ export function computeCoreDistances(
   points: number[][],
   k: number,
   metric: 'euclidean' | 'angular' = 'euclidean',
-  useKDTree: boolean = false
+  useKDTree: boolean = false,
 ): number[] {
   const n = points.length;
 
@@ -48,7 +48,7 @@ export function computeCoreDistances(
 function computeCoreDistancesBruteForce(
   points: number[][],
   k: number,
-  metric: 'euclidean' | 'angular'
+  metric: 'euclidean' | 'angular',
 ): number[] {
   const n = points.length;
   const coreDistances = new Array<number>(n);
@@ -101,7 +101,7 @@ export function computeCoreDistancesChunk(
   indices: number[],
   allPoints: number[][],
   k: number,
-  metric: 'euclidean' | 'angular' = 'euclidean'
+  metric: 'euclidean' | 'angular' = 'euclidean',
 ): Array<{ index: number; coreDistance: number }> {
   const distFn = metric === 'euclidean' ? euclideanDistance : angularDistance;
   const n = allPoints.length;

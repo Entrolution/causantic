@@ -71,13 +71,9 @@ async function internalHandleSessionEnd(sessionPath: string): Promise<SessionEnd
  */
 export async function handleSessionEnd(
   sessionPath: string,
-  options: SessionEndOptions = {}
+  options: SessionEndOptions = {},
 ): Promise<SessionEndResult> {
-  const {
-    enableRetry = true,
-    maxRetries = 3,
-    gracefulDegradation = true,
-  } = options;
+  const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
 
   const fallbackResult: SessionEndResult = {
     sessionId: 'unknown',
@@ -100,7 +96,7 @@ export async function handleSessionEnd(
           }
         : undefined,
       fallback: gracefulDegradation ? fallbackResult : undefined,
-    }
+    },
   );
 
   return {
@@ -125,13 +121,17 @@ export async function sessionEndCli(sessionPath: string): Promise<void> {
     if (result.skipped) {
       log.info(`Session ${result.sessionId} already ingested, skipped.`);
     } else {
-      log.info(`Ingested session ${result.sessionId}: Chunks: ${result.chunkCount}, Edges: ${result.edgeCount}, Clusters assigned: ${result.clustersAssigned}, Duration: ${result.durationMs}ms`);
+      log.info(
+        `Ingested session ${result.sessionId}: Chunks: ${result.chunkCount}, Edges: ${result.edgeCount}, Clusters assigned: ${result.clustersAssigned}, Duration: ${result.durationMs}ms`,
+      );
       if (result.metrics?.retryCount && result.metrics.retryCount > 0) {
         log.info(`Retries: ${result.metrics.retryCount}`);
       }
     }
   } catch (error) {
-    log.error('Session-end hook failed:', { error: error instanceof Error ? error.message : String(error) });
+    log.error('Session-end hook failed:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     process.exit(1);
   }
 }

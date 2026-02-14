@@ -83,16 +83,20 @@ describe('configCommand', () => {
       expect(console.error).toHaveBeenCalledWith(
         '  - clustering.threshold must be between 0 and 1 (exclusive)',
       );
-      expect(console.error).toHaveBeenCalledWith(
-        '  - traversal.maxDepth must be at least 1',
-      );
+      expect(console.error).toHaveBeenCalledWith('  - traversal.maxDepth must be at least 1');
       expect(process.exit).toHaveBeenCalledWith(3);
     });
   });
 
   describe('set-key subcommand', () => {
     it('prompts for value and stores it', async () => {
-      const mockStore = { set: vi.fn().mockResolvedValue(undefined), get: vi.fn(), delete: vi.fn(), isAvailable: vi.fn(), type: 'test' };
+      const mockStore = {
+        set: vi.fn().mockResolvedValue(undefined),
+        get: vi.fn(),
+        delete: vi.fn(),
+        isAvailable: vi.fn(),
+        type: 'test',
+      };
       mockCreateSecretStore.mockReturnValue(mockStore);
       mockPromptUser.mockResolvedValue('my-secret-value');
 
@@ -113,7 +117,13 @@ describe('configCommand', () => {
 
   describe('get-key subcommand', () => {
     it('prints the value when key is found', async () => {
-      const mockStore = { get: vi.fn().mockResolvedValue('found-value'), set: vi.fn(), delete: vi.fn(), isAvailable: vi.fn(), type: 'test' };
+      const mockStore = {
+        get: vi.fn().mockResolvedValue('found-value'),
+        set: vi.fn(),
+        delete: vi.fn(),
+        isAvailable: vi.fn(),
+        type: 'test',
+      };
       mockCreateSecretStore.mockReturnValue(mockStore);
 
       await configCommand.handler(['get-key', 'anthropic']);
@@ -123,7 +133,13 @@ describe('configCommand', () => {
     });
 
     it('prints error and exits with code 1 when key is not found', async () => {
-      const mockStore = { get: vi.fn().mockResolvedValue(null), set: vi.fn(), delete: vi.fn(), isAvailable: vi.fn(), type: 'test' };
+      const mockStore = {
+        get: vi.fn().mockResolvedValue(null),
+        set: vi.fn(),
+        delete: vi.fn(),
+        isAvailable: vi.fn(),
+        type: 'test',
+      };
       mockCreateSecretStore.mockReturnValue(mockStore);
 
       await configCommand.handler(['get-key', 'nonexistent']);

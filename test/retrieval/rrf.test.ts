@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { fuseRRF, type RankedItem, type RRFSource } from '../../src/retrieval/rrf.js';
+import { fuseRRF, type RRFSource } from '../../src/retrieval/rrf.js';
 
 describe('rrf', () => {
   describe('fuseRRF', () => {
@@ -54,8 +54,8 @@ describe('rrf', () => {
       expect(result.length).toBe(3); // a, b, c
       // 'b' appears in both sources so should have highest fused score
       expect(result[0].chunkId).toBe('b');
-      // Source attribution: 'b' appeared in both, vector takes priority
-      expect(result[0].source).toBe('vector');
+      // Source attribution: 'b' appeared in both, keyword takes priority (rarest source wins)
+      expect(result[0].source).toBe('keyword');
     });
 
     it('weights affect final ranking', () => {
@@ -122,7 +122,7 @@ describe('rrf', () => {
       const result = fuseRRF([source1, source2]);
 
       expect(result.length).toBe(4);
-      const ids = result.map(r => r.chunkId);
+      const ids = result.map((r) => r.chunkId);
       expect(ids).toContain('a');
       expect(ids).toContain('b');
       expect(ids).toContain('c');
@@ -159,9 +159,7 @@ describe('rrf', () => {
     it('fused scores follow RRF formula', () => {
       const k = 60;
       const source: RRFSource = {
-        items: [
-          { chunkId: 'a', score: 0.9, source: 'vector' },
-        ],
+        items: [{ chunkId: 'a', score: 0.9, source: 'vector' }],
         weight: 1.0,
       };
 

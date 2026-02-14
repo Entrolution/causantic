@@ -5,67 +5,6 @@
   "description": "Configuration schema for Causantic",
   "type": "object",
   "properties": {
-    "decay": {
-      "type": "object",
-      "description": "Temporal decay settings for graph edges",
-      "properties": {
-        "backward": {
-          "type": "object",
-          "description": "Decay for backward (historical) edges",
-          "properties": {
-            "type": {
-              "type": "string",
-              "enum": ["linear", "exponential", "delayed-linear"],
-              "default": "linear",
-              "description": "Decay curve type"
-            },
-            "diesAtHops": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 10,
-              "description": "Number of hops at which weight reaches zero"
-            },
-            "holdHops": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 50,
-              "default": 0,
-              "description": "Number of hops to hold at full weight (for delayed types)"
-            }
-          },
-          "additionalProperties": false
-        },
-        "forward": {
-          "type": "object",
-          "description": "Decay for forward (predictive) edges",
-          "properties": {
-            "type": {
-              "type": "string",
-              "enum": ["linear", "exponential", "delayed-linear"],
-              "default": "delayed-linear",
-              "description": "Decay curve type"
-            },
-            "diesAtHops": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20,
-              "description": "Number of hops at which weight reaches zero"
-            },
-            "holdHops": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 50,
-              "default": 5,
-              "description": "Number of hops to hold at full weight (for delayed types)"
-            }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
     "clustering": {
       "type": "object",
       "description": "HDBSCAN clustering settings",
@@ -89,35 +28,14 @@
     },
     "traversal": {
       "type": "object",
-      "description": "Graph traversal settings",
+      "description": "Chain walking settings",
       "properties": {
         "maxDepth": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 50,
-          "default": 15,
-          "description": "Maximum traversal depth from seed nodes"
-        },
-        "minWeight": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1,
-          "default": 0.01,
-          "description": "Minimum edge weight to continue traversal"
-        },
-        "directHitBoost": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 10,
-          "default": 1.5,
-          "description": "Score multiplier for direct search hits (vector/keyword/cluster)"
-        },
-        "graphAgreementBoost": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 10,
-          "default": 2.0,
-          "description": "Score boost multiplier when a chunk is found by both vector search and graph traversal"
+          "maximum": 100,
+          "default": 50,
+          "description": "Safety cap on chain walking depth"
         }
       },
       "additionalProperties": false
@@ -137,7 +55,7 @@
           "type": "integer",
           "minimum": 500,
           "maximum": 50000,
-          "default": 2000,
+          "default": 20000,
           "description": "Maximum tokens for MCP tool responses"
         }
       },
@@ -218,6 +136,13 @@
           "maximum": 3650,
           "default": 90,
           "description": "TTL in days for vectors. Vectors accessed within this period are kept."
+        },
+        "maxCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000000,
+          "default": 0,
+          "description": "Maximum number of vectors to keep. Oldest by last_accessed are evicted. 0 = unlimited."
         }
       },
       "additionalProperties": false

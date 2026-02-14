@@ -1,6 +1,6 @@
 {
   "name": "causantic",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Long-term memory for Claude Code — local-first, graph-augmented, self-benchmarking",
   "type": "module",
   "private": false,
@@ -48,6 +48,7 @@
     "src/dashboard/client/package-lock.json"
   ],
   "scripts": {
+    "prepublishOnly": "npm run build && npm test",
     "build": "tsc && cp src/storage/schema.sql dist/storage/ && cd src/dashboard/client && npm install --ignore-scripts && npm run build",
     "build:server": "tsc && cp src/storage/schema.sql dist/storage/",
     "build:client": "cd src/dashboard/client && npm install --ignore-scripts && npm run build",

@@ -26,7 +26,7 @@ export function predictLabels(
   newPoints: number[][],
   model: HDBSCANModel,
   k: number,
-  metric: 'euclidean' | 'angular' = 'euclidean'
+  metric: 'euclidean' | 'angular' = 'euclidean',
 ): number[] {
   const distFn = metric === 'euclidean' ? euclideanDistance : angularDistance;
   const labels = new Array<number>(newPoints.length).fill(-1);
@@ -39,12 +39,7 @@ export function predictLabels(
     const point = newPoints[i];
 
     // Compute core distance for new point
-    const coreDistance = computeNewPointCoreDistance(
-      point,
-      model.embeddings,
-      k,
-      distFn
-    );
+    const coreDistance = computeNewPointCoreDistance(point, model.embeddings, k, distFn);
 
     // Find closest cluster
     let bestLabel = -1;
@@ -102,7 +97,7 @@ function computeNewPointCoreDistance(
   point: number[],
   existingPoints: number[][],
   k: number,
-  distFn: (a: number[], b: number[]) => number
+  distFn: (a: number[], b: number[]) => number,
 ): number {
   if (existingPoints.length === 0) {
     return 0;
@@ -162,7 +157,7 @@ export function selectExemplars(
   points: number[][],
   centroid: number[],
   numExemplars: number = 3,
-  metric: 'euclidean' | 'angular' = 'euclidean'
+  metric: 'euclidean' | 'angular' = 'euclidean',
 ): number[] {
   const distFn = metric === 'euclidean' ? euclideanDistance : angularDistance;
 

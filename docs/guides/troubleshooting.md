@@ -62,12 +62,7 @@ npx causantic stats
 
 ### "Queries are slow"
 
-**Cause 1**: Too many edges need traversal.
-```bash
-npx causantic maintenance run prune-graph
-```
-
-**Cause 2**: Large database needs optimization.
+**Cause 1**: Large database needs optimization.
 ```bash
 npx causantic maintenance run vacuum
 ```
@@ -117,8 +112,8 @@ du -sh ~/.causantic/vectors/
 
 **Solutions**:
 1. Run vacuum: `npx causantic maintenance run vacuum`
-2. Prune old edges: `npx causantic maintenance run prune-graph`
-3. Archive old sessions if needed
+2. Configure `vectors.maxCount` to cap collection size
+3. Lower `vectors.ttlDays` to expire old vectors sooner
 
 ## Secret Management Issues
 

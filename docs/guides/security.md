@@ -12,7 +12,7 @@ Causantic stores sensitive data about your work patterns and conversation histor
 | Embedding vectors | `vectors` table | Semantic reconstruction, topic inference |
 | Causal relationships | `edges` table | Work patterns, debugging history |
 | Topic clusters | `clusters` table | Project/feature groupings |
-| Temporal ordering | `vector_clocks` table | Activity timeline |
+| Temporal ordering | `edges.created_at` timestamps | Activity timeline |
 
 ### Why Encrypt Vectors?
 

@@ -66,13 +66,11 @@ describe('archive', () => {
         startTime: '2024-01-15T10:00:00Z',
         endTime: '2024-01-15T10:05:00Z',
         turnIndices: [0, 1, 2],
-        vectorClock: { ui: 5, human: 3 },
       };
 
       expect(chunk.id).toBe('chunk-abc');
       expect(chunk.sessionSlug).toBe('my-project');
       expect(chunk.turnIndices).toEqual([0, 1, 2]);
-      expect(chunk.vectorClock.ui).toBe(5);
     });
   });
 
@@ -82,15 +80,14 @@ describe('archive', () => {
         source: 'chunk-1',
         target: 'chunk-2',
         type: 'backward',
-        referenceType: 'file-path',
+        referenceType: 'within-chain',
         weight: 0.85,
-        vectorClock: { ui: 10 },
       };
 
       expect(edge.source).toBe('chunk-1');
       expect(edge.target).toBe('chunk-2');
       expect(edge.type).toBe('backward');
-      expect(edge.referenceType).toBe('file-path');
+      expect(edge.referenceType).toBe('within-chain');
       expect(edge.weight).toBe(0.85);
     });
   });
@@ -316,34 +313,11 @@ describe('archive', () => {
     });
 
     it('parses JSON back to archive', () => {
-      const json = '{"format":"causantic-archive","version":"1.0","chunks":[],"edges":[],"clusters":[]}';
+      const json =
+        '{"format":"causantic-archive","version":"1.0","chunks":[],"edges":[],"clusters":[]}';
       const parsed = JSON.parse(json);
 
       expect(parsed.format).toBe('causantic-archive');
-    });
-  });
-
-  describe('vector clock serialization in export', () => {
-    it('serializes vector clock as JSON string', () => {
-      const vectorClock = { ui: 10, human: 5 };
-      const serialized = JSON.stringify(vectorClock);
-
-      expect(serialized).toBe('{"ui":10,"human":5}');
-    });
-
-    it('deserializes vector clock from JSON string', () => {
-      const serialized = '{"ui":10,"human":5}';
-      const parsed = JSON.parse(serialized);
-
-      expect(parsed.ui).toBe(10);
-      expect(parsed.human).toBe(5);
-    });
-
-    it('handles empty vector clock', () => {
-      const serialized = '{}';
-      const parsed = JSON.parse(serialized);
-
-      expect(Object.keys(parsed).length).toBe(0);
     });
   });
 });

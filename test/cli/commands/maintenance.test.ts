@@ -38,7 +38,11 @@ describe('maintenanceCommand', () => {
   describe('run subcommand', () => {
     it('runs all tasks when task name is "all"', async () => {
       const results = new Map<string, { success: boolean; duration: number; message: string }>();
-      results.set('scan-projects', { success: true, duration: 100, message: '3 sessions ingested' });
+      results.set('scan-projects', {
+        success: true,
+        duration: 100,
+        message: '3 sessions ingested',
+      });
       results.set('vacuum', { success: false, duration: 50, message: 'Database locked' });
       mockRunAllTasks.mockResolvedValue(results);
 
@@ -116,9 +120,7 @@ describe('maintenanceCommand', () => {
       await maintenanceCommand.handler(['status']);
 
       expect(console.log).toHaveBeenCalledWith('vacuum:');
-      expect(console.log).toHaveBeenCalledWith(
-        '  Last run: 2026-02-10T05:00:02Z (OK)',
-      );
+      expect(console.log).toHaveBeenCalledWith('  Last run: 2026-02-10T05:00:02Z (OK)');
     });
 
     it('prints FAILED status for tasks that failed', async () => {
@@ -140,9 +142,7 @@ describe('maintenanceCommand', () => {
 
       await maintenanceCommand.handler(['status']);
 
-      expect(console.log).toHaveBeenCalledWith(
-        '  Last run: 2026-02-10T02:00:05Z (FAILED)',
-      );
+      expect(console.log).toHaveBeenCalledWith('  Last run: 2026-02-10T02:00:05Z (FAILED)');
     });
 
     it('handles tasks with no next run', async () => {
@@ -160,8 +160,8 @@ describe('maintenanceCommand', () => {
 
       // Should not call console.log with "Next run:" for null nextRun
       const logCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls;
-      const nextRunCalls = logCalls.filter((args: unknown[]) =>
-        typeof args[0] === 'string' && args[0].includes('Next run:'),
+      const nextRunCalls = logCalls.filter(
+        (args: unknown[]) => typeof args[0] === 'string' && args[0].includes('Next run:'),
       );
       expect(nextRunCalls.length).toBe(0);
     });

@@ -52,9 +52,7 @@ export function angularDistance(a: number[], b: number[]): number {
  */
 export function distanceMatrix(embeddings: number[][]): number[][] {
   const n = embeddings.length;
-  const matrix: number[][] = Array.from({ length: n }, () =>
-    new Array(n).fill(0),
-  );
+  const matrix: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
 
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {

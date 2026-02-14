@@ -12,7 +12,11 @@ import {
   serializeEncrypted,
   deserializeEncrypted,
 } from '../../src/storage/encryption.js';
-import { SecureBuffer, withSecureBuffer, withSecureBufferSync } from '../../src/utils/secure-buffer.js';
+import {
+  SecureBuffer,
+  withSecureBuffer,
+  withSecureBufferSync,
+} from '../../src/utils/secure-buffer.js';
 
 describe('encryption', () => {
   describe('encrypt/decrypt', () => {

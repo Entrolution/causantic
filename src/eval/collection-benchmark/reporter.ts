@@ -16,7 +16,9 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
   const ts = new Date(result.timestamp).toISOString();
 
   lines.push(`# Causantic Collection Benchmark Report`);
-  lines.push(`Generated: ${ts} | Profile: ${result.profile}${result.overallScore !== null && result.overallScore !== undefined ? '' : ''}`);
+  lines.push(
+    `Generated: ${ts} | Profile: ${result.profile}${result.overallScore !== null && result.overallScore !== undefined ? '' : ''}`,
+  );
   lines.push('');
   lines.push(`## Overall Score: ${result.overallScore}/100`);
   lines.push('');
@@ -51,7 +53,7 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     const latest = new Date(h.temporalSpan.latest).toLocaleDateString();
     const days = Math.round(
       (new Date(h.temporalSpan.latest).getTime() - new Date(h.temporalSpan.earliest).getTime()) /
-      (1000 * 60 * 60 * 24)
+        (1000 * 60 * 60 * 24),
     );
     lines.push(`| Temporal span | ${earliest} → ${latest} (${days} days) |`);
   }
@@ -64,7 +66,9 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     lines.push('| Project | Chunks | Edges | Clusters | Orphans |');
     lines.push('|---------|--------|-------|----------|---------|');
     for (const p of h.perProject) {
-      lines.push(`| ${p.slug} | ${p.chunkCount.toLocaleString()} | ${p.edgeCount.toLocaleString()} | ${p.clusterCount} | ${(p.orphanPercentage * 100).toFixed(1)}% |`);
+      lines.push(
+        `| ${p.slug} | ${p.chunkCount.toLocaleString()} | ${p.edgeCount.toLocaleString()} | ${p.clusterCount} | ${(p.orphanPercentage * 100).toFixed(1)}% |`,
+      );
     }
     lines.push('');
   }
@@ -76,7 +80,9 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     lines.push('| Type | Count | % |');
     lines.push('|------|-------|---|');
     for (const d of h.edgeTypeDistribution) {
-      lines.push(`| ${d.type} | ${d.count.toLocaleString()} | ${(d.percentage * 100).toFixed(1)}% |`);
+      lines.push(
+        `| ${d.type} | ${d.count.toLocaleString()} | ${(d.percentage * 100).toFixed(1)}% |`,
+      );
     }
     lines.push('');
   }
@@ -87,8 +93,12 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     lines.push('');
     lines.push('| Metric | Value |');
     lines.push('|--------|-------|');
-    lines.push(`| Intra-cluster similarity | ${h.clusterQuality.intraClusterSimilarity.toFixed(2)} |`);
-    lines.push(`| Inter-cluster separation | ${h.clusterQuality.interClusterSeparation.toFixed(2)} |`);
+    lines.push(
+      `| Intra-cluster similarity | ${h.clusterQuality.intraClusterSimilarity.toFixed(2)} |`,
+    );
+    lines.push(
+      `| Inter-cluster separation | ${h.clusterQuality.interClusterSeparation.toFixed(2)} |`,
+    );
     lines.push(`| Coherence score | ${h.clusterQuality.coherenceScore.toFixed(2)} |`);
     lines.push('');
   }
@@ -121,33 +131,18 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     lines.push('');
   }
 
-  // Graph Value
-  if (result.graphValue) {
-    const g = result.graphValue;
-    lines.push('## Graph Value');
+  // Chain Quality
+  if (result.chainQuality) {
+    const c = result.chainQuality;
+    lines.push('## Chain Quality');
     lines.push('');
-    lines.push('| Source | % of Results |');
-    lines.push('|--------|-------------|');
-    lines.push(`| Vector | ${(g.sourceAttribution.vectorPercentage * 100).toFixed(0)}% |`);
-    lines.push(`| Keyword | ${(g.sourceAttribution.keywordPercentage * 100).toFixed(0)}% |`);
-    lines.push(`| Cluster | ${(g.sourceAttribution.clusterPercentage * 100).toFixed(0)}% |`);
-    lines.push(`| Graph | ${(g.sourceAttribution.graphPercentage * 100).toFixed(0)}% |`);
+    lines.push('| Metric | Value |');
+    lines.push('|--------|-------|');
+    lines.push(`| Mean chain length | ${c.meanChainLength.toFixed(1)} chunks |`);
+    lines.push(`| Mean score/token | ${c.meanScorePerToken.toFixed(4)} |`);
+    lines.push(`| Chain coverage | ${(c.chainCoverage * 100).toFixed(0)}% |`);
+    lines.push(`| Fallback rate | ${(c.fallbackRate * 100).toFixed(0)}% |`);
     lines.push('');
-    lines.push(`**Augmentation Ratio:** ${g.sourceAttribution.augmentationRatio.toFixed(1)}x`);
-    lines.push(`**Recall Lift:** +${(g.lift * 100).toFixed(0)}% over vector-only`);
-    lines.push(`**Graph-Boosted Chunks:** ${g.graphBoostedCount} (found by both vector and graph)`);
-    lines.push('');
-
-    if (g.edgeTypeEffectiveness.length > 0) {
-      lines.push('### Edge Type Effectiveness');
-      lines.push('');
-      lines.push('| Type | Chunks Surfaced | Recall Contribution |');
-      lines.push('|------|----------------|---------------------|');
-      for (const e of g.edgeTypeEffectiveness) {
-        lines.push(`| ${e.type} | ${e.chunksSurfaced} | ${(e.recallContribution * 100).toFixed(0)}% |`);
-      }
-      lines.push('');
-    }
   }
 
   // Latency
@@ -157,10 +152,18 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     lines.push('');
     lines.push('| Operation | p50 | p95 | p99 |');
     lines.push('|-----------|-----|-----|-----|');
-    lines.push(`| recall | ${l.recall.p50.toFixed(0)}ms | ${l.recall.p95.toFixed(0)}ms | ${l.recall.p99.toFixed(0)}ms |`);
-    lines.push(`| explain | ${l.explain.p50.toFixed(0)}ms | ${l.explain.p95.toFixed(0)}ms | ${l.explain.p99.toFixed(0)}ms |`);
-    lines.push(`| predict | ${l.predict.p50.toFixed(0)}ms | ${l.predict.p95.toFixed(0)}ms | ${l.predict.p99.toFixed(0)}ms |`);
-    lines.push(`| reconstruct | ${l.reconstruct.p50.toFixed(0)}ms | ${l.reconstruct.p95.toFixed(0)}ms | ${l.reconstruct.p99.toFixed(0)}ms |`);
+    lines.push(
+      `| recall | ${l.recall.p50.toFixed(0)}ms | ${l.recall.p95.toFixed(0)}ms | ${l.recall.p99.toFixed(0)}ms |`,
+    );
+    lines.push(
+      `| search | ${l.search.p50.toFixed(0)}ms | ${l.search.p95.toFixed(0)}ms | ${l.search.p99.toFixed(0)}ms |`,
+    );
+    lines.push(
+      `| predict | ${l.predict.p50.toFixed(0)}ms | ${l.predict.p95.toFixed(0)}ms | ${l.predict.p99.toFixed(0)}ms |`,
+    );
+    lines.push(
+      `| reconstruct | ${l.reconstruct.p50.toFixed(0)}ms | ${l.reconstruct.p95.toFixed(0)}ms | ${l.reconstruct.p99.toFixed(0)}ms |`,
+    );
     lines.push('');
   }
 
@@ -172,11 +175,15 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     if (t.metricDeltas.length > 0) {
       lines.push('| Metric | Previous | Current | Change |');
       lines.push('|--------|----------|---------|--------|');
-      lines.push(`| Overall Score | ${(result.overallScore - t.overallScoreDelta).toFixed(0)} | ${result.overallScore.toFixed(0)} | ${t.overallScoreDelta >= 0 ? '+' : ''}${t.overallScoreDelta.toFixed(0)} ${t.overallScoreDelta >= 0 ? '\u2191' : '\u2193'} |`);
+      lines.push(
+        `| Overall Score | ${(result.overallScore - t.overallScoreDelta).toFixed(0)} | ${result.overallScore.toFixed(0)} | ${t.overallScoreDelta >= 0 ? '+' : ''}${t.overallScoreDelta.toFixed(0)} ${t.overallScoreDelta >= 0 ? '\u2191' : '\u2193'} |`,
+      );
       for (const d of t.metricDeltas) {
         const arrow = d.improved ? '\u2191' : '\u2193';
         const sign = d.delta >= 0 ? '+' : '';
-        lines.push(`| ${d.metric} | ${formatMetricValue(d.previous, d.metric)} | ${formatMetricValue(d.current, d.metric)} | ${sign}${formatMetricValue(d.delta, d.metric)} ${arrow} |`);
+        lines.push(
+          `| ${d.metric} | ${formatMetricValue(d.previous, d.metric)} | ${formatMetricValue(d.current, d.metric)} | ${sign}${formatMetricValue(d.delta, d.metric)} ${arrow} |`,
+        );
       }
       lines.push('');
     }
@@ -189,7 +196,11 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     lines.push('## Tuning Recommendations');
     lines.push('');
 
-    const byPriority = { high: [] as typeof result.tuning, medium: [] as typeof result.tuning, low: [] as typeof result.tuning };
+    const byPriority = {
+      high: [] as typeof result.tuning,
+      medium: [] as typeof result.tuning,
+      low: [] as typeof result.tuning,
+    };
     for (const rec of result.tuning) {
       byPriority[rec.priority].push(rec);
     }
@@ -201,7 +212,9 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
       for (const rec of byPriority.high) {
         lines.push(`${num++}. **${rec.metric}** (${rec.currentValue})`);
         if (rec.configPath !== '(action)') {
-          lines.push(`   - Set \`${rec.configPath}: ${rec.suggestedValue.split(': ')[1] ?? rec.suggestedValue}\` in \`causantic.config.json\``);
+          lines.push(
+            `   - Set \`${rec.configPath}: ${rec.suggestedValue.split(': ')[1] ?? rec.suggestedValue}\` in \`causantic.config.json\``,
+          );
         }
         lines.push(`   - Impact: ${rec.impact}`);
         lines.push('');
@@ -214,7 +227,9 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
       for (const rec of byPriority.medium) {
         lines.push(`${num++}. **${rec.metric}** (${rec.currentValue})`);
         if (rec.configPath !== '(action)') {
-          lines.push(`   - Set \`${rec.configPath}: ${rec.suggestedValue.split(': ')[1] ?? rec.suggestedValue}\` in \`causantic.config.json\``);
+          lines.push(
+            `   - Set \`${rec.configPath}: ${rec.suggestedValue.split(': ')[1] ?? rec.suggestedValue}\` in \`causantic.config.json\``,
+          );
         }
         lines.push(`   - Impact: ${rec.impact}`);
         lines.push('');
@@ -227,7 +242,9 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
       for (const rec of byPriority.low) {
         lines.push(`${num++}. **${rec.metric}** (${rec.currentValue})`);
         if (rec.configPath !== '(action)') {
-          lines.push(`   - Set \`${rec.configPath}: ${rec.suggestedValue.split(': ')[1] ?? rec.suggestedValue}\` in \`causantic.config.json\``);
+          lines.push(
+            `   - Set \`${rec.configPath}: ${rec.suggestedValue.split(': ')[1] ?? rec.suggestedValue}\` in \`causantic.config.json\``,
+          );
         }
         lines.push(`   - Impact: ${rec.impact}`);
         lines.push('');

@@ -8,6 +8,7 @@
 import { getChunkById } from '../../storage/chunk-store.js';
 import { assembleContext } from '../../retrieval/context-assembler.js';
 import { reconstructSession } from '../../retrieval/session-reconstructor.js';
+import { loadConfig, toRuntimeConfig } from '../../config/loader.js';
 import type { LatencyResult, LatencyPercentiles, BenchmarkSample } from './types.js';
 
 /**
@@ -32,6 +33,8 @@ export async function runLatencyBenchmarks(
   onProgress?: (msg: string) => void,
 ): Promise<LatencyResult> {
   const queryIds = sample.queryChunkIds.slice(0, Math.min(30, sample.queryChunkIds.length));
+  const config = toRuntimeConfig(loadConfig());
+  const maxTokens = config.mcpMaxResponseTokens;
 
   // Warm-up: 3 queries, not timed
   onProgress?.('Warm-up queries...');
@@ -42,7 +45,7 @@ export async function runLatencyBenchmarks(
       query: chunk.content.slice(0, 200),
       mode: 'recall',
       projectFilter: chunk.sessionSlug,
-      maxTokens: 2000,
+      maxTokens,
     });
   }
 
@@ -59,27 +62,27 @@ export async function runLatencyBenchmarks(
       query: chunk.content.slice(0, 500),
       mode: 'recall',
       projectFilter: chunk.sessionSlug,
-      maxTokens: 2000,
+      maxTokens,
     });
     recallDurations.push(performance.now() - start);
   }
 
-  // Explain latency
-  const explainDurations: number[] = [];
+  // Search latency
+  const searchDurations: number[] = [];
   processed = 0;
   for (const chunkId of queryIds.slice(0, 15)) {
     const chunk = getChunkById(chunkId);
     if (!chunk) continue;
-    onProgress?.(`[${++processed}/15] Explain latency...`);
+    onProgress?.(`[${++processed}/15] Search latency...`);
 
     const start = performance.now();
     await assembleContext({
       query: chunk.content.slice(0, 500),
-      mode: 'explain',
+      mode: 'search',
       projectFilter: chunk.sessionSlug,
-      maxTokens: 2000,
+      maxTokens,
     });
-    explainDurations.push(performance.now() - start);
+    searchDurations.push(performance.now() - start);
   }
 
   // Predict latency
@@ -95,7 +98,7 @@ export async function runLatencyBenchmarks(
       query: chunk.content.slice(0, 500),
       mode: 'predict',
       projectFilter: chunk.sessionSlug,
-      maxTokens: 2000,
+      maxTokens,
     });
     predictDurations.push(performance.now() - start);
   }
@@ -111,7 +114,7 @@ export async function runLatencyBenchmarks(
       reconstructSession({
         project: projectSlug,
         daysBack: 7,
-        maxTokens: 2000,
+        maxTokens,
       });
       reconstructDurations.push(performance.now() - start);
     }
@@ -119,7 +122,7 @@ export async function runLatencyBenchmarks(
 
   return {
     recall: computePercentiles(recallDurations),
-    explain: computePercentiles(explainDurations),
+    search: computePercentiles(searchDurations),
     predict: computePercentiles(predictDurations),
     reconstruct: computePercentiles(reconstructDurations),
   };

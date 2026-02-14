@@ -136,6 +136,6 @@ Control the memory section size:
 
 - **MCP server not responding**: Check `npx causantic health`
 - **Empty memory**: Verify sessions were ingested
-- **Slow queries**: Run maintenance to prune stale edges
+- **Slow queries**: Run maintenance to clean up expired chunks
 
 See [Troubleshooting](troubleshooting.md) for more solutions.

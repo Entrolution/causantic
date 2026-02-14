@@ -95,7 +95,11 @@ describe('angularDistance', () => {
 
 describe('distanceMatrix', () => {
   it('returns zero diagonal', () => {
-    const embeddings = [[1, 0], [0, 1], [-1, 0]];
+    const embeddings = [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+    ];
     const matrix = distanceMatrix(embeddings);
 
     for (let i = 0; i < embeddings.length; i++) {
@@ -104,7 +108,11 @@ describe('distanceMatrix', () => {
   });
 
   it('is symmetric', () => {
-    const embeddings = [[1, 0], [0, 1], [1, 1]];
+    const embeddings = [
+      [1, 0],
+      [0, 1],
+      [1, 1],
+    ];
     const matrix = distanceMatrix(embeddings);
 
     for (let i = 0; i < embeddings.length; i++) {
@@ -115,7 +123,12 @@ describe('distanceMatrix', () => {
   });
 
   it('computes correct dimensions', () => {
-    const embeddings = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    const embeddings = [
+      [1, 0],
+      [0, 1],
+      [-1, 0],
+      [0, -1],
+    ];
     const matrix = distanceMatrix(embeddings);
 
     expect(matrix).toHaveLength(4);

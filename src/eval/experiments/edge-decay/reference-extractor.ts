@@ -2,12 +2,13 @@
  * Reference extractor for turn-to-turn reference detection.
  *
  * Parses session data to identify when a user turn references
- * specific earlier assistant turns.
+ * specific earlier assistant turns. Distance metric: hop distance
+ * (turn count difference).
  */
 
 import { readSessionMessages } from '../../../parser/session-reader.js';
 import { assembleTurns } from '../../../parser/turn-assembler.js';
-import type { Turn, ContentBlock, TextBlock, ToolUseBlock, ToolResultBlock } from '../../../parser/types.js';
+import type { Turn, ContentBlock, TextBlock, ToolResultBlock } from '../../../parser/types.js';
 import type { TurnReference, SessionReferences, ReferenceType } from './reference-types.js';
 
 /**
@@ -15,7 +16,8 @@ import type { TurnReference, SessionReferences, ReferenceType } from './referenc
  */
 function extractFilePaths(text: string): string[] {
   // Match common file extensions
-  const pathPattern = /(?:^|\s|['"`])([.\/~]?[\w\-./]+\.(ts|tsx|js|jsx|py|json|md|yaml|yml|toml|rs|go|java|c|cpp|h|hpp|css|html|xml|sql|sh|bash|zsh))\b/gi;
+  const pathPattern =
+    /(?:^|\s|['"`])([.\/~]?[\w\-./]+\.(ts|tsx|js|jsx|py|json|md|yaml|yml|toml|rs|go|java|c|cpp|h|hpp|css|html|xml|sql|sh|bash|zsh))\b/gi;
   const matches: string[] = [];
   let match;
   while ((match = pathPattern.exec(text)) !== null) {
@@ -81,7 +83,7 @@ function extractCodeEntities(text: string): string[] {
     entities.push(match[1].toLowerCase());
   }
 
-  return [...new Set(entities)].filter(e => e.length > 2); // Filter out short names
+  return [...new Set(entities)].filter((e) => e.length > 2); // Filter out short names
 }
 
 /**
@@ -133,7 +135,7 @@ function findBackreferences(text: string): string[] {
 function getAssistantText(blocks: ContentBlock[]): string {
   return blocks
     .filter((b): b is TextBlock => b.type === 'text')
-    .map(b => b.text)
+    .map((b) => b.text)
     .join('\n');
 }
 
@@ -141,9 +143,7 @@ function getAssistantText(blocks: ContentBlock[]): string {
  * Extract tool results from blocks.
  */
 function getToolResults(blocks: ContentBlock[]): string[] {
-  return blocks
-    .filter((b): b is ToolResultBlock => b.type === 'tool_result')
-    .map(b => b.content);
+  return blocks.filter((b): b is ToolResultBlock => b.type === 'tool_result').map((b) => b.content);
 }
 
 /**
@@ -151,19 +151,13 @@ function getToolResults(blocks: ContentBlock[]): string[] {
  */
 function getAllTurnContent(turn: Turn): string {
   const text = getAssistantText(turn.assistantBlocks);
-  const toolResults = turn.toolExchanges.map(t => t.result).join('\n');
+  const toolResults = turn.toolExchanges.map((t) => t.result).join('\n');
   return `${text}\n${toolResults}`;
 }
 
 /**
- * Parse timestamp to ms.
- */
-function parseTime(iso: string): number {
-  return new Date(iso).getTime();
-}
-
-/**
  * Find which earlier turns a user turn references.
+ * Distance metric: hop distance (queryIndex - prevTurnIndex).
  */
 function findReferences(
   queryTurn: Turn,
@@ -172,7 +166,6 @@ function findReferences(
 ): TurnReference[] {
   const references: TurnReference[] = [];
   const userText = queryTurn.userText;
-  const queryTime = parseTime(queryTurn.startTime);
 
   // Extract features from user text
   const userFilePaths = extractFilePaths(userText);
@@ -184,8 +177,7 @@ function findReferences(
   for (let i = 0; i < previousTurns.length; i++) {
     const prevTurn = previousTurns[i];
     const prevContent = getAllTurnContent(prevTurn);
-    const prevTime = parseTime(prevTurn.startTime);
-    const timeGapMs = queryTime - prevTime;
+    const hopDistance = queryIndex - i;
 
     // Extract features from previous turn
     const prevFilePaths = extractFilePaths(prevContent);
@@ -202,7 +194,7 @@ function findReferences(
             referenceType: 'file-path',
             confidence: 'high',
             evidence: userPath,
-            timeGapMs,
+            hopDistance,
           });
           break; // One reference per type per turn
         }
@@ -219,7 +211,7 @@ function findReferences(
             referenceType: 'error-fragment',
             confidence: 'high',
             evidence: userFrag,
-            timeGapMs,
+            hopDistance,
           });
           break;
         }
@@ -235,7 +227,7 @@ function findReferences(
           referenceType: 'code-entity',
           confidence: 'medium',
           evidence: userEntity,
-          timeGapMs,
+          hopDistance,
         });
         break;
       }
@@ -245,8 +237,9 @@ function findReferences(
     const toolResults = getToolResults(prevTurn.assistantBlocks);
     for (const result of toolResults) {
       // Check if user text contains a significant fragment from the tool result
-      const resultLines = result.split('\n').filter(l => l.trim().length > 20);
-      for (const line of resultLines.slice(0, 5)) { // Check first 5 significant lines
+      const resultLines = result.split('\n').filter((l) => l.trim().length > 20);
+      for (const line of resultLines.slice(0, 5)) {
+        // Check first 5 significant lines
         const fragment = line.trim().slice(0, 40).toLowerCase();
         if (fragment.length > 20 && userText.toLowerCase().includes(fragment)) {
           references.push({
@@ -255,7 +248,7 @@ function findReferences(
             referenceType: 'tool-output',
             confidence: 'high',
             evidence: fragment,
-            timeGapMs,
+            hopDistance,
           });
           break;
         }
@@ -267,41 +260,32 @@ function findReferences(
   if (userBackrefs.length > 0 && previousTurns.length > 0) {
     // Backreferences typically refer to the most recent relevant turn
     // For now, assume they refer to the immediately previous turn
-    const prevTurn = previousTurns[previousTurns.length - 1];
-    const timeGapMs = queryTime - parseTime(prevTurn.startTime);
-
     references.push({
       userTurnIndex: queryIndex,
       referencedTurnIndex: previousTurns.length - 1,
       referenceType: 'explicit-backref',
       confidence: 'medium',
       evidence: userBackrefs[0],
-      timeGapMs,
+      hopDistance: queryIndex - (previousTurns.length - 1),
     });
   }
 
   // If no references found and there's an immediately previous turn,
-  // add a weak "adjacent" reference
+  // add a weak "adjacent" reference (hop distance = 1)
   if (references.length === 0 && previousTurns.length > 0) {
-    const prevTurn = previousTurns[previousTurns.length - 1];
-    const timeGapMs = queryTime - parseTime(prevTurn.startTime);
-
-    // Only add adjacent reference if time gap is small (< 30 min)
-    if (timeGapMs < 30 * 60 * 1000) {
-      references.push({
-        userTurnIndex: queryIndex,
-        referencedTurnIndex: previousTurns.length - 1,
-        referenceType: 'adjacent',
-        confidence: 'low',
-        evidence: 'time-adjacent',
-        timeGapMs,
-      });
-    }
+    references.push({
+      userTurnIndex: queryIndex,
+      referencedTurnIndex: previousTurns.length - 1,
+      referenceType: 'adjacent',
+      confidence: 'low',
+      evidence: 'adjacent',
+      hopDistance: 1,
+    });
   }
 
   // Deduplicate references (same turn, same type)
   const seen = new Set<string>();
-  return references.filter(ref => {
+  return references.filter((ref) => {
     const key = `${ref.referencedTurnIndex}-${ref.referenceType}`;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -381,7 +365,7 @@ export async function extractReferences(
 
       if (verbose) {
         console.log(
-          `  ${session.sessionSlug}: ${refs.turnCount} turns, ${refs.references.length} references`
+          `  ${session.sessionSlug}: ${refs.turnCount} turns, ${refs.references.length} references`,
         );
       }
     } catch (err) {

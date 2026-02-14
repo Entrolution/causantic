@@ -39,10 +39,7 @@ export interface SweepResult {
   rows: SweepRow[];
 }
 
-export function computeDelta(
-  baseline: MetricSnapshot,
-  variant: MetricSnapshot,
-): MetricDelta {
+export function computeDelta(baseline: MetricSnapshot, variant: MetricSnapshot): MetricDelta {
   return {
     rocAuc: variant.rocAuc - baseline.rocAuc,
     silhouetteScore: variant.silhouetteScore - baseline.silhouetteScore,
