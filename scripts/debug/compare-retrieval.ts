@@ -7,7 +7,6 @@ import { getChunkById } from '../src/storage/chunk-store.js';
 import { Embedder } from '../src/models/embedder.js';
 import { getModel } from '../src/models/model-registry.js';
 import { traverseMultiple } from '../src/retrieval/traverser.js';
-import { getReferenceClock } from '../src/storage/clock-store.js';
 import { closeDb } from '../src/storage/db.js';
 
 async function main() {
@@ -37,22 +36,15 @@ async function main() {
   console.log('\n' + '='.repeat(80));
   console.log('\n## GRAPH TRAVERSAL ADDITIONS\n');
 
-  const firstChunk = getChunkById(vectorResults[0]?.id);
-  const projectSlug = firstChunk?.sessionSlug || '';
-  const referenceClock = getReferenceClock(projectSlug);
-
   const startIds = vectorResults.map(r => r.id);
-  const startWeights = vectorResults.map(r => Math.max(0, 1 - r.distance));
 
-  // Uses config defaults: maxDepth=20, minWeight=0.01
-  const backwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
+  // Uses config defaults: maxDepth=50, minWeight=0.01
+  const backwardResult = traverseMultiple(startIds, {
     direction: 'backward',
-    referenceClock,
   });
 
-  const forwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
+  const forwardResult = traverseMultiple(startIds, {
     direction: 'forward',
-    referenceClock,
   });
 
   const backwardAdditions = backwardResult.chunks.filter(c => !vectorChunkIds.has(c.chunkId));

@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeCoreDistances, computeCoreDistancesChunk } from '../../../src/clusters/hdbscan/core-distance.js';
+import {
+  computeCoreDistances,
+  computeCoreDistancesChunk,
+} from '../../../src/clusters/hdbscan/core-distance.js';
 
 describe('computeCoreDistances', () => {
   describe('basic functionality', () => {

@@ -13,12 +13,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { generateMemorySection } from './session-start.js';
-import {
-  executeHook,
-  logHook,
-  isTransientError,
-  type HookMetrics,
-} from './hook-utils.js';
+import { executeHook, logHook, isTransientError, type HookMetrics } from './hook-utils.js';
 import type { SessionStartOptions } from './session-start.js';
 
 /**
@@ -60,7 +55,7 @@ export interface ClaudeMdResult {
  */
 async function internalUpdateClaudeMd(
   projectPath: string,
-  options: ClaudeMdOptions
+  options: ClaudeMdOptions,
 ): Promise<ClaudeMdResult> {
   const {
     claudeMdPath = join(projectPath, 'CLAUDE.md'),
@@ -202,13 +197,9 @@ async function internalUpdateClaudeMd(
  */
 export async function updateClaudeMd(
   projectPath: string,
-  options: ClaudeMdOptions = {}
+  options: ClaudeMdOptions = {},
 ): Promise<ClaudeMdResult> {
-  const {
-    enableRetry = true,
-    maxRetries = 3,
-    gracefulDegradation = true,
-  } = options;
+  const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
 
   const claudeMdPath = options.claudeMdPath ?? join(projectPath, 'CLAUDE.md');
 
@@ -231,7 +222,7 @@ export async function updateClaudeMd(
           }
         : undefined,
       fallback: gracefulDegradation ? fallbackResult : undefined,
-    }
+    },
   );
 
   return {
@@ -262,8 +253,7 @@ export async function removeMemorySection(claudeMdPath: string): Promise<boolean
     }
 
     const newContent =
-      existing.slice(0, startIdx).trimEnd() +
-      existing.slice(endIdx + MEMORY_END_MARKER.length);
+      existing.slice(0, startIdx).trimEnd() + existing.slice(endIdx + MEMORY_END_MARKER.length);
 
     await writeFile(claudeMdPath, newContent.trimEnd() + '\n', 'utf-8');
 

@@ -11,7 +11,6 @@ import {
   deleteCheckpoint,
   deleteProjectCheckpoints,
   getProjectCheckpoints,
-  type IngestionCheckpoint,
 } from '../../src/storage/checkpoint-store.js';
 
 describe('checkpoint-store', () => {
@@ -28,7 +27,6 @@ describe('checkpoint-store', () => {
         project_slug TEXT NOT NULL,
         last_turn_index INTEGER NOT NULL,
         last_chunk_id TEXT,
-        vector_clock TEXT,
         file_mtime TEXT,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP
       )
@@ -55,10 +53,10 @@ describe('checkpoint-store', () => {
       testDb
         .prepare(
           `INSERT INTO ingestion_checkpoints
-           (session_id, project_slug, last_turn_index, last_chunk_id, vector_clock, file_mtime)
-           VALUES (?, ?, ?, ?, ?, ?)`
+           (session_id, project_slug, last_turn_index, last_chunk_id, file_mtime)
+           VALUES (?, ?, ?, ?, ?)`,
         )
-        .run('session-1', 'my-project', 10, 'chunk-abc', '{"main":5}', '2024-01-01T00:00:00.000Z');
+        .run('session-1', 'my-project', 10, 'chunk-abc', '2024-01-01T00:00:00.000Z');
 
       const result = getCheckpoint('session-1');
 
@@ -67,7 +65,6 @@ describe('checkpoint-store', () => {
       expect(result!.projectSlug).toBe('my-project');
       expect(result!.lastTurnIndex).toBe(10);
       expect(result!.lastChunkId).toBe('chunk-abc');
-      expect(result!.vectorClock).toBe('{"main":5}');
       expect(result!.fileMtime).toBe('2024-01-01T00:00:00.000Z');
     });
 
@@ -76,7 +73,7 @@ describe('checkpoint-store', () => {
         .prepare(
           `INSERT INTO ingestion_checkpoints
            (session_id, project_slug, last_turn_index)
-           VALUES (?, ?, ?)`
+           VALUES (?, ?, ?)`,
         )
         .run('session-2', 'my-project', 5);
 
@@ -84,7 +81,6 @@ describe('checkpoint-store', () => {
 
       expect(result).not.toBeNull();
       expect(result!.lastChunkId).toBeNull();
-      expect(result!.vectorClock).toBeNull();
       expect(result!.fileMtime).toBeNull();
     });
   });
@@ -96,7 +92,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'test-project',
         lastTurnIndex: 3,
         lastChunkId: 'chunk-123',
-        vectorClock: '{"main":2}',
         fileMtime: '2024-02-01T12:00:00.000Z',
       });
 
@@ -113,7 +108,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'proj',
         lastTurnIndex: 1,
         lastChunkId: 'old-chunk',
-        vectorClock: null,
         fileMtime: null,
       });
 
@@ -122,7 +116,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'proj',
         lastTurnIndex: 5,
         lastChunkId: 'new-chunk',
-        vectorClock: '{"main":10}',
         fileMtime: '2024-03-01T00:00:00.000Z',
       });
 
@@ -130,7 +123,6 @@ describe('checkpoint-store', () => {
 
       expect(result!.lastTurnIndex).toBe(5);
       expect(result!.lastChunkId).toBe('new-chunk');
-      expect(result!.vectorClock).toBe('{"main":10}');
     });
   });
 
@@ -141,7 +133,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'proj',
         lastTurnIndex: 1,
         lastChunkId: null,
-        vectorClock: null,
         fileMtime: null,
       });
 
@@ -164,7 +155,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'target-proj',
         lastTurnIndex: 1,
         lastChunkId: null,
-        vectorClock: null,
         fileMtime: null,
       });
       saveCheckpoint({
@@ -172,7 +162,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'target-proj',
         lastTurnIndex: 2,
         lastChunkId: null,
-        vectorClock: null,
         fileMtime: null,
       });
       saveCheckpoint({
@@ -180,7 +169,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'other-proj',
         lastTurnIndex: 3,
         lastChunkId: null,
-        vectorClock: null,
         fileMtime: null,
       });
 
@@ -199,7 +187,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'my-proj',
         lastTurnIndex: 10,
         lastChunkId: null,
-        vectorClock: null,
         fileMtime: null,
       });
       saveCheckpoint({
@@ -207,7 +194,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'my-proj',
         lastTurnIndex: 20,
         lastChunkId: null,
-        vectorClock: null,
         fileMtime: null,
       });
       saveCheckpoint({
@@ -215,7 +201,6 @@ describe('checkpoint-store', () => {
         projectSlug: 'other-proj',
         lastTurnIndex: 5,
         lastChunkId: null,
-        vectorClock: null,
         fileMtime: null,
       });
 

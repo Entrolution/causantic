@@ -1,6 +1,6 @@
 /**
  * Cross-session edge detection and creation.
- * Detects continued sessions and creates edges across session boundaries.
+ * Detects continued sessions and creates a single edge across session boundaries.
  */
 
 import { getChunksBySession, getSessionIds, getPreviousSession } from '../storage/chunk-store.js';
@@ -31,14 +31,25 @@ export interface CrossSessionLinkResult {
 }
 
 /**
+ * Strip leading role tags (e.g. "[User]\n", "[Assistant]\n") from chunk content.
+ * Chunks are rendered with role prefixes by the chunker, but continuation
+ * patterns expect raw text.
+ */
+function stripRolePrefix(content: string): string {
+  return content.replace(/^\[(?:User|Assistant|Thinking)\]\n/, '');
+}
+
+/**
  * Check if a session is a continuation of a previous session.
  */
 export function isContinuedSession(firstChunkContent: string): boolean {
-  return CONTINUATION_PATTERNS.some((p) => p.test(firstChunkContent));
+  const text = stripRolePrefix(firstChunkContent);
+  return CONTINUATION_PATTERNS.some((p) => p.test(text));
 }
 
 /**
  * Link a session to its previous session if it's a continuation.
+ * Creates a single edge: last chunk of previous session → first chunk of new session.
  *
  * @param sessionId - Session ID to check
  * @param sessionSlug - Session slug (project identifier)
@@ -46,7 +57,7 @@ export function isContinuedSession(firstChunkContent: string): boolean {
  */
 export async function linkCrossSession(
   sessionId: string,
-  sessionSlug: string
+  sessionSlug: string,
 ): Promise<CrossSessionLinkResult> {
   const chunks = getChunksBySession(sessionId);
 
@@ -83,11 +94,10 @@ export async function linkCrossSession(
     };
   }
 
-  // Get final chunks from previous session
+  // Get chunks from previous session
   const prevChunks = getChunksBySession(prevSessionInfo.sessionId);
-  const finalChunks = prevChunks.slice(-3); // Last 3 chunks
 
-  if (finalChunks.length === 0) {
+  if (prevChunks.length === 0) {
     return {
       sessionId,
       previousSessionId: prevSessionInfo.sessionId,
@@ -96,11 +106,9 @@ export async function linkCrossSession(
     };
   }
 
-  // Create cross-session edges
-  const edgeCount = await createCrossSessionEdges(
-    finalChunks.map((c) => c.id),
-    firstChunk.id
-  );
+  // Single edge: last chunk of previous session → first chunk of new session
+  const lastPrevChunk = prevChunks[prevChunks.length - 1];
+  const edgeCount = await createCrossSessionEdges(lastPrevChunk.id, firstChunk.id);
 
   return {
     sessionId,

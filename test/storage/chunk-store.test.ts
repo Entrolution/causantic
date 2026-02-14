@@ -30,7 +30,6 @@ describe('chunk-store', () => {
         id: 'test-chunk-1',
         content: 'Hello world',
         agentId: 'ui',
-        vectorClock: { ui: 5, human: 3 },
       });
 
       insertTestChunk(db, chunk);
@@ -39,32 +38,27 @@ describe('chunk-store', () => {
         id: string;
         content: string;
         agent_id: string | null;
-        vector_clock: string | null;
       };
 
       expect(row).toBeDefined();
       expect(row.id).toBe('test-chunk-1');
       expect(row.content).toBe('Hello world');
       expect(row.agent_id).toBe('ui');
-      expect(JSON.parse(row.vector_clock!)).toEqual({ ui: 5, human: 3 });
     });
 
     it('inserts a chunk with null optional fields', () => {
       const chunk = createSampleChunk({
         id: 'test-chunk-2',
         agentId: null,
-        vectorClock: null,
       });
 
       insertTestChunk(db, chunk);
 
       const row = db.prepare('SELECT * FROM chunks WHERE id = ?').get('test-chunk-2') as {
         agent_id: string | null;
-        vector_clock: string | null;
       };
 
       expect(row.agent_id).toBeNull();
-      expect(row.vector_clock).toBeNull();
     });
 
     it('stores turn indices as JSON', () => {
@@ -75,7 +69,9 @@ describe('chunk-store', () => {
 
       insertTestChunk(db, chunk);
 
-      const row = db.prepare('SELECT turn_indices FROM chunks WHERE id = ?').get('test-chunk-3') as {
+      const row = db
+        .prepare('SELECT turn_indices FROM chunks WHERE id = ?')
+        .get('test-chunk-3') as {
         turn_indices: string;
       };
 
@@ -114,20 +110,26 @@ describe('chunk-store', () => {
     });
 
     it('orders by start_time', () => {
-      insertTestChunk(db, createSampleChunk({
-        id: 'c1',
-        sessionId: 'session-1',
-        startTime: '2024-01-01T00:02:00Z',
-      }));
-      insertTestChunk(db, createSampleChunk({
-        id: 'c2',
-        sessionId: 'session-1',
-        startTime: '2024-01-01T00:01:00Z',
-      }));
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c1',
+          sessionId: 'session-1',
+          startTime: '2024-01-01T00:02:00Z',
+        }),
+      );
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c2',
+          sessionId: 'session-1',
+          startTime: '2024-01-01T00:01:00Z',
+        }),
+      );
 
-      const rows = db.prepare(
-        'SELECT id FROM chunks WHERE session_id = ? ORDER BY start_time'
-      ).all('session-1') as { id: string }[];
+      const rows = db
+        .prepare('SELECT id FROM chunks WHERE session_id = ? ORDER BY start_time')
+        .all('session-1') as { id: string }[];
 
       expect(rows[0].id).toBe('c2'); // Earlier time first
       expect(rows[1].id).toBe('c1');
@@ -147,7 +149,7 @@ describe('chunk-store', () => {
 
   describe('getChunksByIds', () => {
     it('returns empty array for empty input', () => {
-      const rows = db.prepare('SELECT * FROM chunks WHERE id IN ()').all();
+      const _rows = db.prepare('SELECT * FROM chunks WHERE id IN ()').all();
       // Actually this would fail syntactically, so we'd check for empty result differently
     });
 
@@ -177,12 +179,16 @@ describe('chunk-store', () => {
       assignChunkToCluster(db, 'c1', 'cluster-1', 0.2);
       assignChunkToCluster(db, 'c2', 'cluster-1', 0.5);
 
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT c.id, cc.distance FROM chunks c
         JOIN chunk_clusters cc ON c.id = cc.chunk_id
         WHERE cc.cluster_id = ?
         ORDER BY cc.distance
-      `).all('cluster-1') as { id: string; distance: number }[];
+      `,
+        )
+        .all('cluster-1') as { id: string; distance: number }[];
 
       expect(rows.length).toBe(2);
       expect(rows[0].id).toBe('c1'); // Closer distance first
@@ -199,7 +205,9 @@ describe('chunk-store', () => {
     it('returns true for known session', () => {
       insertTestChunk(db, createSampleChunk({ sessionId: 'known-session' }));
 
-      const row = db.prepare('SELECT 1 FROM chunks WHERE session_id = ? LIMIT 1').get('known-session');
+      const row = db
+        .prepare('SELECT 1 FROM chunks WHERE session_id = ? LIMIT 1')
+        .get('known-session');
       expect(row).toBeDefined();
     });
   });
@@ -227,7 +235,9 @@ describe('chunk-store', () => {
       insertTestChunk(db, createSampleChunk({ id: 'c2', sessionId: 'session-a' }));
       insertTestChunk(db, createSampleChunk({ id: 'c3', sessionId: 'session-b' }));
 
-      const rows = db.prepare('SELECT DISTINCT session_id FROM chunks').all() as { session_id: string }[];
+      const rows = db.prepare('SELECT DISTINCT session_id FROM chunks').all() as {
+        session_id: string;
+      }[];
       const ids = rows.map((r) => r.session_id);
 
       expect(ids.length).toBe(2);
@@ -258,25 +268,50 @@ describe('chunk-store', () => {
       insertTestChunk(db, createSampleChunk({ id: 'c2', sessionSlug: 'project-a' }));
       insertTestChunk(db, createSampleChunk({ id: 'c3', sessionSlug: 'project-b' }));
 
-      const ids = db.prepare('SELECT id FROM chunks WHERE session_slug = ?')
-        .all('project-a') as { id: string }[];
-      expect(ids.map(r => r.id)).toEqual(['c1', 'c2']);
+      const ids = db.prepare('SELECT id FROM chunks WHERE session_slug = ?').all('project-a') as {
+        id: string;
+      }[];
+      expect(ids.map((r) => r.id)).toEqual(['c1', 'c2']);
     });
 
     it('returns empty array for unknown project', () => {
-      const ids = db.prepare('SELECT id FROM chunks WHERE session_slug = ?')
-        .all('unknown') as { id: string }[];
+      const ids = db.prepare('SELECT id FROM chunks WHERE session_slug = ?').all('unknown') as {
+        id: string;
+      }[];
       expect(ids).toEqual([]);
     });
   });
 
   describe('getDistinctProjects', () => {
     it('returns distinct projects with chunk counts', () => {
-      insertTestChunk(db, createSampleChunk({ id: 'c1', sessionSlug: 'project-a', startTime: '2024-01-01T00:00:00Z' }));
-      insertTestChunk(db, createSampleChunk({ id: 'c2', sessionSlug: 'project-a', startTime: '2024-06-01T00:00:00Z' }));
-      insertTestChunk(db, createSampleChunk({ id: 'c3', sessionSlug: 'project-b', startTime: '2024-03-01T00:00:00Z' }));
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c1',
+          sessionSlug: 'project-a',
+          startTime: '2024-01-01T00:00:00Z',
+        }),
+      );
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c2',
+          sessionSlug: 'project-a',
+          startTime: '2024-06-01T00:00:00Z',
+        }),
+      );
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c3',
+          sessionSlug: 'project-b',
+          startTime: '2024-03-01T00:00:00Z',
+        }),
+      );
 
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT
           session_slug AS slug,
           COUNT(*) AS chunkCount,
@@ -286,7 +321,9 @@ describe('chunk-store', () => {
         WHERE session_slug != ''
         GROUP BY session_slug
         ORDER BY lastSeen DESC
-      `).all() as Array<{
+      `,
+        )
+        .all() as Array<{
         slug: string;
         chunkCount: number;
         firstSeen: string;
@@ -295,7 +332,7 @@ describe('chunk-store', () => {
 
       expect(rows.length).toBe(2);
 
-      const projectA = rows.find(r => r.slug === 'project-a');
+      const projectA = rows.find((r) => r.slug === 'project-a');
       expect(projectA).toBeDefined();
       expect(projectA!.chunkCount).toBe(2);
       expect(projectA!.firstSeen).toBe('2024-01-01T00:00:00Z');
@@ -306,12 +343,16 @@ describe('chunk-store', () => {
       insertTestChunk(db, createSampleChunk({ id: 'c1', sessionSlug: '' }));
       insertTestChunk(db, createSampleChunk({ id: 'c2', sessionSlug: 'real-project' }));
 
-      const rows = db.prepare(`
+      const rows = db
+        .prepare(
+          `
         SELECT session_slug AS slug, COUNT(*) AS chunkCount
         FROM chunks
         WHERE session_slug != ''
         GROUP BY session_slug
-      `).all() as Array<{ slug: string; chunkCount: number }>;
+      `,
+        )
+        .all() as Array<{ slug: string; chunkCount: number }>;
 
       expect(rows.length).toBe(1);
       expect(rows[0].slug).toBe('real-project');
@@ -320,10 +361,13 @@ describe('chunk-store', () => {
 
   describe('project_path column', () => {
     it('stores and retrieves project_path', () => {
-      insertTestChunk(db, createSampleChunk({
-        id: 'c1',
-        projectPath: '/Users/gvn/Dev/my-project',
-      }));
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c1',
+          projectPath: '/Users/gvn/Dev/my-project',
+        }),
+      );
 
       const row = db.prepare('SELECT project_path FROM chunks WHERE id = ?').get('c1') as {
         project_path: string | null;
@@ -338,23 +382,6 @@ describe('chunk-store', () => {
         project_path: string | null;
       };
       expect(row.project_path).toBeNull();
-    });
-  });
-
-  describe('vector clock serialization', () => {
-    it('round-trips vector clock data', () => {
-      const originalClock = { ui: 10, human: 5, subagent: 3 };
-      insertTestChunk(db, createSampleChunk({
-        id: 'clock-test',
-        vectorClock: originalClock,
-      }));
-
-      const row = db.prepare('SELECT vector_clock FROM chunks WHERE id = ?').get('clock-test') as {
-        vector_clock: string;
-      };
-
-      const restored = JSON.parse(row.vector_clock);
-      expect(restored).toEqual(originalClock);
     });
   });
 });

@@ -14,7 +14,6 @@ import { createInterface } from 'readline';
 import { tools, getTool } from './tools.js';
 import { getDb, closeDb } from '../storage/db.js';
 import { disposeRetrieval } from '../retrieval/context-assembler.js';
-import { initStartupPrune } from '../storage/pruner.js';
 import { getChunkCount } from '../storage/chunk-store.js';
 import { getEdgeCount } from '../storage/edge-store.js';
 import { getClusterCount } from '../storage/cluster-store.js';
@@ -106,7 +105,7 @@ function createErrorResponse(
   id: string | number,
   code: number,
   message: string,
-  data?: unknown
+  data?: unknown,
 ): McpResponse {
   return {
     jsonrpc: '2.0',
@@ -127,8 +126,11 @@ export class McpServer {
 
   constructor(config: McpServerConfig = {}) {
     this.config = {
-      enableLogging: config.enableLogging ?? (process.env.CAUSANTIC_MCP_LOGGING === 'true'),
-      logLevel: config.logLevel ?? (process.env.CAUSANTIC_MCP_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') ?? 'info',
+      enableLogging: config.enableLogging ?? process.env.CAUSANTIC_MCP_LOGGING === 'true',
+      logLevel:
+        config.logLevel ??
+        (process.env.CAUSANTIC_MCP_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') ??
+        'info',
       authToken: config.authToken ?? process.env.CAUSANTIC_MCP_AUTH_TOKEN ?? '',
       enableHealthCheck: config.enableHealthCheck ?? true,
     };
@@ -165,9 +167,6 @@ export class McpServer {
 
     // Initialize database
     getDb();
-
-    // Start background pruning (non-blocking)
-    initStartupPrune();
 
     this.log({ level: 'info', event: 'server_started' });
 
@@ -210,7 +209,7 @@ export class McpServer {
           0,
           ErrorCodes.PARSE_ERROR,
           'Parse error',
-          error instanceof Error ? error.message : String(error)
+          error instanceof Error ? error.message : String(error),
         );
         console.log(JSON.stringify(errorResponse));
 
@@ -305,7 +304,10 @@ export class McpServer {
           return this.handleToolsList(id);
 
         case 'tools/call':
-          return await this.handleToolsCall(id, params as { name: string; arguments: Record<string, unknown> });
+          return await this.handleToolsCall(
+            id,
+            params as { name: string; arguments: Record<string, unknown> },
+          );
 
         case 'ping':
           return this.handlePing(id);
@@ -318,7 +320,11 @@ export class McpServer {
           return { jsonrpc: '2.0', id, result: null };
 
         default:
-          return createErrorResponse(id, ErrorCodes.METHOD_NOT_FOUND, `Method not found: ${method}`);
+          return createErrorResponse(
+            id,
+            ErrorCodes.METHOD_NOT_FOUND,
+            `Method not found: ${method}`,
+          );
       }
     } catch (error) {
       this.errorCount++;
@@ -334,7 +340,7 @@ export class McpServer {
         id,
         ErrorCodes.INTERNAL_ERROR,
         'Internal error',
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error ? error.message : String(error),
       );
     }
   }
@@ -449,7 +455,7 @@ export class McpServer {
    */
   private async handleToolsCall(
     id: string | number,
-    params: { name: string; arguments: Record<string, unknown> }
+    params: { name: string; arguments: Record<string, unknown> },
   ): Promise<McpResponse> {
     const { name, arguments: args } = params;
 
@@ -491,15 +497,10 @@ export class McpServer {
         error: error instanceof Error ? error.message : String(error),
       });
 
-      return createErrorResponse(
-        id,
-        ErrorCodes.TOOL_ERROR,
-        'Tool execution failed',
-        {
-          tool: name,
-          error: error instanceof Error ? error.message : String(error),
-        }
-      );
+      return createErrorResponse(id, ErrorCodes.TOOL_ERROR, 'Tool execution failed', {
+        tool: name,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -527,7 +528,9 @@ export async function startMcpServer(config?: McpServerConfig): Promise<McpServe
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   startMcpServer().catch((error) => {
-    log.error('Failed to start MCP server:', { error: error instanceof Error ? error.message : String(error) });
+    log.error('Failed to start MCP server:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     process.exit(1);
   });
 }

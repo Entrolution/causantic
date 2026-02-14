@@ -6,10 +6,7 @@
  */
 
 import { loadConfig } from '../../config/loader.js';
-import type {
-  CollectionBenchmarkResult,
-  TuningRecommendation,
-} from './types.js';
+import type { CollectionBenchmarkResult, TuningRecommendation } from './types.js';
 
 /**
  * Generate tuning recommendations from benchmark results.
@@ -22,12 +19,12 @@ export function generateTuningRecommendations(
 
   const health = result.collectionStats;
   const retrieval = result.retrieval;
-  const graph = result.graphValue;
+  const chain = result.chainQuality;
   const latency = result.latency;
 
   // Cluster coverage < 70%
   if (health.clusterCoverage < 0.7) {
-    const currentThreshold = config.clustering?.threshold ?? 0.10;
+    const currentThreshold = config.clustering?.threshold ?? 0.1;
     recommendations.push({
       metric: 'Cluster coverage',
       currentValue: `clustering.threshold: ${currentThreshold}`,
@@ -65,7 +62,7 @@ export function generateTuningRecommendations(
 
   // Cluster coherence: inter-cluster separation low
   if (health.clusterQuality && health.clusterQuality.interClusterSeparation < 0.3) {
-    const currentThreshold = config.clustering?.threshold ?? 0.10;
+    const currentThreshold = config.clustering?.threshold ?? 0.1;
     recommendations.push({
       metric: 'Inter-cluster separation',
       currentValue: `clustering.threshold: ${currentThreshold}`,
@@ -78,7 +75,7 @@ export function generateTuningRecommendations(
 
   // Cluster coherence: intra-cluster similarity low
   if (health.clusterQuality && health.clusterQuality.intraClusterSimilarity < 0.5) {
-    const currentThreshold = config.clustering?.threshold ?? 0.10;
+    const currentThreshold = config.clustering?.threshold ?? 0.1;
     recommendations.push({
       metric: 'Intra-cluster similarity',
       currentValue: `clustering.threshold: ${currentThreshold}`,
@@ -89,65 +86,51 @@ export function generateTuningRecommendations(
     });
   }
 
-  // Graph-sourced % < 10%
-  if (graph && graph.sourceAttribution.graphPercentage < 0.1) {
-    const currentDepth = config.traversal?.maxDepth ?? 15;
+  // Chain coverage < 50%
+  if (chain && chain.chainCoverage < 0.5) {
     if (health.edgeToChunkRatio < 1) {
       recommendations.push({
-        metric: 'Graph utilization (sparse edges)',
+        metric: 'Chain coverage (sparse edges)',
         currentValue: `${health.edgeCount} edges for ${health.chunkCount} chunks`,
-        suggestedValue: 'Re-ingest with latest parser',
+        suggestedValue: 'Re-ingest with latest parser or run rebuild-edges',
         configPath: '(action)',
-        impact: 'Edges are sparse; re-ingesting may extract more connections',
+        impact: 'Edges are sparse; re-ingesting or rebuilding edges creates sequential chains for walking',
         priority: 'high',
       });
     } else {
       recommendations.push({
-        metric: 'Graph utilization',
-        currentValue: `traversal.maxDepth: ${currentDepth}`,
-        suggestedValue: 'traversal.maxDepth: 25',
-        configPath: 'traversal.maxDepth',
-        impact: 'Deeper traversal may surface more graph-connected results',
+        metric: 'Chain coverage',
+        currentValue: `${(chain.chainCoverage * 100).toFixed(0)}% of queries produce chains`,
+        suggestedValue: 'Run `npx causantic maintenance rebuild-edges`',
+        configPath: '(action)',
+        impact: 'Rebuild edges as sequential linked-list to improve chain connectivity',
         priority: 'medium',
       });
     }
   }
 
-  // Augmentation ratio < 1.2
-  if (graph && graph.sourceAttribution.augmentationRatio < 1.2) {
-    const currentMinWeight = config.traversal?.minWeight ?? 0.01;
+  // Mean chain length < 3
+  if (chain && chain.meanChainLength > 0 && chain.meanChainLength < 3) {
+    const currentMaxDepth = config.traversal?.maxDepth ?? 50;
     recommendations.push({
-      metric: 'Augmentation ratio',
-      currentValue: `traversal.minWeight: ${currentMinWeight}`,
-      suggestedValue: 'traversal.minWeight: 0.005',
-      configPath: 'traversal.minWeight',
-      impact: 'Lower threshold follows weaker edges, finding more graph results',
-      priority: 'low',
-    });
-  }
-
-  // Graph-boosted count is 0 despite having graph results
-  if (graph && graph.graphBoostedCount === 0 && graph.sourceAttribution.graphPercentage > 0) {
-    const currentBoost = config.traversal?.graphAgreementBoost ?? 2.0;
-    recommendations.push({
-      metric: 'Graph agreement boost',
-      currentValue: `0 chunks boosted (graphAgreementBoost: ${currentBoost})`,
-      suggestedValue: 'traversal.graphAgreementBoost: 3.0',
-      configPath: 'traversal.graphAgreementBoost',
-      impact: 'Graph finds disjoint chunks from vector search; higher boost rewards any future overlap',
+      metric: 'Mean chain length',
+      currentValue: `${chain.meanChainLength.toFixed(1)} chunks per chain, traversal.maxDepth: ${currentMaxDepth}`,
+      suggestedValue: 'traversal.maxDepth: 100',
+      configPath: 'traversal.maxDepth',
+      impact: 'Increase max depth to allow longer chain walks for richer narratives',
       priority: 'low',
     });
   }
 
   // Recall latency p95 > 200ms
   if (latency && latency.recall.p95 > 200) {
-    const currentDepth = config.traversal?.maxDepth ?? 15;
+    const currentMaxDepth = config.traversal?.maxDepth ?? 50;
     recommendations.push({
       metric: 'Recall latency p95',
-      currentValue: `traversal.maxDepth: ${currentDepth}`,
-      suggestedValue: 'traversal.maxDepth: 15',
+      currentValue: `traversal.maxDepth: ${currentMaxDepth}`,
+      suggestedValue: 'traversal.maxDepth: 30',
       configPath: 'traversal.maxDepth',
-      impact: `May reduce p95 from ${latency.recall.p95.toFixed(0)}ms by limiting traversal depth`,
+      impact: `May reduce p95 from ${latency.recall.p95.toFixed(0)}ms by limiting chain walk depth`,
       priority: 'medium',
     });
 
@@ -165,76 +148,75 @@ export function generateTuningRecommendations(
 
   // Cross-session bridging low
   if (retrieval && retrieval.bridgingRecallAt10 < 0.3) {
-    const currentDiesAt = config.decay?.forward?.diesAtHops ?? 20;
     recommendations.push({
       metric: 'Cross-session bridging',
-      currentValue: `decay.forward.diesAtHops: ${currentDiesAt}`,
-      suggestedValue: 'decay.forward.diesAtHops: 25',
-      configPath: 'decay.forward.diesAtHops',
-      impact: 'Increase forward decay range to strengthen cross-session connections',
+      currentValue: `${(retrieval.bridgingRecallAt10 * 100).toFixed(0)}% bridging recall`,
+      suggestedValue: 'Run `npx causantic maintenance rebuild-edges`',
+      configPath: '(action)',
+      impact: 'Rebuild edges to ensure cross-session links exist between sequential sessions',
       priority: 'medium',
     });
   }
 
   // Precision@K low (cross-project bleed)
   if (retrieval && retrieval.precisionAt10 < 0.7 && retrieval.precisionAt10 > 0) {
-    const currentDepth = config.traversal?.maxDepth ?? 15;
     recommendations.push({
       metric: 'Precision@K (cross-project bleed)',
-      currentValue: `traversal.maxDepth: ${currentDepth}`,
-      suggestedValue: 'traversal.maxDepth: 10',
-      configPath: 'traversal.maxDepth',
-      impact: 'Tighter traversal reduces noise from distant hops',
+      currentValue: `${(retrieval.precisionAt10 * 100).toFixed(0)}% precision`,
+      suggestedValue: 'Use project parameter in recall/search queries',
+      configPath: '(info)',
+      impact: 'Filter queries by project to reduce cross-project noise in results',
       priority: 'medium',
     });
   }
 
   // Token efficiency < 60%
   if (retrieval && retrieval.tokenEfficiency < 0.6 && retrieval.tokenEfficiency > 0) {
-    const currentBudget = config.tokens?.mcpMaxResponse ?? 2000;
+    const currentBudget = config.tokens?.mcpMaxResponse ?? 20000;
     recommendations.push({
       metric: 'Token efficiency',
       currentValue: `tokens.mcpMaxResponse: ${currentBudget}`,
-      suggestedValue: 'tokens.mcpMaxResponse: 1500',
+      suggestedValue: `tokens.mcpMaxResponse: ${Math.floor(currentBudget * 0.75)}`,
       configPath: 'tokens.mcpMaxResponse',
       impact: 'Reduce response budget to increase information density',
       priority: 'low',
     });
   }
 
-  // Keyword-sourced % very low
-  if (graph && graph.sourceAttribution.keywordPercentage < 0.02 && health.chunkCount > 50) {
+  // High fallback rate — chains not forming
+  if (chain && chain.fallbackRate > 0.8 && health.edgeCount > 0) {
     recommendations.push({
-      metric: 'Keyword search utilization',
-      currentValue: `${(graph.sourceAttribution.keywordPercentage * 100).toFixed(1)}% of results from keywords`,
-      suggestedValue: 'Rebuild FTS5 index',
+      metric: 'High chain fallback rate',
+      currentValue: `${(chain.fallbackRate * 100).toFixed(0)}% of queries fall back to search`,
+      suggestedValue: 'Run `npx causantic maintenance rebuild-edges`',
       configPath: '(action)',
-      impact: 'FTS5 index may be empty or corrupted. Try re-indexing.',
+      impact: 'Most queries cannot form chains. Rebuild edges to create sequential linked-list structure.',
+      priority: 'medium',
+    });
+  }
+
+  // within-chain edges absent
+  const hasWithinChainEdges = health.edgeTypeDistribution.some((d) => d.type === 'within-chain');
+  if (!hasWithinChainEdges && health.edgeCount > 0) {
+    recommendations.push({
+      metric: 'Within-chain edges',
+      currentValue: 'No within-chain edges found',
+      suggestedValue: 'Re-ingest sessions with latest parser',
+      configPath: '(action)',
+      impact: 'Older sessions may have legacy edge types; re-ingesting creates causal edges',
       priority: 'low',
     });
   }
 
-  // file-path edges absent
-  const hasFilePathEdges = health.edgeTypeDistribution.some(d => d.type === 'file-path');
-  if (!hasFilePathEdges && health.edgeCount > 0) {
-    recommendations.push({
-      metric: 'File-path edges',
-      currentValue: 'No file-path edges found',
-      suggestedValue: 'Check ingestion parser',
-      configPath: '(action)',
-      impact: 'Parser may not be extracting file references; check ingestion pipeline',
-      priority: 'low',
-    });
-  }
-
-  // Cluster expansion sourcing 0%
-  if (graph && graph.sourceAttribution.clusterPercentage === 0 && health.clusterCount > 0) {
+  // Cluster expansion — if clusters exist but coverage is low, reclustering may help
+  if (health.clusterCount > 0 && health.clusterCoverage < 0.5) {
     recommendations.push({
       metric: 'Cluster expansion',
-      currentValue: '0% of results from cluster expansion',
-      suggestedValue: 'clusterExpansion.maxClusters: 5, maxSiblings: 8',
-      configPath: 'clusterExpansion',
-      impact: 'Increase expansion limits to leverage existing clusters',
+      currentValue: `${(health.clusterCoverage * 100).toFixed(0)}% cluster coverage`,
+      suggestedValue: 'Run `npx causantic maintenance recluster`',
+      configPath: '(action)',
+      impact:
+        'Low cluster coverage reduces seed diversity for chain walking. Try reclustering to refresh memberships.',
       priority: 'low',
     });
   }

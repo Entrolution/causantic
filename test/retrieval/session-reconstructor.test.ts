@@ -44,7 +44,6 @@ function makeChunk(overrides: Partial<StoredChunk> = {}): StoredChunk {
     approxTokens: overrides.approxTokens ?? 100,
     createdAt: overrides.createdAt ?? '2024-01-15T10:00:00Z',
     agentId: overrides.agentId ?? null,
-    vectorClock: overrides.vectorClock ?? null,
     spawnDepth: overrides.spawnDepth ?? 0,
     projectPath: overrides.projectPath ?? null,
   };
@@ -52,7 +51,7 @@ function makeChunk(overrides: Partial<StoredChunk> = {}): StoredChunk {
 
 describe('resolveTimeWindow', () => {
   it('resolves daysBack to from/to', () => {
-    const now = Date.now();
+    const _now = Date.now();
     vi.setSystemTime(new Date('2024-06-15T12:00:00Z'));
 
     const window = resolveTimeWindow({ project: 'proj', daysBack: 3 });
@@ -80,20 +79,26 @@ describe('resolveTimeWindow', () => {
 
   it('resolves previousSession mode', () => {
     // Insert two sessions
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:30:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      startTime: '2024-01-16T10:00:00Z',
-      endTime: '2024-01-16T10:30:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:30:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:30:00Z',
+      }),
+    );
 
     const window = resolveTimeWindow({
       project: 'proj',
@@ -105,13 +110,16 @@ describe('resolveTimeWindow', () => {
   });
 
   it('returns empty window when no previous session', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:30:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:30:00Z',
+      }),
+    );
 
     const window = resolveTimeWindow({
       project: 'proj',
@@ -123,15 +131,13 @@ describe('resolveTimeWindow', () => {
   });
 
   it('throws when previousSession is true but currentSessionId missing', () => {
-    expect(() =>
-      resolveTimeWindow({ project: 'proj', previousSession: true })
-    ).toThrow('currentSessionId is required');
+    expect(() => resolveTimeWindow({ project: 'proj', previousSession: true })).toThrow(
+      'currentSessionId is required',
+    );
   });
 
   it('throws when no time window specified', () => {
-    expect(() => resolveTimeWindow({ project: 'proj' })).toThrow(
-      'Must specify one of'
-    );
+    expect(() => resolveTimeWindow({ project: 'proj' })).toThrow('Must specify one of');
   });
 
   it('defaults from when only to is provided', () => {
@@ -222,18 +228,36 @@ describe('formatReconstruction', () => {
       timeRange: { from: '', to: '' },
     };
     expect(formatReconstruction(result)).toBe(
-      'No session data found for the specified time range.'
+      'No session data found for the specified time range.',
     );
   });
 
   it('includes session boundary markers', () => {
     const result: ReconstructResult = {
       chunks: [
-        { id: 'c1', sessionId: 's1', content: 'chunk 1 content', startTime: '2024-01-15T10:00:00Z', approxTokens: 100 },
-        { id: 'c2', sessionId: 's1', content: 'chunk 2 content', startTime: '2024-01-15T10:10:00Z', approxTokens: 100 },
+        {
+          id: 'c1',
+          sessionId: 's1',
+          content: 'chunk 1 content',
+          startTime: '2024-01-15T10:00:00Z',
+          approxTokens: 100,
+        },
+        {
+          id: 'c2',
+          sessionId: 's1',
+          content: 'chunk 2 content',
+          startTime: '2024-01-15T10:10:00Z',
+          approxTokens: 100,
+        },
       ],
       sessions: [
-        { sessionId: 's1', firstChunkTime: '2024-01-15T10:00:00Z', lastChunkTime: '2024-01-15T10:10:00Z', chunkCount: 2, totalTokens: 200 },
+        {
+          sessionId: 's1',
+          firstChunkTime: '2024-01-15T10:00:00Z',
+          lastChunkTime: '2024-01-15T10:10:00Z',
+          chunkCount: 2,
+          totalTokens: 200,
+        },
       ],
       totalTokens: 200,
       truncated: false,
@@ -250,10 +274,22 @@ describe('formatReconstruction', () => {
   it('includes truncation notice when truncated', () => {
     const result: ReconstructResult = {
       chunks: [
-        { id: 'c1', sessionId: 's1', content: 'content', startTime: '2024-01-15T10:00:00Z', approxTokens: 100 },
+        {
+          id: 'c1',
+          sessionId: 's1',
+          content: 'content',
+          startTime: '2024-01-15T10:00:00Z',
+          approxTokens: 100,
+        },
       ],
       sessions: [
-        { sessionId: 's1', firstChunkTime: '2024-01-15T10:00:00Z', lastChunkTime: '2024-01-15T10:00:00Z', chunkCount: 1, totalTokens: 100 },
+        {
+          sessionId: 's1',
+          firstChunkTime: '2024-01-15T10:00:00Z',
+          lastChunkTime: '2024-01-15T10:00:00Z',
+          chunkCount: 1,
+          totalTokens: 100,
+        },
       ],
       totalTokens: 100,
       truncated: true,
@@ -267,12 +303,36 @@ describe('formatReconstruction', () => {
   it('adds session headers when chunks span multiple sessions', () => {
     const result: ReconstructResult = {
       chunks: [
-        { id: 'c1', sessionId: 's1', content: 'session 1 chunk', startTime: '2024-01-15T10:00:00Z', approxTokens: 100 },
-        { id: 'c2', sessionId: 's2', content: 'session 2 chunk', startTime: '2024-01-16T10:00:00Z', approxTokens: 100 },
+        {
+          id: 'c1',
+          sessionId: 's1',
+          content: 'session 1 chunk',
+          startTime: '2024-01-15T10:00:00Z',
+          approxTokens: 100,
+        },
+        {
+          id: 'c2',
+          sessionId: 's2',
+          content: 'session 2 chunk',
+          startTime: '2024-01-16T10:00:00Z',
+          approxTokens: 100,
+        },
       ],
       sessions: [
-        { sessionId: 's1', firstChunkTime: '2024-01-15T10:00:00Z', lastChunkTime: '2024-01-15T10:00:00Z', chunkCount: 1, totalTokens: 100 },
-        { sessionId: 's2', firstChunkTime: '2024-01-16T10:00:00Z', lastChunkTime: '2024-01-16T10:00:00Z', chunkCount: 1, totalTokens: 100 },
+        {
+          sessionId: 's1',
+          firstChunkTime: '2024-01-15T10:00:00Z',
+          lastChunkTime: '2024-01-15T10:00:00Z',
+          chunkCount: 1,
+          totalTokens: 100,
+        },
+        {
+          sessionId: 's2',
+          firstChunkTime: '2024-01-16T10:00:00Z',
+          lastChunkTime: '2024-01-16T10:00:00Z',
+          chunkCount: 1,
+          totalTokens: 100,
+        },
       ],
       totalTokens: 200,
       truncated: false,
@@ -288,24 +348,30 @@ describe('formatReconstruction', () => {
 
 describe('reconstructSession (integration)', () => {
   it('reconstructs by from/to time range', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      content: 'First chunk content',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-      approxTokens: 100,
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      content: 'Second chunk content',
-      startTime: '2024-01-15T10:10:00Z',
-      endTime: '2024-01-15T10:15:00Z',
-      approxTokens: 150,
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'First chunk content',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Second chunk content',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+        approxTokens: 150,
+      }),
+    );
 
     const result = reconstructSession({
       project: 'proj',
@@ -321,20 +387,26 @@ describe('reconstructSession (integration)', () => {
   });
 
   it('reconstructs by sessionId', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T11:00:00Z',
-      endTime: '2024-01-15T11:05:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T11:00:00Z',
+        endTime: '2024-01-15T11:05:00Z',
+      }),
+    );
 
     const result = reconstructSession({
       project: 'proj',
@@ -347,23 +419,29 @@ describe('reconstructSession (integration)', () => {
   });
 
   it('reconstructs previous session', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      content: 'Previous session work',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:30:00Z',
-      approxTokens: 200,
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      content: 'Current session work',
-      startTime: '2024-01-16T10:00:00Z',
-      endTime: '2024-01-16T10:30:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Previous session work',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:30:00Z',
+        approxTokens: 200,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        content: 'Current session work',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:30:00Z',
+      }),
+    );
 
     const result = reconstructSession({
       project: 'proj',
@@ -377,13 +455,16 @@ describe('reconstructSession (integration)', () => {
   });
 
   it('returns empty result when no previous session', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:30:00Z',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:30:00Z',
+      }),
+    );
 
     const result = reconstructSession({
       project: 'proj',
@@ -397,24 +478,30 @@ describe('reconstructSession (integration)', () => {
   });
 
   it('applies token budget and truncates oldest by default', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      content: 'Old chunk',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-      approxTokens: 100,
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      content: 'New chunk',
-      startTime: '2024-01-15T10:10:00Z',
-      endTime: '2024-01-15T10:15:00Z',
-      approxTokens: 100,
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Old chunk',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'New chunk',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+        approxTokens: 100,
+      }),
+    );
 
     const result = reconstructSession({
       project: 'proj',
@@ -429,24 +516,30 @@ describe('reconstructSession (integration)', () => {
   });
 
   it('truncates newest when keepNewest is false', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      content: 'Old chunk',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-      approxTokens: 100,
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      content: 'New chunk',
-      startTime: '2024-01-15T10:10:00Z',
-      endTime: '2024-01-15T10:15:00Z',
-      approxTokens: 100,
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Old chunk',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'New chunk',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+        approxTokens: 100,
+      }),
+    );
 
     const result = reconstructSession({
       project: 'proj',
@@ -462,24 +555,30 @@ describe('reconstructSession (integration)', () => {
   });
 
   it('handles cross-session reconstruction', () => {
-    insertTestChunk(db, createSampleChunk({
-      id: 'c1',
-      sessionId: 's1',
-      sessionSlug: 'proj',
-      content: 'Session 1 content',
-      startTime: '2024-01-15T10:00:00Z',
-      endTime: '2024-01-15T10:05:00Z',
-      approxTokens: 100,
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'c2',
-      sessionId: 's2',
-      sessionSlug: 'proj',
-      content: 'Session 2 content',
-      startTime: '2024-01-16T10:00:00Z',
-      endTime: '2024-01-16T10:05:00Z',
-      approxTokens: 100,
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Session 1 content',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj',
+        content: 'Session 2 content',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
 
     const result = reconstructSession({
       project: 'proj',

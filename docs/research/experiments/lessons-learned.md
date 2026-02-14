@@ -30,7 +30,7 @@ Wall-clock time doesn't reflect semantic distance:
 
 ### The Fix
 
-Vector clock-based hop distance instead of wall-clock time. Logical steps matter, not minutes elapsed.
+Hop-based distance (traversal depth / turn count difference) instead of wall-clock time. Logical steps matter, not minutes elapsed.
 
 ## Single Decay Curve
 
@@ -134,17 +134,9 @@ Adjacent chunks are often just "next" without semantic relationship:
 - Adjacent in time, unrelated in topic
 - High weight pollutes results with noise
 
-### The Fix
+### The Fix (Historical → Current)
 
-File-path edges as primary signal:
-
-```typescript
-const edgeWeights = {
-  filePath: 1.0,   // Same file = strong relationship
-  topic: 0.8,      // Same topic = moderate
-  adjacent: 0.5,   // Sequential = weak
-};
-```
+The initial fix was file-path edges as primary signal (v0.2). The deeper fix in v0.3 was to eliminate all semantic edge types entirely — including adjacent edges. The causal graph now uses purely structural m×n all-pairs edges at D-T-D turn boundaries with topic-shift gating. Semantic association is handled by vector search and clustering instead.
 
 ## Greedy Cluster Assignment
 
@@ -200,6 +192,55 @@ These questions were identified as open before implementation and resolved throu
 | Cold start problem | Not real — full context until compaction | Design analysis |
 | Parallelism detection | Via parentToolUseID + timestamps | Session data inspection |
 
+## Sum-Product Graph Traversal at Scale (v0.3.0)
+
+### What We Tried
+
+Sum-product traversal (inspired by Feynman path integrals) to walk the causal graph. Edge weights multiplied along paths, summed across paths to a node. Direction-specific hop decay curves controlled attenuation.
+
+### What Happened
+
+Collection benchmarks showed graph traversal contributed only ~2% of retrieval results. Augmentation ratio was 1.1× — barely above vector/keyword search alone.
+
+### Why It Failed
+
+Product chains converge to zero too fast. With edge weights in (0,1], a 5-hop path through 0.8-weighted edges yields 0.8⁵ = 0.33. By 10 hops: 0.11. By 15: 0.04. Vector search seeds already have cosine similarity ~0.6-0.8 — path products can't compete. The sum-product mechanism was theoretically elegant but practically dominated by direct vector/keyword hits.
+
+### The Fix
+
+Chain walking replaces graph traversal. Instead of multiplicative path products, the chain walker follows sequential edges and scores each hop independently via cosine similarity against the query. This means a relevant chunk 10 hops away scores just as highly as a relevant chunk 1 hop away — traversal depth doesn't attenuate the signal.
+
+## m×n All-Pairs Edge Topology (v0.3.0)
+
+### What We Tried
+
+Create m×n all-pairs edges at each D-T-D turn boundary. Maximum entropy principle: don't impose false structure, let traversal and decay do the ranking.
+
+### What Happened
+
+Edge counts exploded. A turn boundary with 5 chunks on each side creates 25 edges. Real sessions with 10-20 chunks per turn created hundreds of edges per transition. Most edges connected semantically unrelated chunks.
+
+### Why It Failed
+
+The max-entropy principle is sound in theory — don't assume which edges are important. But in practice, it creates a dense graph where the signal (real causal connections) is buried under noise (spurious edges between unrelated chunks in the same turn). The traversal mechanism couldn't discriminate because all within-chain edges had weight 1.0.
+
+### The Fix
+
+Sequential 1-to-1 edges. Each chunk links to the next chunk in its session, preserving temporal order without the quadratic blowup. Cross-session edges link the last chunk of one session to the first of the next. This creates a simple linked list that chain walking can follow efficiently.
+
+## Separate Semantic and Causal Concerns (v0.3.0)
+
+### The Lesson
+
+The graph's value is **structural ordering** — what came before and after — not **semantic ranking**. Vector search and BM25 are better at "what's relevant to this query." The graph is better at "given something relevant, what's the surrounding narrative?"
+
+This separation of concerns led to the current architecture:
+- **Semantic discovery**: Hybrid BM25 + vector search (fast, accurate, query-driven)
+- **Structural context**: Chain walking along sequential edges (episodic, narrative, seed-driven)
+- **Topic grouping**: HDBSCAN clustering (browsing, organization)
+
+Each mechanism does what it's best at. The v0.2 architecture tried to make the graph do semantic ranking via sum-product path weights — conflating structural and semantic concerns.
+
 ## Takeaways
 
 1. **Question assumptions**: Wall-clock time seems natural but is wrong
@@ -207,3 +248,6 @@ These questions were identified as open before implementation and resolved throu
 3. **Profile at scale**: 100 points ≠ 6,000 points
 4. **Semantic over temporal**: Meaning matters more than sequence
 5. **Allow noise**: Not everything belongs in a cluster
+6. **Measure before theorizing**: Sum-product traversal was theoretically elegant but contributed 2% of results
+7. **Separate concerns**: The graph's value is structural ordering, not semantic ranking
+8. **Simple beats complex**: 1-to-1 sequential edges outperform m×n all-pairs with sum-product traversal

@@ -7,13 +7,13 @@
 
 import { Embedder } from '../../models/embedder.js';
 import { getModel } from '../../models/model-registry.js';
-import { clusterEmbeddings, getClusterMembership, type ClusterResult } from '../cluster-evaluator.js';
-import { evaluateCodeNLAlignment, type AlignmentResult } from '../code-nl-alignment.js';
 import {
-  scorePairs,
-  rocAuc,
-  silhouetteScore,
-} from '../metrics.js';
+  clusterEmbeddings,
+  getClusterMembership,
+  type ClusterResult,
+} from '../cluster-evaluator.js';
+import { evaluateCodeNLAlignment, type AlignmentResult } from '../code-nl-alignment.js';
+import { scorePairs, rocAuc, silhouetteScore } from '../metrics.js';
 import type { LabeledPair } from '../annotation-schema.js';
 import type { Chunk } from '../../parser/types.js';
 import type { MetricSnapshot } from './types.js';

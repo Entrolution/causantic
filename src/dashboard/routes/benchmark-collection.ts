@@ -28,14 +28,10 @@ router.get('/', async (req, res) => {
 
     const profile = (req.query.profile as BenchmarkProfile) ?? 'standard';
     const categories = req.query.categories
-      ? (req.query.categories as string).split(',') as BenchmarkCategory[]
+      ? ((req.query.categories as string).split(',') as BenchmarkCategory[])
       : undefined;
-    const sampleSize = req.query.sampleSize
-      ? parseInt(req.query.sampleSize as string, 10)
-      : 50;
-    const seed = req.query.seed
-      ? parseInt(req.query.seed as string, 10)
-      : undefined;
+    const sampleSize = req.query.sampleSize ? parseInt(req.query.sampleSize as string, 10) : 50;
+    const seed = req.query.seed ? parseInt(req.query.seed as string, 10) : undefined;
     const project = req.query.project as string | undefined;
 
     const result = await runCollectionBenchmark({

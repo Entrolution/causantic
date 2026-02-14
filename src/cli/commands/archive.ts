@@ -68,7 +68,9 @@ export const importCommand: Command = {
           process.exit(2);
         }
       } else if (!password) {
-        console.error('Error: Archive is encrypted. Set CAUSANTIC_EXPORT_PASSWORD environment variable.');
+        console.error(
+          'Error: Archive is encrypted. Set CAUSANTIC_EXPORT_PASSWORD environment variable.',
+        );
         process.exit(2);
       }
     }

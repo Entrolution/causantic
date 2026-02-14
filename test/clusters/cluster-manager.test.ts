@@ -4,6 +4,11 @@
 
 import { describe, it, expect } from 'vitest';
 import type { ClusteringResult, ClusteringOptions } from '../../src/clusters/cluster-manager.js';
+import {
+  matchClustersByOverlap,
+  type OldClusterSnapshot,
+  type NewClusterInfo,
+} from '../../src/clusters/cluster-manager.js';
 
 describe('cluster-manager', () => {
   describe('ClusteringResult interface', () => {
@@ -87,7 +92,7 @@ describe('cluster-manager', () => {
 
   describe('centroid computation', () => {
     it('computes mean of single embedding', () => {
-      const embeddings = [[0.5, 0.5, 0.5]];
+      const _embeddings = [[0.5, 0.5, 0.5]];
 
       // Mean is same as input
       const mean = [0.5, 0.5, 0.5];
@@ -101,7 +106,7 @@ describe('cluster-manager', () => {
     });
 
     it('computes mean of multiple embeddings', () => {
-      const embeddings = [
+      const _embeddings = [
         [1, 0, 0],
         [0, 1, 0],
         [0, 0, 1],
@@ -221,7 +226,8 @@ describe('cluster-manager', () => {
 
     it('handles empty cluster list', () => {
       const clusterSizes: number[] = [];
-      const avg = clusterSizes.length > 0 ? clusterSizes.reduce((a, b) => a + b, 0) / clusterSizes.length : 0;
+      const avg =
+        clusterSizes.length > 0 ? clusterSizes.reduce((a, b) => a + b, 0) / clusterSizes.length : 0;
       const smallest = clusterSizes.length > 0 ? Math.min(...clusterSizes) : 0;
 
       expect(avg).toBe(0);
@@ -299,7 +305,8 @@ describe('cluster-manager', () => {
       // A noise point close to the cluster centroid
       const noisePoint = [0.95, 0.31, 0]; // ~0.08 angular distance
 
-      const dot = noisePoint[0] * clusterCentroid[0] +
+      const dot =
+        noisePoint[0] * clusterCentroid[0] +
         noisePoint[1] * clusterCentroid[1] +
         noisePoint[2] * clusterCentroid[2];
       const distance = 1 - dot;
@@ -313,7 +320,8 @@ describe('cluster-manager', () => {
       // A noise point far from the cluster centroid
       const noisePoint = [0, 1, 0]; // 1.0 angular distance
 
-      const dot = noisePoint[0] * clusterCentroid[0] +
+      const dot =
+        noisePoint[0] * clusterCentroid[0] +
         noisePoint[1] * clusterCentroid[1] +
         noisePoint[2] * clusterCentroid[2];
       const distance = 1 - dot;
@@ -371,6 +379,239 @@ describe('cluster-manager', () => {
       const assigned = distances.filter((d) => d < threshold);
 
       expect(assigned.length).toBe(0);
+    });
+  });
+
+  describe('matchClustersByOverlap', () => {
+    it('matches clusters with identical members', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Authentication',
+          description: 'Auth-related chunks',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a', 'b', 'c']),
+        },
+      ];
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'b', 'c']) },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      expect(matches.size).toBe(1);
+      expect(matches.get('new-1')?.name).toBe('Authentication');
+      expect(matches.get('new-1')?.description).toBe('Auth-related chunks');
+    });
+
+    it('matches clusters with sufficient overlap (Jaccard >= 0.5)', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Database Layer',
+          description: 'DB operations',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a', 'b', 'c', 'd']),
+        },
+      ];
+      // 3 of 4 old members + 1 new = Jaccard = 3/5 = 0.6
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'b', 'c', 'e']) },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      expect(matches.size).toBe(1);
+      expect(matches.get('new-1')?.name).toBe('Database Layer');
+    });
+
+    it('does not match clusters below threshold', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Old Topic',
+          description: 'Gone',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a', 'b', 'c', 'd', 'e']),
+        },
+      ];
+      // Only 1 of 5 overlap = Jaccard = 1/7 ≈ 0.14
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'x', 'y']) },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      expect(matches.size).toBe(0);
+    });
+
+    it('uses greedy best-match (highest Jaccard wins)', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Topic A',
+          description: 'desc A',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a', 'b', 'c']),
+        },
+      ];
+      // new-1 has Jaccard 2/4 = 0.5, new-2 has Jaccard 3/3 = 1.0
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'b', 'x']) },
+        { clusterId: 'new-2', memberIds: new Set(['a', 'b', 'c']) },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      expect(matches.size).toBe(1);
+      // new-2 gets the match (higher Jaccard)
+      expect(matches.has('new-2')).toBe(true);
+      expect(matches.has('new-1')).toBe(false);
+    });
+
+    it('enforces 1:1 matching (no double assignment)', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Shared Topic',
+          description: 'shared desc',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a', 'b', 'c']),
+        },
+      ];
+      // Both new clusters overlap enough, but only one should match
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'b', 'c']) },
+        { clusterId: 'new-2', memberIds: new Set(['a', 'b', 'c']) },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      expect(matches.size).toBe(1);
+    });
+
+    it('matches multiple old clusters to multiple new clusters', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Auth',
+          description: 'auth desc',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a', 'b']),
+        },
+        {
+          name: 'Storage',
+          description: 'storage desc',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['c', 'd']),
+        },
+      ];
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'b']) },
+        { clusterId: 'new-2', memberIds: new Set(['c', 'd']) },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      expect(matches.size).toBe(2);
+      expect(matches.get('new-1')?.name).toBe('Auth');
+      expect(matches.get('new-2')?.name).toBe('Storage');
+    });
+
+    it('skips old clusters without refreshedAt (never labeled)', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Cluster 0',
+          description: null,
+          refreshedAt: null,
+          memberIds: new Set(['a', 'b', 'c']),
+        },
+      ];
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'b', 'c']) },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      expect(matches.size).toBe(0);
+    });
+
+    it('skips old clusters without a name', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: null,
+          description: 'some desc',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a', 'b', 'c']),
+        },
+      ];
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'b', 'c']) },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      expect(matches.size).toBe(0);
+    });
+
+    it('returns empty map when no old clusters exist', () => {
+      const matches = matchClustersByOverlap(
+        [],
+        [{ clusterId: 'new-1', memberIds: new Set(['a']) }],
+      );
+
+      expect(matches.size).toBe(0);
+    });
+
+    it('returns empty map when no new clusters exist', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Topic',
+          description: 'desc',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a']),
+        },
+      ];
+
+      const matches = matchClustersByOverlap(old, []);
+
+      expect(matches.size).toBe(0);
+    });
+
+    it('respects custom threshold', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Strict Match',
+          description: 'desc',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(['a', 'b', 'c', 'd']),
+        },
+      ];
+      // Jaccard = 3/5 = 0.6
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set(['a', 'b', 'c', 'e']) },
+      ];
+
+      // Threshold 0.7 — should not match
+      const strict = matchClustersByOverlap(old, newClusters, 0.7);
+      expect(strict.size).toBe(0);
+
+      // Threshold 0.5 — should match
+      const relaxed = matchClustersByOverlap(old, newClusters, 0.5);
+      expect(relaxed.size).toBe(1);
+    });
+
+    it('handles empty member sets gracefully', () => {
+      const old: OldClusterSnapshot[] = [
+        {
+          name: 'Empty Old',
+          description: 'desc',
+          refreshedAt: '2025-01-01T00:00:00Z',
+          memberIds: new Set(),
+        },
+      ];
+      const newClusters: NewClusterInfo[] = [
+        { clusterId: 'new-1', memberIds: new Set() },
+      ];
+
+      const matches = matchClustersByOverlap(old, newClusters);
+
+      // Union size is 0, so no match possible
+      expect(matches.size).toBe(0);
     });
   });
 });

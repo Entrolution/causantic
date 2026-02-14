@@ -73,7 +73,6 @@ CAUSANTIC_EXPORT_PASSWORD="your-secure-password" npx causantic import backup.cau
 | Chunks | Conversation segments with semantic content |
 | Edges | Causal relationships (backward/forward links) |
 | Clusters | Topic groupings from HDBSCAN clustering |
-| Vector Clocks | Temporal ordering metadata |
 
 ## Encryption Details
 

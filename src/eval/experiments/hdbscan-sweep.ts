@@ -48,11 +48,7 @@ export async function runHdbscanSweep(
 
   console.log('');
   console.log(
-    '  ' +
-    pad('minSize', 8) +
-    pad('Clusters', 10) +
-    pad('Noise%', 10) +
-    pad('Silhouette', 12),
+    '  ' + pad('minSize', 8) + pad('Clusters', 10) + pad('Noise%', 10) + pad('Silhouette', 12),
   );
   console.log('  ' + '-'.repeat(40));
 
@@ -70,18 +66,18 @@ export async function runHdbscanSweep(
 
     console.log(
       '  ' +
-      pad(String(minClusterSize), 8) +
-      pad(String(clusterResult.numClusters), 10) +
-      pad((clusterResult.noiseRatio * 100).toFixed(1) + '%', 10) +
-      pad(silhouette.toFixed(3), 12),
+        pad(String(minClusterSize), 8) +
+        pad(String(clusterResult.numClusters), 10) +
+        pad((clusterResult.noiseRatio * 100).toFixed(1) + '%', 10) +
+        pad(silhouette.toFixed(3), 12),
     );
   }
 
   // Find optimal
-  const best = rows.reduce((a, b) =>
-    b.silhouetteScore > a.silhouetteScore ? b : a,
+  const best = rows.reduce((a, b) => (b.silhouetteScore > a.silhouetteScore ? b : a));
+  console.log(
+    `\n  Best silhouette: minClusterSize=${best.minClusterSize} (silhouette=${best.silhouetteScore.toFixed(3)})`,
   );
-  console.log(`\n  Best silhouette: minClusterSize=${best.minClusterSize} (silhouette=${best.silhouetteScore.toFixed(3)})`);
 
   return {
     name: 'hdbscan-sweep',

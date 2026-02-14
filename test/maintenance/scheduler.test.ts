@@ -40,9 +40,6 @@ vi.mock('../../src/maintenance/tasks/scan-projects.js', () => ({
 vi.mock('../../src/maintenance/tasks/update-clusters.js', () => ({
   updateClusters: vi.fn(),
 }));
-vi.mock('../../src/maintenance/tasks/prune-graph.js', () => ({
-  pruneGraph: vi.fn(),
-}));
 vi.mock('../../src/maintenance/tasks/vacuum.js', () => ({
   vacuum: vi.fn(),
 }));
@@ -59,19 +56,13 @@ import {
 } from '../../src/maintenance/scheduler.js';
 
 describe('MAINTENANCE_TASKS', () => {
-  it('has exactly 5 tasks', () => {
-    expect(MAINTENANCE_TASKS).toHaveLength(5);
+  it('has exactly 4 tasks', () => {
+    expect(MAINTENANCE_TASKS).toHaveLength(4);
   });
 
   it('contains all expected task names', () => {
     const names = MAINTENANCE_TASKS.map((t) => t.name);
-    expect(names).toEqual([
-      'scan-projects',
-      'update-clusters',
-      'prune-graph',
-      'cleanup-vectors',
-      'vacuum',
-    ]);
+    expect(names).toEqual(['scan-projects', 'update-clusters', 'cleanup-vectors', 'vacuum']);
   });
 
   it('all tasks have required fields: name, description, schedule, handler', () => {
@@ -191,10 +182,10 @@ describe('runTask', () => {
 });
 
 describe('getStatus', () => {
-  it('returns status for all 5 tasks', () => {
+  it('returns status for all 4 tasks', () => {
     const status = getStatus();
 
-    expect(status).toHaveLength(5);
+    expect(status).toHaveLength(4);
   });
 
   it('each status entry has required fields', () => {

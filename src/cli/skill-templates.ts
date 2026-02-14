@@ -38,7 +38,6 @@ Use the \`recall\` MCP tool from \`causantic\` to look up specific context from 
 Pass these to the \`recall\` MCP tool:
 
 - **query** (required): Natural language question about past work
-- **range**: \`"short"\` for recent work (last few sessions), \`"long"\` for historical context
 - **project**: Filter to a specific project slug (use \`/causantic-list-projects\` to discover names)
 
 ## When to Use
@@ -51,76 +50,77 @@ Pass these to the \`recall\` MCP tool:
 
 ## Guidelines
 
-- Use \`range: "short"\` for recent work, \`range: "long"\` for historical context
+- \`recall\` walks causal chains to reconstruct narrative — use it when you need the story of how something happened
+- \`search\` ranks results by semantic relevance — use it for broad discovery ("what do I know about X?")
 - Use the \`project\` parameter to scope results to the current project when relevant
-- Combine with \`/causantic-explain\` when the user needs deeper understanding of why something was done
+- Combine both: \`search\` to discover, then \`recall\` to fill in the narrative
 `,
   },
   {
-    dirName: 'causantic-explain',
+    dirName: 'causantic-search',
     content: `---
-name: causantic-explain
-description: "Explain the history behind a topic, decision, or implementation using Causantic long-term memory. Use when asked 'why' something was done, 'how we got here', or to trace the evolution of a feature."
-argument-hint: [topic]
+name: causantic-search
+description: "Search memory semantically to discover relevant past context. Use for broad discovery — 'what do I know about X?'"
+argument-hint: [query]
 ---
 
-# Explain History
+# Search Memory
 
-Use the \`explain\` MCP tool from \`causantic\` to understand the history and rationale behind topics and decisions.
+Use the \`search\` MCP tool from \`causantic\` to discover relevant past context semantically.
 
 ## Usage
 
 \`\`\`
-/causantic-explain why we chose SQLite for the database
-/causantic-explain how the authentication system evolved
-/causantic-explain the reasoning behind the project labels design
+/causantic-search authentication implementation
+/causantic-search database migration patterns
+/causantic-search error handling strategies
 \`\`\`
 
 ## Parameters
 
-Pass these to the \`explain\` MCP tool:
+Pass these to the \`search\` MCP tool:
 
-- **query** (required): Topic, decision, or feature to explain
-- **project**: Filter to a specific project slug
+- **query** (required): What to search for in memory
+- **project**: Filter to a specific project slug (use \`/causantic-list-projects\` to discover names)
 
 ## When to Use
 
-- User asks "why" or "how did we get here"
-- Need to understand rationale behind past architectural decisions
-- Tracing the evolution of a feature or design pattern
-- Investigating why a particular approach was chosen over alternatives
+- Broad discovery: "what do I know about X?"
+- Finding past context on a topic
+- When you need ranked results by semantic relevance
+- As a starting point before using \`recall\` for deeper episodic narrative
 
 ## Guidelines
 
-- Defaults to long-range retrieval for comprehensive history
-- Returns chronological narrative of relevant context
-- Best for understanding decision-making, not just facts
+- Returns ranked results by semantic relevance (vector + keyword fusion)
+- Use \`search\` for discovery, \`recall\` for narrative reconstruction
+- Combine with \`/causantic-recall\` when you need causal chain context (how things led to outcomes)
 `,
   },
   {
     dirName: 'causantic-predict',
     content: `---
 name: causantic-predict
-description: "Proactively surface relevant past context based on the current discussion using Causantic long-term memory. Use at the start of complex tasks to surface prior work, related decisions, or known pitfalls."
-argument-hint: [context]
+description: "Proactively surface relevant past context for a given task or topic using Causantic long-term memory. Use at the start of complex tasks to surface prior work, related decisions, or known pitfalls."
+argument-hint: <context>
 ---
 
 # Predict Relevant Context
 
-Use the \`predict\` MCP tool from \`causantic\` to proactively surface relevant past context based on the current discussion.
+Use the \`predict\` MCP tool from \`causantic\` to proactively surface relevant past context based on the current task.
 
 ## Usage
 
 \`\`\`
-/causantic-predict
 /causantic-predict refactoring the auth module
+/causantic-predict debugging the embedder timeout issue
 \`\`\`
 
 ## Parameters
 
 Pass these to the \`predict\` MCP tool:
 
-- **query** (optional): Current task or topic context. If omitted, uses the current discussion.
+- **context** (required): A concise summary of the current task, topic, or question
 - **project**: Filter to a specific project slug
 
 ## When to Use
@@ -132,39 +132,206 @@ Pass these to the \`predict\` MCP tool:
 
 ## Guidelines
 
+- Always provide a concise summary of the current task as the \`context\` parameter
 - Use early in a task to front-load relevant context
 - Especially useful when starting unfamiliar work — past sessions may have covered it
 `,
   },
   {
-    dirName: 'causantic-list-projects',
+    dirName: 'causantic-explain',
     content: `---
-name: causantic-list-projects
-description: "List all projects stored in Causantic long-term memory with chunk counts and date ranges. Use to discover available project names for filtering recall/explain/predict queries."
+name: causantic-explain
+description: "Answer 'why' questions about code and architecture by reconstructing the decision narrative from memory. Use when asked why something works a certain way or what led to a decision."
+argument-hint: [question]
 ---
 
-# List Memory Projects
+# Explain Why
 
-Use the \`list-projects\` MCP tool from \`causantic\` to see all projects in memory.
+Answer "why" questions about code and architecture by reconstructing the decision narrative from memory.
 
 ## Usage
 
 \`\`\`
-/causantic-list-projects
+/causantic-explain why does the chunker split on tool boundaries?
+/causantic-explain what led to the RRF fusion approach?
+/causantic-explain why is the schema at v7?
 \`\`\`
 
-## Output
+## Workflow
 
-Returns a list of projects with:
-- Project name (slug)
-- Number of memory chunks
-- Date range (first seen to last seen)
+1. **Reconstruct the narrative**: Use \`recall\` with the topic to walk the causal chain — problem that prompted the decision, alternatives considered, what was chosen and why
+2. **Gather supporting context**: Use \`search\` with the topic for additional context, related discussions, and alternatives that were considered
+
+## Output Format
+
+- **Decision**: What was decided
+- **Context**: The problem or need that prompted it
+- **Alternatives Considered**: Other approaches that were evaluated
+- **Rationale**: Why this approach was chosen
+- **Trade-offs**: Known downsides or limitations accepted
 
 ## When to Use
 
-- Before using project-filtered queries with \`/causantic-recall\`, \`/causantic-explain\`, or \`/causantic-predict\`
-- To see what projects have been ingested into memory
-- To check the coverage and recency of memory for a specific project
+- User asks "why does X work this way?"
+- User asks "what led to this decision?"
+- Before changing existing architecture — understand the reasoning first
+- When code seems surprising or non-obvious
+
+## Guidelines
+
+- This skill answers focused "why" questions — for a broad area briefing, use \`/causantic-context\` instead
+- Present the narrative as a story: what was the problem, what was tried, what stuck
+- If memory shows the decision evolved over time, show the progression
+- If memory has no context, say so — do not fabricate rationale
+`,
+  },
+  {
+    dirName: 'causantic-context',
+    content: `---
+name: causantic-context
+description: "Deep dive into a codebase area by combining decision history, evolution, and recent activity from memory. Use when you need comprehensive background on a module, feature, or design."
+argument-hint: [area or topic]
+---
+
+# Deep Context
+
+Build comprehensive context about a codebase area by combining decision history, evolution, and recent activity from memory.
+
+## Usage
+
+\`\`\`
+/causantic-context the authentication module
+/causantic-context src/storage/chunk-store.ts
+/causantic-context how we handle encryption
+\`\`\`
+
+## Workflow
+
+1. **Get decision history**: Use \`recall\` with the topic for episodic narrative and rationale
+2. **Get broad context**: Use \`search\` with the topic for semantically related past context
+3. **Present as a structured briefing**
+
+## Output Format
+
+- **Purpose**: What this area does (from memory's perspective)
+- **Key Decisions**: Decisions that shaped this area, with rationale
+- **Evolution**: Major changes over time
+- **Constraints & Tech Debt**: Known limitations or workarounds
+- **Recent Activity**: What was recently changed or discussed
+
+## Guidelines
+
+- For a specific "why" question, use \`/causantic-explain\` instead — this skill is for comprehensive area briefings covering purpose, evolution, constraints, and recent activity
+- Focus on the "why" — the user can read the code for the "what"
+- If memory has conflicting information across time, present the most recent and note the evolution
+- If memory has little context for the area, say so honestly
+`,
+  },
+  {
+    dirName: 'causantic-debug',
+    content: `---
+name: causantic-debug
+description: "Search past sessions for prior encounters with the current error, bug pattern, or issue. Use when stuck on an error or debugging a recurring problem."
+argument-hint: [error message or description]
+---
+
+# Debug with Memory
+
+Search past sessions for prior encounters with the current error, bug pattern, or issue.
+
+## Usage
+
+\`\`\`
+/causantic-debug
+/causantic-debug SQLITE_BUSY database is locked
+/causantic-debug the embedder crashes on large files
+\`\`\`
+
+## Workflow
+
+1. **Extract the error**: If no argument provided, extract the most recent error message or stack trace from the current conversation. If an argument is provided, use that as the search query.
+2. **Search for the error/issue**: Use \`recall\` with the error text to search broadly across sessions
+3. **Check for related patterns**: Use \`predict\` with the same context to surface tangentially related issues
+4. **Present findings**:
+   - Prior occurrences of this or similar errors
+   - What was tried (including failed approaches)
+   - What ultimately resolved it
+
+## Parameters
+
+- **recall**: query = error text (from argument or extracted from conversation), project = current project
+- **predict**: context = same error text, project = current project
+
+## Output Format
+
+- **Prior Occurrences**: matching past encounters with dates
+- **What Was Tried**: approaches attempted, including failures
+- **Resolution**: what ultimately worked
+- **Related Issues**: other potentially connected problems
+
+If no matches found, say so clearly — do not fabricate matches.
+
+## Guidelines
+
+- When invoked with no arguments, scan the current conversation for the most recent error, stack trace, or failing test output and use that automatically
+- Include failed approaches — knowing what didn't work is as valuable as what did
+- Quote relevant snippets from past sessions rather than paraphrasing
+- If memory shows a recurring pattern, flag it: "This error has appeared N times"
+`,
+  },
+  {
+    dirName: 'causantic-resume',
+    content: `---
+name: causantic-resume
+description: "Resume interrupted work by reconstructing context from recent sessions. Use at the start of a session or when asked 'where did I leave off?'"
+argument-hint: [topic or time range]
+---
+
+# Resume Work
+
+Reconstruct context from the most recent session(s) to help the user pick up where they left off.
+
+## Usage
+
+\`\`\`
+/causantic-resume
+/causantic-resume the API refactor
+/causantic-resume from yesterday
+\`\`\`
+
+## Workflow
+
+1. **Identify the project**: Derive from the current working directory (use \`list-projects\` if ambiguous)
+2. **Reconstruct the last session**: Use \`reconstruct\` with \`previous_session: true\` to get the most recent session before this one
+3. **Summarize for the user**:
+   - What was being worked on (key topics/tasks)
+   - What was completed vs in progress
+   - Any explicit next steps or TODOs mentioned
+   - Any open issues or blockers
+4. **If the user provided a topic**: Also run \`recall\` with that topic scoped to the project
+
+## Interpreting User Intent
+
+| User says | Action |
+|-----------|--------|
+| (nothing) | \`reconstruct\` with \`previous_session: true\` |
+| "yesterday" / "last week" | \`reconstruct\` with appropriate \`days_back\` |
+| a topic name | \`reconstruct\` last session + \`recall\` with that topic |
+
+## Output Format
+
+Present a concise briefing:
+- **Last session**: date and duration
+- **Key work**: 1-3 bullet points
+- **Status**: what was completed, what was in progress
+- **Next steps**: any mentioned next steps or TODOs
+- **Open issues**: any blockers or unresolved problems
+
+## Guidelines
+
+- Keep the summary actionable, not exhaustive
+- Highlight unfinished work prominently — that's what the user needs most
+- If the last session ended mid-task, flag that clearly
 `,
   },
   {
@@ -231,151 +398,34 @@ Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`causantic\` to re
 `,
   },
   {
-    dirName: 'causantic-resume',
+    dirName: 'causantic-list-projects',
     content: `---
-name: causantic-resume
-description: "Resume interrupted work by reconstructing context from recent sessions. Use at the start of a session or when asked 'where did I leave off?'"
-argument-hint: [topic or time range]
+name: causantic-list-projects
+description: "List all projects stored in Causantic long-term memory with chunk counts and date ranges. Use to discover available project names for filtering search/recall/predict queries."
 ---
 
-# Resume Work
+# List Memory Projects
 
-Reconstruct context from the most recent session(s) to help the user pick up where they left off.
+Use the \`list-projects\` MCP tool from \`causantic\` to see all projects in memory.
 
 ## Usage
 
 \`\`\`
-/causantic-resume
-/causantic-resume the API refactor
-/causantic-resume from yesterday
+/causantic-list-projects
 \`\`\`
 
-## Workflow
+## Output
 
-1. **Identify the project**: Derive from the current working directory (use \`list-projects\` if ambiguous)
-2. **Reconstruct the last session**: Use \`reconstruct\` with \`previous_session: true\` to get the most recent session before this one
-3. **Summarize for the user**:
-   - What was being worked on (key topics/tasks)
-   - What was completed vs in progress
-   - Any explicit next steps or TODOs mentioned
-   - Any open issues or blockers
-4. **If the user provided a topic**: Also run \`recall\` with that topic scoped to the project
+Returns a list of projects with:
+- Project name (slug)
+- Number of memory chunks
+- Date range (first seen to last seen)
 
-## Interpreting User Intent
+## When to Use
 
-| User says | Action |
-|-----------|--------|
-| (nothing) | \`reconstruct\` with \`previous_session: true\` |
-| "yesterday" / "last week" | \`reconstruct\` with appropriate \`days_back\` |
-| a topic name | \`reconstruct\` last session + \`recall\` with that topic, \`range: "long"\` |
-
-## Output Format
-
-Present a concise briefing:
-- **Last session**: date and duration
-- **Key work**: 1-3 bullet points
-- **Status**: what was completed, what was in progress
-- **Next steps**: any mentioned next steps or TODOs
-- **Open issues**: any blockers or unresolved problems
-
-## Guidelines
-
-- Keep the summary actionable, not exhaustive
-- Highlight unfinished work prominently — that's what the user needs most
-- If the last session ended mid-task, flag that clearly
-`,
-  },
-  {
-    dirName: 'causantic-debug',
-    content: `---
-name: causantic-debug
-description: "Search past sessions for prior encounters with the current error, bug pattern, or issue. Use when stuck on an error or debugging a recurring problem."
-argument-hint: [error message or description]
----
-
-# Debug with Memory
-
-Search past sessions for prior encounters with the current error, bug pattern, or issue.
-
-## Usage
-
-\`\`\`
-/causantic-debug
-/causantic-debug SQLITE_BUSY database is locked
-/causantic-debug the embedder crashes on large files
-\`\`\`
-
-## Workflow
-
-1. **Extract the error**: If no argument provided, extract the most recent error message or stack trace from the current conversation. If an argument is provided, use that as the search query.
-2. **Search for the error/issue**: Use \`recall\` with the error text, \`range: "long"\` to search broadly across sessions
-3. **Check for related patterns**: Use \`predict\` with the same context to surface tangentially related issues
-4. **Present findings**:
-   - Prior occurrences of this or similar errors
-   - What was tried (including failed approaches)
-   - What ultimately resolved it
-
-## Parameters
-
-- **recall**: query = error text (from argument or extracted from conversation), range = "long", project = current project
-- **predict**: context = same error text, project = current project
-
-## Output Format
-
-- **Prior Occurrences**: matching past encounters with dates
-- **What Was Tried**: approaches attempted, including failures
-- **Resolution**: what ultimately worked
-- **Related Issues**: other potentially connected problems
-
-If no matches found, say so clearly — do not fabricate matches.
-
-## Guidelines
-
-- When invoked with no arguments, scan the current conversation for the most recent error, stack trace, or failing test output and use that automatically
-- Include failed approaches — knowing what didn't work is as valuable as what did
-- Quote relevant snippets from past sessions rather than paraphrasing
-- If memory shows a recurring pattern, flag it: "This error has appeared N times"
-`,
-  },
-  {
-    dirName: 'causantic-context',
-    content: `---
-name: causantic-context
-description: "Deep dive into a codebase area by combining decision history, evolution, and recent activity from memory. Use when you need comprehensive background on a module, feature, or design."
-argument-hint: [area or topic]
----
-
-# Deep Context
-
-Build comprehensive context about a codebase area by combining decision history, evolution, and recent activity from memory.
-
-## Usage
-
-\`\`\`
-/causantic-context the authentication module
-/causantic-context src/storage/chunk-store.ts
-/causantic-context how we handle encryption
-\`\`\`
-
-## Workflow
-
-1. **Get decision history**: Use \`explain\` with the topic for historical narrative and rationale
-2. **Get recent work**: Use \`recall\` with the topic and \`range: "short"\` for recent changes
-3. **Present as a structured briefing**
-
-## Output Format
-
-- **Purpose**: What this area does (from memory's perspective)
-- **Key Decisions**: Decisions that shaped this area, with rationale
-- **Evolution**: Major changes over time
-- **Constraints & Tech Debt**: Known limitations or workarounds
-- **Recent Activity**: What was recently changed or discussed
-
-## Guidelines
-
-- Focus on the "why" — the user can read the code for the "what"
-- If memory has conflicting information across time, present the most recent and note the evolution
-- If memory has little context for the area, say so honestly
+- Before using project-filtered queries with \`/causantic-recall\`, \`/causantic-search\`, or \`/causantic-predict\`
+- To see what projects have been ingested into memory
+- To check the coverage and recency of memory for a specific project
 `,
   },
   {
@@ -400,10 +450,11 @@ Search memory across all projects to find relevant patterns, solutions, or appro
 
 ## Workflow
 
-1. **Search all projects**: Use \`recall\` WITHOUT a project filter, \`range: "long"\`
-2. **Surface related patterns**: Use \`predict\` without a project filter
-3. **Group by project**: Organize results by which project they came from
-4. **Highlight transferable insights**: Focus on what can be reused or adapted
+1. **Search all projects**: Use \`search\` WITHOUT a project filter for broad semantic discovery
+2. **Walk causal chains**: Use \`recall\` WITHOUT a project filter for narrative context
+3. **Surface related patterns**: Use \`predict\` without a project filter
+4. **Group by project**: Organize results by which project they came from
+5. **Highlight transferable insights**: Focus on what can be reused or adapted
 
 ## Output Format
 
@@ -443,9 +494,9 @@ Analyze patterns across past sessions to surface recurring themes, problems, and
 
 1. **Determine scope**:
    - Time range specified → use \`list-sessions\` with that window
-   - Topic specified → use \`recall\` with \`range: "long"\`
+   - Topic specified → use \`recall\` with the topic
    - Neither → default to \`days_back: 30\`
-2. **Gather context**: Use \`recall\` with \`range: "long"\` across the scope
+2. **Gather context**: Use \`recall\` across the scope
 3. **Synthesize patterns**: Analyze for recurring themes
 
 ## Output Format
@@ -590,8 +641,8 @@ Detect the project's linting tools and run them in strict/pedantic mode to surfa
 **This phase uses Causantic memory to enrich the review with historical context.**
 
 ### 2.1 Decision History
-- Use \`explain\` to retrieve the history behind major architectural decisions
-- Use \`recall\` with \`range: "long"\` to find past discussions about code quality, tech debt, and refactoring
+- Use \`recall\` to retrieve the episodic history behind major architectural decisions
+- Use \`search\` to find past discussions about code quality, tech debt, and refactoring
 - Document: why things are the way they are, what was tried before, what constraints exist
 
 ### 2.2 Known Tech Debt
@@ -606,7 +657,7 @@ Detect the project's linting tools and run them in strict/pedantic mode to surfa
 
 ### 2.4 Dependency History
 - Use \`recall\` to search for past dependency upgrade attempts, compatibility issues, or migration discussions
-- Use \`explain\` to understand why specific dependency versions may be pinned
+- Use \`recall\` to understand why specific dependency versions may be pinned
 - Cross-reference memory findings with current dependency state — avoid recommending upgrades that were previously tried and caused issues
 
 ### 2.5 Lint & Suppression History
@@ -1099,17 +1150,35 @@ export function getMinimalClaudeMdBlock(): string {
 Long-term memory is available via the \`causantic\` MCP server.
 
 ### Skills
-- \`/causantic-resume\` — Resume interrupted work (start-of-session briefing)
-- \`/causantic-recall [query]\` — Look up context from past sessions
-- \`/causantic-explain [topic]\` — Understand history behind decisions
-- \`/causantic-predict\` — Surface relevant past context proactively
+
+**Core retrieval:**
+- \`/causantic-recall [query]\` — Walk causal chains to reconstruct narrative (how did we solve X?)
+- \`/causantic-search [query]\` — Ranked discovery across memory by relevance (what do I know about X?)
+- \`/causantic-predict <context>\` — Surface relevant past context proactively for a given task
+
+**Understanding & analysis:**
+- \`/causantic-explain [question]\` — Answer "why" questions about code and architecture decisions
+- \`/causantic-context [area]\` — Deep dive into a codebase area's history, evolution, and constraints
 - \`/causantic-debug [error]\` — Search for prior encounters with an error (auto-extracts from conversation if no argument)
-- \`/causantic-context [area]\` — Deep dive into a codebase area's history
-- \`/causantic-crossref [pattern]\` — Search across all projects
-- \`/causantic-retro [scope]\` — Retrospective pattern analysis
-- \`/causantic-cleanup\` — Memory-informed codebase review and cleanup plan
-- \`/causantic-list-projects\` — Discover available projects
+
+**Session & project navigation:**
+- \`/causantic-resume\` — Resume interrupted work (start-of-session briefing)
 - \`/causantic-reconstruct [time range]\` — Reconstruct session context by time
+- \`/causantic-list-projects\` — Discover available projects
+
+**Cross-cutting analysis:**
+- \`/causantic-crossref [pattern]\` — Search across all projects for reusable patterns
+- \`/causantic-retro [scope]\` — Retrospective pattern analysis across sessions
+- \`/causantic-cleanup\` — Memory-informed codebase review and cleanup plan
+
+### Quick Decision Guide
+
+| User intent | Skill |
+|-------------|-------|
+| "What do I know about X?" | \`search\` |
+| "How did we solve X?" | \`recall\` |
+| "Why does X work this way?" | \`explain\` |
+| "What might be relevant?" | \`predict\` |
 
 ### Proactive Memory Usage
 
@@ -1118,6 +1187,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 - User references past work ("remember when...", "like we did before", "that bug from last week")
 - When stuck on an error after 2 failed attempts — use \`recall\` with the error text before trying a 3rd approach
 - User asks "why" about existing code or architecture — use \`explain\` before guessing
+- Starting work in an unfamiliar area — use \`search\` for broad discovery
 - Before making significant architectural decisions — use \`recall\` to check for prior discussions
 
 **Skip memory (avoid latency) when:**

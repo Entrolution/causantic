@@ -6,14 +6,37 @@ Open questions and potential improvements for Causantic.
 
 These items were previously listed as future work and have since been implemented:
 
-- **Web Dashboard** (Lower Priority → Done): React + Vite frontend with graph visualization, cluster browser, search interface, and project views. Launch with `npx causantic dashboard`.
+- **Chain Walking** (v0.3.0): Sequential linked-list edges walked by `chain-walker.ts` with cosine-similarity scoring. Replaces sum-product graph traversal. Provides episodic narrative ordering from search seeds.
+- **Search Tool** (v0.3.0): `search` MCP tool for pure semantic discovery via hybrid BM25 + vector search with optional chain context. Replaces `explain`.
+- **Edge Simplification** (v0.3.0): Sequential 1-to-1 edges replace m×n all-pairs topology. Removes `decay.ts`, `traverser.ts`, `pruner.ts`.
+- **Web Dashboard** (Lower Priority → Done): React + Vite frontend with timeline visualization, cluster browser, search interface, and project views. Launch with `npx causantic dashboard`.
 - **Per-Project Isolation** (Medium Priority → Done): Federated approach — all projects in one store, filtered at query time via `projectFilter`. Cross-project graph edges traversed freely.
-- **Collection Benchmark Suite** (New): Self-service benchmarks for health, retrieval quality, graph value, and latency. Scoring with tuning recommendations and historical tracking.
+- **Collection Benchmark Suite** (New): Self-service benchmarks for health, retrieval quality, chain quality, and latency. Scoring with tuning recommendations and historical tracking.
 - **Session Reconstruction** (New): Pure chronological context rebuilding via `reconstruct` MCP tool — "what did I work on yesterday?"
 - **Native HDBSCAN** (New): Pure TypeScript rewrite — 130× speedup over hdbscan-ts.
 - **Hybrid BM25 + Vector Search** (New): FTS5 keyword search fused with vector search via RRF.
 
 ## High Priority
+
+### Chain Walk Optimization
+
+**Goal**: Improve chain walking performance and quality.
+
+**Current State**: Chain walker follows sequential edges with cosine-similarity scoring. Depth limit of 50.
+
+**Potential Improvements**:
+1. Adaptive depth — stop walking when cosine similarity drops below threshold for N consecutive hops
+2. Bidirectional walk merging — combine backward and forward walks more intelligently
+3. Branch-aware walking — follow brief/debrief edges into sub-agent chains when relevant
+
+### Relevance Feedback
+
+**Goal**: Learn from user interactions to improve retrieval quality.
+
+**Approach**:
+- Track which retrieved chunks the user actually references in conversation
+- Use implicit feedback (chunks that appear in subsequent tool calls) as positive signal
+- Adjust chain walking scoring or seed selection based on feedback patterns
 
 ### Token Usage Analytics
 
@@ -105,7 +128,7 @@ These items were previously listed as future work and have since been implemente
 
 **Question**: How well do cross-session links work?
 
-**Current**: Based on file-path and topic similarity. The [collection benchmark suite](../guides/benchmarking.md) can now measure cross-session bridging quality — run `npx causantic benchmark-collection --full` to evaluate.
+**Current**: Based on structural cross-session edges. The [collection benchmark suite](../guides/benchmarking.md) can now measure cross-session bridging quality — run `npx causantic benchmark-collection --full` to evaluate.
 
 **To Measure**:
 - Precision of cross-session edges

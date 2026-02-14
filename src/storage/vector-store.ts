@@ -62,13 +62,10 @@
  * @module storage/vector-store
  */
 
-import { getDb, generateId } from './db.js';
+import { getDb } from './db.js';
 import { angularDistance } from '../utils/angular-distance.js';
 import type { VectorSearchResult } from './types.js';
-import { createLogger } from '../utils/logger.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
-
-const log = createLogger('vector-store');
 
 /**
  * In-memory vector index backed by SQLite for persistence.
@@ -105,16 +102,16 @@ export class VectorStore {
     `);
 
     // Migrate existing tables
-    const columns = db.prepare("PRAGMA table_info(vectors)").all() as { name: string }[];
+    const columns = db.prepare('PRAGMA table_info(vectors)').all() as { name: string }[];
     const hasOrphanedAt = columns.some((c) => c.name === 'orphaned_at');
     const hasLastAccessed = columns.some((c) => c.name === 'last_accessed');
 
     if (!hasOrphanedAt) {
-      db.exec("ALTER TABLE vectors ADD COLUMN orphaned_at TEXT DEFAULT NULL");
+      db.exec('ALTER TABLE vectors ADD COLUMN orphaned_at TEXT DEFAULT NULL');
     }
     if (!hasLastAccessed) {
-      db.exec("ALTER TABLE vectors ADD COLUMN last_accessed TEXT DEFAULT CURRENT_TIMESTAMP");
-      db.exec("UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE last_accessed IS NULL");
+      db.exec('ALTER TABLE vectors ADD COLUMN last_accessed TEXT DEFAULT CURRENT_TIMESTAMP');
+      db.exec('UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE last_accessed IS NULL');
     }
 
     const rows = db.prepare('SELECT id, embedding FROM vectors').all() as {
@@ -129,9 +126,9 @@ export class VectorStore {
 
     // Populate chunk→project index from chunks table
     try {
-      const chunkRows = db.prepare(
-        "SELECT id, session_slug FROM chunks WHERE session_slug != ''"
-      ).all() as Array<{ id: string; session_slug: string }>;
+      const chunkRows = db
+        .prepare("SELECT id, session_slug FROM chunks WHERE session_slug != ''")
+        .all() as Array<{ id: string; session_slug: string }>;
 
       for (const row of chunkRows) {
         this.chunkProjectIndex.set(row.id, row.session_slug);
@@ -153,14 +150,16 @@ export class VectorStore {
     const blob = serializeEmbedding(embedding);
 
     db.prepare(
-      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)'
+      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)',
     ).run(id, blob);
 
     this.vectors.set(id, embedding);
 
     // Update project index
     try {
-      const row = db.prepare('SELECT session_slug FROM chunks WHERE id = ?').get(id) as { session_slug: string } | undefined;
+      const row = db.prepare('SELECT session_slug FROM chunks WHERE id = ?').get(id) as
+        | { session_slug: string }
+        | undefined;
       if (row?.session_slug) {
         this.chunkProjectIndex.set(id, row.session_slug);
       }
@@ -177,7 +176,7 @@ export class VectorStore {
 
     const db = getDb();
     const stmt = db.prepare(
-      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)'
+      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)',
     );
 
     const insertMany = db.transaction((items: Array<{ id: string; embedding: number[] }>) => {
@@ -192,12 +191,14 @@ export class VectorStore {
 
     // Update project index for batch
     try {
-      const ids = items.map(i => i.id);
+      const ids = items.map((i) => i.id);
       if (ids.length > 0) {
         const placeholders = ids.map(() => '?').join(',');
-        const rows = db.prepare(
-          `SELECT id, session_slug FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`
-        ).all(...ids) as Array<{ id: string; session_slug: string }>;
+        const rows = db
+          .prepare(
+            `SELECT id, session_slug FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`,
+          )
+          .all(...ids) as Array<{ id: string; session_slug: string }>;
         for (const row of rows) {
           this.chunkProjectIndex.set(row.id, row.session_slug);
         }
@@ -266,7 +267,7 @@ export class VectorStore {
   async searchWithinIds(
     query: number[],
     candidateIds: string[],
-    limit: number
+    limit: number,
   ): Promise<VectorSearchResult[]> {
     await this.load();
 
@@ -304,7 +305,7 @@ export class VectorStore {
   async searchByProject(
     query: number[],
     projects: string | string[],
-    limit: number
+    limit: number,
   ): Promise<VectorSearchResult[]> {
     await this.load();
 
@@ -433,44 +434,16 @@ export class VectorStore {
     const db = getDb();
     const placeholders = ids.map(() => '?').join(',');
     db.prepare(
-      `UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`
+      `UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
     ).run(...ids);
   }
 
   /**
-   * Mark a vector as orphaned (its associated chunk was deleted).
-   * The vector will be subject to TTL cleanup after this.
-   * Called by pruner when deleting orphaned chunks.
-   */
-  async markOrphaned(id: string): Promise<void> {
-    await this.load();
-
-    const db = getDb();
-    db.prepare(
-      'UPDATE vectors SET orphaned_at = CURRENT_TIMESTAMP, last_accessed = CURRENT_TIMESTAMP WHERE id = ?'
-    ).run(id);
-  }
-
-  /**
-   * Mark multiple vectors as orphaned.
-   */
-  async markOrphanedBatch(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    await this.load();
-
-    const db = getDb();
-    const placeholders = ids.map(() => '?').join(',');
-    db.prepare(
-      `UPDATE vectors SET orphaned_at = CURRENT_TIMESTAMP, last_accessed = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`
-    ).run(...ids);
-  }
-
-  /**
-   * Clean up expired orphaned vectors and their corresponding chunks.
-   * Removes vectors that are orphaned AND haven't been accessed within the TTL period.
+   * Clean up expired vectors and their corresponding chunks.
+   * Removes vectors that haven't been accessed within the TTL period.
    * Also deletes the corresponding chunks (FK cascades handle cluster assignments and edges).
    *
-   * @param ttlDays - Number of days after which orphaned vectors expire
+   * @param ttlDays - Number of days after which unaccessed vectors expire
    * @returns Number of vectors deleted
    */
   async cleanupExpired(ttlDays: number): Promise<number> {
@@ -478,12 +451,15 @@ export class VectorStore {
 
     const db = getDb();
 
-    // Find expired orphaned vectors
-    const expiredRows = db.prepare(`
+    // Find expired vectors (any vector not accessed within TTL)
+    const expiredRows = db
+      .prepare(
+        `
       SELECT id FROM vectors
-      WHERE orphaned_at IS NOT NULL
-        AND last_accessed < datetime('now', '-' || ? || ' days')
-    `).all(ttlDays) as { id: string }[];
+      WHERE last_accessed < datetime('now', '-' || ? || ' days')
+    `,
+      )
+      .all(ttlDays) as { id: string }[];
 
     if (expiredRows.length === 0) {
       return 0;
@@ -493,42 +469,87 @@ export class VectorStore {
     const placeholders = expiredIds.map(() => '?').join(',');
 
     // Delete chunks first (FK cascades handle chunk_clusters and edges)
-    db.prepare(
-      `DELETE FROM chunks WHERE id IN (${placeholders})`
-    ).run(...expiredIds);
+    db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...expiredIds);
 
     // Delete vectors
-    const result = db.prepare(
-      `DELETE FROM vectors WHERE id IN (${placeholders})`
-    ).run(...expiredIds);
+    const result = db
+      .prepare(`DELETE FROM vectors WHERE id IN (${placeholders})`)
+      .run(...expiredIds);
 
     // Remove empty clusters (no remaining members after chunk deletion)
-    db.prepare(`
+    db.prepare(
+      `
       DELETE FROM clusters WHERE id NOT IN (
         SELECT DISTINCT cluster_id FROM chunk_clusters
       )
-    `).run();
+    `,
+    ).run();
 
     // Remove from memory
     for (const id of expiredIds) {
       this.vectors.delete(id);
+      this.chunkProjectIndex.delete(id);
     }
 
     return result.changes;
   }
 
   /**
-   * Get count of orphaned vectors.
+   * Evict the oldest vectors when collection exceeds maxCount.
+   * Deletes vectors (and their chunks via FK cascade) by ascending last_accessed.
+   *
+   * @param maxCount - Maximum number of vectors to retain (0 = unlimited)
+   * @returns Number of vectors evicted
    */
-  async getOrphanedCount(): Promise<number> {
+  async evictOldest(maxCount: number): Promise<number> {
+    if (maxCount <= 0) return 0;
+
     await this.load();
 
-    const db = getDb();
-    const row = db.prepare(
-      'SELECT COUNT(*) as count FROM vectors WHERE orphaned_at IS NOT NULL'
-    ).get() as { count: number };
+    const currentCount = this.vectors.size;
+    if (currentCount <= maxCount) return 0;
 
-    return row.count;
+    const overage = currentCount - maxCount;
+    const db = getDb();
+
+    // Select the oldest vectors by last_accessed
+    const toEvict = db
+      .prepare(
+        `
+      SELECT id FROM vectors
+      ORDER BY last_accessed ASC
+      LIMIT ?
+    `,
+      )
+      .all(overage) as { id: string }[];
+
+    if (toEvict.length === 0) return 0;
+
+    const evictIds = toEvict.map((r) => r.id);
+    const placeholders = evictIds.map(() => '?').join(',');
+
+    // Delete chunks first (FK cascades handle chunk_clusters and edges)
+    db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...evictIds);
+
+    // Delete vectors
+    const result = db.prepare(`DELETE FROM vectors WHERE id IN (${placeholders})`).run(...evictIds);
+
+    // Remove empty clusters
+    db.prepare(
+      `
+      DELETE FROM clusters WHERE id NOT IN (
+        SELECT DISTINCT cluster_id FROM chunk_clusters
+      )
+    `,
+    ).run();
+
+    // Remove from memory
+    for (const id of evictIds) {
+      this.vectors.delete(id);
+      this.chunkProjectIndex.delete(id);
+    }
+
+    return result.changes;
   }
 }
 
@@ -539,4 +560,3 @@ export class VectorStore {
  * The instance lazy-loads vectors from SQLite on first operation.
  */
 export const vectorStore = new VectorStore();
-

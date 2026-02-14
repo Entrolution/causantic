@@ -12,8 +12,6 @@ import {
   touchingClusters,
   withDuplicates,
   countClusterSizes,
-  countNoise,
-  getUniqueClusters,
 } from './hdbscan/fixtures.js';
 
 describe('HDBSCAN', () => {
@@ -161,9 +159,7 @@ describe('HDBSCAN', () => {
       }
 
       // Cluster points should have positive probability
-      const clusterProbs = result.probabilities.filter(
-        (_, i) => result.labels[i] >= 0
-      );
+      const clusterProbs = result.probabilities.filter((_, i) => result.labels[i] >= 0);
       const avgProb = clusterProbs.reduce((a, b) => a + b, 0) / clusterProbs.length;
       expect(avgProb).toBeGreaterThan(0.5);
     });
@@ -188,9 +184,7 @@ describe('HDBSCAN', () => {
       const result = await hdbscan.fit(data);
 
       // Find noise indices
-      const noiseIndices = result.labels
-        .map((l, i) => (l === -1 ? i : -1))
-        .filter((i) => i >= 0);
+      const noiseIndices = result.labels.map((l, i) => (l === -1 ? i : -1)).filter((i) => i >= 0);
 
       // Noise points should have high outlier scores
       for (const i of noiseIndices) {
@@ -295,11 +289,7 @@ describe('HDBSCAN', () => {
     it('handles 500 points', async () => {
       const data: number[][] = [];
       for (let i = 0; i < 500; i++) {
-        data.push([
-          Math.random() * 10 + (i % 5) * 20,
-          Math.random() * 10,
-          Math.random() * 10,
-        ]);
+        data.push([Math.random() * 10 + (i % 5) * 20, Math.random() * 10, Math.random() * 10]);
       }
 
       const hdbscan = new HDBSCAN({ minClusterSize: 10, parallel: false });

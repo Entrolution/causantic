@@ -10,59 +10,18 @@ Causantic breaks Claude Code sessions into **chunks** - semantic units of conver
 
 - Content (conversation text)
 - Embeddings (vector representation)
-- Vector clock (logical timestamp)
 - Session metadata
 
 ### Causal Graph
 
-Chunks are connected in a **causal graph** that tracks relationships:
+Chunks are connected in a **sequential causal graph** — a linked list with branch points at sub-agent forks:
 
-- **Backward edges**: "This chunk references that earlier chunk"
-- **Forward edges**: "That later chunk builds on this one"
+- **Intra-turn**: Chunks within the same turn are linked sequentially (C1→C2→C3)
+- **Inter-turn**: Last chunk of turn A → first chunk of turn B
+- **Brief/Debrief**: Parent ↔ sub-agent spawn/return edges
+- **Cross-session**: Last chunk of previous session → first chunk of new session
 
-Edge types include:
-- `file-path`: References to the same file
-- `adjacent`: Sequential chunks in a session
-- `topic`: Semantically related content
-
-### Vector Clocks
-
-Instead of wall-clock time, Causantic uses **vector clocks** to track logical ordering:
-
-```
-D-T-D Semantics (Data-Transformation-Data):
-D = Data (input)
-T = Transformation (any processing step)
-D = Data (output)
-```
-
-D-T-D abstractly represents any `f(input) → output` operation - whether that's Claude reasoning, human thinking, or tool execution. This representation works well for graph-based reasoning without getting bogged down in type systems or composition semantics.
-
-Each thought stream has its own vector clock entry:
-
-```typescript
-{
-  "ui": 5,           // Main agent: 5 D-T-D cycles
-  "human": 3,        // Human thinking/input cycles
-  "agent-abc": 2     // Sub-agent thought stream
-}
-```
-
-This enables "hop distance" calculations that reflect semantic distance rather than time elapsed. Parallel thought streams are tracked independently, then merged when they complete.
-
-### Temporal Decay
-
-Edge weights decay based on **hop distance**, not time:
-
-```
-Backward decay (historical):
-  - Linear: weight = 1 - (hops / diesAtHops)
-  - Dies at 10 hops
-
-Forward decay (predictive):
-  - Delayed linear: hold at 1.0 for 5 hops, then decay
-  - Dies at 20 hops
-```
+All edges are stored as single `forward` rows — direction is inferred at query time (backward = follow edges where the chunk is the target).
 
 ## Data Flow
 
@@ -74,9 +33,9 @@ Forward decay (predictive):
 
 2. During Session
    ├── Claude uses MCP tools
-   ├── recall: semantic search + graph traversal
-   ├── explain: long-range historical context
-   └── predict: proactive suggestions
+   ├── search: semantic discovery ("what do I know about X?")
+   ├── recall: episodic memory ("how did we solve the auth bug?")
+   └── predict: forward episodic ("what's likely next?")
 
 3. Session End / Compaction
    ├── Pre-compact hook fires
@@ -88,15 +47,28 @@ Forward decay (predictive):
 
 ## Retrieval Process
 
-When Claude uses the `recall` tool:
+Causantic has two retrieval modes:
+
+### Search (discovery)
+
+The `search` tool finds semantically similar context:
 
 1. **Embed query**: Generate vector embedding for the query
 2. **Parallel search**: Run vector search and BM25 keyword search simultaneously
 3. **RRF fusion**: Merge both ranked lists using Reciprocal Rank Fusion (k=60)
 4. **Cluster expansion**: Expand results through HDBSCAN cluster siblings
-5. **Graph traversal**: Follow causal edges from seed chunks with hop-based decay
-6. **Context assembly**: Rank, deduplicate, and format results with source attribution
-7. **Token budgeting**: Fit within response limits
+5. **Rank and deduplicate**: Recency boost, deduplication
+6. **Token budgeting**: Fit within response limits
+
+### Recall/Predict (episodic)
+
+The `recall` and `predict` tools reconstruct narrative chains:
+
+1. **Seed discovery**: Same as search (embed → vector + keyword → RRF → cluster expand) to find top 5 seeds
+2. **Chain walking**: For each seed, walk the causal graph (backward for recall, forward for predict), building ordered chains
+3. **Chain scoring**: Each chain scored by Σ cosine_similarity(query, node) / token_count
+4. **Best chain selection**: Highest score-per-token among chains with ≥ 2 chunks
+5. **Fallback**: If no qualifying chain found, fall back to search-style results
 
 ### Hybrid Search
 
@@ -110,10 +82,6 @@ Results are fused using Reciprocal Rank Fusion, which combines ranked lists with
 ### Cluster-Guided Expansion
 
 After fusion, Causantic expands results through cluster siblings. If a search hit belongs to a topic cluster, other chunks in that cluster are added as candidates with a reduced score. This surfaces topically related context that neither search found independently.
-
-### Source Attribution
-
-Each returned chunk is tagged with its retrieval source (`vector`, `keyword`, `cluster`, or `graph`), enabling debugging and tuning of fusion weights.
 
 ### Graceful Degradation
 

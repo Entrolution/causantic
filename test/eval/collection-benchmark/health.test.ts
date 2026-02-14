@@ -5,9 +5,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type Database from 'better-sqlite3-multiple-ciphers';
 import {
-  createTestDb, setupTestDb, teardownTestDb,
-  createSampleChunk, insertTestChunk, insertTestEdge,
-  insertTestCluster, assignChunkToCluster,
+  createTestDb,
+  setupTestDb,
+  teardownTestDb,
+  createSampleChunk,
+  insertTestChunk,
+  insertTestEdge,
+  insertTestCluster,
+  assignChunkToCluster,
 } from '../../storage/test-utils.js';
 import { invalidateProjectsCache } from '../../../src/storage/chunk-store.js';
 import { runHealthBenchmarks } from '../../../src/eval/collection-benchmark/health.js';
@@ -43,13 +48,49 @@ describe('runHealthBenchmarks', () => {
 
   it('should compute basic health metrics', async () => {
     // Insert 3 chunks
-    insertTestChunk(db, createSampleChunk({ id: 'c1', sessionId: 's1', sessionSlug: 'proj-a', startTime: '2024-01-01T00:00:00Z' }));
-    insertTestChunk(db, createSampleChunk({ id: 'c2', sessionId: 's1', sessionSlug: 'proj-a', startTime: '2024-01-02T00:00:00Z' }));
-    insertTestChunk(db, createSampleChunk({ id: 'c3', sessionId: 's2', sessionSlug: 'proj-a', startTime: '2024-06-01T00:00:00Z' }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj-a',
+        startTime: '2024-01-01T00:00:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj-a',
+        startTime: '2024-01-02T00:00:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c3',
+        sessionId: 's2',
+        sessionSlug: 'proj-a',
+        startTime: '2024-06-01T00:00:00Z',
+      }),
+    );
 
     // Insert 2 edges
-    insertTestEdge(db, { id: 'e1', sourceChunkId: 'c1', targetChunkId: 'c2', edgeType: 'backward', referenceType: 'adjacent' });
-    insertTestEdge(db, { id: 'e2', sourceChunkId: 'c2', targetChunkId: 'c3', edgeType: 'backward', referenceType: 'file-path' });
+    insertTestEdge(db, {
+      id: 'e1',
+      sourceChunkId: 'c1',
+      targetChunkId: 'c2',
+      edgeType: 'backward',
+      referenceType: 'within-chain',
+    });
+    insertTestEdge(db, {
+      id: 'e2',
+      sourceChunkId: 'c2',
+      targetChunkId: 'c3',
+      edgeType: 'backward',
+      referenceType: 'cross-session',
+    });
 
     const result = await runHealthBenchmarks();
 
@@ -85,7 +126,12 @@ describe('runHealthBenchmarks', () => {
     insertTestChunk(db, createSampleChunk({ id: 'c3', sessionId: 's1', sessionSlug: 'proj-a' }));
 
     // Only c1 and c2 have edges
-    insertTestEdge(db, { id: 'e1', sourceChunkId: 'c1', targetChunkId: 'c2', edgeType: 'backward' });
+    insertTestEdge(db, {
+      id: 'e1',
+      sourceChunkId: 'c1',
+      targetChunkId: 'c2',
+      edgeType: 'backward',
+    });
     // c3 is orphan (no edges, no cluster)
 
     const result = await runHealthBenchmarks();
@@ -98,16 +144,34 @@ describe('runHealthBenchmarks', () => {
     insertTestChunk(db, createSampleChunk({ id: 'c2', sessionId: 's1', sessionSlug: 'proj-a' }));
     insertTestChunk(db, createSampleChunk({ id: 'c3', sessionId: 's1', sessionSlug: 'proj-a' }));
 
-    insertTestEdge(db, { id: 'e1', sourceChunkId: 'c1', targetChunkId: 'c2', edgeType: 'backward', referenceType: 'file-path' });
-    insertTestEdge(db, { id: 'e2', sourceChunkId: 'c2', targetChunkId: 'c3', edgeType: 'backward', referenceType: 'file-path' });
-    insertTestEdge(db, { id: 'e3', sourceChunkId: 'c1', targetChunkId: 'c3', edgeType: 'backward', referenceType: 'adjacent' });
+    insertTestEdge(db, {
+      id: 'e1',
+      sourceChunkId: 'c1',
+      targetChunkId: 'c2',
+      edgeType: 'backward',
+      referenceType: 'within-chain',
+    });
+    insertTestEdge(db, {
+      id: 'e2',
+      sourceChunkId: 'c2',
+      targetChunkId: 'c3',
+      edgeType: 'backward',
+      referenceType: 'within-chain',
+    });
+    insertTestEdge(db, {
+      id: 'e3',
+      sourceChunkId: 'c1',
+      targetChunkId: 'c3',
+      edgeType: 'backward',
+      referenceType: 'cross-session',
+    });
 
     const result = await runHealthBenchmarks();
 
     expect(result.edgeTypeDistribution.length).toBe(2);
-    const filePathDist = result.edgeTypeDistribution.find(d => d.type === 'file-path');
-    expect(filePathDist?.count).toBe(2);
-    expect(filePathDist?.percentage).toBeCloseTo(2 / 3);
+    const withinChainDist = result.edgeTypeDistribution.find((d) => d.type === 'within-chain');
+    expect(withinChainDist?.count).toBe(2);
+    expect(withinChainDist?.percentage).toBeCloseTo(2 / 3);
   });
 
   it('should compute session size stats', async () => {
@@ -132,13 +196,18 @@ describe('runHealthBenchmarks', () => {
     insertTestChunk(db, createSampleChunk({ id: 'c2', sessionId: 's1', sessionSlug: 'proj-a' }));
     insertTestChunk(db, createSampleChunk({ id: 'c3', sessionId: 's2', sessionSlug: 'proj-b' }));
 
-    insertTestEdge(db, { id: 'e1', sourceChunkId: 'c1', targetChunkId: 'c2', edgeType: 'backward' });
+    insertTestEdge(db, {
+      id: 'e1',
+      sourceChunkId: 'c1',
+      targetChunkId: 'c2',
+      edgeType: 'backward',
+    });
 
     const result = await runHealthBenchmarks();
 
     expect(result.perProject.length).toBe(2);
-    const projA = result.perProject.find(p => p.slug === 'proj-a');
-    const projB = result.perProject.find(p => p.slug === 'proj-b');
+    const projA = result.perProject.find((p) => p.slug === 'proj-a');
+    const projB = result.perProject.find((p) => p.slug === 'proj-b');
     expect(projA?.chunkCount).toBe(2);
     expect(projA?.edgeCount).toBe(1);
     expect(projB?.chunkCount).toBe(1);

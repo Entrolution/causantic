@@ -42,7 +42,7 @@ describe('vector-store', () => {
       const restored = new Float32Array(
         buffer.buffer,
         buffer.byteOffset,
-        buffer.length / Float32Array.BYTES_PER_ELEMENT
+        buffer.length / Float32Array.BYTES_PER_ELEMENT,
       );
 
       expect(Array.from(restored).length).toBe(original.length);
@@ -67,7 +67,7 @@ describe('vector-store', () => {
       const restored = new Float32Array(
         row.embedding.buffer,
         row.embedding.byteOffset,
-        row.embedding.length / Float32Array.BYTES_PER_ELEMENT
+        row.embedding.length / Float32Array.BYTES_PER_ELEMENT,
       );
 
       expect(Array.from(restored).length).toBe(original.length);
@@ -91,12 +91,12 @@ describe('vector-store', () => {
 
       db.prepare('INSERT OR REPLACE INTO vectors (id, embedding) VALUES (?, ?)').run(
         'vec-1',
-        Buffer.from(embedding1.buffer)
+        Buffer.from(embedding1.buffer),
       );
 
       db.prepare('INSERT OR REPLACE INTO vectors (id, embedding) VALUES (?, ?)').run(
         'vec-1',
-        Buffer.from(embedding2.buffer)
+        Buffer.from(embedding2.buffer),
       );
 
       const count = db.prepare('SELECT COUNT(*) as count FROM vectors').get() as { count: number };
@@ -213,7 +213,9 @@ describe('vector-store', () => {
       const result = db.prepare('DELETE FROM vectors WHERE id = ?').run('vec-1');
       expect(result.changes).toBe(1);
 
-      const remaining = db.prepare('SELECT COUNT(*) as count FROM vectors').get() as { count: number };
+      const remaining = db.prepare('SELECT COUNT(*) as count FROM vectors').get() as {
+        count: number;
+      };
       expect(remaining.count).toBe(2);
     });
 

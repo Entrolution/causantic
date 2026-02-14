@@ -98,26 +98,28 @@ function createV1Database(): Database.Database {
 }
 
 function getSchemaVersion(db: Database.Database): number {
-  const row = db.prepare('SELECT MAX(version) as version FROM schema_version').get() as { version: number };
+  const row = db.prepare('SELECT MAX(version) as version FROM schema_version').get() as {
+    version: number;
+  };
   return row.version;
 }
 
 function getColumnNames(db: Database.Database, table: string): string[] {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-  return cols.map(c => c.name);
+  return cols.map((c) => c.name);
 }
 
 function tableExists(db: Database.Database, table: string): boolean {
-  const row = db.prepare(
-    "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name=?"
-  ).get(table) as { cnt: number };
+  const row = db
+    .prepare("SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name=?")
+    .get(table) as { cnt: number };
   return row.cnt > 0;
 }
 
 function indexExists(db: Database.Database, index: string): boolean {
-  const row = db.prepare(
-    "SELECT count(*) as cnt FROM sqlite_master WHERE type='index' AND name=?"
-  ).get(index) as { cnt: number };
+  const row = db
+    .prepare("SELECT count(*) as cnt FROM sqlite_master WHERE type='index' AND name=?")
+    .get(index) as { cnt: number };
   return row.cnt > 0;
 }
 
@@ -127,55 +129,63 @@ describe('runMigrations', () => {
   });
 
   describe('fresh database (version 0)', () => {
-    it('runs all migrations and reaches v6 when schema is provided', () => {
+    it('runs all migrations and reaches v7 when schema is provided', () => {
       // A fresh database starts with core tables from schema.sql
       // then migrations add versioned columns/tables
       const db = createV1Database();
       // Reset version to 0 to simulate a completely fresh database
       db.exec('DELETE FROM schema_version');
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(6);
+      expect(getSchemaVersion(db)).toBe(8);
       db.close();
     });
   });
 
-  describe('v1 → v6', () => {
+  describe('v1 → v7', () => {
     it('upgrades through all versions', () => {
       const db = createV1Database();
       expect(getSchemaVersion(db)).toBe(1);
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(6);
+      expect(getSchemaVersion(db)).toBe(8);
       db.close();
     });
 
-    it('adds vector clock columns to chunks (v2)', () => {
+    it('adds agent_id and spawn_depth columns to chunks (v2)', () => {
       const db = createV1Database();
       runMigrations(db);
 
       const cols = getColumnNames(db, 'chunks');
       expect(cols).toContain('agent_id');
-      expect(cols).toContain('vector_clock');
       expect(cols).toContain('spawn_depth');
       db.close();
     });
 
-    it('adds vector clock columns to edges (v2)', () => {
+    it('adds link_count column to edges (v2)', () => {
       const db = createV1Database();
       runMigrations(db);
 
       const cols = getColumnNames(db, 'edges');
-      expect(cols).toContain('vector_clock');
       expect(cols).toContain('link_count');
       db.close();
     });
 
-    it('creates vector_clocks table (v2)', () => {
+    it('removes vector_clocks table (v7)', () => {
       const db = createV1Database();
       runMigrations(db);
 
-      expect(tableExists(db, 'vector_clocks')).toBe(true);
+      expect(tableExists(db, 'vector_clocks')).toBe(false);
+      db.close();
+    });
+
+    it('removes vector_clock columns from chunks, edges, and ingestion_checkpoints (v7)', () => {
+      const db = createV1Database();
+      runMigrations(db);
+
+      expect(getColumnNames(db, 'chunks')).not.toContain('vector_clock');
+      expect(getColumnNames(db, 'edges')).not.toContain('vector_clock');
+      expect(getColumnNames(db, 'ingestion_checkpoints')).not.toContain('vector_clock');
       db.close();
     });
 
@@ -189,7 +199,6 @@ describe('runMigrations', () => {
       expect(cols).toContain('session_id');
       expect(cols).toContain('project_slug');
       expect(cols).toContain('last_turn_index');
-      expect(cols).toContain('vector_clock');
       db.close();
     });
 
@@ -215,9 +224,11 @@ describe('runMigrations', () => {
       runMigrations(db);
 
       // FTS5 virtual tables appear in sqlite_master
-      const row = db.prepare(
-        "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='chunks_fts'"
-      ).get() as { cnt: number };
+      const row = db
+        .prepare(
+          "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='chunks_fts'",
+        )
+        .get() as { cnt: number };
       expect(row.cnt).toBe(1);
       db.close();
     });
@@ -229,17 +240,26 @@ describe('runMigrations', () => {
       expect(indexExists(db, 'idx_chunks_slug_start_time')).toBe(true);
       db.close();
     });
+
+    it('creates chain-walking indices on edges (v8)', () => {
+      const db = createV1Database();
+      runMigrations(db);
+
+      expect(indexExists(db, 'idx_edges_source_type')).toBe(true);
+      expect(indexExists(db, 'idx_edges_target_type')).toBe(true);
+      db.close();
+    });
   });
 
   describe('idempotency', () => {
     it('can run migrations multiple times without error', () => {
       const db = createV1Database();
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(6);
+      expect(getSchemaVersion(db)).toBe(8);
 
       // Run again — should be a no-op
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(6);
+      expect(getSchemaVersion(db)).toBe(8);
       db.close();
     });
 
@@ -259,7 +279,8 @@ describe('runMigrations', () => {
 
       // Run again
       runMigrations(db);
-      const count2 = (db.prepare('SELECT count(*) as cnt FROM chunks').get() as { cnt: number }).cnt;
+      const count2 = (db.prepare('SELECT count(*) as cnt FROM chunks').get() as { cnt: number })
+        .cnt;
       expect(count2).toBe(1);
 
       db.close();
@@ -267,7 +288,7 @@ describe('runMigrations', () => {
   });
 
   describe('partial upgrades', () => {
-    it('v3 database only runs v4, v5, v6', () => {
+    it('v3 database only runs v4, v5, v6, v7', () => {
       const db = createV1Database();
 
       // Manually run through v3
@@ -312,13 +333,17 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(6);
+      expect(getSchemaVersion(db)).toBe(8);
       expect(getColumnNames(db, 'chunks')).toContain('project_path');
+      expect(getColumnNames(db, 'chunks')).not.toContain('vector_clock');
+      expect(getColumnNames(db, 'edges')).not.toContain('vector_clock');
+      expect(getColumnNames(db, 'ingestion_checkpoints')).not.toContain('vector_clock');
+      expect(tableExists(db, 'vector_clocks')).toBe(false);
       expect(indexExists(db, 'idx_chunks_slug_start_time')).toBe(true);
       db.close();
     });
 
-    it('v5 database only runs v6', () => {
+    it('v5 database only runs v6, v7', () => {
       const db = createV1Database();
 
       // Fast-forward to v5
@@ -343,8 +368,12 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(6);
+      expect(getSchemaVersion(db)).toBe(8);
       expect(indexExists(db, 'idx_chunks_slug_start_time')).toBe(true);
+      expect(getColumnNames(db, 'chunks')).not.toContain('vector_clock');
+      expect(getColumnNames(db, 'edges')).not.toContain('vector_clock');
+      expect(getColumnNames(db, 'ingestion_checkpoints')).not.toContain('vector_clock');
+      expect(tableExists(db, 'vector_clocks')).toBe(false);
       db.close();
     });
   });

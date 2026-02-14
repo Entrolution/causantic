@@ -1,222 +1,139 @@
-# Traversal Algorithm Reference
+# Chain Walking Algorithm Reference
 
-Causantic uses a sum-product traversal algorithm inspired by Feynman path integrals to navigate the causal memory graph.
+Causantic uses a chain-walking algorithm to reconstruct episodic narratives from the causal memory graph.
 
 ## Overview
 
-The algorithm explores paths through the graph from one or more starting chunks, accumulating weights using two rules:
+The causal graph is a **sequential linked list** with branch points at sub-agent forks. The chain walker follows directed edges to build ordered narrative chains from seed chunks.
 
-| Rule | Description |
-|------|-------------|
-| **Product** | Weights multiply along each path |
-| **Sum** | Multiple paths to the same node accumulate |
-
-This naturally handles cycles without explicit detection — since edge weights are in (0,1], cyclic paths attenuate geometrically until pruned.
+| Direction | Edge following | Use case |
+|-----------|---------------|----------|
+| **Backward** | Follow edges where target = current chunk | `recall` — "how did we solve this?" |
+| **Forward** | Follow edges where source = current chunk | `predict` — "what comes next?" |
 
 ## Core Algorithm
 
 ```typescript
-async function traverse(
-  startChunkId: string,
-  queryTime: number,
-  options: TraversalOptions
-): Promise<TraversalResult>
+function walkChains(
+  seedIds: string[],
+  options: ChainWalkerOptions
+): Chain[]
 ```
 
 ### Pseudocode
 
 ```
-function traverse(start, queryTime, options):
-    accumulated = Map<chunkId, weight>()
-    minDepths = Map<chunkId, depth>()
+function walkChains(seedIds, options):
+    chains = []
+    visited = Set()
+    tokenTally = 0
 
-    function visit(chunkId, depth, pathWeight):
-        if pathWeight < minWeight: return  // Prune attenuated paths
-        if depth > maxDepth: return         // Depth limit
+    for each seed in seedIds:
+        chain = []
+        current = seed
 
-        // Sum rule: accumulate this path's contribution
-        accumulated[chunkId] += pathWeight
-        minDepths[chunkId] = min(minDepths[chunkId], depth)
+        while current is not null:
+            if current in visited: break  // Cycle handling
+            visited.add(current)
 
-        // Get outgoing edges with decay-computed weights
-        edges = getWeightedEdges(chunkId, queryTime, options)
+            chunk = getChunk(current)
+            score = cosineSimilarity(queryEmbedding, chunkEmbedding)
+            tokenTally += chunk.approxTokens
 
-        for edge in edges:
-            // Product rule: multiply weights along path
-            newWeight = pathWeight × edge.weight
-            visit(edge.targetChunkId, depth + 1, newWeight)
+            if tokenTally > tokenBudget: break  // Budget exhausted
 
-    visit(start, depth=0, pathWeight=1.0)
+            chain.append({ chunkId: current, score })
 
-    return sort(accumulated, by=weight, descending=true)
+            // Follow directed edges
+            if direction == 'backward':
+                edges = getBackwardEdges(current)  // target_chunk_id = current
+            else:
+                edges = getForwardEdges(current)    // source_chunk_id = current
+
+            current = edges[0]?.nextChunkId or null  // Sequential: at most one edge
+
+        if chain.length >= 1:
+            chains.append(chain)
+
+    return chains
 ```
 
-## Sum-Product Semantics
-
-### Product Rule
-
-Weights multiply along each path. This models the intuition that connections become weaker as you travel further:
+### Chain Selection
 
 ```
-Path: A → B → C → D
-      1.0 × 0.8 × 0.7 × 0.6 = 0.336
+function selectBestChain(chains):
+    qualifying = chains.filter(c => c.length >= 2)
+    if qualifying is empty: return null
 
-Each hop reduces the signal strength.
+    // Median per-node similarity — robust to outliers on short chains
+    return qualifying.maxBy(c => c.medianScore)
 ```
 
-### Sum Rule
+## Pipeline Integration
 
-When multiple paths reach the same node, their weights add:
-
-```
-Path 1: A → B → D  (weight: 0.8 × 0.9 = 0.72)
-Path 2: A → C → D  (weight: 0.7 × 0.8 = 0.56)
-
-Total weight for D: 0.72 + 0.56 = 1.28
-```
-
-This means nodes reachable via multiple paths are more relevant — they're "well-connected" in the graph.
-
-## Convergence and Cycle Handling
-
-The algorithm handles cycles naturally without explicit detection:
+The chain walker is part of the episodic retrieval pipeline:
 
 ```
-Consider a cycle: A → B → C → A → B → ...
-
-With edge weights ~0.7:
-  First pass through A→B: 0.7
-  After one cycle:        0.7 × 0.7 × 0.7 × 0.7 = 0.24
-  After two cycles:       0.24 × 0.24 = 0.058
-  ...eventually: < minWeight threshold → pruned
+Query
+  │
+  ├─ 1. Embed query
+  ├─ 2. Vector search + keyword search (parallel)
+  ├─ 3. RRF fusion + cluster expansion → top-5 seeds
+  │
+  ├─ 4. walkChains(seedIds, { direction, tokenBudget, queryEmbedding })
+  │     ├─ Follow directed edges, one chain per seed
+  │     ├─ Stop when token tally exceeds budget
+  │     └─ Skip revisited nodes (cycle handling)
+  │
+  ├─ 5. selectBestChain(chains) → highest median per-node similarity with ≥ 2 chunks
+  │
+  ├─ 6. If chain found → reverse for chronological output (recall only)
+  └─ 7. Else → fall back to search-style ranked results
 ```
 
-Since all weights are in (0,1], cyclic paths attenuate geometrically. The `minWeight` threshold (default: 0.001) prunes paths that have attenuated below relevance.
+## Edge Structure
 
-## Direction-Specific Traversal
+Edges are stored as single `forward` rows:
 
-Traversal direction determines which edges to follow and which decay curve to use:
+| Field | Value |
+|-------|-------|
+| `edge_type` | Always `'forward'` |
+| `reference_type` | `'within-chain'`, `'cross-session'`, `'brief'`, or `'debrief'` |
+| `source_chunk_id` | Earlier chunk |
+| `target_chunk_id` | Later chunk |
+| `initial_weight` | Always `1.0` |
 
-### Backward Traversal
+Direction is inferred at query time:
+- **Forward edges**: `source_chunk_id = chunkId AND edge_type = 'forward'`
+- **Backward edges**: `target_chunk_id = chunkId AND edge_type = 'forward'`
 
-"What led to this?" — Follows `backward` edges to find historical context.
+## Chain Scoring
 
-```typescript
-const result = await traverse(startChunkId, Date.now(), {
-  direction: 'backward',
-  maxDepth: 10,
-});
-```
-
-**Decay curve**: Linear, dies at 10 hops
-
-### Forward Traversal
-
-"What comes next?" — Follows `forward` edges for predictive context.
-
-```typescript
-const result = await traverse(startChunkId, Date.now(), {
-  direction: 'forward',
-  maxDepth: 20,
-});
-```
-
-**Decay curve**: Delayed linear, 5-hop hold, dies at 20 hops
-
-## Multi-Start Traversal
-
-For vector search results, traverse from multiple starting points:
-
-```typescript
-const result = await traverseMultiple(
-  startChunkIds,   // ['chunk-1', 'chunk-2', 'chunk-3']
-  startWeights,    // [0.95, 0.87, 0.82]  // From vector similarity
-  queryTime,
-  options
-);
-```
-
-Each start's contribution is scaled by its starting weight, then accumulated:
+Each node in a chain is scored by cosine similarity to the query:
 
 ```
-Start 1 (weight 0.95): reaches D with weight 0.72
-Start 2 (weight 0.87): reaches D with weight 0.56
-
-D's total weight: 0.95 × 0.72 + 0.87 × 0.56 = 1.17
+nodeScore = 1 - angularDistance(queryEmbedding, chunkEmbedding)
 ```
 
-## Score Fusion: Graph Agreement Boost
-
-After traversal, direct hits and graph results are combined in a fusion step that rewards **agreement** — when a chunk is found by both vector search and graph traversal, that's treated as a confidence signal.
-
-### Fusion Rules
-
-| Chunk type | Score formula |
-|------------|--------------|
-| **Intersection** (vector + graph) | `directScore × directHitBoost + graphWeight × graphAgreementBoost` |
-| **Direct-only** (vector/keyword/cluster) | `directScore × directHitBoost` |
-| **Graph-only** (traversal) | `graphWeight` (unchanged) |
-
-Default config: `directHitBoost: 1.5`, `graphAgreementBoost: 2.0`
-
-### Example
+Chain selection uses the **median** per-node score:
 
 ```
-Chunk A: directScore=0.012, also found by graph with weight=0.005
-  → 0.012 × 1.5 + 0.005 × 2.0 = 0.028  (boosted by agreement)
-
-Chunk C: directScore=0.012, not in graph results
-  → 0.012 × 1.5 = 0.018  (direct-only)
-
-Chunk D: graph-only with weight=0.005
-  → 0.005  (unchanged)
+chain.nodeScores = [nodeScore for each node]
+chain.medianScore = median(chain.nodeScores)
 ```
 
-Intersection chunks rank higher because graph agreement confirms relevance through an independent signal (causal connectivity vs semantic similarity).
-
-### Deduplication
-
-After fusion, `dedupeAndRank()` handles any remaining duplicates (e.g., within graph-only results reached via multiple traversal paths):
-
-```typescript
-function dedupeAndRank(chunks: WeightedChunk[]): WeightedChunk[] {
-  // Combine weights with diminishing returns
-  existing.weight = existing.weight + chunk.weight * 0.5;
-
-  // Keep minimum depth
-  existing.depth = Math.min(existing.depth, chunk.depth);
-
-  // Sort by weight descending
-  return chunks.sort((a, b) => b.weight - a.weight);
-}
-```
-
-### Configuration
-
-Both boost factors are configurable in `causantic.config.json`:
-
-```json
-{
-  "traversal": {
-    "directHitBoost": 1.5,
-    "graphAgreementBoost": 2.0
-  }
-}
-```
-
-Set `graphAgreementBoost: 0` to disable the graph agreement signal (falls back to direct-only scoring).
+Median is robust to bridge nodes (semantic novelty) in short chains. A 3-node chain with scores `[0.85, 0.30, 0.82]` gets median `0.82` instead of mean `0.66`, correctly recognizing that most of the chain is highly relevant despite one bridge node.
 
 ## Configuration
 
-### TraversalOptions
+### ChainWalkerOptions
 
 ```typescript
-interface TraversalOptions {
-  maxDepth?: number;      // Default: from config (typically 10-20)
-  minWeight?: number;     // Default: from config (typically 0.001)
-  direction: 'backward' | 'forward';
-  decayConfig?: DecayModelConfig;  // Fallback for time-based decay
-  referenceClock?: VectorClock;    // For hop-based decay
+interface ChainWalkerOptions {
+  direction: 'forward' | 'backward';
+  tokenBudget: number;      // Max tokens across all chains
+  queryEmbedding: number[]; // For per-node scoring
+  maxDepth?: number;        // Safety cap (default: from config, typically 50)
 }
 ```
 
@@ -224,82 +141,47 @@ interface TraversalOptions {
 
 ```json
 {
-  "maxTraversalDepth": 10,
-  "minSignalThreshold": 0.001,
-  "shortRangeDecay": {
-    "type": "linear",
-    "diesAtHops": 10
-  },
-  "forwardDecay": {
-    "type": "delayed-linear",
-    "holdHops": 5,
-    "diesAtHops": 20
+  "traversal": {
+    "maxDepth": 50
   }
 }
 ```
+
+`maxDepth` is a safety net that limits chain length. For most collections, the token budget is the effective limit.
 
 ## Performance Characteristics
 
 | Aspect | Behavior |
 |--------|----------|
-| Time complexity | O(E × D) where E = edges, D = max depth |
+| Time complexity | O(S × L) where S = seeds (5), L = max chain length |
 | Space complexity | O(V) where V = unique chunks visited |
-| Parallelism | Single-threaded recursive traversal |
-| Memory | Accumulates all visited chunks in memory |
+| Edge lookups | O(1) per hop via indexed queries |
+| Scoring | O(1) per node (in-memory vector Map lookup + dot product) |
 
 ### Optimizations
 
-1. **Early pruning**: Paths below `minWeight` are not explored
-2. **Depth limit**: Hard cap on traversal depth
-3. **Dead edge filtering**: Edges with weight ≤ 0 are excluded
+1. **Token budget**: Chains stop growing when budget is exhausted
+2. **Depth limit**: Safety cap on chain length
+3. **Global visited set**: Prevents re-traversal across seeds
+4. **Sequential structure**: At most one outgoing edge per direction → no branching search
 
-## Comparison to Other Algorithms
+## Comparison to Previous Algorithm
 
-### vs. PageRank
+### Previous: Sum-Product Traversal
 
-- PageRank: Iterative matrix computation, global ranking
-- Causantic: Query-time traversal, local to starting points
+- Explored **all paths** from seeds, accumulating weights multiplicatively
+- Handled cycles via geometric attenuation (weight-based pruning)
+- Required hop-based decay curves and `minWeight` threshold
+- O(E × D) complexity where E = edges explored
 
-### vs. BFS/DFS
+### Current: Chain Walking
 
-- BFS/DFS: Unweighted, visits each node once
-- Causantic: Weighted, visits nodes via multiple paths (accumulating)
-
-### vs. Dijkstra
-
-- Dijkstra: Finds shortest path (min)
-- Causantic: Accumulates all paths (sum-product)
-
-## Example Walkthrough
-
-Given this graph:
-
-```
-     ┌──0.9──→ B ──0.8──┐
-     │                   ↓
-A ───┤                   D
-     │                   ↑
-     └──0.7──→ C ──0.6──┘
-```
-
-Starting at A with direction=backward:
-
-1. Visit A (depth=0, weight=1.0)
-2. Visit B (depth=1, weight=0.9)
-3. Visit C (depth=1, weight=0.7)
-4. Visit D via B (depth=2, weight=0.9×0.8=0.72)
-5. Visit D via C (depth=2, weight=0.7×0.6=0.42, accumulated)
-
-**Result**:
-```
-D: weight=1.14 (0.72+0.42), depth=2
-B: weight=0.9, depth=1
-C: weight=0.7, depth=1
-```
+- Follows **sequential links** from seeds, building ordered chains
+- Handles cycles via visited set (O(1) lookup)
+- No decay curves needed — scoring uses direct cosine similarity to query
+- O(S × L) complexity, much faster for the same graph size
 
 ## Related
 
 - [Storage API](./storage-api.md) - Edge and chunk storage
-- [Decay Models](../research/approach/decay-models.md) - How edge weights decay
-- [Vector Clocks](../research/approach/vector-clocks.md) - Hop distance measurement
-- [Graph Traversal Experiments](../research/experiments/graph-traversal.md) - Experimental results
+- [Configuration](./configuration.md) - Chain walking settings

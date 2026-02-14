@@ -18,7 +18,7 @@ import type { CondensedTree } from './types.js';
 export function computeProbabilities(
   tree: CondensedTree,
   labels: number[],
-  selectedClusters: number[]
+  selectedClusters: number[],
 ): number[] {
   const probabilities = new Array<number>(tree.numPoints).fill(0);
 
@@ -88,7 +88,7 @@ export function computeProbabilities(
 export function computeOutlierScores(
   tree: CondensedTree,
   labels: number[],
-  selectedClusters: number[]
+  _selectedClusters: number[],
 ): number[] {
   const scores = new Array<number>(tree.numPoints).fill(1);
 
@@ -156,10 +156,7 @@ export function getLambdaValues(tree: CondensedTree): number[] {
 /**
  * Get maximum lambda for each cluster.
  */
-export function getClusterMaxLambda(
-  tree: CondensedTree,
-  labels: number[]
-): Map<number, number> {
+export function getClusterMaxLambda(tree: CondensedTree, labels: number[]): Map<number, number> {
   const maxLambda = new Map<number, number>();
 
   for (let i = 0; i < labels.length; i++) {

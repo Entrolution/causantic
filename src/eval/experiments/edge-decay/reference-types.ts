@@ -1,5 +1,8 @@
 /**
  * Types for turn-to-turn reference extraction and relevance decay experiments.
+ *
+ * Distance metric: hop distance (turn count difference).
+ * Each turn is one D-T-D (Data-Transformation-Data) cycle.
  */
 
 /**
@@ -16,21 +19,25 @@ export interface TurnReference {
   confidence: 'high' | 'medium' | 'low';
   /** Evidence that triggered the detection (e.g., matched file path) */
   evidence: string;
-  /** Time gap in ms between the referenced turn and the referencing turn */
-  timeGapMs: number;
+  /** Hop distance (turn count difference: userTurnIndex - referencedTurnIndex) */
+  hopDistance: number;
 }
 
 /**
- * Types of detectable references.
+ * Local reference types for session analysis (NOT the storage ReferenceType).
+ * These describe the empirical reference patterns detected in raw session data
+ * and are used by the decay curve experiments. They are independent of the
+ * structural edge types (within-chain, cross-session, brief, debrief) used
+ * in the causal graph storage layer.
  */
 export type ReferenceType =
-  | 'file-path'          // User mentions a file path from earlier assistant output
-  | 'error-fragment'     // User references an error message from tool result
-  | 'code-entity'        // User mentions function/variable name from earlier code
-  | 'explicit-backref'   // User uses explicit backreference ("the error", "that function")
-  | 'tool-output'        // User references output from a specific tool use
-  | 'adjacent'           // Default: immediate previous turn (weak reference)
-  | 'cross-session';     // Reference across session boundaries (continuation)
+  | 'file-path' // User mentions a file path from earlier assistant output
+  | 'error-fragment' // User references an error message from tool result
+  | 'code-entity' // User mentions function/variable name from earlier code
+  | 'explicit-backref' // User uses explicit backreference ("the error", "that function")
+  | 'tool-output' // User references output from a specific tool use
+  | 'adjacent' // Default: immediate previous turn (weak reference)
+  | 'cross-session'; // Reference across session boundaries (continuation)
 
 /**
  * All references extracted from a session.
@@ -51,7 +58,7 @@ export interface SessionReferences {
  */
 export interface CandidateTurn {
   turnIndex: number;
-  timeGapMs: number;
+  hopDistance: number;
   /** Decay weight at query time (depends on decay model) */
   decayWeight: number;
   /** Whether this turn is actually referenced by the query turn */
@@ -90,7 +97,7 @@ export interface RetrievalRankingResult {
   queriesWithRelevant: number;
   /** Distribution of first-relevant ranks */
   rankDistribution: {
-    rank1: number;   // How many queries had relevant at rank 1
+    rank1: number; // How many queries had relevant at rank 1
     rank2_5: number; // Rank 2-5
     rank6_10: number;
     rank11_plus: number;
@@ -100,15 +107,15 @@ export interface RetrievalRankingResult {
 }
 
 /**
- * Time-offset bin for correlation analysis.
+ * Hop-distance bin for correlation analysis.
  */
-export interface TimeOffsetBin {
-  /** Bin label (e.g., "0-5min", "5-30min") */
+export interface HopDistanceBin {
+  /** Bin label (e.g., "1 hop", "2-3 hops") */
   label: string;
-  /** Min time offset in ms */
-  minMs: number;
-  /** Max time offset in ms */
-  maxMs: number;
+  /** Min hop distance (inclusive) */
+  minHops: number;
+  /** Max hop distance (exclusive) */
+  maxHops: number;
   /** Number of turn pairs in this bin */
   pairCount: number;
   /** Actual reference rate (% of pairs where later turn references earlier) */
@@ -118,11 +125,11 @@ export interface TimeOffsetBin {
 }
 
 /**
- * Results of time-offset correlation experiment.
+ * Results of hop-distance correlation experiment.
  */
-export interface TimeOffsetCorrelationResult {
-  /** Time bins analyzed */
-  bins: TimeOffsetBin[];
+export interface HopDistanceCorrelationResult {
+  /** Hop-distance bins analyzed */
+  bins: HopDistanceBin[];
   /** Spearman correlation for each model */
   correlations: Record<string, number>;
 }
@@ -141,6 +148,6 @@ export interface EdgeDecayExperimentResults {
   referenceCount: number;
   /** Retrieval ranking results per model */
   retrievalRanking: RetrievalRankingResult[];
-  /** Time-offset correlation results */
-  timeOffsetCorrelation?: TimeOffsetCorrelationResult;
+  /** Hop-distance correlation results */
+  hopDistanceCorrelation?: HopDistanceCorrelationResult;
 }

@@ -57,6 +57,12 @@ export function runMigrations(database: Database.Database): void {
   if (currentVersion < 6) {
     migrateToV6(database);
   }
+  if (currentVersion < 7) {
+    migrateToV7(database);
+  }
+  if (currentVersion < 8) {
+    migrateToV8(database);
+  }
 }
 
 /**
@@ -220,7 +226,7 @@ function migrateToV4(database: Database.Database): void {
   }
 
   const updateChunk = database.prepare(
-    'UPDATE chunks SET session_slug = ?, project_path = ? WHERE session_id = ? AND (session_slug = \'\' OR session_slug IS NULL OR project_path IS NULL)'
+    "UPDATE chunks SET session_slug = ?, project_path = ? WHERE session_id = ? AND (session_slug = '' OR session_slug IS NULL OR project_path IS NULL)",
   );
 
   const backfillChunks = database.transaction(() => {
@@ -233,7 +239,7 @@ function migrateToV4(database: Database.Database): void {
   backfillChunks();
 
   const updateCheckpoint = database.prepare(
-    'UPDATE ingestion_checkpoints SET project_slug = ? WHERE session_id = ? AND (project_slug = \'\' OR project_slug IS NULL)'
+    "UPDATE ingestion_checkpoints SET project_slug = ? WHERE session_id = ? AND (project_slug = '' OR project_slug IS NULL)",
   );
 
   const backfillCheckpoints = database.transaction(() => {
@@ -246,17 +252,17 @@ function migrateToV4(database: Database.Database): void {
   backfillCheckpoints();
 
   try {
-    const emptyClockRows = database.prepare(
-      "SELECT id, clock_data FROM vector_clocks WHERE project_slug = ''"
-    ).all() as Array<{ id: string; clock_data: string }>;
+    const emptyClockRows = database
+      .prepare("SELECT id, clock_data FROM vector_clocks WHERE project_slug = ''")
+      .all() as Array<{ id: string; clock_data: string }>;
 
     if (emptyClockRows.length > 0) {
-      const distinctSlugs = database.prepare(
-        "SELECT DISTINCT session_slug FROM chunks WHERE session_slug != ''"
-      ).all() as Array<{ session_slug: string }>;
+      const distinctSlugs = database
+        .prepare("SELECT DISTINCT session_slug FROM chunks WHERE session_slug != ''")
+        .all() as Array<{ session_slug: string }>;
 
       const insertClock = database.prepare(
-        'INSERT OR REPLACE INTO vector_clocks (id, project_slug, clock_data, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)'
+        'INSERT OR REPLACE INTO vector_clocks (id, project_slug, clock_data, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
       );
 
       const rekeyClocks = database.transaction(() => {
@@ -352,6 +358,53 @@ function migrateToV6(database: Database.Database): void {
   `);
 
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (6)');
+}
+
+/**
+ * Migrate from v6 to v7 (remove vector clock columns and table).
+ */
+function migrateToV7(database: Database.Database): void {
+  // Drop vector_clock column from chunks
+  try {
+    database.exec('ALTER TABLE chunks DROP COLUMN vector_clock');
+  } catch {
+    // Column may not exist
+  }
+
+  // Drop vector_clock column from edges
+  try {
+    database.exec('ALTER TABLE edges DROP COLUMN vector_clock');
+  } catch {
+    // Column may not exist
+  }
+
+  // Drop vector_clock column from ingestion_checkpoints
+  try {
+    database.exec('ALTER TABLE ingestion_checkpoints DROP COLUMN vector_clock');
+  } catch {
+    // Column may not exist
+  }
+
+  // Drop vector_clocks table and its index
+  database.exec('DROP INDEX IF EXISTS idx_vector_clocks_project');
+  database.exec('DROP TABLE IF EXISTS vector_clocks');
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (7)');
+}
+
+/**
+ * Migrate from v7 to v8 (add chain-walking indices for episodic retrieval).
+ */
+function migrateToV8(database: Database.Database): void {
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_edges_source_type ON edges(source_chunk_id, edge_type)
+  `);
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_edges_target_type ON edges(target_chunk_id, edge_type)
+  `);
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (8)');
 }
 
 /**

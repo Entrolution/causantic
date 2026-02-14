@@ -8,16 +8,11 @@
  * against the default (thinking included).
  */
 
-import type { Chunk } from '../../parser/types.js';
 import type { LabeledPair } from '../annotation-schema.js';
 import type { Corpus } from '../corpus-builder.js';
 import { buildCorpus } from '../corpus-builder.js';
 import { generateLabeledPairs } from '../annotation-schema.js';
-import {
-  singleModelRun,
-  toSnapshot,
-  type SingleModelResult,
-} from './single-model-run.js';
+import { singleModelRun, toSnapshot, type SingleModelResult } from './single-model-run.js';
 import { computeDelta, type ExperimentResult } from './types.js';
 
 const MODEL_ID = 'jina-small';
@@ -54,7 +49,7 @@ export async function runThinkingAblation(
 
   console.log(
     `  Variant corpus: ${variantCorpus.chunks.length} chunks ` +
-    `(original: ${originalCorpus.chunks.length})`,
+      `(original: ${originalCorpus.chunks.length})`,
   );
 
   // Generate new labeled pairs for the variant corpus
@@ -76,10 +71,16 @@ export async function runThinkingAblation(
   const variantSnap = toSnapshot(variant, variantCorpus.chunks.length);
   const delta = computeDelta(baselineSnap, variantSnap);
 
-  console.log(`  Baseline ROC AUC: ${baselineSnap.rocAuc.toFixed(3)} (${baselineSnap.chunkCount} chunks)`);
-  console.log(`  No-thinking ROC AUC: ${variantSnap.rocAuc.toFixed(3)} (${variantSnap.chunkCount} chunks) (delta: ${delta.rocAuc >= 0 ? '+' : ''}${delta.rocAuc.toFixed(3)})`);
+  console.log(
+    `  Baseline ROC AUC: ${baselineSnap.rocAuc.toFixed(3)} (${baselineSnap.chunkCount} chunks)`,
+  );
+  console.log(
+    `  No-thinking ROC AUC: ${variantSnap.rocAuc.toFixed(3)} (${variantSnap.chunkCount} chunks) (delta: ${delta.rocAuc >= 0 ? '+' : ''}${delta.rocAuc.toFixed(3)})`,
+  );
   console.log(`  Baseline Silhouette: ${baselineSnap.silhouetteScore.toFixed(3)}`);
-  console.log(`  No-thinking Silhouette: ${variantSnap.silhouetteScore.toFixed(3)} (delta: ${delta.silhouetteScore >= 0 ? '+' : ''}${delta.silhouetteScore.toFixed(3)})`);
+  console.log(
+    `  No-thinking Silhouette: ${variantSnap.silhouetteScore.toFixed(3)} (delta: ${delta.silhouetteScore >= 0 ? '+' : ''}${delta.silhouetteScore.toFixed(3)})`,
+  );
 
   return {
     name: 'thinking-ablation',

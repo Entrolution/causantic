@@ -36,7 +36,9 @@ export const hookCommand: Command = {
       }
       default:
         console.error('Error: Unknown hook');
-        console.log('Usage: causantic hook <session-start|pre-compact|session-end|claudemd-generator> [path]');
+        console.log(
+          'Usage: causantic hook <session-start|pre-compact|session-end|claudemd-generator> [path]',
+        );
         process.exit(2);
     }
   },

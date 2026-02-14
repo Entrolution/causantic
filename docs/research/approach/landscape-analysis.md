@@ -6,7 +6,7 @@ How Causantic compares to existing AI memory systems, and why it takes a differe
 
 | System | Local-First | Temporal Decay | Graph Structure | Self-Benchmarking | Hop-Based Distance |
 |--------|:-----------:|:--------------:|:--------------:|:-----------------:|:------------------:|
-| **Causantic** | **Yes** | **Hop-based** | **9-type causal** | **Yes** | **Yes** |
+| **Causantic** | **Yes** | **Hop-based** | **Causal graph** | **Yes** | **Yes** |
 | Mem0 | No (Cloud) | None | Paid add-on | No | No |
 | Cognee | Self-hostable | None | Triplet extraction | No | No |
 | Letta/MemGPT | Self-hostable | Summarization | None | No | No |
@@ -49,6 +49,6 @@ Zettelkasten-inspired agentic memory with bidirectional linking. Only system wit
 
 ## Key Differentiator
 
-Most memory systems optimize for *storing* memories. Causantic optimizes for *retrieving the right context at the right time* — using causal graphs, hop-based decay, and hybrid BM25+vector search to surface 4.65x more relevant context than vector search alone.
+Most memory systems optimize for *storing* memories. Causantic optimizes for *retrieving the right context at the right time* — using hybrid BM25+vector search with causal chain walking for episodic narrative context. (The 4.65× augmentation figure was a v0.2 research result using sum-product traversal, since replaced by chain walking — see [experiments/graph-traversal.md](../experiments/graph-traversal.md).)
 
 *Condensed from the [full feasibility study](../archive/feasibility-study.md). See the archive for detailed per-system analysis including architecture diagrams and benchmark methodology.*

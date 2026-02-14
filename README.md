@@ -11,8 +11,8 @@
 No cloud. No API keys. No data leaves your machine. Runs entirely on your hardware with optional per-chunk encryption.
 
 <p align="center">
-<strong>4.65× the relevant context</strong> vs semantic embedding alone<br/>
-<sub>Median 4.54× across 492 queries · Range 3.60× – 5.87×</sub>
+<strong>Long-term episodic memory for Claude Code</strong><br/>
+<sub>Local-first · Hybrid BM25 + vector search · Causal chain walking</sub>
 </p>
 
 ## Quick Start
@@ -45,21 +45,21 @@ Most AI memory systems use vector embeddings for similarity search. Causantic do
 | **Finds lexically relevant content** | No | Yes (BM25 keyword search) |
 | **Finds related context** | No | Yes (causal edges) |
 | **Finds topically related context** | No | Yes (cluster expansion) |
-| **Temporal awareness** | Wall-clock decay | Logical hop decay |
-| **Context retrieval** | 1× | **4.65×** |
+| **Temporal awareness** | Wall-clock decay | Episodic chain walking |
+| **Context augmentation** | 1× | **2.46×** (chain walking adds episodic narrative) |
 | **Handles project switches** | Breaks continuity | Preserves causality |
 | **Bidirectional queries** | Forward only | Backward + Forward |
 
 ### How It Compares
 
-| System | Local-First | Temporal Decay | Graph Structure | Self-Benchmarking | Hop-Based Distance |
-|--------|:-----------:|:--------------:|:--------------:|:-----------------:|:------------------:|
-| **Causantic** | **Yes** | **Hop-based** | **9-type causal** | **Yes** | **Yes** |
-| Mem0 | No (Cloud) | None | Paid add-on | No | No |
-| Cognee | Self-hostable | None | Triplet extraction | No | No |
-| Letta/MemGPT | Self-hostable | Summarization | None | No | No |
-| Zep | Enterprise | Bi-temporal | Temporal KG | No | No |
-| GraphRAG | Self-hostable | Static corpus | Hierarchical | No | No |
+| System | Local-First | Temporal Decay | Graph Structure | Self-Benchmarking |
+|--------|:-----------:|:--------------:|:--------------:|:-----------------:|
+| **Causantic** | **Yes** | **Chain walking** | **Causal graph** | **Yes** |
+| Mem0 | No (Cloud) | None | Paid add-on | No |
+| Cognee | Self-hostable | None | Triplet extraction | No |
+| Letta/MemGPT | Self-hostable | Summarization | None | No |
+| Zep | Enterprise | Bi-temporal | Temporal KG | No |
+| GraphRAG | Self-hostable | Static corpus | Hierarchical | No |
 
 See [Landscape Analysis](docs/research/approach/landscape-analysis.md) for detailed per-system analysis.
 
@@ -71,17 +71,14 @@ All data stays on your machine. Optional per-chunk encryption (ChaCha20-Poly1305
 **2. Hybrid BM25 + Vector Search**
 Vector search finds chunks that *look similar*. BM25 keyword search finds chunks with *exact lexical matches* — function names, error codes, CLI flags. Both run in parallel and fuse via Reciprocal Rank Fusion (RRF).
 
-**3. Causal Graphs with 9 Evidence-Weighted Edge Types**
-Chunks are connected by file-path references, code entities, explicit backreferences, error fragments, topic continuity, and more. Each edge type has an empirically determined weight. The graph finds chunks that are *causally related* — not just similar.
-
-**4. Hop-Based Decay with Direction-Specific Curves**
-Returning to a project after a weekend shouldn't make yesterday's work seem "old." Distance is measured in logical D-T-D hops, not elapsed time. Backward edges (dies@10 hops, 1.35× MRR vs exponential) and forward edges (5-hop hold, dies@20, 3.71× MRR) use different decay profiles.
+**3. Sequential Causal Graph with Episodic Chain Walking**
+Chunks are connected in a sequential linked list — intra-turn chunks chained sequentially, inter-turn edges linking last→first, cross-session edges bridging sessions. The `recall` tool walks this graph backward to reconstruct episodic narratives; `predict` walks forward. Chains are scored by cosine similarity per token, producing ordered narratives where each chunk adds new information.
 
 **5. HDBSCAN Cluster-Guided Expansion**
 Topic clusters group semantically related chunks. During retrieval, results expand through cluster siblings — surfacing context that neither vector nor keyword search found independently. Native TypeScript implementation (130× faster than hdbscan-ts).
 
-**6. Self-Benchmarking Suite**
-Measure how well your memory system is working with built-in benchmarks. Health, retrieval quality, graph value, and latency — scored and tracked over time with specific tuning recommendations.
+**5. Self-Benchmarking Suite**
+Measure how well your memory system is working with built-in benchmarks. Health, retrieval quality, chain quality, and latency — scored and tracked over time with specific tuning recommendations.
 
 ## Architecture
 
@@ -109,11 +106,11 @@ Measure how well your memory system is working with built-in benchmarks. Health,
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Storage Layer                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │   SQLite     │  │   LanceDB    │  │   Vector Clocks      │   │
-│  │ (chunks,     │  │ (embeddings) │  │   (logical time)     │   │
-│  │  edges, FTS5)│  │              │  │                      │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
+│  ┌──────────────┐  ┌──────────────┐                        │
+│  │   SQLite     │  │   LanceDB    │                        │
+│  │ (chunks,     │  │ (embeddings) │                        │
+│  │  edges, FTS5)│  │              │                        │
+│  └──────────────┘  └──────────────┘                        │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -126,7 +123,7 @@ Measure how well your memory system is working with built-in benchmarks. Health,
 │       └──────┬──────┘                                            │
 │              ▼                                                   │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │  RRF Fusion  │→ │ Cluster      │→ │ Graph Traversal      │   │
+│  │  RRF Fusion  │→ │ Cluster      │→ │ Chain Walker         │   │
 │  │              │  │ Expansion    │  │ + Context Assembly    │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 └─────────────────────────────┬───────────────────────────────────┘
@@ -135,7 +132,7 @@ Measure how well your memory system is working with built-in benchmarks. Health,
 ┌─────────────────────────────────────────────────────────────────┐
 │                       MCP Server                                 │
 │  ┌────────┐ ┌────────┐ ┌─────────┐ ┌───────────┐ ┌───────────┐ │
-│  │ recall │ │explain │ │ predict │ │list-      │ │list-      │ │
+│  │ search │ │ recall │ │ predict │ │list-      │ │list-      │ │
 │  │        │ │        │ │         │ │projects   │ │sessions   │ │
 │  └────────┘ └────────┘ └─────────┘ └───────────┘ └───────────┘ │
 │  ┌─────────────┐                                                │
@@ -147,8 +144,8 @@ Measure how well your memory system is working with built-in benchmarks. Health,
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Web Dashboard                                │
 │  ┌──────────┐ ┌────────┐ ┌───────────┐ ┌──────────┐ ┌────────┐ │
-│  │ Overview │ │ Search │ │ Graph     │ │ Clusters │ │Projects│ │
-│  │          │ │        │ │ Explorer  │ │          │ │        │ │
+│  │ Overview │ │Timeline│ │ Search    │ │ Clusters │ │Projects│ │
+│  │          │ │        │ │           │ │          │ │        │ │
 │  └──────────┘ └────────┘ └───────────┘ └──────────┘ └────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -159,9 +156,9 @@ The MCP server exposes six tools:
 
 | Tool | Description |
 |------|-------------|
-| `recall` | Semantic search with graph-augmented retrieval. Supports `range` (short/long) and `project` filtering. |
-| `explain` | Long-range historical context for complex questions. Default: long-range retrieval. |
-| `predict` | Proactive suggestions based on current context. |
+| `search` | Semantic discovery — "what do I know about X?" Vector + keyword + RRF + cluster expansion. |
+| `recall` | Episodic memory — "how did we solve the auth bug?" Seeds → backward chain walk → ordered narrative. |
+| `predict` | Forward episodic — "what's likely next?" Seeds → forward chain walk → ordered narrative. |
 | `list-projects` | Discover available projects with chunk counts and date ranges. |
 | `list-sessions` | Browse sessions for a project with time filtering. |
 | `reconstruct` | Rebuild session context chronologically — "what did I work on yesterday?" |
@@ -190,7 +187,7 @@ Causantic installs 11 Claude Code slash commands (via `npx causantic init`) for 
 | Skill | Description |
 |-------|-------------|
 | `/causantic-recall [query]` | Look up context from past sessions |
-| `/causantic-explain [topic]` | Understand history behind decisions |
+| `/causantic-search [query]` | Semantic search across memory — find what you know about a topic |
 | `/causantic-predict` | Surface relevant past context proactively |
 | `/causantic-resume` | Resume interrupted work — start-of-session briefing |
 | `/causantic-debug [error]` | Search for prior encounters with an error (auto-extracts from conversation if no argument) |
@@ -211,7 +208,7 @@ Explore your memory visually:
 npx causantic dashboard
 ```
 
-Opens at [http://localhost:3333](http://localhost:3333) with 5 pages: Overview (collection stats), Search (query memory), Graph Explorer (D3.js visualization), Clusters (topic browser), and Projects (per-project breakdowns).
+Opens at [http://localhost:3333](http://localhost:3333) with 5 pages: Overview (collection stats), Timeline (D3.js swimlane visualization with chain walking), Search (query memory), Clusters (topic browser), and Projects (per-project breakdowns).
 
 See [Dashboard Guide](docs/guides/dashboard.md).
 
@@ -230,7 +227,7 @@ npx causantic benchmark-collection
 npx causantic benchmark-collection --full
 ```
 
-Scores health (20%), retrieval quality (35%), graph value (30%), and latency (15%) — with specific tuning recommendations. Track improvements over time with `--history`.
+Scores health, retrieval quality, chain quality, and latency — with specific tuning recommendations. Track improvements over time with `--history`.
 
 See [Benchmarking Guide](docs/guides/benchmarking.md).
 
@@ -241,20 +238,12 @@ Create `causantic.config.json` in your project root:
 ```json
 {
   "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json",
-  "decay": {
-    "backward": {
-      "type": "linear",
-      "diesAtHops": 10
-    },
-    "forward": {
-      "type": "delayed-linear",
-      "holdHops": 5,
-      "diesAtHops": 20
-    }
-  },
   "clustering": {
     "threshold": 0.10,
     "minClusterSize": 4
+  },
+  "vectors": {
+    "ttlDays": 90
   }
 }
 ```
@@ -281,43 +270,41 @@ See [Security Guide](docs/guides/security.md).
 
 ## Research
 
-Built on rigorous experimentation across 75 sessions and 492 queries:
+Built on rigorous experimentation across 75 sessions and 297+ queries:
 
-| Experiment | Result | Comparison |
-|------------|--------|------------|
-| Graph Traversal | **4.65×** context | vs vector-only |
-| Forward Decay | **3.71×** MRR | vs time-based decay |
-| Backward Decay | **1.35×** MRR | vs time-based decay |
+| Experiment | Result | Notes |
+|------------|--------|-------|
+| Chain Walking (v0.3) | **2.46×** context | vs vector-only, 297 queries, 15 projects |
 | Topic Detection | 0.998 AUC | near-perfect accuracy |
 | Clustering | F1=0.940 | 100% precision |
 | Thinking Block Removal | +0.063 AUC | embedding quality improvement |
+| Collection Benchmark | **64/100** | health, retrieval, chain quality, latency |
+
+> **Note**: An earlier version (v0.2) reported 4.65× augmentation using sum-product graph traversal with m×n all-pairs edges (492 queries, 25 projects). That architecture was replaced in v0.3 after collection benchmarks showed graph traversal contributing only ~2% of results. See [lessons learned](docs/research/experiments/lessons-learned.md) for the full story.
 
 See [Research Documentation](docs/research/) for detailed findings, and the [Design Decision Log](docs/research/decisions.md) for the story of how each decision was made.
 
-### The Role of Entropy
+### Why "Causantic"?
 
-The name reflects how **discrimination degrades along causal paths** — the same way information diffuses with each causal jump.
+The name reflects how the causal graph's value is **structural ordering** — what came before and after — not semantic ranking. Chunks are connected in sequential chains that preserve episodic narrative structure. The graph encodes causality (what led to what), while semantic search handles relevance (what's similar to what). This separation of concerns emerged from the research: sum-product path products converge to zero too fast to compete with direct vector/keyword search, but the graph's structural ordering produces coherent narratives that ranked search alone cannot.
 
-Chunks close to your query point are sharply ranked: the graph can clearly distinguish what's most relevant. But as traversal moves outward, edge weights multiply — and since each weight is < 1, the products converge toward zero. You progressively lose the ability to discriminate between distant nodes. This is entropy flowing along causal lines.
+## Limitations
 
-This isn't a limitation — it's the design. The loss of discriminating power:
-
-- **Prevents unbounded graph growth**: distant, low-discrimination regions naturally fade rather than accumulating indefinitely
-- **Keeps memory current**: the graph evolves with your usage of Claude — recent causal paths retain sharp discrimination while older paths gracefully compress
-- **Mirrors how relevance actually works**: the further a piece of context is from your current work (in causal hops, not wall-clock time), the less precisely it needs to be ranked
-
-The result is **natural causal compression** — a graph that stays focused on what matters without manual pruning or arbitrary cutoffs.
-
-See [The Role of Entropy](docs/research/approach/role-of-entropy.md) for the full explanation.
+- **First-call latency**: The embedding model downloads on first use (~500MB). Subsequent calls are fast (~80ms).
+- **Initial ingestion time**: Large session histories take time to parse, embed, and cluster. This is a one-time cost.
+- **Edge quality dependency**: Chain walking depends on connected edges. Sparse or orphaned chunks fall back to ranked search results.
+- **Collection size effects**: Benchmark scores improve as more sessions are ingested. Small collections (<100 chunks) won't benefit much from chain walking or clustering.
+- **Claude Code specific**: The parser assumes Claude Code session format (JSONL transcripts). Not a general-purpose memory system.
+- **Local compute**: Embedding inference runs on your hardware. Apple Silicon (CoreML) and NVIDIA GPUs are supported; CPU-only is slower.
 
 ## Maintenance
 
 ```bash
-# Run specific maintenance task
-npx causantic maintenance run prune-graph
-
 # Check maintenance status
 npx causantic maintenance status
+
+# Run all maintenance tasks
+npx causantic maintenance run all
 
 # Run as background daemon
 npx causantic maintenance daemon

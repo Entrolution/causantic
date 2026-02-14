@@ -8,4 +8,3 @@ Development debugging and investigation tools.
 | `debug-traversal.ts` | Debug graph traversal | `npm run debug:traversal` |
 | `compare-retrieval.ts` | Compare retrieval results | `npm run debug:compare` |
 | `investigate-traversal.ts` | Investigate traversal issues | `npm run debug:investigate` |
-| `verify-clocks.ts` | Verify vector clock consistency | `npm run verify-clocks` |

@@ -6,11 +6,7 @@
 /**
  * Generate random Gaussian samples around a center.
  */
-function gaussianSamples(
-  center: number[],
-  variance: number,
-  count: number
-): number[][] {
+function gaussianSamples(center: number[], variance: number, count: number): number[][] {
   const samples: number[][] = [];
 
   for (let i = 0; i < count; i++) {
@@ -91,7 +87,7 @@ export function sparseNoise(n: number = 100, dim: number = 10): number[][] {
  */
 export function denseClusterWithOutliers(
   clusterSize: number = 100,
-  numOutliers: number = 10
+  numOutliers: number = 10,
 ): number[][] {
   // Dense cluster at origin
   const cluster = gaussianSamples([0, 0, 0], 0.3, clusterSize);
@@ -100,11 +96,7 @@ export function denseClusterWithOutliers(
   const outliers: number[][] = [];
   for (let i = 0; i < numOutliers; i++) {
     const angle = (2 * Math.PI * i) / numOutliers;
-    outliers.push([
-      50 + Math.random() * 10,
-      50 * Math.sin(angle),
-      50 * Math.cos(angle),
-    ]);
+    outliers.push([50 + Math.random() * 10, 50 * Math.sin(angle), 50 * Math.cos(angle)]);
   }
 
   return [...cluster, ...outliers];

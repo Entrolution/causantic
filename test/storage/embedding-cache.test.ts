@@ -82,9 +82,7 @@ describe('embedding-cache', () => {
       const blob = Buffer.from(new Float32Array(embedding).buffer);
 
       testDb
-        .prepare(
-          `INSERT INTO embedding_cache (content_hash, model_id, embedding) VALUES (?, ?, ?)`
-        )
+        .prepare(`INSERT INTO embedding_cache (content_hash, model_id, embedding) VALUES (?, ?, ?)`)
         .run('test-hash', 'jina-small', blob);
 
       const result = getCachedEmbedding('test-hash', 'jina-small');
@@ -101,7 +99,7 @@ describe('embedding-cache', () => {
 
       testDb
         .prepare(
-          `INSERT INTO embedding_cache (content_hash, model_id, embedding, hit_count) VALUES (?, ?, ?, 0)`
+          `INSERT INTO embedding_cache (content_hash, model_id, embedding, hit_count) VALUES (?, ?, ?, 0)`,
         )
         .run('hit-test', 'model-a', blob);
 
@@ -164,7 +162,9 @@ describe('embedding-cache', () => {
       const emb = [0.5];
 
       testDb
-        .prepare(`INSERT INTO embedding_cache (content_hash, model_id, embedding, hit_count) VALUES (?, ?, ?, 0)`)
+        .prepare(
+          `INSERT INTO embedding_cache (content_hash, model_id, embedding, hit_count) VALUES (?, ?, ?, 0)`,
+        )
         .run('batch-hit', 'model-z', Buffer.from(new Float32Array(emb).buffer));
 
       getCachedEmbeddingsBatch(['batch-hit', 'not-found'], 'model-z');
@@ -205,7 +205,7 @@ describe('embedding-cache', () => {
           { contentHash: 'batch-2', embedding: [2.0] },
           { contentHash: 'batch-3', embedding: [3.0] },
         ],
-        'batch-model'
+        'batch-model',
       );
 
       const stats = getCacheStats();
@@ -243,10 +243,14 @@ describe('embedding-cache', () => {
 
     it('returns correct stats', () => {
       testDb
-        .prepare(`INSERT INTO embedding_cache (content_hash, model_id, embedding, hit_count) VALUES (?, ?, ?, ?)`)
+        .prepare(
+          `INSERT INTO embedding_cache (content_hash, model_id, embedding, hit_count) VALUES (?, ?, ?, ?)`,
+        )
         .run('s1', 'm', Buffer.from(new Float32Array([1.0]).buffer), 5);
       testDb
-        .prepare(`INSERT INTO embedding_cache (content_hash, model_id, embedding, hit_count) VALUES (?, ?, ?, ?)`)
+        .prepare(
+          `INSERT INTO embedding_cache (content_hash, model_id, embedding, hit_count) VALUES (?, ?, ?, ?)`,
+        )
         .run('s2', 'm', Buffer.from(new Float32Array([2.0]).buffer), 10);
 
       const stats = getCacheStats();

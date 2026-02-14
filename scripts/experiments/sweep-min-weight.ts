@@ -9,11 +9,9 @@
 
 import { vectorStore } from '../src/storage/vector-store.js';
 import { traverseMultiple } from '../src/retrieval/traverser.js';
-import { getReferenceClock } from '../src/storage/clock-store.js';
-import { getChunkById } from '../src/storage/chunk-store.js';
 import { Embedder } from '../src/models/embedder.js';
 import { getModel } from '../src/models/model-registry.js';
-import { getDb, closeDb } from '../src/storage/db.js';
+import { closeDb } from '../src/storage/db.js';
 
 const TEST_QUERIES = [
   'vector clock decay curves',
@@ -62,26 +60,18 @@ async function runSweep(embedder: Embedder): Promise<SweepResult[]> {
       const vectorResults = await vectorStore.search(embedding, 10);
       const vectorChunkIds = new Set(vectorResults.map(r => r.id));
 
-      // Get reference clock
-      const firstChunk = getChunkById(vectorResults[0]?.id);
-      const projectSlug = firstChunk?.sessionSlug || '';
-      const referenceClock = getReferenceClock(projectSlug);
-
       const startIds = vectorResults.map(r => r.id);
-      const startWeights = vectorResults.map(r => Math.max(0, 1 - r.distance));
 
       // Traverse backward
-      const backwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
+      const backwardResult = traverseMultiple(startIds, {
         direction: 'backward',
-        referenceClock,
         maxDepth: MAX_DEPTH,
         minWeight,
       });
 
       // Traverse forward
-      const forwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
+      const forwardResult = traverseMultiple(startIds, {
         direction: 'forward',
-        referenceClock,
         maxDepth: MAX_DEPTH,
         minWeight,
       });

@@ -2,9 +2,15 @@
  * Tests for config/loader.ts — configuration loading, defaults, validation, merge, and priority.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { loadConfig, validateExternalConfig, getResolvedPaths, EXTERNAL_DEFAULTS } from '../../src/config/loader.js';
-import type { ExternalConfig } from '../../src/config/loader.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  loadConfig,
+  validateExternalConfig,
+  getResolvedPaths,
+  toRuntimeConfig,
+  EXTERNAL_DEFAULTS,
+} from '../../src/config/loader.js';
+import { DEFAULT_CONFIG } from '../../src/config/memory-config.js';
 
 describe('loadConfig', () => {
   const savedEnv = { ...process.env };
@@ -40,17 +46,11 @@ describe('loadConfig', () => {
         skipUserConfig: true,
       });
 
-      expect(config.decay.backward.type).toBe('linear');
-      expect(config.decay.backward.diesAtHops).toBe(10);
-      expect(config.decay.forward.type).toBe('delayed-linear');
-      expect(config.decay.forward.diesAtHops).toBe(20);
-      expect(config.decay.forward.holdHops).toBe(5);
-      expect(config.clustering.threshold).toBe(0.10);
+      expect(config.clustering.threshold).toBe(0.1);
       expect(config.clustering.minClusterSize).toBe(4);
-      expect(config.traversal.maxDepth).toBe(15);
-      expect(config.traversal.minWeight).toBe(0.01);
+      expect(config.traversal.maxDepth).toBe(50);
       expect(config.tokens.claudeMdBudget).toBe(500);
-      expect(config.tokens.mcpMaxResponse).toBe(2000);
+      expect(config.tokens.mcpMaxResponse).toBe(20000);
       expect(config.storage.dbPath).toBe('~/.causantic/memory.db');
       expect(config.storage.vectorPath).toBe('~/.causantic/vectors');
       expect(config.llm.clusterRefreshModel).toBe('claude-3-haiku-20240307');
@@ -61,12 +61,9 @@ describe('loadConfig', () => {
       expect(config.encryption.auditLog).toBe(false);
       expect(config.vectors.ttlDays).toBe(90);
       expect(config.embedding.device).toBe('auto');
-      expect(config.traversal.directHitBoost).toBe(1.5);
-      expect(config.traversal.graphAgreementBoost).toBe(2.0);
     });
 
     it('EXTERNAL_DEFAULTS has all required fields', () => {
-      expect(EXTERNAL_DEFAULTS.decay).toBeDefined();
       expect(EXTERNAL_DEFAULTS.clustering).toBeDefined();
       expect(EXTERNAL_DEFAULTS.traversal).toBeDefined();
       expect(EXTERNAL_DEFAULTS.tokens).toBeDefined();
@@ -79,36 +76,6 @@ describe('loadConfig', () => {
   });
 
   describe('environment variable overrides', () => {
-    it('overrides decay backward settings from env', () => {
-      process.env.CAUSANTIC_DECAY_BACKWARD_TYPE = 'exponential';
-      process.env.CAUSANTIC_DECAY_BACKWARD_DIES_AT_HOPS = '5';
-      process.env.CAUSANTIC_DECAY_BACKWARD_HOLD_HOPS = '2';
-
-      const config = loadConfig({
-        skipProjectConfig: true,
-        skipUserConfig: true,
-      });
-
-      expect(config.decay.backward.type).toBe('exponential');
-      expect(config.decay.backward.diesAtHops).toBe(5);
-      expect(config.decay.backward.holdHops).toBe(2);
-    });
-
-    it('overrides decay forward settings from env', () => {
-      process.env.CAUSANTIC_DECAY_FORWARD_TYPE = 'linear';
-      process.env.CAUSANTIC_DECAY_FORWARD_DIES_AT_HOPS = '15';
-      process.env.CAUSANTIC_DECAY_FORWARD_HOLD_HOPS = '3';
-
-      const config = loadConfig({
-        skipProjectConfig: true,
-        skipUserConfig: true,
-      });
-
-      expect(config.decay.forward.type).toBe('linear');
-      expect(config.decay.forward.diesAtHops).toBe(15);
-      expect(config.decay.forward.holdHops).toBe(3);
-    });
-
     it('overrides clustering settings from env', () => {
       process.env.CAUSANTIC_CLUSTERING_THRESHOLD = '0.15';
       process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE = '8';
@@ -124,7 +91,6 @@ describe('loadConfig', () => {
 
     it('overrides traversal settings from env', () => {
       process.env.CAUSANTIC_TRAVERSAL_MAX_DEPTH = '30';
-      process.env.CAUSANTIC_TRAVERSAL_MIN_WEIGHT = '0.05';
 
       const config = loadConfig({
         skipProjectConfig: true,
@@ -132,7 +98,6 @@ describe('loadConfig', () => {
       });
 
       expect(config.traversal.maxDepth).toBe(30);
-      expect(config.traversal.minWeight).toBe(0.05);
     });
 
     it('overrides token settings from env', () => {
@@ -222,7 +187,7 @@ describe('loadConfig', () => {
         skipUserConfig: true,
       });
 
-      expect(config.clustering.threshold).toBe(0.10); // Default
+      expect(config.clustering.threshold).toBe(0.1); // Default
     });
   });
 
@@ -254,22 +219,6 @@ describe('loadConfig', () => {
       expect(config.clustering.threshold).toBe(0.3);
       // Other defaults preserved
       expect(config.clustering.minClusterSize).toBe(4);
-      expect(config.decay.backward.type).toBe('linear');
-    });
-
-    it('CLI overrides with nested decay config', () => {
-      const config = loadConfig({
-        skipEnv: true,
-        skipProjectConfig: true,
-        skipUserConfig: true,
-        cliOverrides: {
-          decay: {
-            backward: { diesAtHops: 3 },
-          },
-        },
-      });
-
-      expect(config.decay.backward.diesAtHops).toBe(3);
     });
   });
 
@@ -283,7 +232,7 @@ describe('loadConfig', () => {
       });
 
       // Should still return defaults
-      expect(config.clustering.threshold).toBe(0.10);
+      expect(config.clustering.threshold).toBe(0.1);
     });
 
     it('handles missing user config gracefully', () => {
@@ -293,7 +242,7 @@ describe('loadConfig', () => {
         userConfigPath: '/nonexistent/config.json',
       });
 
-      expect(config.clustering.threshold).toBe(0.10);
+      expect(config.clustering.threshold).toBe(0.1);
     });
   });
 });
@@ -302,8 +251,7 @@ describe('validateExternalConfig', () => {
   it('returns empty array for valid config', () => {
     const errors = validateExternalConfig({
       clustering: { threshold: 0.5, minClusterSize: 3 },
-      decay: { backward: { diesAtHops: 5 }, forward: { diesAtHops: 10 } },
-      traversal: { maxDepth: 10, minWeight: 0.1 },
+      traversal: { maxDepth: 10 },
       tokens: { claudeMdBudget: 500, mcpMaxResponse: 2000 },
     });
 
@@ -335,39 +283,11 @@ describe('validateExternalConfig', () => {
     expect(errors).toContain('clustering.minClusterSize must be at least 2');
   });
 
-  it('reports decay.backward.diesAtHops too small', () => {
-    const errors = validateExternalConfig({
-      decay: { backward: { diesAtHops: 0 } },
-    });
-    expect(errors).toContain('decay.backward.diesAtHops must be at least 1');
-  });
-
-  it('reports decay.forward.diesAtHops too small', () => {
-    const errors = validateExternalConfig({
-      decay: { forward: { diesAtHops: 0 } },
-    });
-    expect(errors).toContain('decay.forward.diesAtHops must be at least 1');
-  });
-
   it('reports traversal.maxDepth too small', () => {
     const errors = validateExternalConfig({
       traversal: { maxDepth: 0 },
     });
     expect(errors).toContain('traversal.maxDepth must be at least 1');
-  });
-
-  it('reports traversal.minWeight out of range (negative)', () => {
-    const errors = validateExternalConfig({
-      traversal: { minWeight: -0.1 },
-    });
-    expect(errors).toContain('traversal.minWeight must be between 0 and 1');
-  });
-
-  it('reports traversal.minWeight out of range (too high)', () => {
-    const errors = validateExternalConfig({
-      traversal: { minWeight: 1.5 },
-    });
-    expect(errors).toContain('traversal.minWeight must be between 0 and 1');
   });
 
   it('reports tokens.claudeMdBudget too small', () => {
@@ -427,5 +347,79 @@ describe('getResolvedPaths', () => {
 
     expect(paths.dbPath).toBe('/custom/path/memory.db');
     expect(paths.vectorPath).toBe('/custom/path/vectors');
+  });
+});
+
+describe('toRuntimeConfig', () => {
+  it('maps ExternalConfig field names to MemoryConfig field names', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.maxChainDepth).toBe(external.traversal.maxDepth);
+    expect(runtime.clusterThreshold).toBe(external.clustering.threshold);
+    expect(runtime.minClusterSize).toBe(external.clustering.minClusterSize);
+    expect(runtime.claudeMdBudgetTokens).toBe(external.tokens.claudeMdBudget);
+    expect(runtime.mcpMaxResponseTokens).toBe(external.tokens.mcpMaxResponse);
+    expect(runtime.dbPath).toBe(external.storage.dbPath);
+    expect(runtime.vectorStorePath).toBe(external.storage.vectorPath);
+    expect(runtime.clusterRefreshModel).toBe(external.llm.clusterRefreshModel);
+    expect(runtime.refreshRateLimitPerMin).toBe(external.llm.refreshRateLimitPerMin);
+  });
+
+  it('default-converted config matches DEFAULT_CONFIG', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.maxChainDepth).toBe(DEFAULT_CONFIG.maxChainDepth);
+    expect(runtime.clusterThreshold).toBe(DEFAULT_CONFIG.clusterThreshold);
+    expect(runtime.minClusterSize).toBe(DEFAULT_CONFIG.minClusterSize);
+    expect(runtime.claudeMdBudgetTokens).toBe(DEFAULT_CONFIG.claudeMdBudgetTokens);
+    expect(runtime.mcpMaxResponseTokens).toBe(DEFAULT_CONFIG.mcpMaxResponseTokens);
+  });
+
+  it('propagates overrides through the full pipeline', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        traversal: { maxDepth: 10 },
+        clustering: { threshold: 0.2 },
+        tokens: { claudeMdBudget: 1000 },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.maxChainDepth).toBe(10);
+    expect(runtime.clusterThreshold).toBe(0.2);
+    expect(runtime.claudeMdBudgetTokens).toBe(1000);
+    // Non-overridden values preserved
+    expect(runtime.minClusterSize).toBe(DEFAULT_CONFIG.minClusterSize);
+    expect(runtime.mcpMaxResponseTokens).toBe(DEFAULT_CONFIG.mcpMaxResponseTokens);
+  });
+
+  it('preserves hybridSearch and clusterExpansion from DEFAULT_CONFIG', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    // hybridSearch and clusterExpansion are MemoryConfig-only, not in ExternalConfig
+    expect(runtime.hybridSearch).toEqual(DEFAULT_CONFIG.hybridSearch);
+    expect(runtime.clusterExpansion).toEqual(DEFAULT_CONFIG.clusterExpansion);
   });
 });

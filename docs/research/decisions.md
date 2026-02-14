@@ -54,7 +54,7 @@ A chronological narrative of every major design decision in Causantic's developm
 
 ## Decay Model: Hop-Based, Not Wall-Clock
 
-**Decision**: Measure distance in logical D-T-D hops via vector clocks, not elapsed time.
+**Decision**: Measure distance in logical D-T-D hops (traversal depth), not elapsed time.
 
 **What was tried**: Exponential wall-clock decay, linear hop decay, delayed linear, multi-linear.
 
@@ -64,15 +64,17 @@ A chronological narrative of every major design decision in Causantic's developm
 
 ## Direction-Specific Decay Curves
 
-**Decision**: Backward edges use linear decay (dies@10 hops), forward edges use delayed linear (5-hop hold, dies@20 hops).
+**Decision**: Backward edges use exponential decay (half-life ~5 hops, effective range ~30), forward edges use simple linear (dies@30 hops).
 
-**What was tried**: Single decay curve for both directions, various hold periods and death horizons.
+**What was tried**: 9 models across 30 sessions (5,505 references): linear, delayed-linear, multi-linear (3 variants), exponential (2 variants), power-law (2 variants). Evaluated with MRR, Spearman correlation, and stratified analysis at 5 hop-distance strata.
 
-**Why**: Backward and forward edges have different semantics. Backward ("what led to this?") fades quickly — 10 hops captures the relevant history. Forward ("what follows this?") persists longer — consequences are immediate (5-hop hold) but have extended effects (20-hop tail). Delayed linear beats exponential by 3.71x MRR on forward queries.
+**Why**: Backward decay must be strictly monotonic (hold periods hurt, dropping MRR from 0.985 to 0.423) and must have a long tail (references exist at 21+ hops at 3% rate — linear dies@10 killed this signal). Exponential matches the empirical reference rate curve: 88% drop at hop 2, then gradual decline. For forward, all 9 models produce identical MRR at every stratum — only monotonicity matters, so simple linear was chosen for clarity.
 
-**Evidence**: [Decay curve experiments](experiments/decay-curves.md), [edge decay model §directional analysis](archive/edge-decay-model.md)
+**Supersedes**: v0.2 decision of linear dies@10 (backward) and delayed-linear 5h/dies@20 (forward). The previous backward curve was too short; the previous forward hold period added complexity for zero benefit.
 
-## Edge Types and Weights
+**Evidence**: [Decay curve experiments](experiments/decay-curves.md)
+
+## Edge Types and Weights (Historical, pre-v0.3)
 
 **Decision**: 9 edge types with evidence-based weights. File-path edges weighted highest (1.0), adjacent edges weakest (0.5).
 
@@ -80,7 +82,27 @@ A chronological narrative of every major design decision in Causantic's developm
 
 **Why**: File-path edges are the strongest relevance signal (44.6% of references). Adjacent edges are weak and pollute results when highly weighted.
 
+**Superseded by**: Structural edge types (v0.3) — see below.
+
 **Evidence**: [Edge decay model §reference type distribution](archive/edge-decay-model.md), [lessons learned §4](experiments/lessons-learned.md)
+
+## Structural Edge Types with m×n All-Pairs (v0.3, Early — Superseded)
+
+**Decision**: Replace 9 semantic edge types with 4 purely structural roles. Create m×n all-pairs edges at each D-T-D turn boundary with topic-shift gating.
+
+**What was superseded**: 9 semantic reference types (file-path, code-entity, explicit-backref, error-fragment, tool-output, adjacent, cross-session, brief, debrief) with evidence-based weights. This conflated semantic and causal association.
+
+**Why**: The causal graph should encode only causal structure. Semantic association (what topics are related) is vector search and clustering's job.
+
+**Key design choices**:
+- 4 structural roles: within-chain (1.0), cross-session (0.7), brief (0.9), debrief (0.9)
+- m×n all-pairs at each consecutive turn boundary (no edges within the same turn)
+- Topic-shift gating: time gap > 30min or explicit shift markers → no edges
+- Brief/debrief: m×n all-pairs between parent and sub-agent chunks, with 0.9^depth penalty
+
+**Superseded by**: Sequential 1-to-1 edges with chain walking (v0.3, later phases). The m×n topology created O(n²) edges per turn; sum-product traversal contributed only 2% of results. See "Chain Walking Replaces Graph Traversal" below.
+
+**Evidence**: [role-of-entropy.md](approach/role-of-entropy.md), [why-causal-graphs.md §Edge Types](approach/why-causal-graphs.md)
 
 ## Topic Continuity Detection
 
@@ -129,3 +151,45 @@ A chronological narrative of every major design decision in Causantic's developm
 **Why**: "What did I work on yesterday?" is a time-range query, not a semantic search. Composite index on `(session_slug, start_time)` makes these queries fast. Token budgeting truncates results to fit MCP response limits.
 
 **Evidence**: Schema v6 migration, `reconstructSession()` implementation.
+
+## Removal of Vector Clocks (v0.3.0)
+
+**Decision**: Replace vector-clock hop counting with hop-based edge decay (traversal depth).
+
+**What was superseded**: Vector clocks tracked D-T-D cycles per thought stream. Hop distance (sum of per-agent clock differences) determined edge decay. The pruner removed "dead" edges with zero weight.
+
+**Why**: The graph topology already encodes causality by construction. Hop-based edge decay (traversal depth / turn count difference) is simpler and avoids the overhead of maintaining per-session vector clocks, reference clocks, and a pruner. Edge cleanup happens naturally via FK CASCADE when chunks are deleted by TTL or FIFO eviction.
+
+**What was kept**: D-T-D semantics, brief/debrief edge types, causal graph structure, topic-shift gating.
+
+**What was later removed**: Sum-product traversal, direction-specific decay curves, and the graph pruner were all removed in subsequent phases (see "Chain Walking Replaces Graph Traversal" below).
+
+**Evidence**: Phases 1-6 implementation, all 1591 tests passing.
+
+## Chain Walking Replaces Graph Traversal (v0.3.0)
+
+**Decision**: Replace sum-product graph traversal with sequential chain walking along linked-list edges.
+
+**What was superseded**: Sum-product traversal (`src/retrieval/traverser.ts`), direction-specific hop decay (`src/storage/decay.ts`), m×n all-pairs edge topology, and the graph pruner (`src/storage/pruner.ts`). All deleted.
+
+**Why**: Graph traversal contributed only ~2% of retrieval results in collection benchmarks (augmentation ratio 1.1×). The m×n all-pairs topology created O(n²) edges per turn boundary (5×5 chunks = 25 edges per transition), most between unrelated chunks. Sum-product path products converge to zero too rapidly to compete with direct vector/keyword search. The graph's actual value is structural ordering (what came before/after), not semantic ranking.
+
+**What replaced it**: Sequential linked-list edges (each chunk links to the next in its session), walked by `chain-walker.ts`. Chain walking follows edges forward or backward from vector/keyword seeds, scoring each step by direct cosine similarity against the query. This produces ordered episodic narratives rather than ranked disconnected chunks.
+
+**Key design choices**:
+- Sequential edges: 1-to-1 (not m×n), preserving session order
+- Cosine-similarity scoring per hop (not multiplicative path products)
+- `search-assembler.ts` replaces `context-assembler.ts` as the retrieval pipeline
+- Chain quality measured by coverage, mean length, score/token, fallback rate
+
+**Evidence**: Collection benchmark (42/100 overall, graph contributing 2%), Phase 1-6 implementation.
+
+## Search Replaces Explain (v0.3.0)
+
+**Decision**: Remove the `explain` MCP tool and add `search` for pure semantic discovery.
+
+**What was superseded**: The `explain` tool attempted to trace causal history via graph traversal. With traversal removed, its implementation was hollow.
+
+**Why**: `explain` depended on graph traversal to "explain the history behind X" by walking causal paths. Without traversal, it was just vector search with different prompting. The new `search` tool is honest about what it does: pure semantic discovery via hybrid BM25 + vector search, with optional chain walking for episodic context.
+
+**Evidence**: MCP tools implementation (`src/mcp/tools.ts`).

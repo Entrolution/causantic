@@ -93,7 +93,7 @@ function calculateBackoff(
   attempt: number,
   initialDelayMs: number,
   maxDelayMs: number,
-  backoffFactor: number
+  backoffFactor: number,
 ): number {
   const delay = initialDelayMs * Math.pow(backoffFactor, attempt);
   return Math.min(delay, maxDelayMs);
@@ -112,7 +112,7 @@ function sleep(ms: number): Promise<void> {
 export async function withRetry<T>(
   hookName: string,
   fn: () => Promise<T>,
-  options: RetryOptions = {}
+  options: RetryOptions = {},
 ): Promise<T> {
   const {
     maxRetries = 3,
@@ -123,7 +123,6 @@ export async function withRetry<T>(
   } = options;
 
   let lastError: Error | null = null;
-  let retryCount = 0;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -138,7 +137,6 @@ export async function withRetry<T>(
         });
 
         await sleep(delay);
-        retryCount++;
       }
 
       return await fn();
@@ -180,7 +178,7 @@ export function createMetrics(hookName: string): HookMetrics {
 export function completeMetrics(
   metrics: HookMetrics,
   success: boolean,
-  error?: Error
+  error?: Error,
 ): HookMetrics {
   metrics.endTime = Date.now();
   metrics.durationMs = metrics.endTime - metrics.startTime;
@@ -200,7 +198,7 @@ export async function executeHook<T>(
   options: {
     retry?: RetryOptions;
     fallback?: T;
-  } = {}
+  } = {},
 ): Promise<{ result: T; metrics: HookMetrics }> {
   const metrics = createMetrics(hookName);
 
@@ -273,7 +271,7 @@ export interface IngestionResult {
  */
 export async function ingestCurrentSession(
   hookName: string,
-  sessionPath: string
+  sessionPath: string,
 ): Promise<IngestionResult> {
   const { ingestSession } = await import('../ingest/ingest-session.js');
   const { clusterManager } = await import('../clusters/cluster-manager.js');

@@ -95,7 +95,6 @@ src/
 ├── parser/        # Session parsing
 ├── retrieval/     # Query and context assembly
 ├── storage/       # Database and vector store
-├── temporal/      # Vector clock implementation
 └── utils/         # Shared utilities
 ```
 

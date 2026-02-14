@@ -6,9 +6,8 @@
  * Usage: npm run hold-period-sweep -- [options]
  */
 
-import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { readdir, stat, writeFile, mkdir } from 'node:fs/promises';
+import { readdir, stat, writeFile } from 'node:fs/promises';
 import { discoverSessions } from '../src/eval/corpus-builder.js';
 import { getSessionInfo } from '../src/parser/session-reader.js';
 import { runEdgeDecayExperiments } from '../src/eval/experiments/edge-decay/run-experiments.js';

@@ -89,7 +89,7 @@ describe('readAuditLog', () => {
       { timestamp: '2024-01-01T00:01:00Z', action: 'close', pid: 1 },
     ];
     vi.mocked(readFileSync).mockReturnValue(
-      entries.map((e) => JSON.stringify(e)).join('\n') as any
+      entries.map((e) => JSON.stringify(e)).join('\n') as any,
     );
 
     const result = readAuditLog();
@@ -107,7 +107,7 @@ describe('readAuditLog', () => {
       pid: 1,
     }));
     vi.mocked(readFileSync).mockReturnValue(
-      entries.map((e) => JSON.stringify(e)).join('\n') as any
+      entries.map((e) => JSON.stringify(e)).join('\n') as any,
     );
 
     const result = readAuditLog(5);
@@ -124,7 +124,7 @@ describe('readAuditLog', () => {
       pid: 1,
     }));
     vi.mocked(readFileSync).mockReturnValue(
-      entries.map((e) => JSON.stringify(e)).join('\n') as any
+      entries.map((e) => JSON.stringify(e)).join('\n') as any,
     );
 
     const result = readAuditLog();
@@ -135,7 +135,7 @@ describe('readAuditLog', () => {
   it('filters empty lines', () => {
     vi.mocked(existsSync).mockReturnValue(true);
     vi.mocked(readFileSync).mockReturnValue(
-      '{"timestamp":"t","action":"open","pid":1}\n\n\n{"timestamp":"t","action":"close","pid":1}\n' as any
+      '{"timestamp":"t","action":"open","pid":1}\n\n\n{"timestamp":"t","action":"close","pid":1}\n' as any,
     );
 
     const result = readAuditLog();
@@ -169,9 +169,7 @@ describe('formatAuditEntries', () => {
   });
 
   it('handles entries without details', () => {
-    const entries: AuditEntry[] = [
-      { timestamp: '2024-01-01T00:00:00Z', action: 'close', pid: 1 },
-    ];
+    const entries: AuditEntry[] = [{ timestamp: '2024-01-01T00:00:00Z', action: 'close', pid: 1 }];
 
     const result = formatAuditEntries(entries);
 

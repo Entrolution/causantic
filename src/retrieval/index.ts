@@ -2,19 +2,26 @@
  * Retrieval system exports.
  */
 
-// Traverser
-export { traverse, traverseMultiple, resolveChunks, dedupeAndRank } from './traverser.js';
-export type { TraversalOptions } from './traverser.js';
-
 // Context assembler
 export {
   assembleContext,
   recall,
-  explain,
   predict,
   disposeRetrieval,
 } from './context-assembler.js';
-export type { RetrievalMode, RetrievalRange, RetrievalRequest, RetrievalResponse } from './context-assembler.js';
+export type { RetrievalRequest, RetrievalResponse } from './context-assembler.js';
+
+// Search assembler
+export { searchContext, disposeSearch } from './search-assembler.js';
+export type { SearchRequest, SearchResponse } from './search-assembler.js';
+
+// Chain assembler
+export { recallContext, predictContext } from './chain-assembler.js';
+export type { EpisodicRequest, EpisodicResponse } from './chain-assembler.js';
+
+// Chain walker
+export { walkChains, selectBestChain } from './chain-walker.js';
+export type { Chain, ChainWalkerOptions } from './chain-walker.js';
 
 // Reciprocal Rank Fusion
 export { fuseRRF } from './rrf.js';

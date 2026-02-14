@@ -58,7 +58,7 @@ export function upsertCluster(input: ClusterInput): string {
         id, name, description, centroid, exemplar_ids,
         membership_hash, created_at, refreshed_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `
+    `,
     ).run(
       id,
       input.name ?? null,
@@ -67,7 +67,7 @@ export function upsertCluster(input: ClusterInput): string {
       input.exemplarIds ? JSON.stringify(input.exemplarIds) : null,
       input.membershipHash ?? null,
       now,
-      input.description ? now : null
+      input.description ? now : null,
     );
   }
 
@@ -121,18 +121,14 @@ export function getStaleClusters(maxAge?: number): StoredCluster[] {
 /**
  * Assign a chunk to a cluster.
  */
-export function assignChunkToCluster(
-  chunkId: string,
-  clusterId: string,
-  distance: number
-): void {
+export function assignChunkToCluster(chunkId: string, clusterId: string, distance: number): void {
   const db = getDb();
 
   db.prepare(
     `
     INSERT OR REPLACE INTO chunk_clusters (chunk_id, cluster_id, distance)
     VALUES (?, ?, ?)
-  `
+  `,
   ).run(chunkId, clusterId, distance);
 }
 
@@ -289,7 +285,7 @@ function deserializeCentroid(buffer: Buffer): number[] {
   const float32 = new Float32Array(
     buffer.buffer,
     buffer.byteOffset,
-    buffer.length / Float32Array.BYTES_PER_ELEMENT
+    buffer.length / Float32Array.BYTES_PER_ELEMENT,
   );
   return Array.from(float32);
 }

@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Episodic Retrieval Pipeline**: Redesigned recall/predict from graph traversal to chain walking. Seeds found by semantic search; the causal graph unfolds them into ordered narrative chains; chains ranked by aggregate semantic relevance per token.
+- **Sequential edge structure**: Replaced m×n all-pairs edges with sequential linked-list (intra-turn C1→C2→C3, inter-turn last→first, cross-session last→first). All edges stored as single `forward` rows with uniform weight.
+- **MCP tools**: Replaced `explain` with `search` (semantic discovery). `recall` and `predict` now return episodic chain narratives with search-style fallback.
+- **Benchmark scoring**: Replaced Graph Value (30%) with Chain Quality (25%). Updated weights: Health 25%, Retrieval 35%, Chain 25%, Latency 15%.
+- **Schema v8**: Added composite indices on edges for directional chain walking queries.
+
+### Added
+- **`search` MCP tool**: Pure semantic discovery — vector + keyword + RRF + cluster expansion.
+- **Chain walker** (`src/retrieval/chain-walker.ts`): Follows directed edges to build ordered narrative chains with token budgeting and cosine-similarity scoring.
+- **Chain assembler** (`src/retrieval/chain-assembler.ts`): Seeds → chain walk → rank → best chain or search fallback.
+- **Search assembler** (`src/retrieval/search-assembler.ts`): Pure search pipeline extracted from context assembler.
+- **Chain quality benchmarks**: Measures chain coverage, mean chain length, score per token, fallback rate.
+- **Edge rebuild command**: `npx causantic maintenance rebuild-edges` — rebuilds edges using sequential linked-list structure without re-parsing or re-embedding.
+- **Dashboard Timeline page**: Replaced force-directed graph with D3 horizontal swimlane timeline, chunk inspector, and chain walk viewer.
+- **Dashboard chain walk route**: `GET /api/chain/walk` — structural chain walk from a seed chunk for dashboard display.
+- **Dashboard timeline route**: `GET /api/timeline` — chunks ordered by time with edges for arc rendering.
+
+### Removed
+- **`explain` MCP tool**: Subsumed by `recall` (both walk backward).
+- **Sum-product traverser**: Replaced by chain walker. Deleted `src/retrieval/traverser.ts`.
+- **Hop-based decay**: Deleted `src/storage/decay.ts`. Chain scoring uses direct cosine similarity instead.
+- **Graph-value benchmarks**: Replaced by chain-quality benchmarks. Deleted `src/eval/collection-benchmark/graph-value.ts`.
+- **Config: `decay` section**: Removed entirely from `ExternalConfig` and `config.schema.json`.
+- **Config: `traversal.minWeight`**: No longer needed (chain walker uses token budget, not weight-based pruning).
+- **Config: `hybridSearch.graphWeight`**: Graph traversal no longer participates in RRF fusion.
+- **Dashboard**: Deleted `ForceGraph.tsx`, `DecayCurves.tsx`, `GraphExplorer.tsx` — replaced by Timeline page.
+
+## [0.3.0] - 2026-02-12
+
+### Changed
+- **Time-based edge decay**: Replaced vector-clock hop counting with intrinsic time-based edge decay. Each edge's weight decays based on its age (milliseconds since creation), not logical hops. Backward edges use delayed-linear (60-minute hold), forward edges use exponential (10-minute half-life).
+- **Broadened vector TTL**: `cleanupExpired()` now applies to ALL vectors, not just orphaned ones. Vectors older than the TTL (default 90 days) are cleaned up regardless of edge status.
+- **Simplified traversal**: `traverse()` and `traverseMultiple()` use time-based decay configs directly. Sum-product rules unchanged.
+
+### Added
+- **FIFO vector cap**: New `vectors.maxCount` config option evicts oldest vectors when the collection exceeds the limit. Default: 0 (unlimited).
+
+### Removed
+- **Vector clocks**: Clock store, clock compactor, and vector-clock module deleted. Vector clock columns dropped from SQLite schema (v7 migration).
+- **Graph pruner**: `prune-graph` maintenance task removed. Edge cleanup happens via FK CASCADE when chunks are deleted by TTL/FIFO. Maintenance tasks reduced from 5 to 4.
+- **Orphan lifecycle**: Chunks no longer transition through an "orphaned" state. They go directly from active to expired when TTL elapses.
+
 ## [0.2.1] - 2026-02-11
 
 ### Added
@@ -20,27 +63,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Schema v6: Session Reconstruction**: Pure chronological SQLite queries for "what did I work on?" — composite index on `(session_slug, start_time)`, MCP tools `list-sessions` and `reconstruct`
 - **Project-Filtered Retrieval**: Federated approach with `projectFilter` on retrieval requests, cross-project graph traversal preserved
 - **Collection Benchmark Suite**: Self-service benchmarks for health, retrieval quality, graph value, and latency with scoring, tuning recommendations, and history tracking
-- **Web Dashboard**: React + Vite frontend with D3.js graph visualization — 5 pages (Overview, Search, Graph Explorer, Clusters, Projects), 10 API routes
+- **Web Dashboard**: React + Vite frontend with D3.js visualization — 5 pages (Overview, Search, Timeline, Clusters, Projects), 10 API routes
 - **CLAUDE.md Generator Hook**: Automatic memory context injection into project CLAUDE.md
 - **Hybrid BM25 + Vector Search**: Full-text keyword search via SQLite FTS5 with porter stemming, fused with vector search using Reciprocal Rank Fusion (RRF)
 - **Cluster-Guided Expansion**: Retrieval results expanded through HDBSCAN cluster siblings, surfacing topically related chunks
 - **Source Attribution**: Returned chunks tagged with retrieval source (`vector`, `keyword`, `cluster`, `graph`)
 - **Graph Agreement Boost**: Vector+graph score fusion — when both pipelines agree on a chunk, its score is boosted; `graphBoostedCount` metric added to benchmarks
 - **Post-HDBSCAN Noise Reassignment**: Noise points reassigned to nearest cluster via centroid distance, improving cluster coverage
-- **6 MCP Tools**: recall, explain, predict, list-projects, list-sessions, reconstruct
+- **6 MCP Tools**: recall, explain, predict, list-projects, list-sessions, reconstruct (Note: `explain` was replaced by `search` in the Unreleased version)
 - **Schema v5 Migration**: FTS5 virtual table with automatic sync triggers; graceful fallback when FTS5 is unavailable
 - Initial open source release
 - Core memory ingestion and storage system
 - Native TypeScript HDBSCAN clustering
 - Claude Code hook integration (session-start, pre-compact, claudemd-generator)
 - Graph-based retrieval with hop-based temporal decay
-- Vector clock implementation for logical ordering
+- Time-based edge decay for temporal weighting
 - Configuration system with JSON schema validation
 - Per-chunk encryption (ChaCha20-Poly1305, key stored in system keychain)
 
 ### Changed
 - **HDBSCAN rewrite**: Pure TypeScript implementation replacing hdbscan-ts — 130× speedup (65 min → 30 sec for 6,000 points)
-- **Hop-based decay**: Replaced wall-clock time decay with logical D-T-D hop distance via vector clocks
+- **Direction-specific decay**: Backward and forward edges use different decay curves (empirically tuned)
 - **MCP tools**: Expanded from 3 to 6 tools (added list-projects, list-sessions, reconstruct)
 - **Clustering threshold**: Tuned default from 0.09 → 0.10
 
@@ -55,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Research Findings
 - Topic continuity detection: 0.998 AUC
 - Clustering threshold optimization: F1=0.940 at 0.09
-- Graph traversal improvement: 4.65× context augmentation
+- Graph traversal experiment: 4.65× context augmentation (v0.2 sum-product; replaced by chain walking in Unreleased)
 - Embedding model selection: jina-small for optimal size/quality tradeoff
 - Direction-specific decay: backward (dies@10 hops) vs forward (5-hop hold, dies@20)
 

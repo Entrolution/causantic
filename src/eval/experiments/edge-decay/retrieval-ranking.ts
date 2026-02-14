@@ -3,6 +3,8 @@
  *
  * Tests whether decay-weighted ranking of candidate turns
  * correlates with actual turn-to-turn references.
+ *
+ * Distance metric: hop distance (turn count difference).
  */
 
 import type { DecayModelConfig } from './types.js';
@@ -13,11 +15,9 @@ import type {
   CandidateTurn,
   QueryEvaluation,
   RetrievalRankingResult,
-  TimeOffsetBin,
-  TimeOffsetCorrelationResult,
+  HopDistanceBin,
+  HopDistanceCorrelationResult,
 } from './reference-types.js';
-
-import { MS_PER_MINUTE, MS_PER_HOUR, MS_PER_DAY } from './types.js';
 
 /**
  * Options for filtering references to focus on long-range retrieval.
@@ -25,8 +25,6 @@ import { MS_PER_MINUTE, MS_PER_HOUR, MS_PER_DAY } from './types.js';
 export interface ReferenceFilterOptions {
   /** Minimum turn distance to include (e.g., 2 = skip immediately previous) */
   minTurnDistance?: number;
-  /** Minimum time gap in ms to include (e.g., 5 * MS_PER_MINUTE) */
-  minTimeGapMs?: number;
   /** Exclude 'adjacent' reference type (low confidence recency) */
   excludeAdjacent?: boolean;
   /** Only include high confidence references */
@@ -42,21 +40,12 @@ export function filterLongRangeReferences(
   sessions: SessionReferences[],
   options: ReferenceFilterOptions = {},
 ): SessionReferences[] {
-  const {
-    minTurnDistance = 1,
-    minTimeGapMs = 0,
-    excludeAdjacent = false,
-    highConfidenceOnly = false,
-  } = options;
+  const { minTurnDistance = 1, excludeAdjacent = false, highConfidenceOnly = false } = options;
 
-  return sessions.map(session => {
-    const filteredRefs = session.references.filter(ref => {
-      // Check turn distance
-      const turnDistance = ref.userTurnIndex - ref.referencedTurnIndex;
-      if (turnDistance < minTurnDistance) return false;
-
-      // Check time gap
-      if (ref.timeGapMs < minTimeGapMs) return false;
+  return sessions.map((session) => {
+    const filteredRefs = session.references.filter((ref) => {
+      // Check turn distance (= hop distance)
+      if (ref.hopDistance < minTurnDistance) return false;
 
       // Exclude adjacent type if requested
       if (excludeAdjacent && ref.referenceType === 'adjacent') return false;
@@ -77,9 +66,7 @@ export function filterLongRangeReferences(
 /**
  * Build a map from query turn to its referenced turns.
  */
-function buildReferenceMap(
-  references: TurnReference[],
-): Map<number, Set<number>> {
+function buildReferenceMap(references: TurnReference[]): Map<number, Set<number>> {
   const map = new Map<number, Set<number>>();
 
   for (const ref of references) {
@@ -93,44 +80,24 @@ function buildReferenceMap(
 }
 
 /**
- * Build a map from query turn to time gaps for each candidate.
- */
-function buildTimeGapMap(
-  references: TurnReference[],
-  turnCount: number,
-): Map<number, Map<number, number>> {
-  const map = new Map<number, Map<number, number>>();
-
-  // Initialize from explicit references
-  for (const ref of references) {
-    if (!map.has(ref.userTurnIndex)) {
-      map.set(ref.userTurnIndex, new Map());
-    }
-    map.get(ref.userTurnIndex)!.set(ref.referencedTurnIndex, ref.timeGapMs);
-  }
-
-  return map;
-}
-
-/**
  * Evaluate a single query turn against all candidates using a decay model.
+ * Distance metric: hop distance (queryTurnIndex - candidateTurnIndex).
  */
 function evaluateQuery(
   queryTurnIndex: number,
   candidateTurnIndices: number[],
   relevantTurns: Set<number>,
-  timeGaps: Map<number, number>,
   decayModel: DecayModelConfig,
 ): QueryEvaluation {
-  // Score each candidate
-  const candidates: CandidateTurn[] = candidateTurnIndices.map(turnIndex => {
-    const timeGapMs = timeGaps.get(turnIndex) ?? 0;
-    const decayWeight = calculateWeight(decayModel, timeGapMs);
+  // Score each candidate by hop distance
+  const candidates: CandidateTurn[] = candidateTurnIndices.map((turnIndex) => {
+    const hopDistance = queryTurnIndex - turnIndex;
+    const decayWeight = calculateWeight(decayModel, hopDistance);
     const isRelevant = relevantTurns.has(turnIndex);
 
     return {
       turnIndex,
-      timeGapMs,
+      hopDistance,
       decayWeight,
       isRelevant,
     };
@@ -178,7 +145,6 @@ export function evaluateRetrievalRanking(
 
   for (const session of sessions) {
     const referenceMap = buildReferenceMap(session.references);
-    const timeGapMap = buildTimeGapMap(session.references, session.turnCount);
 
     // For each query turn that has references
     for (const [queryTurnIndex, relevantTurns] of referenceMap) {
@@ -186,42 +152,14 @@ export function evaluateRetrievalRanking(
       if (relevantTurns.size === 0) continue;
 
       // Candidates are all turns before the query
-      const candidateTurnIndices = Array.from(
-        { length: queryTurnIndex },
-        (_, i) => i
-      );
+      const candidateTurnIndices = Array.from({ length: queryTurnIndex }, (_, i) => i);
 
       if (candidateTurnIndices.length === 0) continue;
-
-      // Get time gaps for this query
-      const timeGaps = timeGapMap.get(queryTurnIndex) ?? new Map();
-
-      // For candidates without explicit time gaps, estimate from reference data
-      // (This shouldn't happen often since we extract time gaps during reference extraction)
-      for (const candidateIdx of candidateTurnIndices) {
-        if (!timeGaps.has(candidateIdx)) {
-          // Find a reference with known time gap to estimate
-          const knownRef = session.references.find(
-            r => r.userTurnIndex === queryTurnIndex && r.referencedTurnIndex !== candidateIdx
-          );
-          if (knownRef) {
-            // Estimate based on turn distance ratio
-            const refTurnDist = queryTurnIndex - knownRef.referencedTurnIndex;
-            const thisTurnDist = queryTurnIndex - candidateIdx;
-            const estimatedGap = (knownRef.timeGapMs / refTurnDist) * thisTurnDist;
-            timeGaps.set(candidateIdx, estimatedGap);
-          } else {
-            // Default to 5 minutes per turn distance
-            timeGaps.set(candidateIdx, (queryTurnIndex - candidateIdx) * 5 * MS_PER_MINUTE);
-          }
-        }
-      }
 
       const evaluation = evaluateQuery(
         queryTurnIndex,
         candidateTurnIndices,
         relevantTurns,
-        timeGaps,
         decayModel,
       );
 
@@ -284,15 +222,15 @@ export function compareRetrievalRanking(
 }
 
 /**
- * Time offset bins for correlation analysis.
+ * Hop-distance bins for correlation analysis.
  */
-const TIME_OFFSET_BINS: Array<{ label: string; minMs: number; maxMs: number }> = [
-  { label: '0-5min', minMs: 0, maxMs: 5 * MS_PER_MINUTE },
-  { label: '5-30min', minMs: 5 * MS_PER_MINUTE, maxMs: 30 * MS_PER_MINUTE },
-  { label: '30min-1h', minMs: 30 * MS_PER_MINUTE, maxMs: MS_PER_HOUR },
-  { label: '1-4h', minMs: MS_PER_HOUR, maxMs: 4 * MS_PER_HOUR },
-  { label: '4-24h', minMs: 4 * MS_PER_HOUR, maxMs: MS_PER_DAY },
-  { label: '1-7d', minMs: MS_PER_DAY, maxMs: 7 * MS_PER_DAY },
+const HOP_DISTANCE_BINS: Array<{ label: string; minHops: number; maxHops: number }> = [
+  { label: '1 hop', minHops: 1, maxHops: 2 },
+  { label: '2-3 hops', minHops: 2, maxHops: 4 },
+  { label: '4-6 hops', minHops: 4, maxHops: 7 },
+  { label: '7-10 hops', minHops: 7, maxHops: 11 },
+  { label: '11-20 hops', minHops: 11, maxHops: 21 },
+  { label: '21+ hops', minHops: 21, maxHops: Infinity },
 ];
 
 /**
@@ -334,14 +272,14 @@ function computeRanks(values: number[]): number[] {
 }
 
 /**
- * Run time-offset correlation experiment.
+ * Run hop-distance correlation experiment.
  */
-export function evaluateTimeOffsetCorrelation(
+export function evaluateHopDistanceCorrelation(
   sessions: SessionReferences[],
   decayModels: DecayModelConfig[],
-): TimeOffsetCorrelationResult {
+): HopDistanceCorrelationResult {
   // Initialize bins
-  const bins: TimeOffsetBin[] = TIME_OFFSET_BINS.map(b => ({
+  const bins: HopDistanceBin[] = HOP_DISTANCE_BINS.map((b) => ({
     ...b,
     pairCount: 0,
     referenceRate: 0,
@@ -354,27 +292,37 @@ export function evaluateTimeOffsetCorrelation(
     decayWeightSums[model.id] = bins.map(() => 0);
   }
 
-  // Count references in each bin
+  // Count references and total possible pairs in each bin
   const referenceCounts = bins.map(() => 0);
   const pairCounts = bins.map(() => 0);
 
-  // Process all references
+  // Count all possible turn pairs at each hop distance.
+  // A session with N turns has (N - d) pairs at distance d
+  // (each user turn i can reference assistant turn i-d).
+  for (const session of sessions) {
+    for (let d = 1; d < session.turnCount; d++) {
+      const binIndex = bins.findIndex((b) => d >= b.minHops && d < b.maxHops);
+      if (binIndex >= 0) {
+        // Number of pairs at this exact distance in this session
+        pairCounts[binIndex] += session.turnCount - d;
+
+        // Accumulate decay weights for all possible pairs at this distance
+        for (const model of decayModels) {
+          const weight = calculateWeight(model, d);
+          decayWeightSums[model.id][binIndex] += weight * (session.turnCount - d);
+        }
+      }
+    }
+  }
+
+  // Count actual references per bin
   for (const session of sessions) {
     for (const ref of session.references) {
-      // Find which bin this reference falls into
       const binIndex = bins.findIndex(
-        b => ref.timeGapMs >= b.minMs && ref.timeGapMs < b.maxMs
+        (b) => ref.hopDistance >= b.minHops && ref.hopDistance < b.maxHops,
       );
-
       if (binIndex >= 0) {
         referenceCounts[binIndex]++;
-        pairCounts[binIndex]++;
-
-        // Accumulate decay weights
-        for (const model of decayModels) {
-          const weight = calculateWeight(model, ref.timeGapMs);
-          decayWeightSums[model.id][binIndex] += weight;
-        }
       }
     }
   }
@@ -385,18 +333,17 @@ export function evaluateTimeOffsetCorrelation(
     bins[i].referenceRate = pairCounts[i] > 0 ? referenceCounts[i] / pairCounts[i] : 0;
 
     for (const model of decayModels) {
-      bins[i].meanDecayWeights[model.id] = pairCounts[i] > 0
-        ? decayWeightSums[model.id][i] / pairCounts[i]
-        : 0;
+      bins[i].meanDecayWeights[model.id] =
+        pairCounts[i] > 0 ? decayWeightSums[model.id][i] / pairCounts[i] : 0;
     }
   }
 
   // Compute correlations
   const correlations: Record<string, number> = {};
-  const referenceRates = bins.map(b => b.referenceRate);
+  const referenceRates = bins.map((b) => b.referenceRate);
 
   for (const model of decayModels) {
-    const decayWeights = bins.map(b => b.meanDecayWeights[model.id]);
+    const decayWeights = bins.map((b) => b.meanDecayWeights[model.id]);
     correlations[model.id] = spearmanCorrelation(referenceRates, decayWeights);
   }
 
@@ -450,29 +397,29 @@ export function formatRetrievalRankingTable(results: RetrievalRankingResult[]): 
 }
 
 /**
- * Format time-offset correlation results.
+ * Format hop-distance correlation results.
  */
-export function formatTimeOffsetTable(
-  result: TimeOffsetCorrelationResult,
+export function formatHopDistanceTable(
+  result: HopDistanceCorrelationResult,
   decayModels: DecayModelConfig[],
 ): string {
   const lines: string[] = [];
 
   lines.push('='.repeat(100));
-  lines.push('  TIME-OFFSET CORRELATION');
+  lines.push('  HOP-DISTANCE CORRELATION');
   lines.push('='.repeat(100));
 
   // Header
-  const modelHeaders = decayModels.map(m => m.name.slice(0, 12).padEnd(12)).join(' | ');
-  const header = `${'Time Bin'.padEnd(12)} | ${'Pairs'.padEnd(8)} | ${'Ref Rate'.padEnd(8)} | ${modelHeaders}`;
+  const modelHeaders = decayModels.map((m) => m.name.slice(0, 12).padEnd(12)).join(' | ');
+  const header = `${'Hops'.padEnd(12)} | ${'Pairs'.padEnd(8)} | ${'Ref Rate'.padEnd(8)} | ${modelHeaders}`;
   lines.push(header);
   lines.push('-'.repeat(100));
 
   // Rows
   for (const bin of result.bins) {
-    const weights = decayModels.map(m =>
-      bin.meanDecayWeights[m.id].toFixed(3).padEnd(12)
-    ).join(' | ');
+    const weights = decayModels
+      .map((m) => bin.meanDecayWeights[m.id].toFixed(3).padEnd(12))
+      .join(' | ');
 
     const row = [
       bin.label.padEnd(12),
@@ -487,9 +434,9 @@ export function formatTimeOffsetTable(
   lines.push('-'.repeat(100));
 
   // Correlations
-  const corrValues = decayModels.map(m =>
-    result.correlations[m.id].toFixed(3).padEnd(12)
-  ).join(' | ');
+  const corrValues = decayModels
+    .map((m) => result.correlations[m.id].toFixed(3).padEnd(12))
+    .join(' | ');
 
   lines.push(`${'Correlation'.padEnd(12)} | ${''.padEnd(8)} | ${''.padEnd(8)} | ${corrValues}`);
   lines.push('='.repeat(100));
@@ -512,9 +459,7 @@ export function formatTimeOffsetTable(
  * Backward: userTurnIndex → referencedTurnIndex (what past turns did I reference?)
  * Forward: referencedTurnIndex → userTurnIndex (what future turns will reference me?)
  */
-function buildForwardReferenceMap(
-  references: TurnReference[],
-): Map<number, Set<number>> {
+function buildForwardReferenceMap(references: TurnReference[]): Map<number, Set<number>> {
   const map = new Map<number, Set<number>>();
 
   for (const ref of references) {
@@ -529,44 +474,25 @@ function buildForwardReferenceMap(
 }
 
 /**
- * Build time gap map for forward queries.
- * Maps source turn → future turn → time gap.
- */
-function buildForwardTimeGapMap(
-  references: TurnReference[],
-): Map<number, Map<number, number>> {
-  const map = new Map<number, Map<number, number>>();
-
-  for (const ref of references) {
-    if (!map.has(ref.referencedTurnIndex)) {
-      map.set(ref.referencedTurnIndex, new Map());
-    }
-    map.get(ref.referencedTurnIndex)!.set(ref.userTurnIndex, ref.timeGapMs);
-  }
-
-  return map;
-}
-
-/**
  * Evaluate forward prediction for a single source turn.
  * Given turn T, predict which future turns will reference it.
+ * Distance metric: hop distance (futureTurnIndex - sourceTurnIndex).
  */
 function evaluateForwardQuery(
   sourceTurnIndex: number,
   candidateFutureTurns: number[],
   actualReferencingTurns: Set<number>,
-  timeGaps: Map<number, number>,
   decayModel: DecayModelConfig,
 ): QueryEvaluation {
-  // Score each candidate future turn
-  const candidates: CandidateTurn[] = candidateFutureTurns.map(futureTurnIndex => {
-    const timeGapMs = timeGaps.get(futureTurnIndex) ?? 0;
-    const decayWeight = calculateWeight(decayModel, timeGapMs);
+  // Score each candidate future turn by hop distance
+  const candidates: CandidateTurn[] = candidateFutureTurns.map((futureTurnIndex) => {
+    const hopDistance = futureTurnIndex - sourceTurnIndex;
+    const decayWeight = calculateWeight(decayModel, hopDistance);
     const isRelevant = actualReferencingTurns.has(futureTurnIndex);
 
     return {
       turnIndex: futureTurnIndex,
-      timeGapMs,
+      hopDistance,
       decayWeight,
       isRelevant,
     };
@@ -605,6 +531,7 @@ function evaluateForwardQuery(
 export function evaluateForwardPrediction(
   sessions: SessionReferences[],
   decayModel: DecayModelConfig,
+  minHopDistance: number = 1,
 ): RetrievalRankingResult {
   const evaluations: QueryEvaluation[] = [];
   let totalRR = 0;
@@ -617,48 +544,26 @@ export function evaluateForwardPrediction(
   };
 
   for (const session of sessions) {
-    const forwardMap = buildForwardReferenceMap(session.references);
-    const timeGapMap = buildForwardTimeGapMap(session.references);
+    // Filter references to only include those at or beyond minHopDistance
+    const filteredRefs = session.references.filter((ref) => ref.hopDistance >= minHopDistance);
+    const forwardMap = buildForwardReferenceMap(filteredRefs);
 
-    // For each source turn that has future references
+    // For each source turn that has future references beyond the min distance
     for (const [sourceTurnIndex, referencingTurns] of forwardMap) {
       if (referencingTurns.size === 0) continue;
 
-      // Candidates are all turns after the source
+      // Candidates are turns at or beyond minHopDistance from source
       const candidateFutureTurns = Array.from(
-        { length: session.turnCount - sourceTurnIndex - 1 },
-        (_, i) => sourceTurnIndex + 1 + i
+        { length: session.turnCount - sourceTurnIndex - minHopDistance },
+        (_, i) => sourceTurnIndex + minHopDistance + i,
       );
 
       if (candidateFutureTurns.length === 0) continue;
-
-      // Get time gaps for this source turn
-      const timeGaps = timeGapMap.get(sourceTurnIndex) ?? new Map();
-
-      // Estimate time gaps for candidates without explicit references
-      for (const futureIdx of candidateFutureTurns) {
-        if (!timeGaps.has(futureIdx)) {
-          // Find a reference with known time gap to estimate
-          const knownRef = session.references.find(
-            r => r.referencedTurnIndex === sourceTurnIndex && r.userTurnIndex !== futureIdx
-          );
-          if (knownRef) {
-            const refTurnDist = knownRef.userTurnIndex - sourceTurnIndex;
-            const thisTurnDist = futureIdx - sourceTurnIndex;
-            const estimatedGap = (knownRef.timeGapMs / refTurnDist) * thisTurnDist;
-            timeGaps.set(futureIdx, estimatedGap);
-          } else {
-            // Default to 5 minutes per turn distance
-            timeGaps.set(futureIdx, (futureIdx - sourceTurnIndex) * 5 * MS_PER_MINUTE);
-          }
-        }
-      }
 
       const evaluation = evaluateForwardQuery(
         sourceTurnIndex,
         candidateFutureTurns,
         referencingTurns,
-        timeGaps,
         decayModel,
       );
 
@@ -746,7 +651,7 @@ export function formatDirectionalComparison(
 
   // Match results by model ID
   for (const backward of backwardResults) {
-    const forward = forwardResults.find(f => f.modelId === backward.modelId);
+    const forward = forwardResults.find((f) => f.modelId === backward.modelId);
     if (!forward) continue;
 
     const delta = forward.mrr - backward.mrr;

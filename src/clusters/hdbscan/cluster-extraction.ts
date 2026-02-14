@@ -12,10 +12,7 @@ import type { CondensedTree, CondensedTreeNode } from './types.js';
  * @param method Selection method: 'eom' (default) or 'leaf'.
  * @returns Array of selected cluster IDs.
  */
-export function extractClusters(
-  tree: CondensedTree,
-  method: 'eom' | 'leaf' = 'eom'
-): number[] {
+export function extractClusters(tree: CondensedTree, method: 'eom' | 'leaf' = 'eom'): number[] {
   if (tree.nodes.size === 0 || tree.root === -1) {
     return [];
   }
@@ -88,8 +85,7 @@ function computeStability(tree: CondensedTree, clusters: CondensedTreeNode[]): v
     const points = clusterToPoints.get(cluster.id)!;
     let stability = 0;
 
-    for (const pointId of points) {
-      const pointNode = tree.nodes.get(pointId)!;
+    for (const _pointId of points) {
       // Stability contribution = lambda_death - lambda_birth of cluster
       // But for these points, lambda_death === cluster.lambdaBirth
       // So we need to think about this differently
@@ -191,10 +187,7 @@ function extractLeafClusters(clusters: CondensedTreeNode[]): number[] {
  * @param selectedClusters Selected cluster IDs.
  * @returns Labels for each point (-1 = noise).
  */
-export function assignLabels(
-  tree: CondensedTree,
-  selectedClusters: number[]
-): number[] {
+export function assignLabels(tree: CondensedTree, selectedClusters: number[]): number[] {
   const labels = new Array<number>(tree.numPoints).fill(-1);
 
   if (selectedClusters.length === 0) {
@@ -264,9 +257,7 @@ function getAllClusterPoints(tree: CondensedTree, clusterId: number): number[] {
 /**
  * Get cluster stability scores.
  */
-export function getClusterStabilities(
-  tree: CondensedTree
-): Map<number, number> {
+export function getClusterStabilities(tree: CondensedTree): Map<number, number> {
   const stabilities = new Map<number, number>();
 
   for (const [id, node] of tree.nodes) {

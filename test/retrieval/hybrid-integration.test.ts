@@ -17,8 +17,8 @@ import {
   teardownTestDb,
 } from '../storage/test-utils.js';
 import { KeywordStore } from '../../src/storage/keyword-store.js';
-import { fuseRRF, type RankedItem, type RRFSource } from '../../src/retrieval/rrf.js';
-import { expandViaClusters, type ClusterExpansionConfig } from '../../src/retrieval/cluster-expander.js';
+import { fuseRRF } from '../../src/retrieval/rrf.js';
+import { expandViaClusters } from '../../src/retrieval/cluster-expander.js';
 
 describe('hybrid-integration', () => {
   let db: Database.Database;
@@ -34,34 +34,58 @@ describe('hybrid-integration', () => {
 
   function insertChunks() {
     // Auth-related chunks
-    insertTestChunk(db, createSampleChunk({
-      id: 'auth-1', content: 'User authentication using JWT tokens and refresh tokens',
-      sessionSlug: 'my-app',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'auth-2', content: 'OAuth2 configuration for Google sign-in authentication',
-      sessionSlug: 'my-app',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'auth-3', content: 'Session management and cookie-based auth',
-      sessionSlug: 'my-app',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'auth-1',
+        content: 'User authentication using JWT tokens and refresh tokens',
+        sessionSlug: 'my-app',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'auth-2',
+        content: 'OAuth2 configuration for Google sign-in authentication',
+        sessionSlug: 'my-app',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'auth-3',
+        content: 'Session management and cookie-based auth',
+        sessionSlug: 'my-app',
+      }),
+    );
 
     // Database chunks
-    insertTestChunk(db, createSampleChunk({
-      id: 'db-1', content: 'Database migration from PostgreSQL to SQLite',
-      sessionSlug: 'my-app',
-    }));
-    insertTestChunk(db, createSampleChunk({
-      id: 'db-2', content: 'Schema versioning and incremental updates',
-      sessionSlug: 'my-app',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'db-1',
+        content: 'Database migration from PostgreSQL to SQLite',
+        sessionSlug: 'my-app',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'db-2',
+        content: 'Schema versioning and incremental updates',
+        sessionSlug: 'my-app',
+      }),
+    );
 
     // Cross-project chunk
-    insertTestChunk(db, createSampleChunk({
-      id: 'other-1', content: 'Authentication middleware for Express',
-      sessionSlug: 'other-project',
-    }));
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'other-1',
+        content: 'Authentication middleware for Express',
+        sessionSlug: 'other-project',
+      }),
+    );
 
     // Create clusters
     insertTestCluster(db, { id: 'cl-auth', name: 'Authentication' });
@@ -84,15 +108,15 @@ describe('hybrid-integration', () => {
     // 1. Simulate vector search results (normally from embedder)
     const vectorResults: RankedItem[] = [
       { chunkId: 'auth-1', score: 0.85, source: 'vector' },
-      { chunkId: 'auth-3', score: 0.60, source: 'vector' },
-      { chunkId: 'db-1', score: 0.30, source: 'vector' },
+      { chunkId: 'auth-3', score: 0.6, source: 'vector' },
+      { chunkId: 'db-1', score: 0.3, source: 'vector' },
     ];
 
     // 2. Run keyword search
     const keywordResults = keywordStore.search('authentication JWT', 10);
     expect(keywordResults.length).toBeGreaterThan(0);
 
-    const keywordItems: RankedItem[] = keywordResults.map(r => ({
+    const keywordItems: RankedItem[] = keywordResults.map((r) => ({
       chunkId: r.id,
       score: r.score,
       source: 'keyword' as const,
@@ -107,7 +131,7 @@ describe('hybrid-integration', () => {
     expect(fused.length).toBeGreaterThan(0);
 
     // auth-1 should be near the top (appears in both vector and keyword)
-    const auth1 = fused.find(r => r.chunkId === 'auth-1');
+    const auth1 = fused.find((r) => r.chunkId === 'auth-1');
     expect(auth1).toBeDefined();
 
     // 4. Cluster expansion
@@ -132,12 +156,10 @@ describe('hybrid-integration', () => {
     const keywordStore = new KeywordStore(db);
 
     // Simulate: vector search misses auth-2 (about Google sign-in) but keyword finds it
-    const vectorResults: RankedItem[] = [
-      { chunkId: 'auth-1', score: 0.85, source: 'vector' },
-    ];
+    const vectorResults: RankedItem[] = [{ chunkId: 'auth-1', score: 0.85, source: 'vector' }];
 
     const keywordResults = keywordStore.search('Google sign-in', 10);
-    const keywordItems: RankedItem[] = keywordResults.map(r => ({
+    const keywordItems: RankedItem[] = keywordResults.map((r) => ({
       chunkId: r.id,
       score: r.score,
       source: 'keyword' as const,
@@ -149,7 +171,7 @@ describe('hybrid-integration', () => {
     ]);
 
     // Google sign-in chunk should appear in fused results thanks to keyword search
-    const googleResult = fused.find(r => r.chunkId === 'auth-2');
+    const googleResult = fused.find((r) => r.chunkId === 'auth-2');
     expect(googleResult).toBeDefined();
     expect(googleResult!.source).toBe('keyword');
   });
@@ -164,8 +186,8 @@ describe('hybrid-integration', () => {
     const unfiltered = keywordStore.search('authentication', 10);
 
     // Filtered should not include other-1 (from other-project)
-    const filteredIds = filtered.map(r => r.id);
-    const unfilteredIds = unfiltered.map(r => r.id);
+    const filteredIds = filtered.map((r) => r.id);
+    const unfilteredIds = unfiltered.map((r) => r.id);
 
     expect(filteredIds).not.toContain('other-1');
     expect(unfilteredIds).toContain('other-1');
@@ -190,9 +212,7 @@ describe('hybrid-integration', () => {
     insertChunks();
 
     // Only auth-1 from search, but cluster expansion should find auth-2 and auth-3
-    const searchHits: RankedItem[] = [
-      { chunkId: 'auth-1', score: 0.8, source: 'vector' },
-    ];
+    const searchHits: RankedItem[] = [{ chunkId: 'auth-1', score: 0.8, source: 'vector' }];
 
     const expanded = expandViaClusters(searchHits, {
       maxClusters: 3,
@@ -200,13 +220,13 @@ describe('hybrid-integration', () => {
       boostFactor: 0.3,
     });
 
-    const ids = expanded.map(r => r.chunkId);
+    const ids = expanded.map((r) => r.chunkId);
     expect(ids).toContain('auth-1');
     expect(ids).toContain('auth-2'); // cluster sibling
     expect(ids).toContain('auth-3'); // cluster sibling
 
     // Siblings should have source: 'cluster'
-    const auth2 = expanded.find(r => r.chunkId === 'auth-2');
+    const auth2 = expanded.find((r) => r.chunkId === 'auth-2');
     expect(auth2?.source).toBe('cluster');
   });
 
@@ -222,7 +242,7 @@ describe('hybrid-integration', () => {
     ];
 
     const keywordResults = keywordStore.search('authentication JWT tokens', 10);
-    const keywordItems: RankedItem[] = keywordResults.map(r => ({
+    const keywordItems: RankedItem[] = keywordResults.map((r) => ({
       chunkId: r.id,
       score: r.score,
       source: 'keyword' as const,
@@ -234,8 +254,8 @@ describe('hybrid-integration', () => {
     ]);
 
     // auth-1 should have a higher fused score than items only in one source
-    const auth1 = fused.find(r => r.chunkId === 'auth-1');
-    const db1 = fused.find(r => r.chunkId === 'db-1');
+    const auth1 = fused.find((r) => r.chunkId === 'auth-1');
+    const db1 = fused.find((r) => r.chunkId === 'db-1');
 
     expect(auth1).toBeDefined();
     if (db1) {

@@ -26,18 +26,22 @@ HDBSCAN clustering with angular distance achieves 100% precision and 88.7% recal
 
 ### Temporal Decay
 
-**Result**: Direction-specific hop decay outperforms time-based decay
+**Result**: Direction-specific decay curves outperform uniform exponential
 
-- Backward (historical): Linear, dies at 10 hops (MRR=0.688, 1.35× vs exponential)
-- Forward (predictive): Delayed linear, 5-hop hold, dies at 20 (MRR=0.849, 3.71× vs exponential)
+- Backward (historical): Linear decay achieves MRR=0.688 (1.35× vs exponential)
+- Forward (predictive): Delayed linear achieves MRR=0.849 (3.71× vs exponential)
+
+> In v0.3.0, decay switched from vector-clock hops to hop-based traversal depth (turn count difference). The relative curve rankings remain valid.
 
 See [experiments/decay-curves.md](experiments/decay-curves.md).
 
 ### Graph Traversal
 
-**Result**: 221% context augmentation with lazy pruning
+> **v0.2 research result**: The 4.65× augmentation was measured using sum-product traversal with m×n all-pairs edges (492 queries, file-path ground truth). This architecture was replaced in v0.3.0 — collection benchmarks showed graph traversal contributing only ~2% of results. See "What Evolved in v0.3.0" below.
 
-Graph-based retrieval more than doubles the relevant context found compared to vector search alone. See [experiments/graph-traversal.md](experiments/graph-traversal.md).
+**Result (v0.2)**: 4.65× context augmentation via sum-product traversal
+
+See [experiments/graph-traversal.md](experiments/graph-traversal.md).
 
 ### Embedding Model
 
@@ -45,9 +49,25 @@ Graph-based retrieval more than doubles the relevant context found compared to v
 
 Among tested models, jina-small provides the best balance of embedding quality and inference speed. See [experiments/embedding-models.md](experiments/embedding-models.md).
 
+## What Evolved in v0.3.0
+
+The research findings above shaped v0.2's architecture. v0.3.0 made significant changes based on production experience:
+
+- **Sum-product traversal removed**: Contributed only ~2% of retrieval results. Path weight products converge to zero too fast to compete with direct vector/keyword search.
+- **m×n all-pairs edges replaced**: Created O(n²) edges per turn boundary, most between unrelated chunks. Replaced by sequential 1-to-1 linked-list edges.
+- **Chain walking added**: Follows sequential edges from search seeds, scoring each hop by cosine similarity. Provides episodic narrative ordering rather than semantic ranking.
+- **Vector clocks removed**: Hop-based decay (itself removed with traversal) replaced vector-clock hop counting.
+- **`search` tool replaces `explain`**: Honest about what it does — pure semantic discovery with optional chain context.
+
+The core insights remain valid: causal structure matters more than wall-clock time, lexical features detect topic shifts, and HDBSCAN clustering provides topic organization. What changed is *how* the causal graph is used — for structural ordering, not semantic ranking.
+
+See [experiments/lessons-learned.md](experiments/lessons-learned.md) for detailed post-mortems.
+
 ## Design Rationale
 
-### The Role of Entropy
+### The Role of Entropy (Historical — v0.2)
+
+> Sum-product traversal and multiplicative path weights were removed in v0.3.0. The analysis below motivated the original graph design but describes mechanisms that no longer exist.
 
 Discrimination degrades along causal paths. As you traverse farther from a query point, edge weight products converge toward zero — you lose the ability to distinguish between distant nodes. This entropy flows along causal lines (D-T-D hops), not wall-clock time, implementing **causal compression**.
 
@@ -58,20 +78,18 @@ See [approach/role-of-entropy.md](approach/role-of-entropy.md).
 Unlike simple vector databases, Causantic tracks *relationships* between memory chunks:
 
 - **Causality**: What led to what
-- **Temporal ordering**: Logical sequence via vector clocks
-- **Reference tracking**: File paths, topics, and adjacency
+- **Temporal ordering**: Edge age tracks recency
+- **Structural roles**: Within-chain, cross-session, brief/debrief edges
 
 See [approach/why-causal-graphs.md](approach/why-causal-graphs.md).
 
-### Why Vector Clocks?
+### Vector Clocks (Historical)
 
-Wall-clock time is misleading for memory:
+> Vector clocks were removed in v0.3.0. Edge decay is now hop-based (traversal depth).
 
-- Sessions may be days apart but semantically adjacent
-- Work may be interleaved across projects
-- Logical "hops" matter more than minutes elapsed
+The original design used vector clocks for logical hop counting. This was replaced with simpler hop-based edge decay (turn count difference) while preserving the causal graph structure.
 
-See [approach/vector-clocks.md](approach/vector-clocks.md).
+See [approach/vector-clocks.md](approach/vector-clocks.md) for the historical rationale.
 
 ### Why Dual Integration?
 
@@ -101,7 +119,10 @@ Documenting failures is as important as successes:
 1. **Wall-clock time decay**: All historical edges appeared "dead" regardless of relevance
 2. **Single decay curve**: Forward and backward edges need different treatment
 3. **hdbscan-ts at scale**: O(n²k) bug made it impractical (fixed with native implementation)
-4. **Adjacent edges as primary signal**: Too weak (0.5 weight); file-path edges (1.0) work better
+4. **Adjacent edges as primary signal**: Too weak (0.5 weight); led to eliminating all semantic edge types
+5. **Sum-product graph traversal at scale** (v0.3.0): Path products converge to zero too fast — graph contributed only 2% of results
+6. **m×n all-pairs edge topology** (v0.3.0): O(n²) edges per turn, most between unrelated chunks
+7. **Conflating semantic and causal concerns** (v0.3.0): The graph's value is structural ordering, not semantic ranking
 
 See [experiments/lessons-learned.md](experiments/lessons-learned.md).
 

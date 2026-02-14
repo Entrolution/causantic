@@ -8,8 +8,6 @@ import { getOutgoingEdges } from '../src/storage/edge-store.js';
 import { Embedder } from '../src/models/embedder.js';
 import { getModel } from '../src/models/model-registry.js';
 import { traverseMultiple } from '../src/retrieval/traverser.js';
-import { getReferenceClock } from '../src/storage/clock-store.js';
-import { hopCount, deserialize } from '../src/temporal/vector-clock.js';
 import { getDb, closeDb } from '../src/storage/db.js';
 
 const TEST_QUERIES = [
@@ -32,7 +30,6 @@ interface QueryResult {
   forwardAdded: number;
   avgBackwardEdgesPerChunk: number;
   avgForwardEdgesPerChunk: number;
-  avgHopDistance: number;
   chunksWithBackEdges: number;
   chunksWithFwdEdges: number;
 }
@@ -48,11 +45,9 @@ async function analyzeQuery(embedder: Embedder, query: string): Promise<QueryRes
   let totalFwdEdges = 0;
   let chunksWithBack = 0;
   let chunksWithFwd = 0;
-  let totalHopDist = 0;
-  let hopCount_n = 0;
-  
+
   for (const r of vectorResults) {
-    const chunk = getChunkById(r.id);
+    const _chunk = getChunkById(r.id);
     const backEdges = getOutgoingEdges(r.id, 'backward');
     const fwdEdges = getOutgoingEdges(r.id, 'forward');
     
@@ -60,38 +55,17 @@ async function analyzeQuery(embedder: Embedder, query: string): Promise<QueryRes
     totalFwdEdges += fwdEdges.length;
     if (backEdges.length > 0) chunksWithBack++;
     if (fwdEdges.length > 0) chunksWithFwd++;
-    
-    // Calculate hop distances
-    if (chunk) {
-      const refClock = getReferenceClock(chunk.sessionSlug);
-      for (const e of [...backEdges, ...fwdEdges]) {
-        if (e.vectorClock) {
-          const edgeClock = deserialize(e.vectorClock);
-          const hops = hopCount(edgeClock, refClock);
-          totalHopDist += Math.abs(hops);
-          hopCount_n++;
-        }
-      }
-    }
   }
   
-  // Get reference clock for traversal
-  const firstChunk = getChunkById(vectorResults[0]?.id);
-  const projectSlug = firstChunk?.sessionSlug || '';
-  const referenceClock = getReferenceClock(projectSlug);
-  
   const startIds = vectorResults.map(r => r.id);
-  const startWeights = vectorResults.map(r => Math.max(0, 1 - r.distance));
-  
-  // Traverse (uses config defaults: maxDepth=20, minWeight=0.01)
-  const backwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
+
+  // Traverse (uses config defaults: maxDepth=50, minWeight=0.01)
+  const backwardResult = traverseMultiple(startIds, {
     direction: 'backward',
-    referenceClock,
   });
 
-  const forwardResult = await traverseMultiple(startIds, startWeights, Date.now(), {
+  const forwardResult = traverseMultiple(startIds, {
     direction: 'forward',
-    referenceClock,
   });
   
   const backwardAdded = backwardResult.chunks.filter(c => !vectorChunkIds.has(c.chunkId)).length;
@@ -104,7 +78,6 @@ async function analyzeQuery(embedder: Embedder, query: string): Promise<QueryRes
     forwardAdded,
     avgBackwardEdgesPerChunk: totalBackEdges / vectorResults.length,
     avgForwardEdgesPerChunk: totalFwdEdges / vectorResults.length,
-    avgHopDistance: hopCount_n > 0 ? totalHopDist / hopCount_n : 0,
     chunksWithBackEdges: chunksWithBack,
     chunksWithFwdEdges: chunksWithFwd,
   };
@@ -162,41 +135,6 @@ async function globalEdgeAnalysis() {
     console.log('  ' + r.reference_type + ': ' + r.count);
   }
   
-  // Hop distance distribution (sample)
-  console.log('\nHop distance analysis (sample of 1000 edges):');
-  const hopDist = db.prepare(`
-    WITH ref AS (
-      SELECT project_slug, 
-             CAST(json_extract(clock_data, '$.ui') AS INTEGER) as ref_ui
-      FROM vector_clocks 
-      WHERE id LIKE 'project:%'
-    ),
-    edges_sample AS (
-      SELECT e.*, c.session_slug
-      FROM edges e
-      JOIN chunks c ON e.source_chunk_id = c.id
-      WHERE e.vector_clock IS NOT NULL
-      LIMIT 1000
-    )
-    SELECT 
-      CASE 
-        WHEN abs(ref.ref_ui - CAST(json_extract(e.vector_clock, '$.ui') AS INTEGER)) <= 5 THEN '0-5'
-        WHEN abs(ref.ref_ui - CAST(json_extract(e.vector_clock, '$.ui') AS INTEGER)) <= 10 THEN '6-10'
-        WHEN abs(ref.ref_ui - CAST(json_extract(e.vector_clock, '$.ui') AS INTEGER)) <= 20 THEN '11-20'
-        WHEN abs(ref.ref_ui - CAST(json_extract(e.vector_clock, '$.ui') AS INTEGER)) <= 50 THEN '21-50'
-        ELSE '50+'
-      END as hop_range,
-      e.edge_type,
-      COUNT(*) as count
-    FROM edges_sample e
-    LEFT JOIN ref ON e.session_slug = ref.project_slug
-    GROUP BY hop_range, e.edge_type
-    ORDER BY hop_range, e.edge_type
-  `).all() as Array<{hop_range: string, edge_type: string, count: number}>;
-  
-  for (const h of hopDist) {
-    console.log('  ' + h.hop_range + ' hops (' + h.edge_type + '): ' + h.count);
-  }
 }
 
 async function main() {
@@ -222,8 +160,8 @@ async function main() {
   console.log('\n' + '='.repeat(80));
   console.log('QUERY RESULTS');
   console.log('='.repeat(80));
-  console.log('\nQuery                              | Vec | +Back | +Fwd | Back/Ch | Fwd/Ch | AvgHop');
-  console.log('-'.repeat(90));
+  console.log('\nQuery                              | Vec | +Back | +Fwd | Back/Ch | Fwd/Ch');
+  console.log('-'.repeat(80));
   
   for (const r of results) {
     const queryShort = r.query.slice(0, 34).padEnd(34);
@@ -233,8 +171,7 @@ async function main() {
       String(r.backwardAdded).padStart(5) + ' | ' +
       String(r.forwardAdded).padStart(4) + ' | ' +
       r.avgBackwardEdgesPerChunk.toFixed(1).padStart(7) + ' | ' +
-      r.avgForwardEdgesPerChunk.toFixed(1).padStart(6) + ' | ' +
-      r.avgHopDistance.toFixed(1).padStart(6)
+      r.avgForwardEdgesPerChunk.toFixed(1).padStart(6)
     );
   }
   

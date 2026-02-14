@@ -10,16 +10,14 @@ import { getModel, getAllModelIds } from '../models/model-registry.js';
 import { clusterEmbeddings, getClusterMembership } from './cluster-evaluator.js';
 import { evaluateCodeNLAlignment } from './code-nl-alignment.js';
 import { evaluateContextWindowImpact, type ContextWindowResult } from './context-window-test.js';
-import {
-  scorePairs,
-  rocAuc,
-  silhouetteScore,
-  noiseRatio as computeNoiseRatio,
-  clusterCount as computeClusterCount,
-} from './metrics.js';
+import { scorePairs, rocAuc, silhouetteScore } from './metrics.js';
 import type { LabeledPair } from './annotation-schema.js';
 import type { Chunk } from '../parser/types.js';
-import type { ModelBenchmarkResult, BenchmarkResult, BenchmarkOptions } from '../core/benchmark-types.js';
+import type {
+  ModelBenchmarkResult,
+  BenchmarkResult,
+  BenchmarkOptions,
+} from '../core/benchmark-types.js';
 
 export type { ModelBenchmarkResult, BenchmarkResult, BenchmarkOptions };
 
@@ -31,10 +29,7 @@ export async function runBenchmark(
   pairs: LabeledPair[],
   options: BenchmarkOptions = {},
 ): Promise<BenchmarkResult> {
-  const {
-    modelIds = getAllModelIds(),
-    minClusterSize = 3,
-  } = options;
+  const { modelIds = getAllModelIds(), minClusterSize = 3 } = options;
 
   const embedder = new Embedder();
   const modelResults: ModelBenchmarkResult[] = [];
@@ -102,8 +97,8 @@ export async function runBenchmark(
 
     console.log(
       `  ROC AUC: ${auc.toFixed(3)}, Clusters: ${clusterResult.numClusters}, ` +
-      `Noise: ${(clusterResult.noiseRatio * 100).toFixed(1)}%, ` +
-      `Silhouette: ${silhouette.toFixed(3)}`,
+        `Noise: ${(clusterResult.noiseRatio * 100).toFixed(1)}%, ` +
+        `Silhouette: ${silhouette.toFixed(3)}`,
     );
   }
 
@@ -115,9 +110,7 @@ export async function runBenchmark(
   );
 
   if (bgeResult && longContextResult) {
-    console.log(
-      `\n--- Context Window: ${bgeResult.modelId} vs ${longContextResult.modelId} ---`,
-    );
+    console.log(`\n--- Context Window: ${bgeResult.modelId} vs ${longContextResult.modelId} ---`);
     contextWindowComparison = evaluateContextWindowImpact(
       bgeResult.embeddings,
       longContextResult.embeddings,

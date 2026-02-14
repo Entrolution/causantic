@@ -39,9 +39,15 @@ Options:
     for (let i = 0; i < args.length; i++) {
       const arg = args[i];
       switch (arg) {
-        case '--quick': profile = 'quick'; break;
-        case '--standard': profile = 'standard'; break;
-        case '--full': profile = 'full'; break;
+        case '--quick':
+          profile = 'quick';
+          break;
+        case '--standard':
+          profile = 'standard';
+          break;
+        case '--full':
+          profile = 'full';
+          break;
         case '--categories':
           categories = (args[++i] ?? '').split(',') as BenchmarkCategory[];
           break;
@@ -147,7 +153,9 @@ Options:
 
     // Suggest next steps
     if (profile !== 'full') {
-      console.log(`\nRun with --full for ${profile === 'quick' ? 'retrieval, graph value, and latency' : 'graph value and latency'} benchmarks.`);
+      console.log(
+        `\nRun with --full for ${profile === 'quick' ? 'retrieval, graph value, and latency' : 'graph value and latency'} benchmarks.`,
+      );
     }
   },
 };

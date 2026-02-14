@@ -7,8 +7,7 @@
  * Tasks:
  * - scan-projects: Discover and ingest new sessions
  * - update-clusters: Re-run HDBSCAN clustering + refresh labels
- * - prune-graph: Remove dead edges
- * - cleanup-vectors: Remove expired orphaned vectors and chunks (TTL-based)
+ * - cleanup-vectors: Remove expired vectors and chunks (TTL-based)
  * - vacuum: Optimize SQLite database
  */
 
@@ -19,7 +18,6 @@ import { loadConfig } from '../config/loader.js';
 import { createLogger } from '../utils/logger.js';
 import { scanProjects } from './tasks/scan-projects.js';
 import { updateClusters } from './tasks/update-clusters.js';
-import { pruneGraph } from './tasks/prune-graph.js';
 import { vacuum } from './tasks/vacuum.js';
 import { cleanupVectors } from './tasks/cleanup-vectors.js';
 
@@ -213,11 +211,6 @@ async function createUpdateClustersHandler(): Promise<MaintenanceResult> {
   });
 }
 
-async function createPruneGraphHandler(): Promise<MaintenanceResult> {
-  const { pruner } = await import('../storage/pruner.js');
-  return pruneGraph({ flushNow: () => pruner.flushNow() });
-}
-
 async function createVacuumHandler(): Promise<MaintenanceResult> {
   const { getDb } = await import('../storage/db.js');
   return vacuum({ getDb });
@@ -227,17 +220,22 @@ async function createCleanupVectorsHandler(): Promise<MaintenanceResult> {
   const { vectorStore } = await import('../storage/vector-store.js');
   const config = loadConfig();
   const ttlDays = config.vectors?.ttlDays ?? 90;
-  return cleanupVectors({ cleanupExpired: (days) => vectorStore.cleanupExpired(days), ttlDays });
+  const maxCount = config.vectors?.maxCount ?? 0;
+  return cleanupVectors({
+    cleanupExpired: (days) => vectorStore.cleanupExpired(days),
+    evictOldest: (count) => vectorStore.evictOldest(count),
+    ttlDays,
+    maxCount,
+  });
 }
 
 /**
  * Build maintenance tasks with configurable cluster hour.
- * Prune and cleanup run 1h and 1.5h after clustering respectively.
+ * Cleanup runs 1h after clustering.
  */
 function buildMaintenanceTasks(): MaintenanceTask[] {
   const config = loadConfig();
   const h = config.maintenance?.clusterHour ?? 2;
-  const pruneHour = (h + 1) % 24;
   const cleanupHour = (h + 1) % 24;
   const cleanupMinute = 30;
 
@@ -257,15 +255,8 @@ function buildMaintenanceTasks(): MaintenanceTask[] {
       handler: createUpdateClustersHandler,
     },
     {
-      name: 'prune-graph',
-      description: 'Remove dead edges',
-      schedule: `0 ${pruneHour} * * *`,
-      requiresApiKey: false,
-      handler: createPruneGraphHandler,
-    },
-    {
       name: 'cleanup-vectors',
-      description: 'Remove expired orphaned vectors and chunks (TTL-based)',
+      description: 'Remove expired vectors and chunks (TTL-based)',
       schedule: `${cleanupMinute} ${cleanupHour} * * *`,
       requiresApiKey: false,
       handler: createCleanupVectorsHandler,
@@ -426,14 +417,11 @@ const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
  * Intended for session-start hook to cover cases where scheduled cron
  * times were missed (e.g. laptop asleep overnight).
  *
- * Non-blocking — fires and forgets. Prune runs first, then recluster.
+ * Non-blocking — fires and forgets.
  */
 export function runStaleMaintenanceTasks(): void {
   const staleTasks: string[] = [];
 
-  if (isTaskStale('prune-graph', TWENTY_FOUR_HOURS)) {
-    staleTasks.push('prune-graph');
-  }
   if (isTaskStale('update-clusters', TWENTY_FOUR_HOURS)) {
     staleTasks.push('update-clusters');
   }
@@ -447,7 +435,9 @@ export function runStaleMaintenanceTasks(): void {
       try {
         await runTask(name);
       } catch (err) {
-        log.error(`Background ${name} failed`, { error: err instanceof Error ? err.message : String(err) });
+        log.error(`Background ${name} failed`, {
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   })();

@@ -2,6 +2,8 @@
 
 This document explains Causantic's use of vector clocks for temporal ordering.
 
+> **Historical Document**: Vector clocks were removed in v0.3.0. Edge decay is now hop-based (traversal depth / turn count difference). The D-T-D semantics, sub-agent edge types (brief/debrief), and causal graph structure remain — only the clock-based hop counting was eliminated. See the [design decision log](../decisions.md) for context on this change.
+
 ## The Problem with Wall-Clock Time
 
 Wall-clock time is misleading for memory systems:
@@ -147,3 +149,7 @@ Forward (predictive):
 Hop-based decay improves retrieval accuracy by 35% (backward) and 271% (forward) compared to exponential time-based decay.
 
 See [../experiments/decay-curves.md](../experiments/decay-curves.md) for benchmark data.
+
+## What Replaced This
+
+In v0.3.0, both vector clocks and hop-based decay were removed entirely. The chain walker (`src/retrieval/chain-walker.ts`) follows sequential linked-list edges from seed chunks, scoring each hop by direct cosine similarity against the query embedding. Traversal depth is bounded by `maxChainDepth` (default: 50) rather than decay curves. No clocks, no decay functions — just structural edge following with independent similarity scoring at each step.

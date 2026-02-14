@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getAllEdges, getOutgoingEdges, getIncomingEdges } from '../../storage/edge-store.js';
-import { getChunksByIds, getChunkIdsByProject, getAllChunks } from '../../storage/chunk-store.js';
-import { getAllClusters, getClusterChunkIds, getChunkClusterAssignments } from '../../storage/cluster-store.js';
+import { getChunksByIds, getChunkIdsByProject } from '../../storage/chunk-store.js';
+import { getAllClusters, getClusterChunkIds } from '../../storage/cluster-store.js';
 
 const router = Router();
 
@@ -112,7 +112,10 @@ router.get('/neighborhood', (req, res) => {
 
   // BFS from seed node
   const visited = new Set<string>();
-  const edgeSet = new Map<string, { source: string; target: string; type: string; weight: number; referenceType: string | null }>();
+  const edgeSet = new Map<
+    string,
+    { source: string; target: string; type: string; weight: number; referenceType: string | null }
+  >();
   let frontier = [chunkId];
   visited.add(chunkId);
 
@@ -124,8 +127,7 @@ router.get('/neighborhood', (req, res) => {
       const incoming = getIncomingEdges(nodeId);
 
       for (const edge of [...outgoing, ...incoming]) {
-        const neighbor =
-          edge.sourceChunkId === nodeId ? edge.targetChunkId : edge.sourceChunkId;
+        const neighbor = edge.sourceChunkId === nodeId ? edge.targetChunkId : edge.sourceChunkId;
 
         edgeSet.set(edge.id, {
           source: edge.sourceChunkId,

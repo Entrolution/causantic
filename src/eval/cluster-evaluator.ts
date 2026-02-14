@@ -67,9 +67,7 @@ export function clusterEmbeddings(
  * Get cluster membership for inspection.
  * Returns a map from cluster label to list of point indices.
  */
-export function getClusterMembership(
-  labels: number[],
-): Map<number, number[]> {
+export function getClusterMembership(labels: number[]): Map<number, number[]> {
   const membership = new Map<number, number[]>();
   for (let i = 0; i < labels.length; i++) {
     const label = labels[i];

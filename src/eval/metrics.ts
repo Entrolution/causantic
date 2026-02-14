@@ -16,20 +16,12 @@ export interface ScoredPair {
 /**
  * Score all labeled pairs by angular distance between their embeddings.
  */
-export function scorePairs(
-  pairs: LabeledPair[],
-  embeddings: Map<string, number[]>,
-): ScoredPair[] {
+export function scorePairs(pairs: LabeledPair[], embeddings: Map<string, number[]>): ScoredPair[] {
   return pairs
-    .filter(
-      (p) => embeddings.has(p.chunkIdA) && embeddings.has(p.chunkIdB),
-    )
+    .filter((p) => embeddings.has(p.chunkIdA) && embeddings.has(p.chunkIdB))
     .map((pair) => ({
       pair,
-      distance: angularDistance(
-        embeddings.get(pair.chunkIdA)!,
-        embeddings.get(pair.chunkIdB)!,
-      ),
+      distance: angularDistance(embeddings.get(pair.chunkIdA)!, embeddings.get(pair.chunkIdB)!),
     }));
 }
 
@@ -81,10 +73,7 @@ export function rocAuc(scoredPairs: ScoredPair[]): number {
  *
  * Returns mean silhouette across all clustered points. Range [-1, 1].
  */
-export function silhouetteScore(
-  embeddings: number[][],
-  labels: number[],
-): number {
+export function silhouetteScore(embeddings: number[][], labels: number[]): number {
   const n = embeddings.length;
   if (n < 2) return 0;
 
@@ -136,8 +125,7 @@ export function silhouetteScore(
       if (meanDist < bi) bi = meanDist;
     }
 
-    const si =
-      Math.max(ai, bi) === 0 ? 0 : (bi - ai) / Math.max(ai, bi);
+    const si = Math.max(ai, bi) === 0 ? 0 : (bi - ai) / Math.max(ai, bi);
     totalSilhouette += si;
   }
 

@@ -100,7 +100,11 @@ function format(entry: LogEntry): string {
 /**
  * Write a log entry.
  */
-function log(level: Exclude<LogLevel, 'silent'>, msg: string, meta?: Record<string, unknown>): void {
+function log(
+  level: Exclude<LogLevel, 'silent'>,
+  msg: string,
+  meta?: Record<string, unknown>,
+): void {
   if (!shouldLog(level)) return;
 
   const entry: LogEntry = {

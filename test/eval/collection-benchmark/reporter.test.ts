@@ -6,7 +6,9 @@ import { describe, it, expect } from 'vitest';
 import { generateMarkdownReport } from '../../../src/eval/collection-benchmark/reporter.js';
 import type { CollectionBenchmarkResult } from '../../../src/eval/collection-benchmark/types.js';
 
-function makeMinimalResult(overrides: Partial<CollectionBenchmarkResult> = {}): CollectionBenchmarkResult {
+function makeMinimalResult(
+  overrides: Partial<CollectionBenchmarkResult> = {},
+): CollectionBenchmarkResult {
   return {
     timestamp: '2025-01-15T10:30:00Z',
     profile: 'standard',
@@ -21,17 +23,39 @@ function makeMinimalResult(overrides: Partial<CollectionBenchmarkResult> = {}): 
       orphanChunkPercentage: 0.042,
       temporalSpan: { earliest: '2024-08-15T00:00:00Z', latest: '2025-01-15T00:00:00Z' },
       edgeTypeDistribution: [
-        { type: 'file-path', count: 2847, percentage: 0.338 },
-        { type: 'code-entity', count: 1923, percentage: 0.229 },
-        { type: 'adjacent', count: 1560, percentage: 0.185 },
+        { type: 'within-chain', count: 2847, percentage: 0.338 },
+        { type: 'cross-session', count: 1923, percentage: 0.229 },
+        { type: 'brief', count: 1560, percentage: 0.185 },
       ],
       sessionSizeStats: { min: 1, max: 45, mean: 20, median: 18 },
       perProject: [
-        { slug: 'my-app', chunkCount: 1842, edgeCount: 5891, clusterCount: 18, orphanPercentage: 0.031 },
-        { slug: 'api-server', chunkCount: 724, edgeCount: 1921, clusterCount: 8, orphanPercentage: 0.058 },
-        { slug: 'shared-lib', chunkCount: 281, edgeCount: 600, clusterCount: 4, orphanPercentage: 0.071 },
+        {
+          slug: 'my-app',
+          chunkCount: 1842,
+          edgeCount: 5891,
+          clusterCount: 18,
+          orphanPercentage: 0.031,
+        },
+        {
+          slug: 'api-server',
+          chunkCount: 724,
+          edgeCount: 1921,
+          clusterCount: 8,
+          orphanPercentage: 0.058,
+        },
+        {
+          slug: 'shared-lib',
+          chunkCount: 281,
+          edgeCount: 600,
+          clusterCount: 4,
+          orphanPercentage: 0.071,
+        },
       ],
-      clusterQuality: { intraClusterSimilarity: 0.82, interClusterSeparation: 0.45, coherenceScore: 0.65 },
+      clusterQuality: {
+        intraClusterSimilarity: 0.82,
+        interClusterSeparation: 0.45,
+        coherenceScore: 0.65,
+      },
     },
     overallScore: 78,
     highlights: [
@@ -86,8 +110,8 @@ describe('generateMarkdownReport', () => {
     const md = generateMarkdownReport(result);
 
     expect(md).toContain('### Edge Type Distribution');
-    expect(md).toContain('| file-path |');
-    expect(md).toContain('| code-entity |');
+    expect(md).toContain('| within-chain |');
+    expect(md).toContain('| cross-session |');
   });
 
   it('should include cluster quality when available', () => {
@@ -119,39 +143,27 @@ describe('generateMarkdownReport', () => {
     expect(md).toContain('| Token Efficiency | 78% |');
   });
 
-  it('should include graph value section when available', () => {
+  it('should include chain quality section when available', () => {
     const result = makeMinimalResult({
-      graphValue: {
-        sourceAttribution: {
-          vectorPercentage: 0.45,
-          keywordPercentage: 0.20,
-          clusterPercentage: 0.15,
-          graphPercentage: 0.20,
-          augmentationRatio: 2.3,
-        },
-        fullRecallAt10: 0.82,
-        vectorOnlyRecallAt10: 0.61,
-        uniqueGraphFinds: 42,
-        graphBoostedCount: 5,
-        lift: 0.34,
-        edgeTypeEffectiveness: [
-          { type: 'file-path', chunksSurfaced: 847, recallContribution: 0.38 },
-        ],
+      chainQuality: {
+        meanChainLength: 4.2,
+        meanScorePerToken: 0.015,
+        chainCoverage: 0.65,
+        fallbackRate: 0.35,
       },
     });
     const md = generateMarkdownReport(result);
 
-    expect(md).toContain('## Graph Value');
-    expect(md).toContain('**Augmentation Ratio:** 2.3x');
-    expect(md).toContain('**Graph-Boosted Chunks:** 5');
-    expect(md).toContain('### Edge Type Effectiveness');
+    expect(md).toContain('## Chain Quality');
+    expect(md).toContain('4.2 chunks');
+    expect(md).toContain('65%');
   });
 
   it('should include latency section when available', () => {
     const result = makeMinimalResult({
       latency: {
         recall: { p50: 23, p95: 45, p99: 89 },
-        explain: { p50: 31, p95: 52, p99: 95 },
+        search: { p50: 31, p95: 52, p99: 95 },
         predict: { p50: 28, p95: 48, p99: 91 },
         reconstruct: { p50: 12, p95: 28, p99: 42 },
       },
@@ -165,7 +177,12 @@ describe('generateMarkdownReport', () => {
   it('should include skipped benchmarks when present', () => {
     const result = makeMinimalResult({
       skipped: [
-        { name: 'Cross-Session Bridging', reason: 'Skipped: need >=3 sessions', threshold: '>=3 sessions', current: '1 session' },
+        {
+          name: 'Cross-Session Bridging',
+          reason: 'Skipped: need >=3 sessions',
+          threshold: '>=3 sessions',
+          current: '1 session',
+        },
       ],
     });
     const md = generateMarkdownReport(result);
@@ -209,7 +226,13 @@ describe('generateMarkdownReport', () => {
       trend: {
         overallScoreDelta: 5,
         metricDeltas: [
-          { metric: 'Adjacent Recall@10', previous: 0.75, current: 0.82, delta: 0.07, improved: true },
+          {
+            metric: 'Adjacent Recall@10',
+            previous: 0.75,
+            current: 0.82,
+            delta: 0.07,
+            improved: true,
+          },
         ],
         summary: 'Score improved from 73 to 78 (+5).',
       },
@@ -224,7 +247,13 @@ describe('generateMarkdownReport', () => {
   it('should not include per-project breakdown for single project', () => {
     const result = makeMinimalResult();
     result.collectionStats.perProject = [
-      { slug: 'only-project', chunkCount: 100, edgeCount: 200, clusterCount: 5, orphanPercentage: 0.05 },
+      {
+        slug: 'only-project',
+        chunkCount: 100,
+        edgeCount: 200,
+        clusterCount: 5,
+        orphanPercentage: 0.05,
+      },
     ];
     const md = generateMarkdownReport(result);
 

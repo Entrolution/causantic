@@ -2,15 +2,11 @@
  * Debug forward edge traversal
  */
 import { vectorStore } from '../src/storage/vector-store.js';
-import { getChunkById } from '../src/storage/chunk-store.js';
 import { getOutgoingEdges, getWeightedEdges } from '../src/storage/edge-store.js';
 import { Embedder } from '../src/models/embedder.js';
 import { getModel } from '../src/models/model-registry.js';
-import { getConfig } from '../src/config/memory-config.js';
 
 async function debug(query: string) {
-  const config = getConfig();
-
   // Embed query
   const embedder = new Embedder();
   await embedder.load(getModel('jina-small'));
@@ -29,7 +25,7 @@ async function debug(query: string) {
 
   for (const vr of vectorResults.slice(0, 5)) {
     const forwardEdges = getOutgoingEdges(vr.id, 'forward');
-    const weightedForward = getWeightedEdges(vr.id, Date.now(), config.forwardDecay, 'forward');
+    const weightedForward = getWeightedEdges(vr.id, 0, 'forward');
 
     console.log(`Chunk: ${vr.id.slice(0, 50)}...`);
     console.log(`  Raw forward edges: ${forwardEdges.length}`);

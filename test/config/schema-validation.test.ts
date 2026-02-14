@@ -17,7 +17,6 @@ const schema = JSON.parse(readFileSync(schemaPath, 'utf-8'));
 describe('config.schema.json structure', () => {
   it('has all top-level sections', () => {
     const expectedSections = [
-      'decay',
       'clustering',
       'traversal',
       'tokens',
@@ -40,7 +39,7 @@ describe('config.schema.json structure', () => {
   });
 
   it('all top-level sections have type and description fields', () => {
-    for (const [sectionName, sectionDef] of Object.entries(schema.properties) as [string, any][]) {
+    for (const [_sectionName, sectionDef] of Object.entries(schema.properties) as [string, any][]) {
       expect(sectionDef.type).toBeDefined();
       expect(sectionDef.type).toBe('object');
       expect(sectionDef.description).toBeDefined();
@@ -57,14 +56,26 @@ describe('config.schema.json structure', () => {
       for (const [propName, propDef] of Object.entries(sectionDef.properties) as [string, any][]) {
         // Some properties are objects with nested properties (e.g., decay.backward)
         if (propDef.type === 'object' && propDef.properties) {
-          for (const [nestedName, nestedDef] of Object.entries(propDef.properties) as [string, any][]) {
-            expect(nestedDef.type, `${sectionName}.${propName}.${nestedName} should have type`).toBeDefined();
-            expect(nestedDef.description, `${sectionName}.${propName}.${nestedName} should have description`).toBeDefined();
+          for (const [nestedName, nestedDef] of Object.entries(propDef.properties) as [
+            string,
+            any,
+          ][]) {
+            expect(
+              nestedDef.type,
+              `${sectionName}.${propName}.${nestedName} should have type`,
+            ).toBeDefined();
+            expect(
+              nestedDef.description,
+              `${sectionName}.${propName}.${nestedName} should have description`,
+            ).toBeDefined();
             expect(nestedDef.description).toBeTypeOf('string');
           }
         } else {
           expect(propDef.type, `${sectionName}.${propName} should have type`).toBeDefined();
-          expect(propDef.description, `${sectionName}.${propName} should have description`).toBeDefined();
+          expect(
+            propDef.description,
+            `${sectionName}.${propName} should have description`,
+          ).toBeDefined();
           expect(propDef.description).toBeTypeOf('string');
         }
       }
@@ -76,7 +87,7 @@ describe('schema defaults match DEFAULT_CONFIG', () => {
   it('clustering.threshold matches DEFAULT_CONFIG.clusterThreshold', () => {
     const schemaDefault = schema.properties.clustering.properties.threshold.default;
     expect(schemaDefault).toBe(DEFAULT_CONFIG.clusterThreshold);
-    expect(schemaDefault).toBe(0.10);
+    expect(schemaDefault).toBe(0.1);
   });
 
   it('clustering.minClusterSize matches DEFAULT_CONFIG.minClusterSize', () => {
@@ -85,16 +96,10 @@ describe('schema defaults match DEFAULT_CONFIG', () => {
     expect(schemaDefault).toBe(4);
   });
 
-  it('traversal.maxDepth matches DEFAULT_CONFIG.maxTraversalDepth', () => {
+  it('traversal.maxDepth matches DEFAULT_CONFIG.maxChainDepth', () => {
     const schemaDefault = schema.properties.traversal.properties.maxDepth.default;
-    expect(schemaDefault).toBe(DEFAULT_CONFIG.maxTraversalDepth);
-    expect(schemaDefault).toBe(15);
-  });
-
-  it('traversal.minWeight matches DEFAULT_CONFIG.minSignalThreshold', () => {
-    const schemaDefault = schema.properties.traversal.properties.minWeight.default;
-    expect(schemaDefault).toBe(DEFAULT_CONFIG.minSignalThreshold);
-    expect(schemaDefault).toBe(0.01);
+    expect(schemaDefault).toBe(DEFAULT_CONFIG.maxChainDepth);
+    expect(schemaDefault).toBe(50);
   });
 
   it('tokens.claudeMdBudget matches DEFAULT_CONFIG.claudeMdBudgetTokens', () => {
@@ -106,7 +111,7 @@ describe('schema defaults match DEFAULT_CONFIG', () => {
   it('tokens.mcpMaxResponse matches DEFAULT_CONFIG.mcpMaxResponseTokens', () => {
     const schemaDefault = schema.properties.tokens.properties.mcpMaxResponse.default;
     expect(schemaDefault).toBe(DEFAULT_CONFIG.mcpMaxResponseTokens);
-    expect(schemaDefault).toBe(2000);
+    expect(schemaDefault).toBe(20000);
   });
 
   it('storage.dbPath matches DEFAULT_CONFIG.dbPath', () => {
@@ -125,18 +130,6 @@ describe('schema defaults match DEFAULT_CONFIG', () => {
     const schemaDefault = schema.properties.llm.properties.refreshRateLimitPerMin.default;
     expect(schemaDefault).toBe(DEFAULT_CONFIG.refreshRateLimitPerMin);
     expect(schemaDefault).toBe(30);
-  });
-
-  it('traversal.directHitBoost matches DEFAULT_CONFIG.directHitBoost', () => {
-    const schemaDefault = schema.properties.traversal.properties.directHitBoost.default;
-    expect(schemaDefault).toBe(DEFAULT_CONFIG.directHitBoost);
-    expect(schemaDefault).toBe(1.5);
-  });
-
-  it('traversal.graphAgreementBoost matches DEFAULT_CONFIG.graphAgreementBoost', () => {
-    const schemaDefault = schema.properties.traversal.properties.graphAgreementBoost.default;
-    expect(schemaDefault).toBe(DEFAULT_CONFIG.graphAgreementBoost);
-    expect(schemaDefault).toBe(2.0);
   });
 });
 

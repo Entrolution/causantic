@@ -4,8 +4,18 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type Database from 'better-sqlite3-multiple-ciphers';
-import { createTestDb, setupTestDb, teardownTestDb, createSampleChunk, insertTestChunk, insertTestEdge } from '../../storage/test-utils.js';
-import { generateSamples, checkThresholds } from '../../../src/eval/collection-benchmark/sampler.js';
+import {
+  createTestDb,
+  setupTestDb,
+  teardownTestDb,
+  createSampleChunk,
+  insertTestChunk,
+  insertTestEdge,
+} from '../../storage/test-utils.js';
+import {
+  generateSamples,
+  checkThresholds,
+} from '../../../src/eval/collection-benchmark/sampler.js';
 import { getAllChunks } from '../../../src/storage/chunk-store.js';
 import { getAllEdges } from '../../../src/storage/edge-store.js';
 
@@ -35,13 +45,16 @@ describe('checkThresholds', () => {
     // Create 2 sessions with 3 chunks each
     for (let s = 0; s < 2; s++) {
       for (let c = 0; c < 3; c++) {
-        insertTestChunk(db, createSampleChunk({
-          id: `chunk-s${s}-c${c}`,
-          sessionId: `session-${s}`,
-          sessionSlug: 'project-a',
-          startTime: `2024-01-01T0${s}:0${c}:00Z`,
-          endTime: `2024-01-01T0${s}:0${c}:30Z`,
-        }));
+        insertTestChunk(
+          db,
+          createSampleChunk({
+            id: `chunk-s${s}-c${c}`,
+            sessionId: `session-${s}`,
+            sessionSlug: 'project-a',
+            startTime: `2024-01-01T0${s}:0${c}:00Z`,
+            endTime: `2024-01-01T0${s}:0${c}:30Z`,
+          }),
+        );
       }
     }
 
@@ -54,13 +67,16 @@ describe('checkThresholds', () => {
 
   it('should disable adjacent recall with only 1 session', () => {
     for (let c = 0; c < 5; c++) {
-      insertTestChunk(db, createSampleChunk({
-        id: `chunk-c${c}`,
-        sessionId: 'session-0',
-        sessionSlug: 'project-a',
-        startTime: `2024-01-01T00:0${c}:00Z`,
-        endTime: `2024-01-01T00:0${c}:30Z`,
-      }));
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: `chunk-c${c}`,
+          sessionId: 'session-0',
+          sessionSlug: 'project-a',
+          startTime: `2024-01-01T00:0${c}:00Z`,
+          endTime: `2024-01-01T00:0${c}:30Z`,
+        }),
+      );
     }
 
     const chunks = getAllChunks();
@@ -74,13 +90,16 @@ describe('checkThresholds', () => {
   it('should enable precision@K with 2+ projects with 10+ chunks', () => {
     for (const proj of ['project-a', 'project-b']) {
       for (let c = 0; c < 10; c++) {
-        insertTestChunk(db, createSampleChunk({
-          id: `chunk-${proj}-c${c}`,
-          sessionId: `session-${proj}`,
-          sessionSlug: proj,
-          startTime: `2024-01-01T00:0${c}:00Z`,
-          endTime: `2024-01-01T00:0${c}:30Z`,
-        }));
+        insertTestChunk(
+          db,
+          createSampleChunk({
+            id: `chunk-${proj}-c${c}`,
+            sessionId: `session-${proj}`,
+            sessionSlug: proj,
+            startTime: `2024-01-01T00:0${c}:00Z`,
+            endTime: `2024-01-01T00:0${c}:30Z`,
+          }),
+        );
       }
     }
 
@@ -97,13 +116,16 @@ describe('generateSamples', () => {
     // Create enough data
     for (let s = 0; s < 3; s++) {
       for (let c = 0; c < 5; c++) {
-        insertTestChunk(db, createSampleChunk({
-          id: `chunk-s${s}-c${c}`,
-          sessionId: `session-${s}`,
-          sessionSlug: 'project-a',
-          startTime: `2024-01-01T0${s}:0${c}:00Z`,
-          endTime: `2024-01-01T0${s}:0${c}:30Z`,
-        }));
+        insertTestChunk(
+          db,
+          createSampleChunk({
+            id: `chunk-s${s}-c${c}`,
+            sessionId: `session-${s}`,
+            sessionSlug: 'project-a',
+            startTime: `2024-01-01T0${s}:0${c}:00Z`,
+            endTime: `2024-01-01T0${s}:0${c}:30Z`,
+          }),
+        );
       }
     }
 
@@ -117,13 +139,16 @@ describe('generateSamples', () => {
   it('should produce different results with different seeds', () => {
     for (let s = 0; s < 3; s++) {
       for (let c = 0; c < 5; c++) {
-        insertTestChunk(db, createSampleChunk({
-          id: `chunk-s${s}-c${c}`,
-          sessionId: `session-${s}`,
-          sessionSlug: 'project-a',
-          startTime: `2024-01-01T0${s}:0${c}:00Z`,
-          endTime: `2024-01-01T0${s}:0${c}:30Z`,
-        }));
+        insertTestChunk(
+          db,
+          createSampleChunk({
+            id: `chunk-s${s}-c${c}`,
+            sessionId: `session-${s}`,
+            sessionSlug: 'project-a',
+            startTime: `2024-01-01T0${s}:0${c}:00Z`,
+            endTime: `2024-01-01T0${s}:0${c}:30Z`,
+          }),
+        );
       }
     }
 
@@ -145,11 +170,14 @@ describe('generateSamples', () => {
   it('should respect projectFilter', () => {
     for (const proj of ['project-a', 'project-b']) {
       for (let c = 0; c < 5; c++) {
-        insertTestChunk(db, createSampleChunk({
-          id: `chunk-${proj}-c${c}`,
-          sessionId: `session-${proj}`,
-          sessionSlug: proj,
-        }));
+        insertTestChunk(
+          db,
+          createSampleChunk({
+            id: `chunk-${proj}-c${c}`,
+            sessionId: `session-${proj}`,
+            sessionSlug: proj,
+          }),
+        );
       }
     }
 
@@ -157,7 +185,9 @@ describe('generateSamples', () => {
 
     // All query chunks should be from project-a
     const chunks = getAllChunks();
-    const projectAIds = new Set(chunks.filter(c => c.sessionSlug === 'project-a').map(c => c.id));
+    const projectAIds = new Set(
+      chunks.filter((c) => c.sessionSlug === 'project-a').map((c) => c.id),
+    );
     for (const id of sample.queryChunkIds) {
       expect(projectAIds.has(id)).toBe(true);
     }
@@ -167,13 +197,16 @@ describe('generateSamples', () => {
     // Create 3 sessions in same project
     for (let s = 0; s < 3; s++) {
       for (let c = 0; c < 4; c++) {
-        insertTestChunk(db, createSampleChunk({
-          id: `chunk-s${s}-c${c}`,
-          sessionId: `session-${s}`,
-          sessionSlug: 'project-a',
-          startTime: `2024-01-0${s + 1}T0${c}:00:00Z`,
-          endTime: `2024-01-0${s + 1}T0${c}:30:00Z`,
-        }));
+        insertTestChunk(
+          db,
+          createSampleChunk({
+            id: `chunk-s${s}-c${c}`,
+            sessionId: `session-${s}`,
+            sessionSlug: 'project-a',
+            startTime: `2024-01-0${s + 1}T0${c}:00:00Z`,
+            endTime: `2024-01-0${s + 1}T0${c}:30:00Z`,
+          }),
+        );
       }
     }
 
@@ -183,7 +216,7 @@ describe('generateSamples', () => {
       sourceChunkId: 'chunk-s0-c0',
       targetChunkId: 'chunk-s1-c0',
       edgeType: 'backward',
-      referenceType: 'file-path',
+      referenceType: 'within-chain',
     });
 
     const sample = generateSamples({ sampleSize: 10, seed: 42 });
@@ -192,11 +225,14 @@ describe('generateSamples', () => {
 
   it('should limit samples to sampleSize', () => {
     for (let c = 0; c < 100; c++) {
-      insertTestChunk(db, createSampleChunk({
-        id: `chunk-c${c}`,
-        sessionId: `session-0`,
-        sessionSlug: 'project-a',
-      }));
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: `chunk-c${c}`,
+          sessionId: `session-0`,
+          sessionSlug: 'project-a',
+        }),
+      );
     }
 
     const sample = generateSamples({ sampleSize: 5, seed: 42 });

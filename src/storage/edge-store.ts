@@ -1,19 +1,11 @@
 /**
- * CRUD operations for edges with decay weight calculation.
+ * CRUD operations for edges.
+ * Edges are forward-only (source=earlier, target=later).
+ * Direction is inferred at query time via getForwardEdges/getBackwardEdges.
  */
 
 import { getDb, generateId } from './db.js';
-import type { DecayModelConfig } from '../core/decay-types.js';
-import type { StoredEdge, EdgeInput, WeightedEdge, EdgeType } from './types.js';
-import type { VectorClock } from '../temporal/vector-clock.js';
-import { serialize as serializeClock, deserialize as deserializeClock, merge as mergeClock } from '../temporal/vector-clock.js';
-import {
-  calculateDecayWeight,
-  calculateDecayWeightWithFallback,
-  calculateDirectionalDecayWeight,
-  applyLinkBoost,
-  type EdgeDirection,
-} from './decay.js';
+import type { StoredEdge, EdgeInput, EdgeType } from './types.js';
 
 /**
  * Create a single edge.
@@ -26,8 +18,8 @@ export function createEdge(edge: EdgeInput): string {
   const stmt = db.prepare(`
     INSERT INTO edges (
       id, source_chunk_id, target_chunk_id, edge_type,
-      reference_type, initial_weight, created_at, vector_clock, link_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      reference_type, initial_weight, created_at, link_count
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -38,8 +30,7 @@ export function createEdge(edge: EdgeInput): string {
     edge.referenceType ?? null,
     edge.initialWeight,
     createdAt,
-    edge.vectorClock ? serializeClock(edge.vectorClock) : null,
-    1
+    1,
   );
 
   return id;
@@ -56,8 +47,8 @@ export function createEdges(edges: EdgeInput[]): string[] {
   const stmt = db.prepare(`
     INSERT INTO edges (
       id, source_chunk_id, target_chunk_id, edge_type,
-      reference_type, initial_weight, created_at, vector_clock, link_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      reference_type, initial_weight, created_at, link_count
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertMany = db.transaction((edges: EdgeInput[]) => {
@@ -71,79 +62,13 @@ export function createEdges(edges: EdgeInput[]): string[] {
         edge.referenceType ?? null,
         edge.initialWeight,
         createdAt,
-        edge.vectorClock ? serializeClock(edge.vectorClock) : null,
-        1
+        1,
       );
       ids.push(id);
     }
   });
 
   insertMany(edges);
-  return ids;
-}
-
-/**
- * Create or boost an edge.
- * If an edge with the same source, target, type, and reference already exists,
- * boost it instead of creating a duplicate.
- */
-export function createOrBoostEdge(edge: EdgeInput): string {
-  const db = getDb();
-
-  // Check for existing edge
-  const existing = db.prepare(`
-    SELECT id, initial_weight, link_count, vector_clock FROM edges
-    WHERE source_chunk_id = ? AND target_chunk_id = ?
-      AND edge_type = ? AND (reference_type = ? OR (reference_type IS NULL AND ? IS NULL))
-  `).get(
-    edge.sourceChunkId,
-    edge.targetChunkId,
-    edge.edgeType,
-    edge.referenceType ?? null,
-    edge.referenceType ?? null
-  ) as { id: string; initial_weight: number; link_count: number; vector_clock: string | null } | undefined;
-
-  if (existing) {
-    // Boost: increment link_count, update clock to more recent, add diminishing weight
-    const newClock = edge.vectorClock
-      ? mergeClock(deserializeClock(existing.vector_clock), edge.vectorClock)
-      : existing.vector_clock;
-
-    const boostWeight = edge.initialWeight * 0.1; // Diminishing boost per additional link
-
-    db.prepare(`
-      UPDATE edges SET
-        link_count = link_count + 1,
-        vector_clock = ?,
-        initial_weight = initial_weight + ?
-      WHERE id = ?
-    `).run(
-      newClock ? (typeof newClock === 'string' ? newClock : serializeClock(newClock)) : null,
-      boostWeight,
-      existing.id
-    );
-
-    return existing.id;
-  }
-
-  // Create new edge
-  return createEdge(edge);
-}
-
-/**
- * Create or boost multiple edges in a transaction.
- */
-export function createOrBoostEdges(edges: EdgeInput[]): string[] {
-  const db = getDb();
-  const ids: string[] = [];
-
-  const transaction = db.transaction((edges: EdgeInput[]) => {
-    for (const edge of edges) {
-      ids.push(createOrBoostEdge(edge));
-    }
-  });
-
-  transaction(edges);
   return ids;
 }
 
@@ -159,6 +84,31 @@ export function getEdgeById(id: string): StoredEdge | null {
   }
 
   return rowToEdge(row);
+}
+
+/**
+ * Get forward edges from a chunk (chunks this chunk points to, i.e. later chunks).
+ * Uses composite index idx_edges_source_type.
+ */
+export function getForwardEdges(chunkId: string): StoredEdge[] {
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT * FROM edges WHERE source_chunk_id = ? AND edge_type = 'forward'")
+    .all(chunkId) as DbEdgeRow[];
+  return rows.map(rowToEdge);
+}
+
+/**
+ * Get backward edges to a chunk (chunks that point to this chunk, i.e. earlier chunks).
+ * Backward traversal = follow edges where target_chunk_id = chunkId, then go to source.
+ * Uses composite index idx_edges_target_type.
+ */
+export function getBackwardEdges(chunkId: string): StoredEdge[] {
+  const db = getDb();
+  const rows = db
+    .prepare("SELECT * FROM edges WHERE target_chunk_id = ? AND edge_type = 'forward'")
+    .all(chunkId) as DbEdgeRow[];
+  return rows.map(rowToEdge);
 }
 
 /**
@@ -198,102 +148,6 @@ export function getIncomingEdges(chunkId: string, edgeType?: EdgeType): StoredEd
 }
 
 /**
- * Get weighted edges with decay applied at query time.
- * Filters out edges with weight <= 0 (dead edges).
- * Uses direction-specific decay curves:
- * - Backward: Linear (dies@10) for 4-20 hop range
- * - Forward: Delayed linear (5h, dies@20) for 1-20 hop range
- *
- * @param chunkId - Source chunk ID
- * @param queryTime - Query time in milliseconds (for time-based decay fallback)
- * @param decayConfig - Time-based decay configuration (for fallback)
- * @param edgeType - Optional edge type filter (also determines decay curve)
- * @param referenceClock - Current reference clock for vector decay (optional)
- */
-export function getWeightedEdges(
-  chunkId: string,
-  queryTime: number,
-  decayConfig: DecayModelConfig,
-  edgeType?: EdgeType,
-  referenceClock?: VectorClock
-): WeightedEdge[] {
-  const edges = getOutgoingEdges(chunkId, edgeType);
-  const result: WeightedEdge[] = [];
-  const deadEdgeIds: string[] = [];
-
-  const useVectorClock = referenceClock && Object.keys(referenceClock).length > 0;
-
-  for (const edge of edges) {
-    let weight: number;
-
-    // Determine decay direction from edge type
-    const direction: EdgeDirection = edge.edgeType === 'forward' ? 'forward' : 'backward';
-
-    if (useVectorClock && edge.vectorClock) {
-      // Use direction-specific vector clock decay
-      weight = edge.initialWeight * calculateDecayWeightWithFallback(
-        edge.vectorClock,
-        referenceClock!,
-        direction,
-        new Date(edge.createdAt).getTime(),
-        queryTime,
-        decayConfig
-      );
-    } else {
-      // Fall back to time-based decay
-      const createdAt = new Date(edge.createdAt).getTime();
-      const age = queryTime - createdAt;
-      const decayedWeight = calculateDecayWeight(decayConfig, age);
-      weight = edge.initialWeight * decayedWeight;
-    }
-
-    // Apply link boost for edges created multiple times
-    if (edge.linkCount > 1) {
-      weight = applyLinkBoost(weight, edge.linkCount);
-    }
-
-    if (weight <= 0) {
-      deadEdgeIds.push(edge.id);
-      continue;
-    }
-
-    result.push({
-      ...edge,
-      weight,
-    });
-  }
-
-  // Queue dead edges for lazy pruning (import at runtime to avoid circular deps)
-  if (deadEdgeIds.length > 0) {
-    import('./pruner.js').then(({ pruner }) => {
-      for (const id of deadEdgeIds) {
-        pruner.queueEdgePrune(id);
-      }
-    });
-  }
-
-  return result;
-}
-
-/**
- * Check if a chunk has any edges (for orphan detection).
- */
-export function hasAnyEdges(chunkId: string): boolean {
-  const db = getDb();
-  const row = db
-    .prepare(
-      `
-    SELECT 1 FROM edges
-    WHERE source_chunk_id = ? OR target_chunk_id = ?
-    LIMIT 1
-  `
-    )
-    .get(chunkId, chunkId) as { 1: number } | undefined;
-
-  return row !== undefined;
-}
-
-/**
  * Delete an edge by ID.
  */
 export function deleteEdge(id: string): boolean {
@@ -328,6 +182,22 @@ export function deleteEdgesForChunk(chunkId: string): number {
 }
 
 /**
+ * Delete all edges for a session (identified by chunk IDs).
+ */
+export function deleteEdgesForSession(chunkIds: string[]): number {
+  if (chunkIds.length === 0) return 0;
+
+  const db = getDb();
+  const placeholders = chunkIds.map(() => '?').join(',');
+  const result = db
+    .prepare(
+      `DELETE FROM edges WHERE source_chunk_id IN (${placeholders}) OR target_chunk_id IN (${placeholders})`,
+    )
+    .run(...chunkIds, ...chunkIds);
+  return result.changes;
+}
+
+/**
  * Get edge count.
  */
 export function getEdgeCount(): number {
@@ -355,8 +225,6 @@ interface DbEdgeRow {
   reference_type: string | null;
   initial_weight: number;
   created_at: string;
-  // v2: Vector clock support
-  vector_clock: string | null;
   link_count: number | null;
 }
 
@@ -369,7 +237,6 @@ function rowToEdge(row: DbEdgeRow): StoredEdge {
     referenceType: row.reference_type as StoredEdge['referenceType'],
     initialWeight: row.initial_weight,
     createdAt: row.created_at,
-    vectorClock: row.vector_clock,
     linkCount: row.link_count ?? 1,
   };
 }

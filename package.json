@@ -1,6 +1,6 @@
 {
   "name": "causantic",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Long-term memory for Claude Code — local-first, graph-augmented, self-benchmarking",
   "type": "module",
   "private": false,
@@ -14,7 +14,6 @@
   "keywords": [
     "claude-code",
     "memory",
-    "vector-clock",
     "causal-graph",
     "semantic-search",
     "hdbscan",
@@ -49,6 +48,7 @@
     "src/dashboard/client/package-lock.json"
   ],
   "scripts": {
+    "prepublishOnly": "npm run build && npm test",
     "build": "tsc && cp src/storage/schema.sql dist/storage/ && cd src/dashboard/client && npm install --ignore-scripts && npm run build",
     "build:server": "tsc && cp src/storage/schema.sql dist/storage/",
     "build:client": "cd src/dashboard/client && npm install --ignore-scripts && npm run build",
@@ -69,7 +69,6 @@
     "debug:traversal": "tsx scripts/debug/debug-traversal.ts",
     "debug:compare": "tsx scripts/debug/compare-retrieval.ts",
     "debug:investigate": "tsx scripts/debug/investigate-traversal.ts",
-    "verify-clocks": "tsx scripts/debug/verify-clocks.ts",
     "experiments": "tsx scripts/experiments/run-experiments.ts",
     "topic-continuity": "tsx scripts/experiments/run-topic-continuity.ts",
     "edge-decay-sim": "tsx scripts/experiments/run-edge-decay-sim.ts",
@@ -77,11 +76,9 @@
     "cluster-threshold": "tsx scripts/experiments/run-cluster-threshold.ts",
     "hold-period-sweep": "tsx scripts/experiments/run-hold-period-sweep.ts",
     "noncoding-validation": "tsx scripts/experiments/run-noncoding-validation.ts",
-    "vector-decay-sweep": "tsx scripts/experiments/run-vector-decay-sweep.ts",
     "min-weight-sweep": "tsx scripts/experiments/sweep-min-weight.ts",
     "depth-sweep": "tsx scripts/experiments/sweep-depth.ts",
     "cross-project": "tsx scripts/experiments/cross-project-experiment.ts",
-    "hop-decay-shapes": "tsx src/eval/experiments/vector-decay-shapes/run-experiment.ts",
     "build-corpus": "tsx scripts/build/build-corpus.ts",
     "benchmark": "tsx scripts/build/run-benchmark.ts",
     "benchmark:hdbscan": "tsx scripts/benchmarks/hdbscan-benchmark.ts",
@@ -94,11 +91,15 @@
     "express": "^5.2.1",
     "onnxruntime-node": "^1.24.1"
   },
+  "overrides": {
+    "qs": ">=6.14.2"
+  },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.2.3",
     "@typescript-eslint/eslint-plugin": "^8.55.0",
     "@typescript-eslint/parser": "^8.55.0",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.8.1",

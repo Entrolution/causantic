@@ -38,3 +38,10 @@ test/fixtures/corpus/
 
 # Benchmark results
 benchmark-results/
+causantic-benchmark/
+
+# Pack artifacts
+*.tgz
+
+# Coverage
+coverage/

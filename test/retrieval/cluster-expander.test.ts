@@ -13,7 +13,10 @@ import {
   setupTestDb,
   teardownTestDb,
 } from '../storage/test-utils.js';
-import { expandViaClusters, type ClusterExpansionConfig } from '../../src/retrieval/cluster-expander.js';
+import {
+  expandViaClusters,
+  type ClusterExpansionConfig,
+} from '../../src/retrieval/cluster-expander.js';
 import type { RankedItem } from '../../src/retrieval/rrf.js';
 
 describe('cluster-expander', () => {
@@ -30,11 +33,26 @@ describe('cluster-expander', () => {
 
   function setupChunksAndClusters() {
     // Create chunks
-    insertTestChunk(db, createSampleChunk({ id: 'c1', content: 'authentication flow', sessionSlug: 'proj-a' }));
-    insertTestChunk(db, createSampleChunk({ id: 'c2', content: 'login handler', sessionSlug: 'proj-a' }));
-    insertTestChunk(db, createSampleChunk({ id: 'c3', content: 'oauth tokens', sessionSlug: 'proj-a' }));
-    insertTestChunk(db, createSampleChunk({ id: 'c4', content: 'database migration', sessionSlug: 'proj-a' }));
-    insertTestChunk(db, createSampleChunk({ id: 'c5', content: 'schema update', sessionSlug: 'proj-b' }));
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c1', content: 'authentication flow', sessionSlug: 'proj-a' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c2', content: 'login handler', sessionSlug: 'proj-a' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c3', content: 'oauth tokens', sessionSlug: 'proj-a' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c4', content: 'database migration', sessionSlug: 'proj-a' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c5', content: 'schema update', sessionSlug: 'proj-b' }),
+    );
 
     // Create clusters
     insertTestCluster(db, { id: 'cluster-auth', name: 'Authentication' });
@@ -57,15 +75,13 @@ describe('cluster-expander', () => {
   it('expands hits with cluster siblings', () => {
     setupChunksAndClusters();
 
-    const hits: RankedItem[] = [
-      { chunkId: 'c1', score: 0.8, source: 'vector' },
-    ];
+    const hits: RankedItem[] = [{ chunkId: 'c1', score: 0.8, source: 'vector' }];
 
     const result = expandViaClusters(hits, defaultConfig);
 
     // Should include original hit plus siblings from cluster-auth
     expect(result.length).toBeGreaterThan(1);
-    const ids = result.map(r => r.chunkId);
+    const ids = result.map((r) => r.chunkId);
     expect(ids).toContain('c1');
     expect(ids).toContain('c2'); // sibling in same cluster
     expect(ids).toContain('c3'); // sibling in same cluster
@@ -76,9 +92,7 @@ describe('cluster-expander', () => {
     // c1 is in cluster-auth, c4 is in cluster-db
     assignChunkToCluster(db, 'c1', 'cluster-db', 0.4); // c1 also in db cluster
 
-    const hits: RankedItem[] = [
-      { chunkId: 'c1', score: 0.8, source: 'vector' },
-    ];
+    const hits: RankedItem[] = [{ chunkId: 'c1', score: 0.8, source: 'vector' }];
 
     const result = expandViaClusters(hits, {
       ...defaultConfig,
@@ -86,7 +100,7 @@ describe('cluster-expander', () => {
     });
 
     // Should only expand from 1 cluster (cluster-auth, since it has lower distance for c1)
-    const clusterSiblings = result.filter(r => r.source === 'cluster');
+    const clusterSiblings = result.filter((r) => r.source === 'cluster');
     // All siblings should be from the same cluster
     expect(clusterSiblings.length).toBeGreaterThan(0);
   });
@@ -94,31 +108,27 @@ describe('cluster-expander', () => {
   it('respects maxSiblings limit', () => {
     setupChunksAndClusters();
 
-    const hits: RankedItem[] = [
-      { chunkId: 'c1', score: 0.8, source: 'vector' },
-    ];
+    const hits: RankedItem[] = [{ chunkId: 'c1', score: 0.8, source: 'vector' }];
 
     const result = expandViaClusters(hits, {
       ...defaultConfig,
       maxSiblings: 1,
     });
 
-    const clusterSiblings = result.filter(r => r.source === 'cluster');
+    const clusterSiblings = result.filter((r) => r.source === 'cluster');
     expect(clusterSiblings.length).toBeLessThanOrEqual(1);
   });
 
   it('boostFactor scales sibling scores', () => {
     setupChunksAndClusters();
 
-    const hits: RankedItem[] = [
-      { chunkId: 'c1', score: 0.8, source: 'vector' },
-    ];
+    const hits: RankedItem[] = [{ chunkId: 'c1', score: 0.8, source: 'vector' }];
 
     const result1 = expandViaClusters(hits, { ...defaultConfig, boostFactor: 0.3 });
     const result2 = expandViaClusters(hits, { ...defaultConfig, boostFactor: 0.6 });
 
-    const sib1 = result1.find(r => r.chunkId === 'c2');
-    const sib2 = result2.find(r => r.chunkId === 'c2');
+    const sib1 = result1.find((r) => r.chunkId === 'c2');
+    const sib2 = result2.find((r) => r.chunkId === 'c2');
 
     expect(sib1).toBeDefined();
     expect(sib2).toBeDefined();
@@ -137,7 +147,7 @@ describe('cluster-expander', () => {
     const result = expandViaClusters(hits, defaultConfig);
 
     // c2 is already in hits, should not appear as a sibling
-    const c2Entries = result.filter(r => r.chunkId === 'c2');
+    const c2Entries = result.filter((r) => r.chunkId === 'c2');
     expect(c2Entries.length).toBe(1);
     expect(c2Entries[0].source).toBe('keyword'); // original, not cluster
   });
@@ -146,9 +156,7 @@ describe('cluster-expander', () => {
     // Insert chunk without any cluster assignments
     insertTestChunk(db, createSampleChunk({ id: 'c-alone', content: 'standalone' }));
 
-    const hits: RankedItem[] = [
-      { chunkId: 'c-alone', score: 0.8, source: 'vector' },
-    ];
+    const hits: RankedItem[] = [{ chunkId: 'c-alone', score: 0.8, source: 'vector' }];
 
     const result = expandViaClusters(hits, defaultConfig);
 
@@ -160,13 +168,11 @@ describe('cluster-expander', () => {
   it('siblings tagged with source cluster', () => {
     setupChunksAndClusters();
 
-    const hits: RankedItem[] = [
-      { chunkId: 'c1', score: 0.8, source: 'vector' },
-    ];
+    const hits: RankedItem[] = [{ chunkId: 'c1', score: 0.8, source: 'vector' }];
 
     const result = expandViaClusters(hits, defaultConfig);
 
-    const siblings = result.filter(r => r.chunkId !== 'c1');
+    const siblings = result.filter((r) => r.chunkId !== 'c1');
     for (const sib of siblings) {
       expect(sib.source).toBe('cluster');
     }
@@ -181,9 +187,7 @@ describe('cluster-expander', () => {
     setupChunksAndClusters();
     // c4 is in cluster-db (proj-a), c5 is in cluster-db (proj-b)
 
-    const hits: RankedItem[] = [
-      { chunkId: 'c4', score: 0.8, source: 'vector' },
-    ];
+    const hits: RankedItem[] = [{ chunkId: 'c4', score: 0.8, source: 'vector' }];
 
     // Note: project filtering relies on vectorStore.getChunkProject() which uses
     // in-memory index. Since we're using a test db without populating the vector
@@ -192,6 +196,6 @@ describe('cluster-expander', () => {
     const result = expandViaClusters(hits, defaultConfig, 'proj-a');
 
     // Original hit should always be included
-    expect(result.some(r => r.chunkId === 'c4')).toBe(true);
+    expect(result.some((r) => r.chunkId === 'c4')).toBe(true);
   });
 });

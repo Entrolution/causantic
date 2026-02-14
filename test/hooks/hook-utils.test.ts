@@ -251,10 +251,7 @@ describe('hook-utils', () => {
     });
 
     it('returns true for rate limiting errors', () => {
-      const errors = [
-        new Error('rate limit exceeded'),
-        new Error('too many requests'),
-      ];
+      const errors = [new Error('rate limit exceeded'), new Error('too many requests')];
 
       for (const error of errors) {
         expect(isTransientError(error)).toBe(true);

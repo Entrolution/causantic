@@ -59,7 +59,7 @@ export async function runTruncationExperiment(
   const truncatedCount = chunks.filter((c) => c.text.length > TRUNCATION_CHARS).length;
   console.log(
     `  ${truncatedCount}/${chunks.length} chunks were truncated ` +
-    `(${((truncatedCount / chunks.length) * 100).toFixed(1)}%)`,
+      `(${((truncatedCount / chunks.length) * 100).toFixed(1)}%)`,
   );
 
   const baselineSnap = toSnapshot(baseline, chunks.length);
@@ -67,9 +67,13 @@ export async function runTruncationExperiment(
   const delta = computeDelta(baselineSnap, variantSnap);
 
   console.log(`  Baseline ROC AUC: ${baselineSnap.rocAuc.toFixed(3)}`);
-  console.log(`  Truncated ROC AUC: ${variantSnap.rocAuc.toFixed(3)} (delta: ${delta.rocAuc >= 0 ? '+' : ''}${delta.rocAuc.toFixed(3)})`);
+  console.log(
+    `  Truncated ROC AUC: ${variantSnap.rocAuc.toFixed(3)} (delta: ${delta.rocAuc >= 0 ? '+' : ''}${delta.rocAuc.toFixed(3)})`,
+  );
   console.log(`  Baseline Silhouette: ${baselineSnap.silhouetteScore.toFixed(3)}`);
-  console.log(`  Truncated Silhouette: ${variantSnap.silhouetteScore.toFixed(3)} (delta: ${delta.silhouetteScore >= 0 ? '+' : ''}${delta.silhouetteScore.toFixed(3)})`);
+  console.log(
+    `  Truncated Silhouette: ${variantSnap.silhouetteScore.toFixed(3)} (delta: ${delta.silhouetteScore >= 0 ? '+' : ''}${delta.silhouetteScore.toFixed(3)})`,
+  );
 
   return {
     name: 'truncation',

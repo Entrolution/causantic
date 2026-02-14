@@ -11,34 +11,19 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolvePath } from './memory-config.js';
+import { resolvePath, DEFAULT_CONFIG, type MemoryConfig } from './memory-config.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('config-loader');
 
 /** External config file structure (matches config.schema.json) */
 export interface ExternalConfig {
-  decay?: {
-    backward?: {
-      type?: 'linear' | 'exponential' | 'delayed-linear';
-      diesAtHops?: number;
-      holdHops?: number;
-    };
-    forward?: {
-      type?: 'linear' | 'exponential' | 'delayed-linear';
-      diesAtHops?: number;
-      holdHops?: number;
-    };
-  };
   clustering?: {
     threshold?: number;
     minClusterSize?: number;
   };
   traversal?: {
     maxDepth?: number;
-    minWeight?: number;
-    directHitBoost?: number;
-    graphAgreementBoost?: number;
   };
   tokens?: {
     claudeMdBudget?: number;
@@ -61,6 +46,8 @@ export interface ExternalConfig {
   vectors?: {
     /** TTL in days for vectors. Vectors accessed within this period are kept. Default: 90 */
     ttlDays?: number;
+    /** Maximum number of vectors to keep. Oldest by last_accessed are evicted. 0 = unlimited. Default: 0 */
+    maxCount?: number;
   };
   embedding?: {
     /** Device for embedding inference: 'auto' | 'coreml' | 'cuda' | 'cpu' | 'wasm'. Default: 'auto'. */
@@ -74,31 +61,16 @@ export interface ExternalConfig {
 
 /** Default external config values */
 const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
-  decay: {
-    backward: {
-      type: 'linear',
-      diesAtHops: 10,
-      holdHops: 0,
-    },
-    forward: {
-      type: 'delayed-linear',
-      diesAtHops: 20,
-      holdHops: 5,
-    },
-  },
   clustering: {
-    threshold: 0.10,
+    threshold: 0.1,
     minClusterSize: 4,
   },
   traversal: {
-    maxDepth: 15,  // Limits latency on sparse graphs; raise for dense edge sets
-    minWeight: 0.01,
-    directHitBoost: 1.5,
-    graphAgreementBoost: 2.0,
+    maxDepth: 50, // Safety net for chain walk depth
   },
   tokens: {
     claudeMdBudget: 500,
-    mcpMaxResponse: 2000,
+    mcpMaxResponse: 20000,
   },
   storage: {
     dbPath: '~/.causantic/memory.db',
@@ -116,6 +88,7 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   },
   vectors: {
     ttlDays: 90,
+    maxCount: 0,
   },
   embedding: {
     device: 'auto',
@@ -154,40 +127,6 @@ function loadConfigFile(path: string): ExternalConfig | null {
 function loadEnvConfig(): ExternalConfig {
   const config: ExternalConfig = {};
 
-  // Decay backward
-  if (process.env.CAUSANTIC_DECAY_BACKWARD_TYPE) {
-    config.decay = config.decay ?? {};
-    config.decay.backward = config.decay.backward ?? {};
-    config.decay.backward.type = process.env.CAUSANTIC_DECAY_BACKWARD_TYPE as 'linear' | 'exponential' | 'delayed-linear';
-  }
-  if (process.env.CAUSANTIC_DECAY_BACKWARD_DIES_AT_HOPS) {
-    config.decay = config.decay ?? {};
-    config.decay.backward = config.decay.backward ?? {};
-    config.decay.backward.diesAtHops = parseInt(process.env.CAUSANTIC_DECAY_BACKWARD_DIES_AT_HOPS, 10);
-  }
-  if (process.env.CAUSANTIC_DECAY_BACKWARD_HOLD_HOPS) {
-    config.decay = config.decay ?? {};
-    config.decay.backward = config.decay.backward ?? {};
-    config.decay.backward.holdHops = parseInt(process.env.CAUSANTIC_DECAY_BACKWARD_HOLD_HOPS, 10);
-  }
-
-  // Decay forward
-  if (process.env.CAUSANTIC_DECAY_FORWARD_TYPE) {
-    config.decay = config.decay ?? {};
-    config.decay.forward = config.decay.forward ?? {};
-    config.decay.forward.type = process.env.CAUSANTIC_DECAY_FORWARD_TYPE as 'linear' | 'exponential' | 'delayed-linear';
-  }
-  if (process.env.CAUSANTIC_DECAY_FORWARD_DIES_AT_HOPS) {
-    config.decay = config.decay ?? {};
-    config.decay.forward = config.decay.forward ?? {};
-    config.decay.forward.diesAtHops = parseInt(process.env.CAUSANTIC_DECAY_FORWARD_DIES_AT_HOPS, 10);
-  }
-  if (process.env.CAUSANTIC_DECAY_FORWARD_HOLD_HOPS) {
-    config.decay = config.decay ?? {};
-    config.decay.forward = config.decay.forward ?? {};
-    config.decay.forward.holdHops = parseInt(process.env.CAUSANTIC_DECAY_FORWARD_HOLD_HOPS, 10);
-  }
-
   // Clustering
   if (process.env.CAUSANTIC_CLUSTERING_THRESHOLD) {
     config.clustering = config.clustering ?? {};
@@ -195,17 +134,16 @@ function loadEnvConfig(): ExternalConfig {
   }
   if (process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE) {
     config.clustering = config.clustering ?? {};
-    config.clustering.minClusterSize = parseInt(process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE, 10);
+    config.clustering.minClusterSize = parseInt(
+      process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE,
+      10,
+    );
   }
 
   // Traversal
   if (process.env.CAUSANTIC_TRAVERSAL_MAX_DEPTH) {
     config.traversal = config.traversal ?? {};
     config.traversal.maxDepth = parseInt(process.env.CAUSANTIC_TRAVERSAL_MAX_DEPTH, 10);
-  }
-  if (process.env.CAUSANTIC_TRAVERSAL_MIN_WEIGHT) {
-    config.traversal = config.traversal ?? {};
-    config.traversal.minWeight = parseFloat(process.env.CAUSANTIC_TRAVERSAL_MIN_WEIGHT);
   }
 
   // Tokens
@@ -249,7 +187,10 @@ function loadEnvConfig(): ExternalConfig {
   }
   if (process.env.CAUSANTIC_ENCRYPTION_KEY_SOURCE) {
     config.encryption = config.encryption ?? {};
-    config.encryption.keySource = process.env.CAUSANTIC_ENCRYPTION_KEY_SOURCE as 'keychain' | 'env' | 'prompt';
+    config.encryption.keySource = process.env.CAUSANTIC_ENCRYPTION_KEY_SOURCE as
+      | 'keychain'
+      | 'env'
+      | 'prompt';
   }
   if (process.env.CAUSANTIC_ENCRYPTION_AUDIT_LOG) {
     config.encryption = config.encryption ?? {};
@@ -260,6 +201,10 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.CAUSANTIC_VECTORS_TTL_DAYS) {
     config.vectors = config.vectors ?? {};
     config.vectors.ttlDays = parseInt(process.env.CAUSANTIC_VECTORS_TTL_DAYS, 10);
+  }
+  if (process.env.CAUSANTIC_VECTORS_MAX_COUNT) {
+    config.vectors = config.vectors ?? {};
+    config.vectors.maxCount = parseInt(process.env.CAUSANTIC_VECTORS_MAX_COUNT, 10);
   }
 
   // Maintenance
@@ -329,27 +274,10 @@ export function validateExternalConfig(config: ExternalConfig): string[] {
     }
   }
 
-  // Decay validation
-  if (config.decay?.backward?.diesAtHops !== undefined) {
-    if (config.decay.backward.diesAtHops < 1) {
-      errors.push('decay.backward.diesAtHops must be at least 1');
-    }
-  }
-  if (config.decay?.forward?.diesAtHops !== undefined) {
-    if (config.decay.forward.diesAtHops < 1) {
-      errors.push('decay.forward.diesAtHops must be at least 1');
-    }
-  }
-
   // Traversal validation
   if (config.traversal?.maxDepth !== undefined) {
     if (config.traversal.maxDepth < 1) {
       errors.push('traversal.maxDepth must be at least 1');
-    }
-  }
-  if (config.traversal?.minWeight !== undefined) {
-    if (config.traversal.minWeight < 0 || config.traversal.minWeight > 1) {
-      errors.push('traversal.minWeight must be between 0 and 1');
     }
   }
 
@@ -362,6 +290,13 @@ export function validateExternalConfig(config: ExternalConfig): string[] {
   if (config.tokens?.mcpMaxResponse !== undefined) {
     if (config.tokens.mcpMaxResponse < 500) {
       errors.push('tokens.mcpMaxResponse should be at least 500');
+    }
+  }
+
+  // Vectors validation
+  if (config.vectors?.maxCount !== undefined) {
+    if (config.vectors.maxCount < 0) {
+      errors.push('vectors.maxCount must be >= 0 (0 = unlimited)');
     }
   }
 
@@ -409,7 +344,8 @@ export function loadConfig(options: LoadConfigOptions = {}): Required<ExternalCo
 
   // 3. Project config file
   if (!options.skipProjectConfig) {
-    const projectConfigPath = options.projectConfigPath ?? join(process.cwd(), 'causantic.config.json');
+    const projectConfigPath =
+      options.projectConfigPath ?? join(process.cwd(), 'causantic.config.json');
     const projectConfig = loadConfigFile(projectConfigPath);
     if (projectConfig) {
       config = deepMerge(config, projectConfig);
@@ -443,6 +379,38 @@ export function getResolvedPaths(config: Required<ExternalConfig>): {
   return {
     dbPath: resolvePath(dbPath as string),
     vectorPath: resolvePath(vectorPath as string),
+  };
+}
+
+/**
+ * Convert ExternalConfig to MemoryConfig (the runtime format).
+ *
+ * Maps field names between the two config systems and merges with
+ * DEFAULT_CONFIG so callers get a complete MemoryConfig.
+ */
+export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfig {
+  return {
+    ...DEFAULT_CONFIG,
+
+    // Clustering
+    clusterThreshold: external.clustering.threshold ?? DEFAULT_CONFIG.clusterThreshold,
+    minClusterSize: external.clustering.minClusterSize ?? DEFAULT_CONFIG.minClusterSize,
+
+    // Chain walking
+    maxChainDepth: external.traversal.maxDepth ?? DEFAULT_CONFIG.maxChainDepth,
+
+    // Tokens
+    claudeMdBudgetTokens: external.tokens.claudeMdBudget ?? DEFAULT_CONFIG.claudeMdBudgetTokens,
+    mcpMaxResponseTokens: external.tokens.mcpMaxResponse ?? DEFAULT_CONFIG.mcpMaxResponseTokens,
+
+    // Storage
+    dbPath: external.storage.dbPath ?? DEFAULT_CONFIG.dbPath,
+    vectorStorePath: external.storage.vectorPath ?? DEFAULT_CONFIG.vectorStorePath,
+
+    // LLM
+    clusterRefreshModel: external.llm.clusterRefreshModel ?? DEFAULT_CONFIG.clusterRefreshModel,
+    refreshRateLimitPerMin:
+      external.llm.refreshRateLimitPerMin ?? DEFAULT_CONFIG.refreshRateLimitPerMin,
   };
 }
 

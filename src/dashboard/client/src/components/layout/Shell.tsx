@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Network,
+  Clock,
   Boxes,
   Search,
   FolderOpen,
@@ -15,7 +15,7 @@ import { cn } from '../../lib/utils';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
-  { to: '/graph', icon: Network, label: 'Graph Explorer' },
+  { to: '/timeline', icon: Clock, label: 'Timeline' },
   { to: '/clusters', icon: Boxes, label: 'Clusters' },
   { to: '/search', icon: Search, label: 'Search' },
   { to: '/projects', icon: FolderOpen, label: 'Projects' },

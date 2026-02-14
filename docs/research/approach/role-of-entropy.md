@@ -2,6 +2,8 @@
 
 This document explains the information-theoretic principles behind Causantic's causal graph.
 
+> **Updated in v0.3.0**: Sum-product traversal and multiplicative path weights have been **removed**. Chain walking (`chain-walker.ts`) replaced graph traversal — it follows sequential linked-list edges and scores each hop by direct cosine similarity, not multiplicative path products. The information-theoretic analysis below remains historically interesting (it motivated the original graph design), but the "Sum-Product Rules" and "Maximum Entropy Edge Creation" sections describe mechanisms that no longer exist in the codebase. The core insight — that causal structure matters more than wall-clock time — still applies.
+
 ## The Core Insight
 
 The central design principle is how **discrimination degrades along causal paths**.
@@ -53,9 +55,11 @@ As edge weights decay and paths attenuate, the graph naturally loses the ability
 
 The compression is "causal" because it follows the graph structure, not an external clock. Information that is causally proximate retains discriminative power; information that is causally distant loses it.
 
-## Sum-Product Rules
+## Sum-Product Rules (Historical — v0.2)
 
-Causantic uses a **sum-product** calculation for node weights, analogous to Feynman path integrals in perturbation theory.
+> **Removed in v0.3.0**: Sum-product traversal was replaced by chain walking. The traverser, decay functions, and multiplicative path products have been deleted. This section is preserved for research context.
+
+Causantic used a **sum-product** calculation for node weights, analogous to Feynman path integrals in perturbation theory.
 
 ### Product Along Paths
 
@@ -152,9 +156,11 @@ Traditional systems use external timestamps and apply global decay. Causantic em
 | Discrimination | Binary (old/new) | Continuous (weight products) |
 | Compression | Arbitrary cutoff | Natural convergence to zero |
 
-## Maximum Entropy Edge Creation
+## Maximum Entropy Edge Creation (Historical — v0.2)
 
-When creating edges across a D-T-D transition, Causantic uses a **maximum entropy** approach:
+> **Replaced in v0.3.0**: m×n all-pairs edges were replaced by sequential 1-to-1 linked-list edges. The max-entropy principle created O(n²) edges per turn boundary, most between unrelated chunks. See [lessons learned](../experiments/lessons-learned.md) for why this was changed.
+
+When creating edges across a D-T-D transition, Causantic used a **maximum entropy** approach:
 
 ```
 D₁ (m chunks) → T → D₂ (n chunks)
@@ -174,6 +180,6 @@ The entropic model provides:
 
 ## Related
 
-- [Vector Clocks](./vector-clocks.md) - How causal distance is measured
+- [Vector Clocks](./vector-clocks.md) - Historical: original causal distance approach (removed in v0.3.0)
 - [Decay Models](./decay-models.md) - Implementation of edge weight decay
 - [Why Causal Graphs](./why-causal-graphs.md) - Graph structure motivation

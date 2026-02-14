@@ -12,13 +12,13 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { readdir, stat, writeFile, mkdir } from 'node:fs/promises';
-import { discoverSessions } from '../src/eval/corpus-builder.js';
-import { getSessionInfo } from '../src/parser/session-reader.js';
+import { discoverSessions } from '../../src/eval/corpus-builder.js';
+import { getSessionInfo } from '../../src/parser/session-reader.js';
 import {
   runEdgeDecayExperiments,
   type SessionSource,
-} from '../src/eval/experiments/edge-decay/run-experiments.js';
-import { PRESET_MODELS } from '../src/eval/experiments/edge-decay/presets.js';
+} from '../../src/eval/experiments/edge-decay/run-experiments.js';
+import { PRESET_MODELS } from '../../src/eval/experiments/edge-decay/presets.js';
 
 function parseArgs(): {
   projectsDir: string;
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
   // Step 3: Run experiments
   const results = await runEdgeDecayExperiments(sessionSources, {
     decayModels: PRESET_MODELS,
-    runTimeOffsetCorrelation: true,
+    runHopDistanceCorrelation: true,
     verbose: true,
   });
 

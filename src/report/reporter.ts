@@ -59,21 +59,13 @@ export function printComparisonTable(result: BenchmarkResult): void {
   if (result.contextWindowComparison) {
     const cw = result.contextWindowComparison;
     console.log('\nContext Window Impact:');
-    console.log(
-      `  Long chunks (>512 tokens): ${cw.longChunks} / ${cw.totalChunks}`,
-    );
-    console.log(
-      `  Mean drift (long chunks):  ${cw.meanDriftLongChunks.toFixed(4)}`,
-    );
-    console.log(
-      `  Mean drift (short chunks): ${cw.meanDriftShortChunks.toFixed(4)}`,
-    );
+    console.log(`  Long chunks (>512 tokens): ${cw.longChunks} / ${cw.totalChunks}`);
+    console.log(`  Mean drift (long chunks):  ${cw.meanDriftLongChunks.toFixed(4)}`);
+    console.log(`  Mean drift (short chunks): ${cw.meanDriftShortChunks.toFixed(4)}`);
     if (cw.longChunkDrifts.length > 0) {
       console.log('  Top 5 drifting chunks:');
       for (const d of cw.longChunkDrifts.slice(0, 5)) {
-        console.log(
-          `    ${d.chunkId}: ${d.tokens} tokens, drift=${d.drift.toFixed(4)}`,
-        );
+        console.log(`    ${d.chunkId}: ${d.tokens} tokens, drift=${d.drift.toFixed(4)}`);
       }
     }
   }
@@ -104,12 +96,8 @@ export function printClusterMembership(
     console.log(`\n  ${labelStr} (${indices.length} chunks):`);
     for (const idx of indices.slice(0, 10)) {
       const chunk = chunks[idx];
-      const preview = chunk.text
-        .replace(/\n/g, ' ')
-        .slice(0, maxPreviewChars);
-      console.log(
-        `    [${chunk.metadata.sessionSlug}] ${preview}...`,
-      );
+      const preview = chunk.text.replace(/\n/g, ' ').slice(0, maxPreviewChars);
+      console.log(`    [${chunk.metadata.sessionSlug}] ${preview}...`);
     }
     if (indices.length > 10) {
       console.log(`    ... and ${indices.length - 10} more`);
@@ -120,10 +108,7 @@ export function printClusterMembership(
 /**
  * Write benchmark results as JSON.
  */
-export async function writeJsonReport(
-  result: BenchmarkResult,
-  outputPath: string,
-): Promise<void> {
+export async function writeJsonReport(result: BenchmarkResult, outputPath: string): Promise<void> {
   // Strip non-serializable data (embeddings, Maps)
   const serializable = {
     ...result,

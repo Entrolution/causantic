@@ -35,7 +35,6 @@ export interface ExportedChunk {
   startTime: string;
   endTime: string;
   turnIndices: number[];
-  vectorClock: Record<string, number>;
 }
 
 /** Edge data for export */
@@ -45,7 +44,6 @@ export interface ExportedEdge {
   type: string;
   referenceType: string;
   weight: number;
-  vectorClock: Record<string, number>;
 }
 
 /** Cluster data for export */
@@ -98,9 +96,9 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
   const db = getDb();
 
   // Get unique projects
-  const projectsResult = db.prepare(
-    'SELECT DISTINCT session_slug FROM chunks'
-  ).all() as { session_slug: string }[];
+  const projectsResult = db.prepare('SELECT DISTINCT session_slug FROM chunks').all() as {
+    session_slug: string;
+  }[];
   const allProjects = projectsResult.map((r) => r.session_slug);
 
   // Filter projects if specified
@@ -108,7 +106,7 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
 
   // Export chunks
   const chunksQuery = db.prepare(`
-    SELECT id, session_slug, content, start_time, end_time, turn_indices, vector_clock
+    SELECT id, session_slug, content, start_time, end_time, turn_indices
     FROM chunks
     WHERE session_slug IN (${targetProjects.map(() => '?').join(',')})
   `);
@@ -119,7 +117,6 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
     start_time: string;
     end_time: string;
     turn_indices: string;
-    vector_clock: string;
   }>;
 
   let chunks: ExportedChunk[] = chunksResult.map((row) => ({
@@ -129,7 +126,6 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
     startTime: row.start_time,
     endTime: row.end_time,
     turnIndices: JSON.parse(row.turn_indices || '[]'),
-    vectorClock: JSON.parse(row.vector_clock || '{}'),
   }));
 
   // Apply redactions
@@ -149,7 +145,7 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
   // Export edges
   const chunkIds = chunks.map((c) => c.id);
   const edgesQuery = db.prepare(`
-    SELECT source_id, target_id, type, reference_type, weight, vector_clock
+    SELECT source_id, target_id, type, reference_type, weight
     FROM edges
     WHERE source_id IN (${chunkIds.map(() => '?').join(',')})
   `);
@@ -159,7 +155,6 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
     type: string;
     reference_type: string;
     weight: number;
-    vector_clock: string;
   }>;
 
   const edges: ExportedEdge[] = edgesResult.map((row) => ({
@@ -168,7 +163,6 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
     type: row.type,
     referenceType: row.reference_type,
     weight: row.weight,
-    vectorClock: JSON.parse(row.vector_clock || '{}'),
   }));
 
   // Export clusters
@@ -226,7 +220,11 @@ export async function exportArchive(options: ExportOptions): Promise<void> {
     writeFileSync(options.outputPath, jsonData);
   }
 
-  log.info('Export completed', { chunks: chunks.length, edges: edges.length, clusters: clusters.length });
+  log.info('Export completed', {
+    chunks: chunks.length,
+    edges: edges.length,
+    clusters: clusters.length,
+  });
 }
 
 /**
@@ -273,8 +271,8 @@ export async function importArchive(options: ImportOptions): Promise<void> {
 
     // Import chunks
     const insertChunk = db.prepare(`
-      INSERT OR REPLACE INTO chunks (id, session_slug, content, start_time, end_time, turn_indices, vector_clock)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO chunks (id, session_slug, content, start_time, end_time, turn_indices)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
     for (const chunk of archive.chunks) {
       insertChunk.run(
@@ -284,24 +282,16 @@ export async function importArchive(options: ImportOptions): Promise<void> {
         chunk.startTime,
         chunk.endTime,
         JSON.stringify(chunk.turnIndices),
-        JSON.stringify(chunk.vectorClock)
       );
     }
 
     // Import edges
     const insertEdge = db.prepare(`
-      INSERT OR REPLACE INTO edges (source_id, target_id, type, reference_type, weight, vector_clock)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT OR REPLACE INTO edges (source_id, target_id, type, reference_type, weight)
+      VALUES (?, ?, ?, ?, ?)
     `);
     for (const edge of archive.edges) {
-      insertEdge.run(
-        edge.source,
-        edge.target,
-        edge.type,
-        edge.referenceType,
-        edge.weight,
-        JSON.stringify(edge.vectorClock)
-      );
+      insertEdge.run(edge.source, edge.target, edge.type, edge.referenceType, edge.weight);
     }
 
     // Import clusters
@@ -323,7 +313,11 @@ export async function importArchive(options: ImportOptions): Promise<void> {
 
   transaction();
 
-  log.info('Import completed', { chunks: archive.chunks.length, edges: archive.edges.length, clusters: archive.clusters.length });
+  log.info('Import completed', {
+    chunks: archive.chunks.length,
+    edges: archive.edges.length,
+    clusters: archive.clusters.length,
+  });
 }
 
 /**

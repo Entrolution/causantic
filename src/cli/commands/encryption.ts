@@ -228,7 +228,9 @@ export const encryptionCommand: Command = {
 
       default:
         console.error('Error: Unknown subcommand');
-        console.log('Usage: causantic encryption <setup|status|rotate-key|backup-key|restore-key|audit>');
+        console.log(
+          'Usage: causantic encryption <setup|status|rotate-key|backup-key|restore-key|audit>',
+        );
         process.exit(2);
     }
   },

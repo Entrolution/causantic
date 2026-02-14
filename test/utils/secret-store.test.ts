@@ -160,7 +160,9 @@ describe('EncryptedFileStore', () => {
       }
       try {
         unlinkSync(join(testDir, 'env-secrets.enc'));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   });
 
@@ -201,7 +203,13 @@ describe('LibsecretStore', () => {
 
 describe('CompositeStore', () => {
   it('has type "composite"', () => {
-    const mockStore: any = { type: 'mock', isAvailable: () => true, get: vi.fn(), set: vi.fn(), delete: vi.fn() };
+    const mockStore: any = {
+      type: 'mock',
+      isAvailable: () => true,
+      get: vi.fn(),
+      set: vi.fn(),
+      delete: vi.fn(),
+    };
     const store = new CompositeStore([mockStore]);
     expect(store.type).toBe('composite');
   });

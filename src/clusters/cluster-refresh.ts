@@ -7,7 +7,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getConfig } from '../config/memory-config.js';
 import { getClusterById, upsertCluster, getStaleClusters } from '../storage/cluster-store.js';
 import { getChunksByIds } from '../storage/chunk-store.js';
-import type { StoredCluster, StoredChunk } from '../storage/types.js';
+import type { StoredChunk } from '../storage/types.js';
 import { createLogger } from '../utils/logger.js';
 import { createSecretStore } from '../utils/secret-store.js';
 
@@ -89,7 +89,7 @@ export class ClusterRefresher {
       if (!process.env.ANTHROPIC_API_KEY) {
         throw new Error(
           'No Anthropic API key found. Set ANTHROPIC_API_KEY environment variable ' +
-          'or run "causantic config set-key anthropic-api-key" to store in keychain.'
+            'or run "causantic config set-key anthropic-api-key" to store in keychain.',
         );
       }
 
@@ -101,13 +101,13 @@ export class ClusterRefresher {
   /**
    * Refresh a single cluster's description.
    */
-  async refreshCluster(
-    clusterId: string,
-    options: RefreshOptions = {}
-  ): Promise<RefreshResult> {
+  async refreshCluster(clusterId: string, options: RefreshOptions = {}): Promise<RefreshResult> {
     const startTime = Date.now();
-    const { model = this.config.clusterRefreshModel, maxExemplars = 3, maxTokensPerChunk = 500 } =
-      options;
+    const {
+      model = this.config.clusterRefreshModel,
+      maxExemplars = 3,
+      maxTokensPerChunk = 500,
+    } = options;
 
     const cluster = getClusterById(clusterId);
     if (!cluster) {
@@ -142,8 +142,7 @@ export class ClusterRefresher {
     });
 
     // Parse response
-    const text =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
     const { name, description } = parseRefreshResponse(text);
 
     // Update cluster
@@ -165,8 +164,11 @@ export class ClusterRefresher {
    * Refresh all stale clusters.
    */
   async refreshStaleClusters(
-    options: RefreshOptions & { maxAgeMs?: number } = {}
+    options: RefreshOptions & { maxAgeMs?: number } = {},
   ): Promise<RefreshResult[]> {
+    // Fail fast if no API key — avoid per-cluster error spam
+    await this.getClient();
+
     const { maxAgeMs = 24 * 60 * 60 * 1000, onProgress } = options; // Default: 24 hours
 
     const staleClusters = getStaleClusters(maxAgeMs);
@@ -189,6 +191,9 @@ export class ClusterRefresher {
    * Refresh all clusters (force refresh).
    */
   async refreshAllClusters(options: RefreshOptions = {}): Promise<RefreshResult[]> {
+    // Fail fast if no API key — avoid per-cluster error spam
+    await this.getClient();
+
     const { onProgress } = options;
     const staleClusters = getStaleClusters(0); // Get all
     const results: RefreshResult[] = [];

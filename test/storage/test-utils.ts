@@ -55,7 +55,6 @@ export function createTestDb(): Database.Database {
       approx_tokens INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       agent_id TEXT,
-      vector_clock TEXT,
       spawn_depth INTEGER DEFAULT 0,
       project_path TEXT
     );
@@ -74,13 +73,14 @@ export function createTestDb(): Database.Database {
       reference_type TEXT,
       initial_weight REAL NOT NULL DEFAULT 1.0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      vector_clock TEXT,
       link_count INTEGER DEFAULT 1,
       UNIQUE(source_chunk_id, target_chunk_id, edge_type)
     );
 
     CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_chunk_id);
     CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_chunk_id);
+    CREATE INDEX IF NOT EXISTS idx_edges_source_type ON edges(source_chunk_id, edge_type);
+    CREATE INDEX IF NOT EXISTS idx_edges_target_type ON edges(target_chunk_id, edge_type);
 
     -- Clusters table
     CREATE TABLE IF NOT EXISTS clusters (
@@ -104,18 +104,8 @@ export function createTestDb(): Database.Database {
 
     CREATE INDEX IF NOT EXISTS idx_chunk_clusters_cluster ON chunk_clusters(cluster_id);
 
-    -- Vector clocks for projects
-    CREATE TABLE IF NOT EXISTS vector_clocks (
-      id TEXT PRIMARY KEY,
-      project_slug TEXT NOT NULL,
-      clock_data TEXT NOT NULL,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_vector_clocks_project ON vector_clocks(project_slug);
-
     -- Set schema version
-    INSERT OR REPLACE INTO schema_version (version) VALUES (6);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (8);
   `);
 
   // Create FTS5 table and sync triggers (separate exec for virtual table)
@@ -157,22 +147,23 @@ export function createTestDb(): Database.Database {
 /**
  * Sample chunk data for testing.
  */
-export function createSampleChunk(overrides: Partial<{
-  id: string;
-  sessionId: string;
-  sessionSlug: string;
-  content: string;
-  startTime: string;
-  endTime: string;
-  turnIndices: number[];
-  codeBlockCount: number;
-  toolUseCount: number;
-  approxTokens: number;
-  agentId: string | null;
-  vectorClock: Record<string, number> | null;
-  spawnDepth: number;
-  projectPath: string | null;
-}> = {}) {
+export function createSampleChunk(
+  overrides: Partial<{
+    id: string;
+    sessionId: string;
+    sessionSlug: string;
+    content: string;
+    startTime: string;
+    endTime: string;
+    turnIndices: number[];
+    codeBlockCount: number;
+    toolUseCount: number;
+    approxTokens: number;
+    agentId: string | null;
+    spawnDepth: number;
+    projectPath: string | null;
+  }> = {},
+) {
   return {
     id: overrides.id ?? `chunk-${crypto.randomUUID().slice(0, 8)}`,
     sessionId: overrides.sessionId ?? 'test-session-id',
@@ -185,7 +176,6 @@ export function createSampleChunk(overrides: Partial<{
     toolUseCount: overrides.toolUseCount ?? 0,
     approxTokens: overrides.approxTokens ?? 100,
     agentId: overrides.agentId ?? null,
-    vectorClock: overrides.vectorClock ?? null,
     spawnDepth: overrides.spawnDepth ?? 0,
     projectPath: overrides.projectPath ?? null,
   };
@@ -194,13 +184,16 @@ export function createSampleChunk(overrides: Partial<{
 /**
  * Insert a chunk directly into the test database.
  */
-export function insertTestChunk(db: Database.Database, chunk: ReturnType<typeof createSampleChunk>): string {
+export function insertTestChunk(
+  db: Database.Database,
+  chunk: ReturnType<typeof createSampleChunk>,
+): string {
   const stmt = db.prepare(`
     INSERT INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, vector_clock, spawn_depth, project_path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, spawn_depth, project_path
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -215,9 +208,8 @@ export function insertTestChunk(db: Database.Database, chunk: ReturnType<typeof 
     chunk.toolUseCount,
     chunk.approxTokens,
     chunk.agentId,
-    chunk.vectorClock ? JSON.stringify(chunk.vectorClock) : null,
     chunk.spawnDepth,
-    chunk.projectPath
+    chunk.projectPath,
   );
 
   return chunk.id;
@@ -226,19 +218,21 @@ export function insertTestChunk(db: Database.Database, chunk: ReturnType<typeof 
 /**
  * Insert an edge directly into the test database.
  */
-export function insertTestEdge(db: Database.Database, edge: {
-  id: string;
-  sourceChunkId: string;
-  targetChunkId: string;
-  edgeType: 'forward' | 'backward';
-  referenceType?: string | null;
-  initialWeight?: number;
-  vectorClock?: Record<string, number> | null;
-  linkCount?: number;
-}): string {
+export function insertTestEdge(
+  db: Database.Database,
+  edge: {
+    id: string;
+    sourceChunkId: string;
+    targetChunkId: string;
+    edgeType: 'forward' | 'backward';
+    referenceType?: string | null;
+    initialWeight?: number;
+    linkCount?: number;
+  },
+): string {
   const stmt = db.prepare(`
-    INSERT INTO edges (id, source_chunk_id, target_chunk_id, edge_type, reference_type, initial_weight, created_at, vector_clock, link_count)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO edges (id, source_chunk_id, target_chunk_id, edge_type, reference_type, initial_weight, created_at, link_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -249,8 +243,7 @@ export function insertTestEdge(db: Database.Database, edge: {
     edge.referenceType ?? null,
     edge.initialWeight ?? 1.0,
     new Date().toISOString(),
-    edge.vectorClock ? JSON.stringify(edge.vectorClock) : null,
-    edge.linkCount ?? 1
+    edge.linkCount ?? 1,
   );
 
   return edge.id;
@@ -259,12 +252,15 @@ export function insertTestEdge(db: Database.Database, edge: {
 /**
  * Insert a cluster directly into the test database.
  */
-export function insertTestCluster(db: Database.Database, cluster: {
-  id: string;
-  name?: string | null;
-  description?: string | null;
-  exemplarIds?: string[];
-}): string {
+export function insertTestCluster(
+  db: Database.Database,
+  cluster: {
+    id: string;
+    name?: string | null;
+    description?: string | null;
+    exemplarIds?: string[];
+  },
+): string {
   const stmt = db.prepare(`
     INSERT INTO clusters (id, name, description, exemplar_ids)
     VALUES (?, ?, ?, ?)
@@ -274,7 +270,7 @@ export function insertTestCluster(db: Database.Database, cluster: {
     cluster.id,
     cluster.name ?? null,
     cluster.description ?? null,
-    cluster.exemplarIds ? JSON.stringify(cluster.exemplarIds) : null
+    cluster.exemplarIds ? JSON.stringify(cluster.exemplarIds) : null,
   );
 
   return cluster.id;
@@ -283,7 +279,12 @@ export function insertTestCluster(db: Database.Database, cluster: {
 /**
  * Assign a chunk to a cluster in the test database.
  */
-export function assignChunkToCluster(db: Database.Database, chunkId: string, clusterId: string, distance: number = 0.5): void {
+export function assignChunkToCluster(
+  db: Database.Database,
+  chunkId: string,
+  clusterId: string,
+  distance: number = 0.5,
+): void {
   const stmt = db.prepare(`
     INSERT INTO chunk_clusters (chunk_id, cluster_id, distance)
     VALUES (?, ?, ?)

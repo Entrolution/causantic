@@ -1,10 +1,11 @@
 import type { Command } from '../types.js';
 import { runTask, runAllTasks, getStatus, runDaemon } from '../../maintenance/scheduler.js';
+import { rebuildEdges } from '../../ingest/rebuild-edges.js';
 
 export const maintenanceCommand: Command = {
   name: 'maintenance',
   description: 'Run maintenance tasks',
-  usage: 'causantic maintenance <run|status|daemon> [task]',
+  usage: 'causantic maintenance <run|status|daemon|rebuild-edges> [task]',
   handler: async (args) => {
     const subcommand = args[0];
 
@@ -25,7 +26,7 @@ export const maintenanceCommand: Command = {
         } else {
           console.error('Error: Task name required');
           console.log('Usage: causantic maintenance run <task|all>');
-          console.log('Tasks: scan-projects, update-clusters, prune-graph, cleanup-vectors, vacuum');
+          console.log('Tasks: scan-projects, update-clusters, cleanup-vectors, vacuum');
           process.exit(2);
         }
         break;
@@ -50,6 +51,14 @@ export const maintenanceCommand: Command = {
         }
         break;
       }
+      case 'rebuild-edges': {
+        console.log('Rebuilding edges using sequential linked-list structure...');
+        const result = await rebuildEdges((msg) => console.log(`  ${msg}`));
+        console.log(
+          `Done. Processed ${result.sessionsProcessed} sessions, created ${result.edgesCreated} edges (deleted ${result.edgesDeleted} old edges).`,
+        );
+        break;
+      }
       case 'daemon': {
         const controller = new AbortController();
         process.on('SIGINT', () => controller.abort());
@@ -59,7 +68,7 @@ export const maintenanceCommand: Command = {
       }
       default:
         console.error('Error: Unknown subcommand');
-        console.log('Usage: causantic maintenance <run|status|daemon>');
+        console.log('Usage: causantic maintenance <run|status|daemon|rebuild-edges>');
         process.exit(2);
     }
   },

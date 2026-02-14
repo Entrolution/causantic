@@ -20,12 +20,7 @@ import {
 import { getConfig } from '../config/memory-config.js';
 import { approximateTokens } from '../utils/token-counter.js';
 import { runStaleMaintenanceTasks } from '../maintenance/scheduler.js';
-import {
-  executeHook,
-  logHook,
-  isTransientError,
-  type HookMetrics,
-} from './hook-utils.js';
+import { executeHook, logHook, isTransientError, type HookMetrics } from './hook-utils.js';
 import type { StoredCluster, StoredChunk } from '../storage/types.js';
 
 /**
@@ -71,7 +66,7 @@ export interface SessionStartResult {
  */
 function internalHandleSessionStart(
   projectPath: string,
-  options: SessionStartOptions
+  options: SessionStartOptions,
 ): SessionStartResult {
   const config = getConfig();
   const {
@@ -193,13 +188,9 @@ function internalHandleSessionStart(
  */
 export async function handleSessionStart(
   projectPath: string,
-  options: SessionStartOptions = {}
+  options: SessionStartOptions = {},
 ): Promise<SessionStartResult> {
-  const {
-    enableRetry = true,
-    maxRetries = 3,
-    gracefulDegradation = true,
-  } = options;
+  const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
 
   // Run stale maintenance tasks in background (prune, recluster)
   // Covers cases where scheduled cron times were missed (e.g. laptop asleep)
@@ -225,7 +216,7 @@ export async function handleSessionStart(
           }
         : undefined,
       fallback: gracefulDegradation ? fallbackResult : undefined,
-    }
+    },
   );
 
   return {
@@ -281,9 +272,7 @@ function buildLastSessionSection(projectPath: string, tokenBudget: number): stri
     minute: '2-digit',
   });
 
-  const lines = [
-    `## Last Session (${sessionDate} ${sessionTime})`,
-  ];
+  const lines = [`## Last Session (${sessionDate} ${sessionTime})`];
 
   // Get chunks from that session and take the final 3-5
   const chunks = getChunksByTimeRange(
@@ -341,7 +330,7 @@ function findProjectClusters(clusters: StoredCluster[], projectPath: string): St
  */
 export async function generateMemorySection(
   projectPath: string,
-  options: SessionStartOptions = {}
+  options: SessionStartOptions = {},
 ): Promise<string> {
   const result = await handleSessionStart(projectPath, options);
 

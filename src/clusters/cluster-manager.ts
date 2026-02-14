@@ -12,11 +12,80 @@ import {
   getClusterChunkIds,
   computeMembershipHash,
 } from '../storage/cluster-store.js';
-import { getChunksByIds, getAllChunks } from '../storage/chunk-store.js';
 import { angularDistance } from '../utils/angular-distance.js';
 import { getConfig } from '../config/memory-config.js';
 import { generateId } from '../storage/db.js';
 import type { StoredCluster, ChunkClusterAssignment } from '../storage/types.js';
+
+/**
+ * Snapshot of an old cluster's label metadata and member set,
+ * used for carrying forward labels through reclustering.
+ */
+export interface OldClusterSnapshot {
+  name: string | null;
+  description: string | null;
+  refreshedAt: string | null;
+  memberIds: Set<string>;
+}
+
+/**
+ * Minimal info about a newly created cluster, used for overlap matching.
+ */
+export interface NewClusterInfo {
+  clusterId: string;
+  memberIds: Set<string>;
+}
+
+/**
+ * Match new clusters to old clusters by Jaccard overlap, returning
+ * a map of newClusterId → matched old snapshot. Uses greedy best-match
+ * and consumes matched old clusters to prevent double-assignment.
+ */
+export function matchClustersByOverlap(
+  oldClusters: OldClusterSnapshot[],
+  newClusters: NewClusterInfo[],
+  threshold: number = 0.5,
+): Map<string, OldClusterSnapshot> {
+  const result = new Map<string, OldClusterSnapshot>();
+  const consumed = new Set<number>(); // indices into oldClusters
+
+  // Build all (new, old) pairs with their Jaccard similarity
+  const pairs: Array<{ newIdx: number; oldIdx: number; jaccard: number }> = [];
+
+  for (let ni = 0; ni < newClusters.length; ni++) {
+    const nc = newClusters[ni];
+    for (let oi = 0; oi < oldClusters.length; oi++) {
+      const oc = oldClusters[oi];
+      // Skip old clusters without a meaningful label
+      if (!oc.name || !oc.refreshedAt) continue;
+
+      let intersectionSize = 0;
+      for (const id of nc.memberIds) {
+        if (oc.memberIds.has(id)) intersectionSize++;
+      }
+      const unionSize = nc.memberIds.size + oc.memberIds.size - intersectionSize;
+      if (unionSize === 0) continue;
+
+      const jaccard = intersectionSize / unionSize;
+      if (jaccard >= threshold) {
+        pairs.push({ newIdx: ni, oldIdx: oi, jaccard });
+      }
+    }
+  }
+
+  // Greedy: sort descending by Jaccard, assign best matches first
+  pairs.sort((a, b) => b.jaccard - a.jaccard);
+
+  const assignedNew = new Set<number>();
+  for (const { newIdx, oldIdx } of pairs) {
+    if (assignedNew.has(newIdx) || consumed.has(oldIdx)) continue;
+    result.set(newClusters[newIdx].clusterId, oldClusters[oldIdx]);
+    assignedNew.add(newIdx);
+    consumed.add(oldIdx);
+  }
+
+  return result;
+}
 
 /**
  * Result of clustering operation.
@@ -62,13 +131,18 @@ export class ClusterManager {
   async recluster(options: ClusteringOptions = {}): Promise<ClusteringResult> {
     const startTime = Date.now();
 
-    const {
-      minClusterSize = this.config.minClusterSize,
-      clearExisting = true,
-    } = options;
+    const { minClusterSize = this.config.minClusterSize, clearExisting = true } = options;
 
-    // Clear existing clusters if requested
+    // Snapshot old clusters before clearing so we can carry forward labels
+    let oldSnapshots: OldClusterSnapshot[] = [];
     if (clearExisting) {
+      const oldClusters = getAllClusters();
+      oldSnapshots = oldClusters.map((c) => ({
+        name: c.name,
+        description: c.description,
+        refreshedAt: c.refreshedAt,
+        memberIds: new Set(getClusterChunkIds(c.id)),
+      }));
       clearAllClusters();
     }
 
@@ -111,6 +185,7 @@ export class ClusterManager {
     // Create clusters and assignments
     const assignments: ChunkClusterAssignment[] = [];
     const clusterSizes: number[] = [];
+    const newClusterInfos: NewClusterInfo[] = [];
 
     for (const [label, members] of clusterMembers) {
       // Compute centroid
@@ -138,6 +213,11 @@ export class ClusterManager {
         membershipHash,
       });
 
+      newClusterInfos.push({
+        clusterId,
+        memberIds: new Set(memberIds),
+      });
+
       // Create assignments
       for (const m of withDistances) {
         assignments.push({
@@ -153,6 +233,18 @@ export class ClusterManager {
     // Batch insert assignments
     if (assignments.length > 0) {
       assignChunksToClusters(assignments);
+    }
+
+    // Carry forward labels from old clusters that match new ones by member overlap
+    if (oldSnapshots.length > 0 && newClusterInfos.length > 0) {
+      const matches = matchClustersByOverlap(oldSnapshots, newClusterInfos);
+      for (const [newClusterId, oldSnapshot] of matches) {
+        upsertCluster({
+          id: newClusterId,
+          name: oldSnapshot.name ?? undefined,
+          description: oldSnapshot.description ?? undefined,
+        });
+      }
     }
 
     const rawNoiseCount = labels.filter((l: number) => l < 0).length;
@@ -207,7 +299,7 @@ export class ClusterManager {
   async assignChunkToClusters(
     chunkId: string,
     embedding: number[],
-    options: { threshold?: number } = {}
+    options: { threshold?: number } = {},
   ): Promise<string[]> {
     const threshold = options.threshold ?? this.config.clusterThreshold;
     const clusters = getAllClusters();
@@ -240,7 +332,7 @@ export class ClusterManager {
    */
   async assignNewChunks(
     chunks: Array<{ id: string; embedding: number[] }>,
-    options: { threshold?: number } = {}
+    options: { threshold?: number } = {},
   ): Promise<{ assigned: number; total: number }> {
     let assignedCount = 0;
 
@@ -259,7 +351,7 @@ export class ClusterManager {
    * Runs only the threshold pass without HDBSCAN — useful for threshold experimentation.
    */
   async reassignNoisePoints(
-    options: { threshold?: number } = {}
+    options: { threshold?: number } = {},
   ): Promise<{ reassigned: number; total: number }> {
     const threshold = options.threshold ?? this.config.clusterThreshold;
     const clusters = getAllClusters();
@@ -385,7 +477,7 @@ export class ClusterManager {
    */
   async findSimilarClusters(
     queryEmbedding: number[],
-    limit: number = 5
+    limit: number = 5,
   ): Promise<Array<{ cluster: StoredCluster; distance: number }>> {
     const clusters = getAllClusters();
     const results: Array<{ cluster: StoredCluster; distance: number }> = [];

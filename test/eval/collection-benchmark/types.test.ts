@@ -8,7 +8,7 @@ import type {
   BenchmarkCategory,
   HealthResult,
   RetrievalResult,
-  GraphValueResult,
+  ChainQualityResult,
   LatencyResult,
   TuningRecommendation,
   SkippedBenchmark,
@@ -25,7 +25,7 @@ describe('collection-benchmark/types', () => {
   });
 
   it('should allow valid BenchmarkCategory values', () => {
-    const categories: BenchmarkCategory[] = ['health', 'retrieval', 'graph', 'latency'];
+    const categories: BenchmarkCategory[] = ['health', 'retrieval', 'chain', 'latency'];
     expect(categories).toHaveLength(4);
   });
 
@@ -40,14 +40,16 @@ describe('collection-benchmark/types', () => {
       clusterCoverage: 0.87,
       orphanChunkPercentage: 0.04,
       temporalSpan: { earliest: '2024-01-01T00:00:00Z', latest: '2024-06-01T00:00:00Z' },
-      edgeTypeDistribution: [
-        { type: 'file-path', count: 100, percentage: 0.33 },
-      ],
+      edgeTypeDistribution: [{ type: 'within-chain', count: 100, percentage: 0.33 }],
       sessionSizeStats: { min: 2, max: 20, mean: 10, median: 9 },
       perProject: [
         { slug: 'my-app', chunkCount: 60, edgeCount: 200, clusterCount: 3, orphanPercentage: 0.02 },
       ],
-      clusterQuality: { intraClusterSimilarity: 0.82, interClusterSeparation: 0.45, coherenceScore: 0.65 },
+      clusterQuality: {
+        intraClusterSimilarity: 0.82,
+        interClusterSeparation: 0.45,
+        coherenceScore: 0.65,
+      },
     };
     expect(health.chunkCount).toBe(100);
     expect(health.clusterQuality?.coherenceScore).toBe(0.65);
@@ -68,31 +70,21 @@ describe('collection-benchmark/types', () => {
     expect(retrieval.adjacentRecallAt10).toBe(0.82);
   });
 
-  it('should represent a valid GraphValueResult', () => {
-    const graph: GraphValueResult = {
-      sourceAttribution: {
-        vectorPercentage: 0.45,
-        keywordPercentage: 0.20,
-        clusterPercentage: 0.15,
-        graphPercentage: 0.20,
-        augmentationRatio: 2.3,
-      },
-      fullRecallAt10: 0.82,
-      vectorOnlyRecallAt10: 0.61,
-      uniqueGraphFinds: 42,
-      graphBoostedCount: 5,
-      lift: 0.34,
-      edgeTypeEffectiveness: [
-        { type: 'file-path', chunksSurfaced: 847, recallContribution: 0.38 },
-      ],
+  it('should represent a valid ChainQualityResult', () => {
+    const chain: ChainQualityResult = {
+      meanChainLength: 4.2,
+      meanScorePerToken: 0.015,
+      chainCoverage: 0.65,
+      fallbackRate: 0.35,
     };
-    expect(graph.sourceAttribution.augmentationRatio).toBe(2.3);
+    expect(chain.meanChainLength).toBe(4.2);
+    expect(chain.chainCoverage + chain.fallbackRate).toBe(1);
   });
 
   it('should represent a valid LatencyResult', () => {
     const latency: LatencyResult = {
       recall: { p50: 23, p95: 45, p99: 89 },
-      explain: { p50: 31, p95: 52, p99: 95 },
+      search: { p50: 31, p95: 52, p99: 95 },
       predict: { p50: 28, p95: 48, p99: 91 },
       reconstruct: { p50: 12, p95: 28, p99: 42 },
     };

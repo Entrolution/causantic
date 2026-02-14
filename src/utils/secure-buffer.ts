@@ -90,7 +90,7 @@ export class SecureBuffer {
  */
 export async function withSecureBuffer<T>(
   data: string | Buffer,
-  fn: (buffer: SecureBuffer) => T | Promise<T>
+  fn: (buffer: SecureBuffer) => T | Promise<T>,
 ): Promise<T> {
   const buffer = new SecureBuffer(data);
   try {
@@ -103,10 +103,7 @@ export async function withSecureBuffer<T>(
 /**
  * Synchronous version of withSecureBuffer.
  */
-export function withSecureBufferSync<T>(
-  data: string | Buffer,
-  fn: (buffer: SecureBuffer) => T
-): T {
+export function withSecureBufferSync<T>(data: string | Buffer, fn: (buffer: SecureBuffer) => T): T {
   const buffer = new SecureBuffer(data);
   try {
     return fn(buffer);

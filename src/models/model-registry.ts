@@ -67,9 +67,7 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
 export function getModel(id: string): ModelConfig {
   const config = MODEL_REGISTRY[id];
   if (!config) {
-    throw new Error(
-      `Unknown model: ${id}. Available: ${Object.keys(MODEL_REGISTRY).join(', ')}`,
-    );
+    throw new Error(`Unknown model: ${id}. Available: ${Object.keys(MODEL_REGISTRY).join(', ')}`);
   }
   return config;
 }

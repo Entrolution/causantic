@@ -5,7 +5,7 @@
  * Measures collection structure, graph density, cluster coverage, and orphan rate.
  */
 
-import { getAllChunks, getChunkCount, getSessionIds, getDistinctProjects } from '../../storage/chunk-store.js';
+import { getAllChunks, getSessionIds, getDistinctProjects } from '../../storage/chunk-store.js';
 import { getEdgeCount, getAllEdges } from '../../storage/edge-store.js';
 import {
   getClusterCount,
@@ -14,7 +14,7 @@ import {
 } from '../../storage/cluster-store.js';
 import { vectorStore } from '../../storage/vector-store.js';
 import { angularDistance } from '../../utils/angular-distance.js';
-import type { StoredChunk, ReferenceType } from '../../storage/types.js';
+import type { ReferenceType } from '../../storage/types.js';
 import type {
   HealthResult,
   EdgeTypeDistribution,
@@ -80,7 +80,7 @@ export async function runHealthBenchmarks(
   // Temporal span
   let temporalSpan: { earliest: string; latest: string } | null = null;
   if (chunks.length > 0) {
-    const times = chunks.map(c => c.startTime).sort();
+    const times = chunks.map((c) => c.startTime).sort();
     temporalSpan = { earliest: times[0], latest: times[times.length - 1] };
   }
 
@@ -124,7 +124,10 @@ export async function runHealthBenchmarks(
     const projectChunksInClusters = new Map<string, Set<string>>();
 
     for (const chunk of chunks) {
-      projectChunkCounts.set(chunk.sessionSlug, (projectChunkCounts.get(chunk.sessionSlug) ?? 0) + 1);
+      projectChunkCounts.set(
+        chunk.sessionSlug,
+        (projectChunkCounts.get(chunk.sessionSlug) ?? 0) + 1,
+      );
     }
 
     // Build chunk-to-project map
@@ -170,9 +173,11 @@ export async function runHealthBenchmarks(
 
       let orphans = 0;
       for (const chunk of chunks) {
-        if (chunk.sessionSlug === project.slug &&
-            !pChunksWithEdges.has(chunk.id) &&
-            !pChunksInClusters.has(chunk.id)) {
+        if (
+          chunk.sessionSlug === project.slug &&
+          !pChunksWithEdges.has(chunk.id) &&
+          !pChunksInClusters.has(chunk.id)
+        ) {
           orphans++;
         }
       }
@@ -276,9 +281,10 @@ async function computeClusterQuality(
   const interClusterSeparation = interCount > 0 ? interSum / interCount : 0;
 
   // Coherence score: intra / (intra + inter)
-  const coherenceScore = (intraClusterSimilarity + interClusterSeparation) > 0
-    ? intraClusterSimilarity / (intraClusterSimilarity + interClusterSeparation)
-    : 0;
+  const coherenceScore =
+    intraClusterSimilarity + interClusterSeparation > 0
+      ? intraClusterSimilarity / (intraClusterSimilarity + interClusterSeparation)
+      : 0;
 
   return {
     intraClusterSimilarity,

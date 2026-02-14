@@ -6,5 +6,5 @@
 export { McpServer, startMcpServer } from './server.js';
 
 // Tools
-export { tools, getTool, recallTool, explainTool, predictTool } from './tools.js';
+export { tools, getTool, searchTool, recallTool, predictTool } from './tools.js';
 export type { ToolDefinition } from './tools.js';

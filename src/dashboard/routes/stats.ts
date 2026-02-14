@@ -13,16 +13,17 @@ router.get('/', (_req, res) => {
   const sessions = getSessionIds().length;
   const projects = getDistinctProjects();
 
-  // Build time series: chunk creation grouped by week
+  // Build time series: chunks grouped by week based on session start time
   const allChunks = getAllChunks();
   const weekCounts = new Map<string, number>();
 
   for (const chunk of allChunks) {
-    const date = new Date(chunk.createdAt);
-    // Get Monday of the week
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(date.setDate(diff));
+    const date = new Date(chunk.startTime);
+    if (isNaN(date.getTime())) continue;
+    // Get Monday of the week (UTC to avoid timezone shifts)
+    const day = date.getUTCDay();
+    const diff = date.getUTCDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), diff));
     const weekKey = monday.toISOString().slice(0, 10);
     weekCounts.set(weekKey, (weekCounts.get(weekKey) ?? 0) + 1);
   }

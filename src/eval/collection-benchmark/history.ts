@@ -43,10 +43,12 @@ export function storeBenchmarkRun(
   ensureTable();
   const db = getDb();
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO benchmark_runs (timestamp, profile, overall_score, result_json, config_snapshot)
     VALUES (?, ?, ?, ?, ?)
-  `).run(
+  `,
+  ).run(
     result.timestamp,
     result.profile,
     result.overallScore,
@@ -62,19 +64,23 @@ export function getBenchmarkHistory(limit: number = 20): BenchmarkRunSummary[] {
   ensureTable();
   const db = getDb();
 
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT id, timestamp, profile, overall_score
     FROM benchmark_runs
     ORDER BY timestamp DESC
     LIMIT ?
-  `).all(limit) as Array<{
+  `,
+    )
+    .all(limit) as Array<{
     id: number;
     timestamp: string;
     profile: string;
     overall_score: number;
   }>;
 
-  return rows.map(r => ({
+  return rows.map((r) => ({
     id: r.id,
     timestamp: r.timestamp,
     profile: r.profile as CollectionBenchmarkResult['profile'],
@@ -89,9 +95,11 @@ export function getBenchmarkRun(id: number): CollectionBenchmarkResult | null {
   ensureTable();
   const db = getDb();
 
-  const row = db.prepare('SELECT result_json FROM benchmark_runs WHERE id = ?').get(id) as {
-    result_json: string;
-  } | undefined;
+  const row = db.prepare('SELECT result_json FROM benchmark_runs WHERE id = ?').get(id) as
+    | {
+        result_json: string;
+      }
+    | undefined;
 
   if (!row) return null;
   return JSON.parse(row.result_json) as CollectionBenchmarkResult;
@@ -104,9 +112,9 @@ export function getLatestBenchmarkRun(): CollectionBenchmarkResult | null {
   ensureTable();
   const db = getDb();
 
-  const row = db.prepare(
-    'SELECT result_json FROM benchmark_runs ORDER BY timestamp DESC LIMIT 1'
-  ).get() as { result_json: string } | undefined;
+  const row = db
+    .prepare('SELECT result_json FROM benchmark_runs ORDER BY timestamp DESC LIMIT 1')
+    .get() as { result_json: string } | undefined;
 
   if (!row) return null;
   return JSON.parse(row.result_json) as CollectionBenchmarkResult;
@@ -125,57 +133,96 @@ export function computeTrend(
   const scoreDelta = current.overallScore - previous.overallScore;
 
   // Health metrics
-  addDelta(metricDeltas, 'Edge-to-Chunk Ratio',
+  addDelta(
+    metricDeltas,
+    'Edge-to-Chunk Ratio',
     previous.collectionStats.edgeToChunkRatio,
-    current.collectionStats.edgeToChunkRatio, true);
-  addDelta(metricDeltas, 'Cluster Coverage',
+    current.collectionStats.edgeToChunkRatio,
+    true,
+  );
+  addDelta(
+    metricDeltas,
+    'Cluster Coverage',
     previous.collectionStats.clusterCoverage,
-    current.collectionStats.clusterCoverage, true);
-  addDelta(metricDeltas, 'Orphan Chunk %',
+    current.collectionStats.clusterCoverage,
+    true,
+  );
+  addDelta(
+    metricDeltas,
+    'Orphan Chunk %',
     previous.collectionStats.orphanChunkPercentage,
-    current.collectionStats.orphanChunkPercentage, false);
+    current.collectionStats.orphanChunkPercentage,
+    false,
+  );
 
   // Retrieval metrics
   if (previous.retrieval && current.retrieval) {
-    addDelta(metricDeltas, 'Adjacent Recall@10',
+    addDelta(
+      metricDeltas,
+      'Adjacent Recall@10',
       previous.retrieval.adjacentRecallAt10,
-      current.retrieval.adjacentRecallAt10, true);
-    addDelta(metricDeltas, 'Bridging Recall@10',
+      current.retrieval.adjacentRecallAt10,
+      true,
+    );
+    addDelta(
+      metricDeltas,
+      'Bridging Recall@10',
       previous.retrieval.bridgingRecallAt10,
-      current.retrieval.bridgingRecallAt10, true);
-    addDelta(metricDeltas, 'Precision@10',
+      current.retrieval.bridgingRecallAt10,
+      true,
+    );
+    addDelta(
+      metricDeltas,
+      'Precision@10',
       previous.retrieval.precisionAt10,
-      current.retrieval.precisionAt10, true);
-    addDelta(metricDeltas, 'Token Efficiency',
+      current.retrieval.precisionAt10,
+      true,
+    );
+    addDelta(
+      metricDeltas,
+      'Token Efficiency',
       previous.retrieval.tokenEfficiency,
-      current.retrieval.tokenEfficiency, true);
+      current.retrieval.tokenEfficiency,
+      true,
+    );
   }
 
-  // Graph value metrics
-  if (previous.graphValue && current.graphValue) {
-    addDelta(metricDeltas, 'Augmentation Ratio',
-      previous.graphValue.sourceAttribution.augmentationRatio,
-      current.graphValue.sourceAttribution.augmentationRatio, true);
-    addDelta(metricDeltas, 'Graph Lift',
-      previous.graphValue.lift,
-      current.graphValue.lift, true);
-    addDelta(metricDeltas, 'Graph-Boosted Chunks',
-      previous.graphValue.graphBoostedCount ?? 0,
-      current.graphValue.graphBoostedCount ?? 0, true);
+  // Chain quality metrics
+  if (previous.chainQuality && current.chainQuality) {
+    addDelta(
+      metricDeltas,
+      'Chain Coverage',
+      previous.chainQuality.chainCoverage,
+      current.chainQuality.chainCoverage,
+      true,
+    );
+    addDelta(
+      metricDeltas,
+      'Mean Chain Length',
+      previous.chainQuality.meanChainLength,
+      current.chainQuality.meanChainLength,
+      true,
+    );
   }
 
   // Latency metrics (lower is better)
   if (previous.latency && current.latency) {
-    addDelta(metricDeltas, 'p95 Recall Latency (ms)',
+    addDelta(
+      metricDeltas,
+      'p95 Recall Latency (ms)',
       previous.latency.recall.p95,
-      current.latency.recall.p95, false);
+      current.latency.recall.p95,
+      false,
+    );
   }
 
   // Generate summary
-  const improved = metricDeltas.filter(d => d.improved).length;
-  const worsened = metricDeltas.filter(d => !d.improved && d.delta !== 0).length;
+  const improved = metricDeltas.filter((d) => d.improved).length;
+  const worsened = metricDeltas.filter((d) => !d.improved && d.delta !== 0).length;
   const parts: string[] = [];
-  parts.push(`Score ${scoreDelta >= 0 ? 'improved' : 'decreased'} from ${previous.overallScore.toFixed(0)} to ${current.overallScore.toFixed(0)} (${scoreDelta >= 0 ? '+' : ''}${scoreDelta.toFixed(0)}).`);
+  parts.push(
+    `Score ${scoreDelta >= 0 ? 'improved' : 'decreased'} from ${previous.overallScore.toFixed(0)} to ${current.overallScore.toFixed(0)} (${scoreDelta >= 0 ? '+' : ''}${scoreDelta.toFixed(0)}).`,
+  );
   if (improved > 0) parts.push(`${improved} metric(s) improved.`);
   if (worsened > 0) parts.push(`${worsened} metric(s) worsened.`);
 

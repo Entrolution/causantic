@@ -66,7 +66,7 @@ export async function runThresholdSweep(
     minClusterSize?: number;
     embeddingModel?: string;
     verbose?: boolean;
-  } = {}
+  } = {},
 ): Promise<ThresholdSweepResult> {
   const {
     thresholds = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6],
@@ -177,8 +177,12 @@ export async function runThresholdSweep(
   const crossStats = computeStats(crossClusterDists);
 
   if (verbose) {
-    console.log(`\n  Within-cluster distance: mean=${withinStats.mean.toFixed(3)}, median=${withinStats.median.toFixed(3)}`);
-    console.log(`  Cross-cluster distance: mean=${crossStats.mean.toFixed(3)}, median=${crossStats.median.toFixed(3)}`);
+    console.log(
+      `\n  Within-cluster distance: mean=${withinStats.mean.toFixed(3)}, median=${withinStats.median.toFixed(3)}`,
+    );
+    console.log(
+      `  Cross-cluster distance: mean=${crossStats.mean.toFixed(3)}, median=${crossStats.median.toFixed(3)}`,
+    );
   }
 
   // Compute silhouette score (simplified)
@@ -204,7 +208,10 @@ export async function runThresholdSweep(
     // False negative: predicted different, actually same
     // True negative: predicted different, actually different
 
-    let tp = 0, fp = 0, fn = 0, tn = 0;
+    let tp = 0,
+      fp = 0,
+      fn = 0,
+      tn = 0;
 
     // Within-cluster (should predict same)
     for (const dist of withinClusterDists) {
@@ -226,7 +233,7 @@ export async function runThresholdSweep(
 
     const precision = tp > 0 ? tp / (tp + fp) : 0;
     const recall = tp > 0 ? tp / (tp + fn) : 0;
-    const f1 = precision + recall > 0 ? 2 * precision * recall / (precision + recall) : 0;
+    const f1 = precision + recall > 0 ? (2 * precision * recall) / (precision + recall) : 0;
 
     thresholdResults.push({
       threshold,
@@ -241,13 +248,13 @@ export async function runThresholdSweep(
 
     if (verbose) {
       console.log(
-        `${threshold.toFixed(2).padEnd(9)} | ${precision.toFixed(3).padEnd(9)} | ${recall.toFixed(3).padEnd(6)} | ${f1.toFixed(3).padEnd(6)} | ${tp.toString().padEnd(6)} | ${fp.toString().padEnd(6)} | ${fn}`
+        `${threshold.toFixed(2).padEnd(9)} | ${precision.toFixed(3).padEnd(9)} | ${recall.toFixed(3).padEnd(6)} | ${f1.toFixed(3).padEnd(6)} | ${tp.toString().padEnd(6)} | ${fp.toString().padEnd(6)} | ${fn}`,
       );
     }
   }
 
   // Find optimal threshold (highest F1)
-  const best = thresholdResults.reduce((a, b) => a.f1 > b.f1 ? a : b);
+  const best = thresholdResults.reduce((a, b) => (a.f1 > b.f1 ? a : b));
 
   if (verbose) {
     console.log('-'.repeat(70));
@@ -305,31 +312,33 @@ function computeSimplifiedSilhouette(embeddings: number[][], labels: number[]): 
   const sampleSize = Math.min(500, clusteredIndices.length);
 
   // Sample points for efficiency
-  const sampled = clusteredIndices
-    .sort(() => Math.random() - 0.5)
-    .slice(0, sampleSize);
+  const sampled = clusteredIndices.sort(() => Math.random() - 0.5).slice(0, sampleSize);
 
   for (const { label, index } of sampled) {
     // a(i) = mean distance to same cluster
     const sameCluster = clusteredIndices.filter((x) => x.label === label && x.index !== index);
     if (sameCluster.length === 0) continue;
 
-    const a = sameCluster.reduce(
-      (sum, x) => sum + angularDistance(embeddings[index], embeddings[x.index]),
-      0
-    ) / sameCluster.length;
+    const a =
+      sameCluster.reduce(
+        (sum, x) => sum + angularDistance(embeddings[index], embeddings[x.index]),
+        0,
+      ) / sameCluster.length;
 
     // b(i) = min mean distance to other clusters
-    const otherLabels = [...new Set(clusteredIndices.map((x) => x.label))].filter((l) => l !== label);
+    const otherLabels = [...new Set(clusteredIndices.map((x) => x.label))].filter(
+      (l) => l !== label,
+    );
     if (otherLabels.length === 0) continue;
 
     let b = Infinity;
     for (const otherLabel of otherLabels) {
       const otherCluster = clusteredIndices.filter((x) => x.label === otherLabel);
-      const meanDist = otherCluster.reduce(
-        (sum, x) => sum + angularDistance(embeddings[index], embeddings[x.index]),
-        0
-      ) / otherCluster.length;
+      const meanDist =
+        otherCluster.reduce(
+          (sum, x) => sum + angularDistance(embeddings[index], embeddings[x.index]),
+          0,
+        ) / otherCluster.length;
       b = Math.min(b, meanDist);
     }
 
