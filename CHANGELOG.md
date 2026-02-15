@@ -35,6 +35,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Config: `hybridSearch.graphWeight`**: Graph traversal no longer participates in RRF fusion.
 - **Dashboard**: Deleted `ForceGraph.tsx`, `DecayCurves.tsx`, `GraphExplorer.tsx` — replaced by Timeline page.
 
+## [0.3.6] - 2026-02-15
+
+### Fixed
+- **MCP error messages**: Tool failure responses now include the actual error message instead of generic "Tool execution failed", making transient errors diagnosable without opt-in stderr logging.
+
+### Changed
+- **CI formatting enforcement**: Added `format:check` step to CI workflow so formatting drift is caught before merge.
+- **Circular dependencies resolved**: Extracted shared types into `src/maintenance/types.ts` and `src/dashboard/client/src/lib/constants.ts` to break 5 circular dependency cycles.
+
+### Housekeeping
+- Fixed 5 ESLint warnings (consistent-type-imports, unused imports).
+- Bumped typedoc 0.28.16 → 0.28.17 (fixes moderate ReDoS in markdown-it).
+- Synced package-lock.json.
+- Ran prettier on 19 files with formatting drift.
+- Archived stale documentation for removed vector clock and decay systems.
+
 ## [0.3.0] - 2026-02-12
 
 ### Changed
