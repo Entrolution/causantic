@@ -14,16 +14,15 @@ The server communicates via stdio using the Model Context Protocol (JSON-RPC 2.0
 
 All tools return plain text responses via the MCP `content` array with `type: "text"`.
 
-### recall
+### search
 
-Retrieve relevant context from memory based on a query. Uses hybrid BM25 + vector search with RRF fusion, cluster expansion, and graph traversal.
+Search memory semantically to discover relevant past context. Returns ranked results by relevance using hybrid BM25 + vector search with RRF fusion and cluster expansion.
 
 **Parameters**:
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `query` | `string` | Yes | What to look up in memory. Be specific about what context you need. |
-| `range` | `string` | No | Time range hint: `"short"` for recent context (last few turns), `"long"` for historical/cross-session context. Default: `"short"`. |
+| `query` | `string` | Yes | What to search for in memory. Be specific about what context you need. |
 | `project` | `string` | No | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
 
 **Response**: Plain text. Returns a header with chunk count and token count, followed by the assembled context text. Returns `"No relevant memory found."` if no matches.
@@ -35,23 +34,38 @@ Found 5 relevant memory chunks (1200 tokens):
 [assembled context text...]
 ```
 
-### explain
+### recall
 
-Get an explanation of the context and history behind a topic. Defaults to long-range retrieval for comprehensive historical background spanning multiple sessions.
+Recall episodic memory by walking backward through causal chains to reconstruct narrative context. Seeds are found by semantic search; the causal graph unfolds them into ordered chains; chains are ranked by aggregate semantic relevance per token. Falls back to search results when no viable chain is found.
 
 **Parameters**:
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `topic` | `string` | Yes | What topic or aspect to explain. E.g., "the authentication system" or "why we chose React". |
-| `range` | `string` | No | Time range: `"short"` for recent context, `"long"` for full history. Default: `"long"`. |
+| `query` | `string` | Yes | What to recall from memory. Be specific about what context you need. |
 | `project` | `string` | No | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
 
-**Response**: Plain text. Same format as `recall`. Returns `"No relevant memory found."` if no matches.
+**Response**: Plain text. Returns an ordered narrative (problem → solution). When the chain walker falls back to search, a diagnostic bracket is appended with details about what was attempted.
+
+**Example** (successful chain walk):
+```
+Found 4 relevant memory chunks (900 tokens):
+
+[ordered narrative context...]
+```
+
+**Example** (fallback with diagnostics):
+```
+Found 3 relevant memory chunks (650 tokens):
+
+[search-based context...]
+
+[Chain walk: fell back to search — No edges found from seed chunks. Search found 5 chunks, 3 seeds, 0 chain(s) attempted, lengths: none]
+```
 
 ### predict
 
-Predict what context or topics might be relevant based on current discussion. Use proactively to surface potentially useful past context.
+Predict what context or topics might be relevant based on current discussion. Walks forward through causal chains to surface likely next steps. Falls back to search results when no viable chain is found.
 
 **Parameters**:
 
@@ -60,7 +74,7 @@ Predict what context or topics might be relevant based on current discussion. Us
 | `context` | `string` | Yes | Current context or topic being discussed. |
 | `project` | `string` | No | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
 
-**Response**: Plain text. Returns `"Potentially relevant context (N items):"` followed by assembled text, or `"No predictions available based on current context."` if no matches. Uses half the token budget of recall/explain.
+**Response**: Plain text. Returns `"Potentially relevant context (N items):"` followed by assembled text, or `"No predictions available based on current context."` if no matches. Uses half the token budget of recall/search. Includes chain walk diagnostics when falling back to search.
 
 ### list-projects
 
@@ -123,17 +137,91 @@ Rebuild session context for a project by time range. Returns chronological chunk
 
 **Response**: Plain text with chronological session context, including session boundary markers and chunk content. Token budget controlled by `tokens.mcpMaxResponse` config.
 
+### hook-status
+
+Check when Causantic hooks last ran and whether they succeeded. Use for diagnosing whether hooks are firing correctly after setup or configuration changes.
+
+**Parameters**: None.
+
+**Response**: Plain text report showing last run time and status for each hook (session-start, session-end, pre-compact, claudemd-generator).
+
+### stats
+
+Show memory statistics including version, chunk/edge/cluster counts, and per-project breakdowns. Use to check system health and memory usage.
+
+**Parameters**: None.
+
+**Response**: Formatted text with version, aggregate counts, and per-project details.
+
+**Example**:
+```
+Causantic v0.3.6
+
+Memory Statistics:
+- Chunks: 1234
+- Edges: 5678
+- Clusters: 42
+
+Projects:
+- my-app: 800 chunks (Jan 2025 – Feb 2025)
+- api-server: 434 chunks (Dec 2024 – Feb 2025)
+```
+
+### forget
+
+Delete chunks from memory filtered by project, time range, or session. Requires `project` to prevent accidental full-database deletion. Defaults to `dry_run=true` (preview only).
+
+**Parameters**:
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `project` | `string` | Yes | Project slug. Use `list-projects` to see available projects. |
+| `before` | `string` | No | Delete chunks before this ISO 8601 date. |
+| `after` | `string` | No | Delete chunks on or after this ISO 8601 date. |
+| `session_id` | `string` | No | Delete chunks from a specific session. |
+| `dry_run` | `boolean` | No | Preview without deleting (default: `true`). Set to `false` to actually delete. |
+
+**Response**: In dry-run mode, returns the count of chunks that would be deleted. When `dry_run=false`, deletes the chunks along with their edges, cluster assignments, FTS entries (via CASCADE), and vector embeddings.
+
+**Example** (dry run):
+```
+Dry run: 47 chunk(s) would be deleted from project "my-app". Set dry_run=false to proceed.
+```
+
+**Example** (actual deletion):
+```
+Deleted 47 chunk(s) from project "my-app" (vectors and related edges/clusters also removed).
+```
+
+Returns `"No chunks match the given filters."` if no chunks match.
+
 ## Tool Selection Guidelines
 
 | Scenario | Recommended Tool |
 |----------|-----------------|
-| Quick fact lookup or recent context | `recall` |
-| Understanding design evolution or past decisions | `explain` |
+| Broad discovery — "what do I know about X?" | `search` |
+| Episodic narrative — "how did we solve X?" | `recall` |
 | Proactively surfacing relevant past context | `predict` |
 | Discovering what projects exist in memory | `list-projects` |
 | Browsing sessions before diving into one | `list-sessions` |
 | "What did I work on yesterday/last session?" | `reconstruct` |
-| Rebuilding context after a compaction | `reconstruct` |
+| Checking system health and memory usage | `stats` |
+| Diagnosing hook issues | `hook-status` |
+| Deleting old or unwanted memory | `forget` |
+
+## Chain Walk Diagnostics
+
+The `recall` and `predict` tools use episodic chain walking — following directed edges through the causal graph to build ordered narratives. When the chain walker cannot find a viable chain, it falls back to search results and appends a diagnostic bracket explaining why:
+
+| Diagnostic Reason | Meaning |
+|-------------------|---------|
+| `No matching chunks in memory` | Search found 0 results — memory is empty or the query has no matches |
+| `Search found chunks but none suitable as chain seeds` | Search returned results but none could seed a chain walk |
+| `No edges found from seed chunks` | Seed chunks have no outgoing edges in the causal graph |
+| `All chains had only 1 chunk (minimum 2 required)` | Edges exist but every chain was too short |
+| `No chain met the qualifying threshold` | Chains were attempted but none scored well enough |
+
+These diagnostics help distinguish between "memory is empty" and "memory exists but lacks graph structure for episodic retrieval."
 
 ## Token Limits
 
@@ -141,4 +229,4 @@ Response sizes are controlled by `tokens.mcpMaxResponse` in the configuration (d
 
 ## Error Handling
 
-Tool errors are returned as MCP JSON-RPC error responses with code `-32002` (tool error) and include the tool name and error message. The `reconstruct` tool catches errors internally and returns them as plain text prefixed with `"Error: "`.
+Tool errors are returned as MCP JSON-RPC error responses with code `-32002` (tool error) and include the tool name and actual error message. The `reconstruct` tool catches errors internally and returns them as plain text prefixed with `"Error: "`.

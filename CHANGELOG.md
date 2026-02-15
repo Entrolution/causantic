@@ -10,23 +10,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Episodic Retrieval Pipeline**: Redesigned recall/predict from graph traversal to chain walking. Seeds found by semantic search; the causal graph unfolds them into ordered narrative chains; chains ranked by aggregate semantic relevance per token.
 - **Sequential edge structure**: Replaced m×n all-pairs edges with sequential linked-list (intra-turn C1→C2→C3, inter-turn last→first, cross-session last→first). All edges stored as single `forward` rows with uniform weight.
-- **MCP tools**: Replaced `explain` with `search` (semantic discovery). `recall` and `predict` now return episodic chain narratives with search-style fallback.
+- **MCP tools**: Replaced `explain` with `search` (semantic discovery). `recall` and `predict` now return episodic chain narratives with search-style fallback. Added `hook-status`, `stats`, and `forget` tools. MCP server now exposes 9 tools.
 - **Benchmark scoring**: Replaced Graph Value (30%) with Chain Quality (25%). Updated weights: Health 25%, Retrieval 35%, Chain 25%, Latency 15%.
 - **Schema v8**: Added composite indices on edges for directional chain walking queries.
+- **Skills**: Merged `/causantic-context` into `/causantic-explain` (dual-purpose: "why" questions + area briefings). Rewrote `/causantic-crossref` for explicit cross-project search (discovers projects → per-project filtered search → comparison). Added `/causantic-status` and `/causantic-summary`. 13 skills total.
+- **Hook consolidation**: Extracted shared `handleIngestionHook()` in `hook-utils.ts` from near-identical `session-end.ts` and `pre-compact.ts`.
+- **SessionStart error context**: Fallback message now includes a classified error hint (database busy, database not found, embedder unavailable, internal error) instead of a generic static string.
 
 ### Added
 - **`search` MCP tool**: Pure semantic discovery — vector + keyword + RRF + cluster expansion.
+- **`hook-status` MCP tool**: Shows when each hook last ran and whether it succeeded. Use for diagnosing hook firing issues.
+- **`stats` MCP tool**: Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns.
+- **`forget` MCP tool**: Delete chunks by project, time range, or session. Requires project slug. Defaults to dry-run preview. Cascades to edges, clusters, FTS, and vectors.
+- **Chain walk diagnostics**: `recall` and `predict` append a diagnostic bracket on fallback explaining why the chain walker fell back to search (no chunks, no seeds, no edges, short chains, or threshold not met).
 - **Chain walker** (`src/retrieval/chain-walker.ts`): Follows directed edges to build ordered narrative chains with token budgeting and cosine-similarity scoring.
 - **Chain assembler** (`src/retrieval/chain-assembler.ts`): Seeds → chain walk → rank → best chain or search fallback.
 - **Search assembler** (`src/retrieval/search-assembler.ts`): Pure search pipeline extracted from context assembler.
 - **Chain quality benchmarks**: Measures chain coverage, mean chain length, score per token, fallback rate.
 - **Edge rebuild command**: `npx causantic maintenance rebuild-edges` — rebuilds edges using sequential linked-list structure without re-parsing or re-embedding.
+- **claudemd-generator wired to SessionEnd**: The hook now runs automatically after session ingestion, keeping CLAUDE.md up to date.
+- **`/causantic-status` skill**: Calls `hook-status` + `stats` MCP tools, presents combined health report.
+- **`/causantic-summary` skill**: Summarize recent work across sessions — `list-sessions` → `reconstruct` → synthesize accomplishments/in-progress/patterns.
 - **Dashboard Timeline page**: Replaced force-directed graph with D3 horizontal swimlane timeline, chunk inspector, and chain walk viewer.
 - **Dashboard chain walk route**: `GET /api/chain/walk` — structural chain walk from a seed chunk for dashboard display.
 - **Dashboard timeline route**: `GET /api/timeline` — chunks ordered by time with edges for arc rendering.
+- **Removed skill cleanup**: `causantic init` now deletes directories for removed skills (e.g., `causantic-context`) on re-init.
 
 ### Removed
 - **`explain` MCP tool**: Subsumed by `recall` (both walk backward).
+- **`/causantic-context` skill**: Merged into `/causantic-explain`, which now handles both "why" questions and area briefings.
 - **Sum-product traverser**: Replaced by chain walker. Deleted `src/retrieval/traverser.ts`.
 - **Hop-based decay**: Deleted `src/storage/decay.ts`. Chain scoring uses direct cosine similarity instead.
 - **Graph-value benchmarks**: Replaced by chain-quality benchmarks. Deleted `src/eval/collection-benchmark/graph-value.ts`.
@@ -86,7 +98,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Source Attribution**: Returned chunks tagged with retrieval source (`vector`, `keyword`, `cluster`, `graph`)
 - **Graph Agreement Boost**: Vector+graph score fusion — when both pipelines agree on a chunk, its score is boosted; `graphBoostedCount` metric added to benchmarks
 - **Post-HDBSCAN Noise Reassignment**: Noise points reassigned to nearest cluster via centroid distance, improving cluster coverage
-- **6 MCP Tools**: recall, explain, predict, list-projects, list-sessions, reconstruct (Note: `explain` was replaced by `search` in the Unreleased version)
+- **6 MCP Tools** (v0.2.0): recall, explain, predict, list-projects, list-sessions, reconstruct (Note: `explain` was later replaced by `search`; `hook-status`, `stats`, and `forget` added in Unreleased)
 - **Schema v5 Migration**: FTS5 virtual table with automatic sync triggers; graceful fallback when FTS5 is unavailable
 - Initial open source release
 - Core memory ingestion and storage system
