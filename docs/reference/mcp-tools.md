@@ -155,7 +155,7 @@ Show memory statistics including version, chunk/edge/cluster counts, and per-pro
 
 **Example**:
 ```
-Causantic v0.4.1
+Causantic v0.4.2
 
 Memory Statistics:
 - Chunks: 1234

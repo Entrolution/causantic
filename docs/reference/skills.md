@@ -12,7 +12,7 @@ Skills are installed by `causantic init` to `~/.claude/skills/causantic-<name>/S
 
 #### `/causantic-recall [query]`
 
-Walk causal chains to reconstruct narrative — "how did we solve X?"
+Reconstruct how something happened — walks backward through causal chains ("how did we solve X?")
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -27,7 +27,7 @@ Walk causal chains to reconstruct narrative — "how did we solve X?"
 
 #### `/causantic-search [query]`
 
-Ranked discovery across memory by relevance — "what do I know about X?"
+Broad discovery — find everything memory knows about a topic ("what do I know about X?")
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -42,7 +42,7 @@ Ranked discovery across memory by relevance — "what do I know about X?"
 
 #### `/causantic-predict <context>`
 
-Surface relevant past context proactively for a given task.
+Surface what came after similar past situations — walks forward through causal chains ("what's likely relevant next?")
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -59,7 +59,7 @@ Surface relevant past context proactively for a given task.
 
 #### `/causantic-explain [question or area]`
 
-Answer "why" questions about code and architecture decisions, or build comprehensive context about a codebase area.
+Answer "why" questions using memory + codebase ("why does X work this way?")
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -106,7 +106,7 @@ Resume interrupted work -- start-of-session briefing.
 
 #### `/causantic-reconstruct [time range]`
 
-Reconstruct session context by time range.
+Replay a past session chronologically by time range.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -120,7 +120,7 @@ Reconstruct session context by time range.
 
 #### `/causantic-summary [time range]`
 
-Summarize recent work across sessions.
+Factual recap of what was done across recent sessions.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
@@ -174,7 +174,7 @@ Search across all projects for reusable patterns and solutions.
 
 #### `/causantic-retro [time range or topic]`
 
-Retrospective pattern analysis across sessions.
+Surface recurring patterns, problems, and decisions across sessions.
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
