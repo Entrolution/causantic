@@ -298,6 +298,104 @@ describe('predictTool.handler', () => {
 });
 
 // ---------------------------------------------------------------------------
+// recallTool.handler — diagnostics
+// ---------------------------------------------------------------------------
+describe('recallTool.handler diagnostics', () => {
+  it('appends chain walk diagnostics on fallback', async () => {
+    const responseWithDiagnostics = {
+      ...sampleResponse,
+      diagnostics: {
+        searchResultCount: 5,
+        seedCount: 2,
+        chainsAttempted: 3,
+        chainLengths: [1, 2, 1],
+        fallbackReason: 'No chain met the qualifying threshold',
+      },
+    };
+    mockRecall.mockResolvedValue(responseWithDiagnostics);
+
+    const result = await recallTool.handler({ query: 'test' });
+
+    expect(result).toContain('[Chain walk: fell back to search');
+    expect(result).toContain('No chain met the qualifying threshold');
+    expect(result).toContain('5 chunks');
+    expect(result).toContain('2 seeds');
+    expect(result).toContain('3 chain(s) attempted');
+    expect(result).toContain('1, 2, 1');
+  });
+
+  it('does not append diagnostics when no fallbackReason', async () => {
+    const responseWithDiagnostics = {
+      ...sampleResponse,
+      diagnostics: {
+        searchResultCount: 5,
+        seedCount: 2,
+        chainsAttempted: 1,
+        chainLengths: [3],
+      },
+    };
+    mockRecall.mockResolvedValue(responseWithDiagnostics);
+
+    const result = await recallTool.handler({ query: 'test' });
+
+    expect(result).not.toContain('[Chain walk:');
+  });
+
+  it('does not append diagnostics when no diagnostics present', async () => {
+    mockRecall.mockResolvedValue(sampleResponse);
+
+    const result = await recallTool.handler({ query: 'test' });
+
+    expect(result).not.toContain('[Chain walk:');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// predictTool.handler — diagnostics
+// ---------------------------------------------------------------------------
+describe('predictTool.handler diagnostics', () => {
+  it('appends chain walk diagnostics on fallback', async () => {
+    const responseWithDiagnostics = {
+      ...sampleResponse,
+      diagnostics: {
+        searchResultCount: 3,
+        seedCount: 1,
+        chainsAttempted: 0,
+        chainLengths: [] as number[],
+        fallbackReason: 'No edges found from seed chunks',
+      },
+    };
+    mockPredict.mockResolvedValue(responseWithDiagnostics);
+
+    const result = await predictTool.handler({ context: 'test' });
+
+    expect(result).toContain('Potentially relevant context');
+    expect(result).toContain('[Chain walk: fell back to search');
+    expect(result).toContain('No edges found from seed chunks');
+    expect(result).toContain('3 chunks');
+    expect(result).toContain('1 seeds');
+    expect(result).toContain('lengths: none');
+  });
+
+  it('does not append diagnostics when no fallbackReason', async () => {
+    const responseWithDiagnostics = {
+      ...sampleResponse,
+      diagnostics: {
+        searchResultCount: 3,
+        seedCount: 1,
+        chainsAttempted: 1,
+        chainLengths: [3],
+      },
+    };
+    mockPredict.mockResolvedValue(responseWithDiagnostics);
+
+    const result = await predictTool.handler({ context: 'test' });
+
+    expect(result).not.toContain('[Chain walk:');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // listProjectsTool.handler
 // ---------------------------------------------------------------------------
 describe('listProjectsTool.handler', () => {

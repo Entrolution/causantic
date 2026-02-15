@@ -53,6 +53,14 @@ export interface EpisodicResponse {
   chainLength: number;
   /** Time taken in milliseconds */
   durationMs: number;
+  /** Diagnostics about the chain walk (populated on fallback for debugging) */
+  diagnostics?: {
+    searchResultCount: number;
+    seedCount: number;
+    chainsAttempted: number;
+    chainLengths: number[];
+    fallbackReason?: string;
+  };
 }
 
 /**
@@ -91,7 +99,15 @@ async function runEpisodicPipeline(
 
   const searchResult = await searchContext(searchRequest);
 
-  if (searchResult.seedIds.length === 0) {
+  const searchResultCount = searchResult.chunks.length;
+  const seedCount = searchResult.seedIds.length;
+
+  if (seedCount === 0) {
+    const fallbackReason =
+      searchResultCount === 0
+        ? 'No matching chunks in memory'
+        : 'Search found chunks but none suitable as chain seeds';
+
     return {
       text: searchResult.text,
       tokenCount: searchResult.tokenCount,
@@ -104,6 +120,13 @@ async function runEpisodicPipeline(
       mode: 'search-fallback',
       chainLength: 0,
       durationMs: Date.now() - startTime,
+      diagnostics: {
+        searchResultCount,
+        seedCount,
+        chainsAttempted: 0,
+        chainLengths: [],
+        fallbackReason,
+      },
     };
   }
 
@@ -118,7 +141,15 @@ async function runEpisodicPipeline(
   const bestChain = selectBestChain(chains);
 
   if (!bestChain) {
-    // Fallback to search results
+    let fallbackReason: string;
+    if (chains.length === 0) {
+      fallbackReason = 'No edges found from seed chunks';
+    } else if (chains.every((c) => c.chunkIds.length <= 1)) {
+      fallbackReason = 'All chains had only 1 chunk (minimum 2 required)';
+    } else {
+      fallbackReason = 'No chain met the qualifying threshold';
+    }
+
     return {
       text: searchResult.text,
       tokenCount: searchResult.tokenCount,
@@ -131,6 +162,13 @@ async function runEpisodicPipeline(
       mode: 'search-fallback',
       chainLength: 0,
       durationMs: Date.now() - startTime,
+      diagnostics: {
+        searchResultCount,
+        seedCount,
+        chainsAttempted: chains.length,
+        chainLengths: chains.map((c) => c.chunkIds.length),
+        fallbackReason,
+      },
     };
   }
 
@@ -144,6 +182,12 @@ async function runEpisodicPipeline(
     mode: 'chain',
     chainLength: bestChain.chunkIds.length,
     durationMs: Date.now() - startTime,
+    diagnostics: {
+      searchResultCount,
+      seedCount,
+      chainsAttempted: chains.length,
+      chainLengths: chains.map((c) => c.chunkIds.length),
+    },
   };
 }
 
