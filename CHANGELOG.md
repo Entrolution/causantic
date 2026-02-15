@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-02-15
+
+### Fixed
+- **MCP server notification handling**: Server now silently ignores JSON-RPC notifications (e.g. `notifications/initialized`) instead of returning METHOD_NOT_FOUND errors, which caused Claude Code to fail loading the MCP server
+
+### Changed
+- **Reference docs**: Synced `docs/reference/skills.md` descriptions with README and updated version in `docs/reference/mcp-tools.md`
+
 ## [0.4.2] - 2026-02-15
 
 ### Changed
