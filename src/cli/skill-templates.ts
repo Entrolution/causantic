@@ -473,6 +473,66 @@ Check Causantic system health by combining hook status and memory statistics.
 `,
   },
   {
+    dirName: 'causantic-summary',
+    content: `---
+name: causantic-summary
+description: "Summarize recent work across sessions for a project. Use to review accomplishments, track in-progress work, and identify patterns over a time period."
+argument-hint: [time range]
+---
+
+# Work Summary
+
+Summarize recent work across sessions by combining session browsing with context reconstruction.
+
+## Usage
+
+\`\`\`
+/causantic-summary
+/causantic-summary today
+/causantic-summary this week
+/causantic-summary past 3 days
+\`\`\`
+
+## Workflow
+
+1. **Identify the project**: Derive from the current working directory (use \`list-projects\` if ambiguous)
+2. **Determine time range**: Map the user's intent to a \`days_back\` value
+3. **Browse sessions**: Use \`list-sessions\` with the project and time range to see all sessions
+4. **Reconstruct context**: Use \`reconstruct\` with the project and time range to get the raw session content
+5. **Synthesize**: Analyze the reconstructed context and produce a structured summary
+
+## Interpreting User Intent
+
+| User says | days_back |
+|-----------|-----------|
+| (nothing) / "recently" | 3 |
+| "today" | 1 |
+| "yesterday" | 2 |
+| "this week" | 7 |
+| "past N days" | N |
+| "this month" | 30 |
+| "this sprint" | 14 |
+
+## Output Format
+
+- **Period**: Date range and number of sessions
+- **Accomplishments**: Completed work, merged PRs, resolved issues
+- **In Progress**: Work that was started but not finished
+- **Patterns**: Recurring themes, frequently touched areas, common decisions
+- **Blockers / Open Issues**: Problems that came up and may still need attention
+- **Next Steps**: Explicit TODOs or natural continuations
+
+## Guidelines
+
+- Synthesize across sessions — don't just list each session separately
+- Focus on outcomes and decisions, not individual tool calls or file edits
+- Group related work across sessions (e.g., "Authentication refactor" spanning 3 sessions)
+- Highlight work that was started but not completed — this is the most actionable info
+- If the time range has many sessions, prioritize breadth over depth
+- If no sessions found for the time range, suggest widening the range
+`,
+  },
+  {
     dirName: 'causantic-crossref',
     content: `---
 name: causantic-crossref
@@ -1208,6 +1268,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 **Session & project navigation:**
 - \`/causantic-resume\` — Resume interrupted work (start-of-session briefing)
 - \`/causantic-reconstruct [time range]\` — Reconstruct session context by time
+- \`/causantic-summary [time range]\` — Summarize recent work across sessions
 - \`/causantic-list-projects\` — Discover available projects
 - \`/causantic-status\` — Check system health and memory statistics
 

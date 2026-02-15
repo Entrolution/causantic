@@ -52,6 +52,14 @@ export interface RetrievalResponse {
   totalConsidered: number;
   /** Time taken in milliseconds */
   durationMs: number;
+  /** Chain walk diagnostics (present when episodic retrieval falls back to search) */
+  diagnostics?: {
+    searchResultCount: number;
+    seedCount: number;
+    chainsAttempted: number;
+    chainLengths: number[];
+    fallbackReason?: string;
+  };
 }
 
 /**
@@ -132,5 +140,6 @@ function episodicResponseToRetrievalResponse(response: EpisodicResponse): Retrie
     chunks: response.chunks,
     totalConsidered: response.chunks.length,
     durationMs: response.durationMs,
+    diagnostics: response.diagnostics,
   };
 }

@@ -232,6 +232,103 @@ describe('chain-assembler', () => {
     });
   });
 
+  describe('diagnostics', () => {
+    it('populates diagnostics when no matching chunks in memory', async () => {
+      mockSearchResult = makeSearchResponse({ chunks: [], seedIds: [] });
+
+      const result = await recallContext({ query: 'test' });
+
+      expect(result.mode).toBe('search-fallback');
+      expect(result.diagnostics).toBeDefined();
+      expect(result.diagnostics!.searchResultCount).toBe(0);
+      expect(result.diagnostics!.seedCount).toBe(0);
+      expect(result.diagnostics!.chainsAttempted).toBe(0);
+      expect(result.diagnostics!.chainLengths).toEqual([]);
+      expect(result.diagnostics!.fallbackReason).toBe('No matching chunks in memory');
+    });
+
+    it('populates diagnostics when search finds chunks but no seeds', async () => {
+      mockSearchResult = makeSearchResponse({
+        chunks: [{ id: 'c1', sessionSlug: 'test', weight: 0.9, preview: 'Preview' }],
+        seedIds: [],
+      });
+
+      const result = await recallContext({ query: 'test' });
+
+      expect(result.diagnostics).toBeDefined();
+      expect(result.diagnostics!.searchResultCount).toBe(1);
+      expect(result.diagnostics!.seedCount).toBe(0);
+      expect(result.diagnostics!.fallbackReason).toBe(
+        'Search found chunks but none suitable as chain seeds',
+      );
+    });
+
+    it('populates diagnostics when no edges found from seeds', async () => {
+      mockChains = [];
+      mockBestChain = null;
+
+      const result = await recallContext({ query: 'test' });
+
+      expect(result.diagnostics).toBeDefined();
+      expect(result.diagnostics!.searchResultCount).toBe(2);
+      expect(result.diagnostics!.seedCount).toBe(2);
+      expect(result.diagnostics!.chainsAttempted).toBe(0);
+      expect(result.diagnostics!.fallbackReason).toBe('No edges found from seed chunks');
+    });
+
+    it('populates diagnostics when all chains have only 1 chunk', async () => {
+      mockChains = [makeChain(['A'], 1.0)];
+      mockBestChain = null;
+
+      const result = await recallContext({ query: 'test' });
+
+      expect(result.diagnostics).toBeDefined();
+      expect(result.diagnostics!.chainsAttempted).toBe(1);
+      expect(result.diagnostics!.chainLengths).toEqual([1]);
+      expect(result.diagnostics!.fallbackReason).toBe(
+        'All chains had only 1 chunk (minimum 2 required)',
+      );
+    });
+
+    it('populates diagnostics when no chain meets threshold', async () => {
+      mockChains = [makeChain(['A', 'B'], 0.5)];
+      mockBestChain = null;
+
+      const result = await recallContext({ query: 'test' });
+
+      expect(result.diagnostics).toBeDefined();
+      expect(result.diagnostics!.chainsAttempted).toBe(1);
+      expect(result.diagnostics!.chainLengths).toEqual([2]);
+      expect(result.diagnostics!.fallbackReason).toBe('No chain met the qualifying threshold');
+    });
+
+    it('populates diagnostics on successful chain (no fallbackReason)', async () => {
+      const chain = makeChain(['A', 'B', 'C'], 2.5);
+      mockChains = [chain];
+      mockBestChain = chain;
+
+      const result = await recallContext({ query: 'test' });
+
+      expect(result.mode).toBe('chain');
+      expect(result.diagnostics).toBeDefined();
+      expect(result.diagnostics!.searchResultCount).toBe(2);
+      expect(result.diagnostics!.seedCount).toBe(2);
+      expect(result.diagnostics!.chainsAttempted).toBe(1);
+      expect(result.diagnostics!.chainLengths).toEqual([3]);
+      expect(result.diagnostics!.fallbackReason).toBeUndefined();
+    });
+
+    it('populates diagnostics for predict as well', async () => {
+      mockChains = [];
+      mockBestChain = null;
+
+      const result = await predictContext({ query: 'test' });
+
+      expect(result.diagnostics).toBeDefined();
+      expect(result.diagnostics!.fallbackReason).toBe('No edges found from seed chunks');
+    });
+  });
+
   describe('chain formatting', () => {
     it('formats chain chunks with position indicators', async () => {
       const chain = makeChain(['A', 'B'], 1.5);

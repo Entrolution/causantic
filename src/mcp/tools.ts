@@ -44,6 +44,7 @@ export interface ToolDefinition {
 
 /**
  * Format retrieval response as text output.
+ * Appends chain walk diagnostics when episodic retrieval falls back to search.
  */
 function formatResponse(response: RetrievalResponse): string {
   if (response.chunks.length === 0) {
@@ -51,7 +52,15 @@ function formatResponse(response: RetrievalResponse): string {
   }
 
   const header = `Found ${response.chunks.length} relevant memory chunks (${response.tokenCount} tokens):\n\n`;
-  return header + response.text;
+  let result = header + response.text;
+
+  if (response.diagnostics?.fallbackReason) {
+    const d = response.diagnostics;
+    const lengths = d.chainLengths.length > 0 ? d.chainLengths.join(', ') : 'none';
+    result += `\n\n[Chain walk: fell back to search — ${d.fallbackReason}. Search found ${d.searchResultCount} chunks, ${d.seedCount} seeds, ${d.chainsAttempted} chain(s) attempted, lengths: ${lengths}]`;
+  }
+
+  return result;
 }
 
 /**
@@ -176,7 +185,15 @@ export const predictTool: ToolDefinition = {
     }
 
     const header = `Potentially relevant context (${response.chunks.length} items):\n\n`;
-    return header + response.text;
+    let result = header + response.text;
+
+    if (response.diagnostics?.fallbackReason) {
+      const d = response.diagnostics;
+      const lengths = d.chainLengths.length > 0 ? d.chainLengths.join(', ') : 'none';
+      result += `\n\n[Chain walk: fell back to search — ${d.fallbackReason}. Search found ${d.searchResultCount} chunks, ${d.seedCount} seeds, ${d.chainsAttempted} chain(s) attempted, lengths: ${lengths}]`;
+    }
+
+    return result;
   },
 };
 
