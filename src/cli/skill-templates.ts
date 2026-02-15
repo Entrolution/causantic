@@ -1340,24 +1340,24 @@ Long-term memory is available via the \`causantic\` MCP server.
 ### Skills
 
 **Core retrieval:**
-- \`/causantic-recall [query]\` — Walk causal chains to reconstruct narrative (how did we solve X?)
-- \`/causantic-search [query]\` — Ranked discovery across memory by relevance (what do I know about X?)
-- \`/causantic-predict <context>\` — Surface relevant past context proactively for a given task
+- \`/causantic-recall [query]\` — Reconstruct how something happened — walks backward through causal chains (how did we solve X?)
+- \`/causantic-search [query]\` — Broad discovery — find everything memory knows about a topic (what do I know about X?)
+- \`/causantic-predict <context>\` — Surface what came after similar past situations — walks forward through causal chains (what's likely relevant next?)
 
 **Understanding & analysis:**
-- \`/causantic-explain [question]\` — Answer "why" questions and explore codebase areas
+- \`/causantic-explain [question]\` — Answer "why" questions using memory + codebase (why does X work this way?)
 - \`/causantic-debug [error]\` — Search for prior encounters with an error (auto-extracts from conversation if no argument)
 
 **Session & project navigation:**
-- \`/causantic-resume\` — Resume interrupted work (start-of-session briefing)
-- \`/causantic-reconstruct [time range]\` — Reconstruct session context by time
-- \`/causantic-summary [time range]\` — Summarize recent work across sessions
+- \`/causantic-resume\` — Resume interrupted work — start-of-session briefing
+- \`/causantic-reconstruct [time range]\` — Replay a past session chronologically by time range
+- \`/causantic-summary [time range]\` — Factual recap of what was done across recent sessions
 - \`/causantic-list-projects\` — Discover available projects
 - \`/causantic-status\` — Check system health and memory statistics
 
 **Cross-cutting analysis:**
 - \`/causantic-crossref [pattern]\` — Search across all projects for reusable patterns
-- \`/causantic-retro [scope]\` — Retrospective pattern analysis across sessions
+- \`/causantic-retro [scope]\` — Surface recurring patterns, problems, and decisions across sessions
 - \`/causantic-cleanup\` — Memory-informed codebase review and cleanup plan
 
 **Memory management:**
