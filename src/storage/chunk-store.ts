@@ -409,6 +409,43 @@ export function getPreviousSession(project: string, currentSessionId: string): S
   return row ?? null;
 }
 
+/**
+ * Filters for querying chunk IDs (used by forget tool).
+ */
+export interface ChunkQueryFilters {
+  project: string;
+  before?: string;
+  after?: string;
+  sessionId?: string;
+}
+
+/**
+ * Query chunk IDs matching the given filters.
+ * Project is always required; time and session filters are optional.
+ */
+export function queryChunkIds(filters: ChunkQueryFilters): string[] {
+  const db = getDb();
+
+  let sql = 'SELECT id FROM chunks WHERE session_slug = ?';
+  const params: unknown[] = [filters.project];
+
+  if (filters.before) {
+    sql += ' AND start_time < ?';
+    params.push(filters.before);
+  }
+  if (filters.after) {
+    sql += ' AND start_time >= ?';
+    params.push(filters.after);
+  }
+  if (filters.sessionId) {
+    sql += ' AND session_id = ?';
+    params.push(filters.sessionId);
+  }
+
+  const rows = db.prepare(sql).all(...params) as { id: string }[];
+  return rows.map((r) => r.id);
+}
+
 // Internal types and helpers
 
 interface DbChunkRow {

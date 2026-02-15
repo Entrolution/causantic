@@ -12,6 +12,7 @@ import {
   predictTool,
   listProjectsTool,
   statsTool,
+  forgetTool,
 } from '../../src/mcp/tools.js';
 
 describe('mcp-tools', () => {
@@ -130,6 +131,36 @@ describe('mcp-tools', () => {
     });
   });
 
+  describe('forgetTool', () => {
+    it('has correct name', () => {
+      expect(forgetTool.name).toBe('forget');
+    });
+
+    it('has description mentioning delete', () => {
+      expect(forgetTool.description).toBeTruthy();
+      expect(forgetTool.description.toLowerCase()).toContain('delete');
+    });
+
+    it('requires project parameter', () => {
+      expect(forgetTool.inputSchema.required).toContain('project');
+    });
+
+    it('has project property with string type', () => {
+      expect(forgetTool.inputSchema.properties.project.type).toBe('string');
+    });
+
+    it('has optional before, after, session_id, dry_run parameters', () => {
+      expect(forgetTool.inputSchema.properties.before.type).toBe('string');
+      expect(forgetTool.inputSchema.properties.after.type).toBe('string');
+      expect(forgetTool.inputSchema.properties.session_id.type).toBe('string');
+      expect(forgetTool.inputSchema.properties.dry_run.type).toBe('boolean');
+      expect(forgetTool.inputSchema.required).not.toContain('before');
+      expect(forgetTool.inputSchema.required).not.toContain('after');
+      expect(forgetTool.inputSchema.required).not.toContain('session_id');
+      expect(forgetTool.inputSchema.required).not.toContain('dry_run');
+    });
+  });
+
   describe('project parameter', () => {
     it('search has optional project parameter', () => {
       expect(searchTool.inputSchema.properties.project).toBeTruthy();
@@ -152,7 +183,7 @@ describe('mcp-tools', () => {
 
   describe('tools array', () => {
     it('contains all seven tools', () => {
-      expect(tools.length).toBe(8);
+      expect(tools.length).toBe(9);
     });
 
     it('contains search tool', () => {
@@ -177,6 +208,10 @@ describe('mcp-tools', () => {
 
     it('contains hook-status tool', () => {
       expect(tools.find((t) => t.name === 'hook-status')).toBeTruthy();
+    });
+
+    it('contains forget tool', () => {
+      expect(tools.find((t) => t.name === 'forget')).toBeTruthy();
     });
 
     it('all tools have required fields', () => {
@@ -295,7 +330,7 @@ describe('mcp-tools', () => {
         inputSchema: t.inputSchema,
       }));
 
-      expect(toolList.length).toBe(8);
+      expect(toolList.length).toBe(9);
       expect(toolList[0]).not.toHaveProperty('handler'); // Handler not included
       expect(toolList[0]).toHaveProperty('name');
       expect(toolList[0]).toHaveProperty('description');
