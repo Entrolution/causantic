@@ -7,8 +7,8 @@ import { CAUSANTIC_SKILLS, getMinimalClaudeMdBlock } from '../../src/cli/skill-t
 
 describe('skill-templates', () => {
   describe('CAUSANTIC_SKILLS', () => {
-    it('has 13 skill templates', () => {
-      expect(CAUSANTIC_SKILLS.length).toBe(13);
+    it('has 14 skill templates', () => {
+      expect(CAUSANTIC_SKILLS.length).toBe(14);
     });
 
     it('includes causantic-recall skill', () => {
@@ -68,6 +68,11 @@ describe('skill-templates', () => {
 
     it('includes causantic-explain skill', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-explain');
+      expect(skill).toBeDefined();
+    });
+
+    it('includes causantic-forget skill', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-forget');
       expect(skill).toBeDefined();
     });
 
@@ -307,6 +312,27 @@ describe('skill-templates', () => {
       expect(skill.content).toContain('`search`');
       expect(skill.content).toContain('`predict`');
     });
+
+    it('causantic-forget has argument-hint', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-forget')!;
+      expect(skill.content).toContain('argument-hint:');
+    });
+
+    it('causantic-forget references forget MCP tool', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-forget')!;
+      expect(skill.content).toContain('`forget` MCP tool');
+    });
+
+    it('causantic-forget mentions dry_run parameter', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-forget')!;
+      expect(skill.content).toContain('dry_run');
+    });
+
+    it('causantic-forget mentions query and threshold parameters', () => {
+      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-forget')!;
+      expect(skill.content).toContain('**query**');
+      expect(skill.content).toContain('**threshold**');
+    });
   });
 
   describe('getMinimalClaudeMdBlock', () => {
@@ -324,7 +350,7 @@ describe('skill-templates', () => {
       expect(block).toContain('causantic');
     });
 
-    it('references all 12 Causantic skills', () => {
+    it('references all 13 Causantic skills', () => {
       expect(block).toContain('/causantic-recall');
       expect(block).toContain('/causantic-search');
       expect(block).toContain('/causantic-predict');
@@ -337,6 +363,7 @@ describe('skill-templates', () => {
       expect(block).toContain('/causantic-retro');
       expect(block).toContain('/causantic-summary');
       expect(block).toContain('/causantic-cleanup');
+      expect(block).toContain('/causantic-forget');
     });
 
     it('does not reference removed causantic-context skill', () => {
@@ -364,6 +391,7 @@ describe('skill-templates', () => {
       expect(block).toContain('Understanding & analysis:');
       expect(block).toContain('Session & project navigation:');
       expect(block).toContain('Cross-cutting analysis:');
+      expect(block).toContain('Memory management:');
     });
 
     it('has quick decision guide', () => {
@@ -392,6 +420,7 @@ describe('skill-templates', () => {
       expect(paths).toContain(`${skillsBase}/causantic-retro/SKILL.md`);
       expect(paths).toContain(`${skillsBase}/causantic-summary/SKILL.md`);
       expect(paths).toContain(`${skillsBase}/causantic-cleanup/SKILL.md`);
+      expect(paths).toContain(`${skillsBase}/causantic-forget/SKILL.md`);
     });
 
     it('CLAUDEMD replacement handles existing markers', () => {

@@ -306,6 +306,51 @@ function truncateChunk(content: string, maxTokens: number): string {
 }
 
 /**
+ * Result from similarity search for semantic deletion.
+ */
+export interface SimilarChunkResult {
+  id: string;
+  /** Similarity score 0-1 (higher = more similar). */
+  score: number;
+}
+
+/**
+ * Find chunk IDs similar to a query within a project.
+ * Uses vector-only search (no keyword/RRF/cluster expansion) for precision.
+ */
+export async function findSimilarChunkIds(options: {
+  query: string;
+  project: string;
+  threshold?: number;
+}): Promise<SimilarChunkResult[]> {
+  const { query, project } = options;
+  let { threshold = 0.6 } = options;
+
+  // Auto-detect percentage input: values >1 treated as percentages (e.g., 60 → 0.6)
+  if (threshold > 1) {
+    threshold = threshold / 100;
+  }
+
+  const embedder = await getEmbedder();
+  const { embedding } = await embedder.embed(query, true);
+
+  // searchByProject is O(n) brute-force regardless of limit — high limit is free
+  const results = await vectorStore.searchByProject(embedding, project, Number.MAX_SAFE_INTEGER);
+
+  // Angular distance 0=identical, 2=opposite. Score = max(0, 1-distance).
+  const filtered: SimilarChunkResult[] = [];
+  for (const r of results) {
+    const score = Math.max(0, 1 - r.distance);
+    if (score >= threshold) {
+      filtered.push({ id: r.id, score });
+    }
+  }
+
+  filtered.sort((a, b) => b.score - a.score);
+  return filtered;
+}
+
+/**
  * Cleanup shared resources.
  */
 export async function disposeSearch(): Promise<void> {

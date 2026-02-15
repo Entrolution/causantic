@@ -13,11 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP tools**: Replaced `explain` with `search` (semantic discovery). `recall` and `predict` now return episodic chain narratives with search-style fallback. Added `hook-status`, `stats`, and `forget` tools. MCP server now exposes 9 tools.
 - **Benchmark scoring**: Replaced Graph Value (30%) with Chain Quality (25%). Updated weights: Health 25%, Retrieval 35%, Chain 25%, Latency 15%.
 - **Schema v8**: Added composite indices on edges for directional chain walking queries.
-- **Skills**: Merged `/causantic-context` into `/causantic-explain` (dual-purpose: "why" questions + area briefings). Rewrote `/causantic-crossref` for explicit cross-project search (discovers projects → per-project filtered search → comparison). Added `/causantic-status` and `/causantic-summary`. 13 skills total.
+- **Skills**: Merged `/causantic-context` into `/causantic-explain` (dual-purpose: "why" questions + area briefings). Rewrote `/causantic-crossref` for explicit cross-project search (discovers projects → per-project filtered search → comparison). Added `/causantic-status`, `/causantic-summary`, and `/causantic-forget`. 14 skills total.
 - **Hook consolidation**: Extracted shared `handleIngestionHook()` in `hook-utils.ts` from near-identical `session-end.ts` and `pre-compact.ts`.
 - **SessionStart error context**: Fallback message now includes a classified error hint (database busy, database not found, embedder unavailable, internal error) instead of a generic static string.
 
 ### Added
+- **`/causantic-forget` skill**: Guided memory deletion by topic, time range, or session with dry-run preview and confirmation workflow.
+- **Skills reference documentation** (`docs/reference/skills.md`): Reference page for all 14 skills with parameters, usage examples, and decision guide.
+- **Semantic deletion for `forget` tool**: Added `query` and `threshold` parameters for topic-based deletion (e.g., "forget everything about authentication"). Uses vector-only search for precision. Dry-run shows top matches with similarity scores and score distribution. Combinable with time/session filters via AND logic.
 - **`search` MCP tool**: Pure semantic discovery — vector + keyword + RRF + cluster expansion.
 - **`hook-status` MCP tool**: Shows when each hook last ran and whether it succeeded. Use for diagnosing hook firing issues.
 - **`stats` MCP tool**: Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns.
