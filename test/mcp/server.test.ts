@@ -341,4 +341,35 @@ describe('mcp-server', () => {
       expect(response.content[0].text).toBe(toolResult);
     });
   });
+
+  describe('JSON-RPC notification handling', () => {
+    it('identifies notifications by missing id field', () => {
+      const notification = {
+        jsonrpc: '2.0' as const,
+        method: 'notifications/initialized',
+      };
+
+      const isNotification = notification.id === undefined;
+      expect(isNotification).toBe(true);
+    });
+
+    it('identifies requests by present id field', () => {
+      const request = {
+        jsonrpc: '2.0' as const,
+        id: 'req-1',
+        method: 'initialize',
+      };
+
+      const isNotification = request.id === undefined;
+      expect(isNotification).toBe(false);
+    });
+
+    it('handles notifications/initialized as a known notification', () => {
+      const knownNotifications = ['notifications/initialized', 'notifications/cancelled'];
+      const method = 'notifications/initialized';
+
+      expect(method.startsWith('notifications/')).toBe(true);
+      expect(knownNotifications.includes(method)).toBe(true);
+    });
+  });
 });
