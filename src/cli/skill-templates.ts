@@ -141,28 +141,38 @@ Pass these to the \`predict\` MCP tool:
     dirName: 'causantic-explain',
     content: `---
 name: causantic-explain
-description: "Answer 'why' questions about code and architecture by reconstructing the decision narrative from memory. Use when asked why something works a certain way or what led to a decision."
-argument-hint: [question]
+description: "Answer 'why' questions and explore codebase areas using memory. Handles both focused decision questions and comprehensive area briefings."
+argument-hint: [question or area]
 ---
 
-# Explain Why
+# Explain & Explore
 
-Answer "why" questions about code and architecture by reconstructing the decision narrative from memory.
+Answer "why" questions about code and architecture, or build comprehensive context about a codebase area — both by reconstructing narratives from memory.
 
 ## Usage
 
 \`\`\`
 /causantic-explain why does the chunker split on tool boundaries?
 /causantic-explain what led to the RRF fusion approach?
-/causantic-explain why is the schema at v7?
+/causantic-explain the authentication module
+/causantic-explain src/storage/chunk-store.ts
 \`\`\`
+
+## Intent Detection
+
+| User asks | Mode | Output format |
+|-----------|------|---------------|
+| "Why does X..." / "What led to..." | Focused decision | Decision narrative |
+| "Tell me about X" / area name / file path | Area briefing | Comprehensive briefing |
 
 ## Workflow
 
-1. **Reconstruct the narrative**: Use \`recall\` with the topic to walk the causal chain — problem that prompted the decision, alternatives considered, what was chosen and why
-2. **Gather supporting context**: Use \`search\` with the topic for additional context, related discussions, and alternatives that were considered
+1. **Reconstruct the narrative**: Use \`recall\` with the topic to walk causal chains — problem, alternatives, what was chosen and why
+2. **Gather broad context**: Use \`search\` with the topic for semantically related past context, evolution, and related discussions
 
-## Output Format
+## Output Format: Focused Decision
+
+Use when the query is a specific "why" or "what led to" question:
 
 - **Decision**: What was decided
 - **Context**: The problem or need that prompted it
@@ -170,48 +180,9 @@ Answer "why" questions about code and architecture by reconstructing the decisio
 - **Rationale**: Why this approach was chosen
 - **Trade-offs**: Known downsides or limitations accepted
 
-## When to Use
+## Output Format: Area Briefing
 
-- User asks "why does X work this way?"
-- User asks "what led to this decision?"
-- Before changing existing architecture — understand the reasoning first
-- When code seems surprising or non-obvious
-
-## Guidelines
-
-- This skill answers focused "why" questions — for a broad area briefing, use \`/causantic-context\` instead
-- Present the narrative as a story: what was the problem, what was tried, what stuck
-- If memory shows the decision evolved over time, show the progression
-- If memory has no context, say so — do not fabricate rationale
-`,
-  },
-  {
-    dirName: 'causantic-context',
-    content: `---
-name: causantic-context
-description: "Deep dive into a codebase area by combining decision history, evolution, and recent activity from memory. Use when you need comprehensive background on a module, feature, or design."
-argument-hint: [area or topic]
----
-
-# Deep Context
-
-Build comprehensive context about a codebase area by combining decision history, evolution, and recent activity from memory.
-
-## Usage
-
-\`\`\`
-/causantic-context the authentication module
-/causantic-context src/storage/chunk-store.ts
-/causantic-context how we handle encryption
-\`\`\`
-
-## Workflow
-
-1. **Get decision history**: Use \`recall\` with the topic for episodic narrative and rationale
-2. **Get broad context**: Use \`search\` with the topic for semantically related past context
-3. **Present as a structured briefing**
-
-## Output Format
+Use when the query names an area, module, file, or broad topic:
 
 - **Purpose**: What this area does (from memory's perspective)
 - **Key Decisions**: Decisions that shaped this area, with rationale
@@ -219,12 +190,22 @@ Build comprehensive context about a codebase area by combining decision history,
 - **Constraints & Tech Debt**: Known limitations or workarounds
 - **Recent Activity**: What was recently changed or discussed
 
+## When to Use
+
+- User asks "why does X work this way?"
+- User asks "what led to this decision?"
+- User asks "tell me about X" or names a codebase area
+- Before changing existing architecture — understand the reasoning first
+- When code seems surprising or non-obvious
+- When starting work in an unfamiliar area
+
 ## Guidelines
 
-- For a specific "why" question, use \`/causantic-explain\` instead — this skill is for comprehensive area briefings covering purpose, evolution, constraints, and recent activity
-- Focus on the "why" — the user can read the code for the "what"
+- Present the narrative as a story: what was the problem, what was tried, what stuck
+- If memory shows the decision evolved over time, show the progression
+- For area briefings, focus on the "why" — the user can read the code for the "what"
 - If memory has conflicting information across time, present the most recent and note the evolution
-- If memory has little context for the area, say so honestly
+- If memory has no context, say so — do not fabricate rationale
 `,
   },
   {
@@ -542,7 +523,7 @@ argument-hint: [pattern or topic]
 
 # Cross-Project Reference
 
-Search memory across all projects to find relevant patterns, solutions, or approaches.
+Search memory across all projects to find relevant patterns, solutions, or approaches. Explicitly queries each project to ensure comprehensive coverage.
 
 ## Usage
 
@@ -554,24 +535,38 @@ Search memory across all projects to find relevant patterns, solutions, or appro
 
 ## Workflow
 
-1. **Search all projects**: Use \`search\` WITHOUT a project filter for broad semantic discovery
-2. **Walk causal chains**: Use \`recall\` WITHOUT a project filter for narrative context
-3. **Surface related patterns**: Use \`predict\` without a project filter
-4. **Group by project**: Organize results by which project they came from
-5. **Highlight transferable insights**: Focus on what can be reused or adapted
+1. **Discover projects**: Call \`list-projects\` to get all available projects
+2. **Search each project**: For each relevant project (up to 5), call \`search\` with the query and that project's slug as the \`project\` filter
+3. **Deepen promising hits**: For projects with strong search results, call \`recall\` with the query and project filter to reconstruct the narrative
+4. **Compare across projects**: Analyze findings across projects, highlighting shared patterns, differences, and transferable solutions
 
 ## Output Format
 
-Group findings by project:
-- **[Project A]**: relevant findings
-- **[Project B]**: relevant findings
-- **Transferable Patterns**: what can be reused or adapted
+For each project with relevant findings:
+- **[Project Name]** (N chunks matched)
+  - Key findings and context
+  - Relevant decisions or patterns
+
+Then synthesize:
+- **Shared Patterns**: approaches used across multiple projects
+- **Transferable Solutions**: what can be reused or adapted
+- **Project-Specific Details**: approaches that are context-dependent
+
+## When to Use
+
+- Looking for how something was solved in other projects
+- Checking if a pattern or approach has been used before
+- Cross-project knowledge transfer
+- Finding reusable code or design patterns
 
 ## Guidelines
 
+- Always start with \`list-projects\` — don't assume which projects exist
+- Use project-filtered searches for precision (avoid noise from unfiltered broad search)
+- Limit to 5 most relevant projects to keep response focused
 - Always attribute findings to their source project
 - Highlight patterns that transfer well vs project-specific details
-- This is inherently a broad search — expect some noise
+- If no projects have relevant context, say so clearly
 `,
   },
   {
@@ -1261,8 +1256,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 - \`/causantic-predict <context>\` — Surface relevant past context proactively for a given task
 
 **Understanding & analysis:**
-- \`/causantic-explain [question]\` — Answer "why" questions about code and architecture decisions
-- \`/causantic-context [area]\` — Deep dive into a codebase area's history, evolution, and constraints
+- \`/causantic-explain [question]\` — Answer "why" questions and explore codebase areas
 - \`/causantic-debug [error]\` — Search for prior encounters with an error (auto-extracts from conversation if no argument)
 
 **Session & project navigation:**
