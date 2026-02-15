@@ -3,7 +3,7 @@
  */
 
 /** Magic bytes for encrypted archives */
-export const ENCRYPTED_MAGIC = Buffer.from('CST\x00');
+const ENCRYPTED_MAGIC = Buffer.from('CST\x00');
 
 /**
  * Prompt for password with hidden input.

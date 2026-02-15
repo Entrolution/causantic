@@ -9,12 +9,12 @@ The storage layer provides persistence for the Causantic memory system. It consi
 | Store | Purpose | Module |
 |-------|---------|--------|
 | Chunk Store | Conversation segments | `chunk-store.ts` |
-| Edge Store | Weighted causal connections | `edge-store.ts` |
+| Edge Store | Sequential causal connections | `edge-store.ts` |
 | Vector Store | Embedding vectors for similarity search | `vector-store.ts` |
 | Keyword Store | FTS5 full-text search with BM25 ranking | `keyword-store.ts` |
 | Cluster Store | Topic groupings | `cluster-store.ts` |
 
-All stores use SQLite for persistence via `better-sqlite3`.
+All stores use SQLite for persistence via `better-sqlite3-multiple-ciphers`.
 
 ## Data Types
 

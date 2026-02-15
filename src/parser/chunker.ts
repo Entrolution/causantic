@@ -18,12 +18,6 @@ import type {
   Turn,
 } from './types.js';
 import { approximateTokens } from '../utils/token-counter.js';
-/** Main UI agent identifier */
-export const MAIN_AGENT_ID = 'ui';
-
-/** Human user agent identifier */
-export const HUMAN_AGENT_ID = 'human';
-
 export interface ChunkerOptions {
   /** Target max tokens per chunk. Default: 4096. */
   maxTokens?: number;

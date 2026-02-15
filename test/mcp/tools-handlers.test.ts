@@ -15,10 +15,12 @@ vi.mock('../../src/retrieval/context-assembler.js', () => ({
 
 vi.mock('../../src/retrieval/search-assembler.js', () => ({
   searchContext: vi.fn(),
+  findSimilarChunkIds: vi.fn(),
 }));
 
 vi.mock('../../src/storage/chunk-store.js', () => ({
   getChunkCount: vi.fn(),
+  getChunksByIds: vi.fn(),
   getDistinctProjects: vi.fn(),
   getSessionsForProject: vi.fn(),
   queryChunkIds: vi.fn(),
@@ -61,9 +63,10 @@ import {
 } from '../../src/mcp/tools.js';
 
 import { recall, predict } from '../../src/retrieval/context-assembler.js';
-import { searchContext } from '../../src/retrieval/search-assembler.js';
+import { searchContext, findSimilarChunkIds } from '../../src/retrieval/search-assembler.js';
 import {
   getChunkCount,
+  getChunksByIds,
   getDistinctProjects,
   getSessionsForProject,
   queryChunkIds,
@@ -92,6 +95,8 @@ const mockQueryChunkIds = vi.mocked(queryChunkIds);
 const mockDeleteChunks = vi.mocked(deleteChunks);
 const mockInvalidateProjectsCache = vi.mocked(invalidateProjectsCache);
 const mockVectorStoreDeletBatch = vi.mocked(vectorStore.deleteBatch);
+const mockFindSimilarChunkIds = vi.mocked(findSimilarChunkIds);
+const mockGetChunksByIds = vi.mocked(getChunksByIds);
 
 /** Helper to build a minimal RetrievalResponse. */
 function makeResponse(
@@ -762,5 +767,232 @@ describe('forgetTool.handler', () => {
       after: '2025-01-01T00:00:00Z',
       sessionId: 'sess-123',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// forgetTool.handler — semantic deletion
+// ---------------------------------------------------------------------------
+describe('forgetTool.handler semantic deletion', () => {
+  const sampleSemanticMatches = [
+    { id: 'c1', score: 0.94 },
+    { id: 'c2', score: 0.87 },
+    { id: 'c3', score: 0.72 },
+  ];
+
+  const sampleStoredChunks = [
+    {
+      id: 'c1',
+      sessionId: 's1',
+      sessionSlug: 'my-app',
+      turnIndices: [0],
+      startTime: '2025-01-15T10:00:00Z',
+      endTime: '2025-01-15T10:05:00Z',
+      content: 'We implemented JWT authentication with refresh tokens and secure cookie handling',
+      codeBlockCount: 0,
+      toolUseCount: 0,
+      approxTokens: 50,
+    },
+    {
+      id: 'c2',
+      sessionId: 's1',
+      sessionSlug: 'my-app',
+      turnIndices: [1],
+      startTime: '2025-01-15T10:10:00Z',
+      endTime: '2025-01-15T10:15:00Z',
+      content: 'The auth middleware validates tokens on each request to protected routes',
+      codeBlockCount: 0,
+      toolUseCount: 0,
+      approxTokens: 40,
+    },
+    {
+      id: 'c3',
+      sessionId: 's2',
+      sessionSlug: 'my-app',
+      turnIndices: [0],
+      startTime: '2025-01-20T14:00:00Z',
+      endTime: '2025-01-20T14:05:00Z',
+      content: 'Fixed the token expiry bug in the auth module by extending refresh window',
+      codeBlockCount: 0,
+      toolUseCount: 0,
+      approxTokens: 45,
+    },
+  ];
+
+  it('query-only dry run shows semantic previews with scores and distribution', async () => {
+    mockFindSimilarChunkIds.mockResolvedValue(sampleSemanticMatches);
+    mockGetChunksByIds.mockReturnValue(sampleStoredChunks);
+
+    const result = await forgetTool.handler({
+      project: 'my-app',
+      query: 'authentication flow',
+    });
+
+    expect(result).toContain('Dry run: 3 chunk(s) match query "authentication flow"');
+    expect(result).toContain('threshold: 60%');
+    expect(result).toContain('project: "my-app"');
+    expect(result).toContain('Scores:');
+    expect(result).toContain('94% max');
+    expect(result).toContain('72% min');
+    expect(result).toContain('Top matches:');
+    expect(result).toContain('[94%]');
+    expect(result).toContain('[87%]');
+    expect(result).toContain('Set dry_run=false to proceed');
+    expect(mockDeleteChunks).not.toHaveBeenCalled();
+  });
+
+  it('query-only deletion calls findSimilarChunkIds + deleteChunks + deleteBatch', async () => {
+    mockFindSimilarChunkIds.mockResolvedValue(sampleSemanticMatches);
+    mockGetChunksByIds.mockReturnValue(sampleStoredChunks);
+    mockDeleteChunks.mockReturnValue(3);
+    mockVectorStoreDeletBatch.mockResolvedValue(3);
+
+    const result = await forgetTool.handler({
+      project: 'my-app',
+      query: 'authentication flow',
+      dry_run: false,
+    });
+
+    expect(mockFindSimilarChunkIds).toHaveBeenCalledWith({
+      query: 'authentication flow',
+      project: 'my-app',
+      threshold: undefined,
+    });
+    expect(mockDeleteChunks).toHaveBeenCalledWith(['c1', 'c2', 'c3']);
+    expect(mockVectorStoreDeletBatch).toHaveBeenCalledWith(['c1', 'c2', 'c3']);
+    expect(mockInvalidateProjectsCache).toHaveBeenCalled();
+    expect(result).toContain('Deleted 3 chunk(s)');
+  });
+
+  it('query-only deletion response includes top 3 deleted chunks', async () => {
+    mockFindSimilarChunkIds.mockResolvedValue(sampleSemanticMatches);
+    mockGetChunksByIds.mockReturnValue(sampleStoredChunks);
+    mockDeleteChunks.mockReturnValue(3);
+    mockVectorStoreDeletBatch.mockResolvedValue(3);
+
+    const result = await forgetTool.handler({
+      project: 'my-app',
+      query: 'auth',
+      dry_run: false,
+    });
+
+    expect(result).toContain('Top deleted:');
+    expect(result).toContain('[94%]');
+    expect(result).toContain('[87%]');
+    expect(result).toContain('[72%]');
+  });
+
+  it('query + time filters intersects results (AND logic)', async () => {
+    mockFindSimilarChunkIds.mockResolvedValue(sampleSemanticMatches);
+    // Only c1 and c2 match the time filter
+    mockQueryChunkIds.mockReturnValue(['c1', 'c2']);
+    mockGetChunksByIds.mockReturnValue(sampleStoredChunks.slice(0, 2));
+    mockDeleteChunks.mockReturnValue(2);
+    mockVectorStoreDeletBatch.mockResolvedValue(2);
+
+    const result = await forgetTool.handler({
+      project: 'my-app',
+      query: 'auth',
+      before: '2025-01-16T00:00:00Z',
+      dry_run: false,
+    });
+
+    expect(mockDeleteChunks).toHaveBeenCalledWith(['c1', 'c2']);
+    expect(result).toContain('Deleted 2 chunk(s)');
+  });
+
+  it('empty semantic results returns no-match message', async () => {
+    mockFindSimilarChunkIds.mockResolvedValue([]);
+
+    const result = await forgetTool.handler({
+      project: 'my-app',
+      query: 'nonexistent topic',
+    });
+
+    expect(result).toContain('No chunks match query "nonexistent topic" at threshold 60%');
+    expect(mockDeleteChunks).not.toHaveBeenCalled();
+  });
+
+  it('query matches but time filter eliminates all → specific message', async () => {
+    mockFindSimilarChunkIds.mockResolvedValue(sampleSemanticMatches);
+    mockQueryChunkIds.mockReturnValue([]); // time filter matches nothing
+
+    const result = await forgetTool.handler({
+      project: 'my-app',
+      query: 'auth',
+      before: '2020-01-01T00:00:00Z',
+    });
+
+    expect(result).toContain(
+      '3 chunk(s) matched query but none overlap with the time/session filters',
+    );
+    expect(mockDeleteChunks).not.toHaveBeenCalled();
+  });
+
+  it('threshold parameter passed through', async () => {
+    mockFindSimilarChunkIds.mockResolvedValue([]);
+
+    await forgetTool.handler({
+      project: 'my-app',
+      query: 'auth',
+      threshold: 0.8,
+    });
+
+    expect(mockFindSimilarChunkIds).toHaveBeenCalledWith({
+      query: 'auth',
+      project: 'my-app',
+      threshold: 0.8,
+    });
+  });
+
+  it('empty/whitespace query returns validation error', async () => {
+    const result = await forgetTool.handler({
+      project: 'my-app',
+      query: '   ',
+    });
+
+    expect(result).toBe('Error: query must not be empty.');
+    expect(mockFindSimilarChunkIds).not.toHaveBeenCalled();
+    expect(mockDeleteChunks).not.toHaveBeenCalled();
+  });
+
+  it('without query, uses existing filter-only behavior', async () => {
+    mockQueryChunkIds.mockReturnValue(['c1', 'c2']);
+
+    const result = await forgetTool.handler({ project: 'my-app' });
+
+    expect(mockFindSimilarChunkIds).not.toHaveBeenCalled();
+    expect(result).toContain('Dry run: 2 chunk(s) would be deleted');
+  });
+
+  it('dry-run with >20 matches includes threshold suggestion', async () => {
+    const manyMatches = Array.from({ length: 25 }, (_, i) => ({
+      id: `c${i}`,
+      score: 0.9 - i * 0.01,
+    }));
+    mockFindSimilarChunkIds.mockResolvedValue(manyMatches);
+    mockGetChunksByIds.mockReturnValue(
+      manyMatches.slice(0, 5).map((m) => ({
+        id: m.id,
+        sessionId: 's1',
+        sessionSlug: 'my-app',
+        turnIndices: [0],
+        startTime: '2025-01-15T10:00:00Z',
+        endTime: '2025-01-15T10:05:00Z',
+        content: `Content for chunk ${m.id}`,
+        codeBlockCount: 0,
+        toolUseCount: 0,
+        approxTokens: 20,
+      })),
+    );
+
+    const result = await forgetTool.handler({
+      project: 'my-app',
+      query: 'broad topic',
+    });
+
+    expect(result).toContain('Dry run: 25 chunk(s)');
+    expect(result).toContain('Tip: Try threshold');
+    expect(result).toContain('for more selective results');
   });
 });

@@ -169,7 +169,7 @@ Projects:
 
 ### forget
 
-Delete chunks from memory filtered by project, time range, or session. Requires `project` to prevent accidental full-database deletion. Defaults to `dry_run=true` (preview only).
+Delete chunks from memory filtered by project, time range, session, or semantic query. Requires `project` to prevent accidental full-database deletion. Defaults to `dry_run=true` (preview only).
 
 **Parameters**:
 
@@ -179,13 +179,30 @@ Delete chunks from memory filtered by project, time range, or session. Requires 
 | `before` | `string` | No | Delete chunks before this ISO 8601 date. |
 | `after` | `string` | No | Delete chunks on or after this ISO 8601 date. |
 | `session_id` | `string` | No | Delete chunks from a specific session. |
+| `query` | `string` | No | Semantic query for topic-based deletion (e.g., "authentication flow"). Finds similar chunks by embedding similarity. Can combine with `before`/`after`/`session_id` (AND logic). |
+| `threshold` | `number` | No | Similarity threshold (0–1 or 0–100, default 0.6). Higher = more selective. Values >1 treated as percentages (e.g., `60` → `0.6`). Only used when `query` is provided. |
 | `dry_run` | `boolean` | No | Preview without deleting (default: `true`). Set to `false` to actually delete. |
 
-**Response**: In dry-run mode, returns the count of chunks that would be deleted. When `dry_run=false`, deletes the chunks along with their edges, cluster assignments, FTS entries (via CASCADE), and vector embeddings.
+**Response**: In dry-run mode without `query`, returns the count of chunks that would be deleted. With `query`, dry-run shows top matches with similarity scores, score distribution (min/max/median), and content previews. When `dry_run=false`, deletes the chunks along with their edges, cluster assignments, FTS entries (via CASCADE), and vector embeddings.
 
-**Example** (dry run):
+**Example** (filter-based dry run):
 ```
 Dry run: 47 chunk(s) would be deleted from project "my-app". Set dry_run=false to proceed.
+```
+
+**Example** (semantic dry run):
+```
+Dry run: 12 chunk(s) match query "authentication flow" (threshold: 60%, project: "my-app")
+Scores: 94% max, 63% min, 78% median
+
+Top matches:
+  1. [94%] "We implemented JWT authentication with refresh tokens..." (Jan 15, 2025)
+  2. [87%] "The auth middleware validates tokens on each request..." (Jan 15, 2025)
+  3. [72%] "Fixed the token expiry bug in the auth module..." (Jan 20, 2025)
+  4. [68%] "Added CSRF protection to the login form..." (Jan 22, 2025)
+  5. [63%] "Token refresh endpoint now returns new expiry..." (Jan 25, 2025)
+  ...and 7 more
+Set dry_run=false to proceed with deletion.
 ```
 
 **Example** (actual deletion):
@@ -193,7 +210,7 @@ Dry run: 47 chunk(s) would be deleted from project "my-app". Set dry_run=false t
 Deleted 47 chunk(s) from project "my-app" (vectors and related edges/clusters also removed).
 ```
 
-Returns `"No chunks match the given filters."` if no chunks match.
+Returns `"No chunks match the given filters."` if no chunks match (filter-based), or `'No chunks match query "X" at threshold Y%'` for semantic queries with no results.
 
 ## Tool Selection Guidelines
 
@@ -207,7 +224,8 @@ Returns `"No chunks match the given filters."` if no chunks match.
 | "What did I work on yesterday/last session?" | `reconstruct` |
 | Checking system health and memory usage | `stats` |
 | Diagnosing hook issues | `hook-status` |
-| Deleting old or unwanted memory | `forget` |
+| Deleting old or unwanted memory by time/session | `forget` (with `before`/`after`/`session_id`) or `/causantic-forget` |
+| Deleting memory about a topic | `forget` (with `query`) or `/causantic-forget` |
 
 ## Chain Walk Diagnostics
 

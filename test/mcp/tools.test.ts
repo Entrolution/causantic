@@ -159,6 +159,16 @@ describe('mcp-tools', () => {
       expect(forgetTool.inputSchema.required).not.toContain('session_id');
       expect(forgetTool.inputSchema.required).not.toContain('dry_run');
     });
+
+    it('has optional query parameter with string type', () => {
+      expect(forgetTool.inputSchema.properties.query.type).toBe('string');
+      expect(forgetTool.inputSchema.required).not.toContain('query');
+    });
+
+    it('has optional threshold parameter with number type', () => {
+      expect(forgetTool.inputSchema.properties.threshold.type).toBe('number');
+      expect(forgetTool.inputSchema.required).not.toContain('threshold');
+    });
   });
 
   describe('project parameter', () => {

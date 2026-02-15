@@ -41,12 +41,6 @@ export default [
     },
   },
   {
-    files: ['src/report/reporter.ts'],
-    rules: {
-      'no-console': 'off',
-    },
-  },
-  {
     files: ['scripts/**/*.ts', 'test/**/*.ts'],
     rules: {
       'no-console': 'off',

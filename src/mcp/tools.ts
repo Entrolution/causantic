@@ -3,10 +3,15 @@
  */
 
 import { recall, predict } from '../retrieval/context-assembler.js';
-import { searchContext } from '../retrieval/search-assembler.js';
+import {
+  searchContext,
+  findSimilarChunkIds,
+  type SimilarChunkResult,
+} from '../retrieval/search-assembler.js';
 import { getConfig } from '../config/memory-config.js';
 import {
   getChunkCount,
+  getChunksByIds,
   getDistinctProjects,
   getSessionsForProject,
   queryChunkIds,
@@ -432,12 +437,105 @@ export const statsTool: ToolDefinition = {
 };
 
 /**
- * Forget tool: delete chunks from memory by project, time range, or session.
+ * Format a semantic dry-run preview showing top matches with scores and distribution.
+ */
+function formatSemanticDryRun(
+  matches: SimilarChunkResult[],
+  query: string,
+  threshold: number,
+  project: string,
+): string {
+  const thresholdPct = Math.round(threshold * 100);
+  const lines: string[] = [
+    `Dry run: ${matches.length} chunk(s) match query "${query}" (threshold: ${thresholdPct}%, project: "${project}")`,
+  ];
+
+  // Score distribution
+  const scores = matches.map((m) => m.score);
+  const maxScore = Math.round(Math.max(...scores) * 100);
+  const minScore = Math.round(Math.min(...scores) * 100);
+  const sorted = [...scores].sort((a, b) => a - b);
+  const medianScore = Math.round(
+    (sorted.length % 2 === 0
+      ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+      : sorted[Math.floor(sorted.length / 2)]) * 100,
+  );
+  lines.push(`Scores: ${maxScore}% max, ${minScore}% min, ${medianScore}% median`);
+
+  // Top 5 previews
+  const topN = Math.min(5, matches.length);
+  const topMatches = matches.slice(0, topN);
+  const chunks = getChunksByIds(topMatches.map((m) => m.id));
+  const chunkMap = new Map(chunks.map((c) => [c.id, c]));
+
+  lines.push('');
+  lines.push('Top matches:');
+  for (let i = 0; i < topN; i++) {
+    const match = topMatches[i];
+    const chunk = chunkMap.get(match.id);
+    const scorePct = Math.round(match.score * 100);
+    const preview = chunk ? chunk.content.split('\n')[0].slice(0, 80) : '(chunk not found)';
+    const date = chunk
+      ? new Date(chunk.startTime).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : '';
+    lines.push(`  ${i + 1}. [${scorePct}%] "${preview}" (${date})`);
+  }
+
+  if (matches.length > topN) {
+    lines.push(`  ...and ${matches.length - topN} more`);
+  }
+
+  // Threshold suggestion when many matches
+  if (matches.length > 20) {
+    const higher1 = Math.min(99, thresholdPct + 10);
+    const higher2 = Math.min(99, thresholdPct + 20);
+    lines.push('');
+    lines.push(
+      `Tip: Try threshold ${higher1 / 100} or ${higher2 / 100} for more selective results.`,
+    );
+  }
+
+  lines.push('Set dry_run=false to proceed with deletion.');
+  return lines.join('\n');
+}
+
+/**
+ * Format the top N deleted chunks for confirmation display.
+ */
+function formatDeletedPreview(matches: SimilarChunkResult[], n: number): string {
+  const topN = matches.slice(0, n);
+  const chunks = getChunksByIds(topN.map((m) => m.id));
+  const chunkMap = new Map(chunks.map((c) => [c.id, c]));
+
+  const lines: string[] = ['', 'Top deleted:'];
+  for (let i = 0; i < topN.length; i++) {
+    const match = topN[i];
+    const chunk = chunkMap.get(match.id);
+    const scorePct = Math.round(match.score * 100);
+    const preview = chunk ? chunk.content.split('\n')[0].slice(0, 80) : '(chunk not found)';
+    const date = chunk
+      ? new Date(chunk.startTime).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : '';
+    lines.push(`  ${i + 1}. [${scorePct}%] "${preview}" (${date})`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Forget tool: delete chunks from memory by project, time range, session, or topic.
  */
 export const forgetTool: ToolDefinition = {
   name: 'forget',
   description:
-    'Delete chunks from memory filtered by project, time range, or session. Requires project. Defaults to dry_run=true (preview only). Set dry_run=false to actually delete.',
+    'Delete chunks from memory filtered by project, time range, session, or semantic query. Requires project. Defaults to dry_run=true (preview only). Set dry_run=false to actually delete.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -457,6 +555,16 @@ export const forgetTool: ToolDefinition = {
         type: 'string',
         description: 'Delete chunks from a specific session. Optional.',
       },
+      query: {
+        type: 'string',
+        description:
+          'Semantic query for topic-based deletion (e.g., "authentication flow"). Finds similar chunks by embedding similarity. Can combine with before/after/session_id (AND logic).',
+      },
+      threshold: {
+        type: 'number',
+        description:
+          'Similarity threshold (0-1 or 0-100, default 0.6). Higher = more selective. Values >1 treated as percentages. Only used when query is provided.',
+      },
       dry_run: {
         type: 'boolean',
         description: 'Preview without deleting (default: true). Set to false to actually delete.',
@@ -469,8 +577,64 @@ export const forgetTool: ToolDefinition = {
     const before = args.before as string | undefined;
     const after = args.after as string | undefined;
     const sessionId = args.session_id as string | undefined;
+    const query = args.query as string | undefined;
+    const threshold = args.threshold as number | undefined;
     const dryRun = (args.dry_run as boolean | undefined) ?? true;
 
+    // Validate query is not empty/whitespace
+    if (query !== undefined && typeof query === 'string' && query.trim() === '') {
+      return 'Error: query must not be empty.';
+    }
+
+    const hasTimeFilters = before !== undefined || after !== undefined || sessionId !== undefined;
+
+    if (query !== undefined) {
+      // Semantic deletion path
+      const semanticMatches = await findSimilarChunkIds({ query, project, threshold });
+
+      if (semanticMatches.length === 0) {
+        const normalizedThreshold =
+          threshold !== undefined && threshold > 1 ? threshold / 100 : (threshold ?? 0.6);
+        return `No chunks match query "${query}" at threshold ${Math.round(normalizedThreshold * 100)}%.`;
+      }
+
+      let targetIds: string[];
+
+      if (hasTimeFilters) {
+        // Intersect semantic matches with time/session filter
+        const filterIds = new Set(queryChunkIds({ project, before, after, sessionId }));
+        targetIds = semanticMatches.filter((m) => filterIds.has(m.id)).map((m) => m.id);
+
+        if (targetIds.length === 0) {
+          return `${semanticMatches.length} chunk(s) matched query but none overlap with the time/session filters.`;
+        }
+      } else {
+        targetIds = semanticMatches.map((m) => m.id);
+      }
+
+      // Compute effective threshold for display
+      const effectiveThreshold =
+        threshold !== undefined && threshold > 1 ? threshold / 100 : (threshold ?? 0.6);
+
+      if (dryRun) {
+        // Filter semanticMatches to only those in targetIds for display
+        const targetSet = new Set(targetIds);
+        const displayMatches = semanticMatches.filter((m) => targetSet.has(m.id));
+        return formatSemanticDryRun(displayMatches, query, effectiveThreshold, project);
+      }
+
+      // Fetch top 3 previews before deletion
+      const previewMatches = semanticMatches.filter((m) => targetIds.includes(m.id)).slice(0, 3);
+      const preview = formatDeletedPreview(previewMatches, 3);
+
+      const deleted = deleteChunks(targetIds);
+      await vectorStore.deleteBatch(targetIds);
+      invalidateProjectsCache();
+
+      return `Deleted ${deleted} chunk(s) from project "${project}" (vectors and related edges/clusters also removed).${preview}`;
+    }
+
+    // Non-semantic deletion path (existing behavior)
     const ids = queryChunkIds({ project, before, after, sessionId });
 
     if (ids.length === 0) {

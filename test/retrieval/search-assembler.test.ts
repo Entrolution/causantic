@@ -108,6 +108,7 @@ function makeChunk(id: string, overrides: Partial<StoredChunk> = {}): StoredChun
 
 import {
   searchContext,
+  findSimilarChunkIds,
   disposeSearch,
   type SearchRequest,
 } from '../../src/retrieval/search-assembler.js';
@@ -291,6 +292,90 @@ describe('search-assembler', () => {
       const result = await searchContext({ query: 'test' });
 
       expect(result.chunks.length).toBe(1);
+    });
+  });
+
+  describe('findSimilarChunkIds', () => {
+    it('embeds query and calls vectorStore.searchByProject', async () => {
+      mockVectorResults = [{ id: 'c1', distance: 0.2 }];
+      mockChunks.set('c1', makeChunk('c1'));
+
+      const results = await findSimilarChunkIds({ query: 'test', project: 'proj' });
+
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe('c1');
+    });
+
+    it('filters by threshold (excludes low-similarity results)', async () => {
+      mockVectorResults = [
+        { id: 'c1', distance: 0.2 }, // score 0.8
+        { id: 'c2', distance: 0.6 }, // score 0.4 — below default 0.6
+      ];
+
+      const results = await findSimilarChunkIds({ query: 'test', project: 'proj' });
+
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe('c1');
+    });
+
+    it('returns sorted by score descending', async () => {
+      mockVectorResults = [
+        { id: 'c1', distance: 0.3 }, // score 0.7
+        { id: 'c2', distance: 0.1 }, // score 0.9
+        { id: 'c3', distance: 0.2 }, // score 0.8
+      ];
+
+      const results = await findSimilarChunkIds({ query: 'test', project: 'proj' });
+
+      expect(results.map((r) => r.id)).toEqual(['c2', 'c3', 'c1']);
+      expect(results[0].score).toBeGreaterThan(results[1].score);
+      expect(results[1].score).toBeGreaterThan(results[2].score);
+    });
+
+    it('returns empty when nothing above threshold', async () => {
+      mockVectorResults = [
+        { id: 'c1', distance: 0.8 }, // score 0.2
+      ];
+
+      const results = await findSimilarChunkIds({ query: 'test', project: 'proj' });
+
+      expect(results).toEqual([]);
+    });
+
+    it('uses default threshold 0.6 when not specified', async () => {
+      mockVectorResults = [
+        { id: 'c1', distance: 0.39 }, // score 0.61 — just above 0.6
+        { id: 'c2', distance: 0.41 }, // score 0.59 — just below 0.6
+      ];
+
+      const results = await findSimilarChunkIds({ query: 'test', project: 'proj' });
+
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe('c1');
+    });
+
+    it('auto-converts percentage thresholds (60 → 0.6)', async () => {
+      mockVectorResults = [
+        { id: 'c1', distance: 0.2 }, // score 0.8
+        { id: 'c2', distance: 0.5 }, // score 0.5 — below 0.6
+      ];
+
+      const results = await findSimilarChunkIds({ query: 'test', project: 'proj', threshold: 60 });
+
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe('c1');
+    });
+
+    it('clamps scores to 0 minimum (angular distance >1)', async () => {
+      mockVectorResults = [
+        { id: 'c1', distance: 1.5 }, // score would be -0.5, clamped to 0
+      ];
+
+      const results = await findSimilarChunkIds({ query: 'test', project: 'proj', threshold: 0 });
+
+      // distance 1.5 → score 0, threshold 0 → included (score >= 0)
+      expect(results.length).toBe(1);
+      expect(results[0].score).toBe(0);
     });
   });
 

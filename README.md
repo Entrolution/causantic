@@ -167,7 +167,7 @@ The MCP server exposes nine tools:
 | `reconstruct` | Rebuild session context chronologically — "what did I work on yesterday?" |
 | `hook-status` | Check when hooks last ran and whether they succeeded. |
 | `stats` | Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns. |
-| `forget` | Delete chunks by project, time range, or session. Defaults to dry-run preview. |
+| `forget` | Delete chunks by project, time range, session, or semantic query. Defaults to dry-run preview. |
 
 ### Claude Code Integration
 
@@ -188,7 +188,7 @@ Or run `npx causantic init` to configure automatically.
 
 ## Skills
 
-Causantic installs 13 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
+Causantic installs 14 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
 
 | Skill | Description |
 |-------|-------------|
@@ -205,6 +205,7 @@ Causantic installs 13 Claude Code slash commands (via `npx causantic init`) for 
 | `/causantic-crossref [pattern]` | Search across all projects for reusable patterns |
 | `/causantic-retro [scope]` | Retrospective analysis across past sessions |
 | `/causantic-cleanup` | Memory-informed codebase review and cleanup plan |
+| `/causantic-forget [query]` | Delete memory by topic, time range, or session (always previews first) |
 
 Skills are installed to `~/.claude/skills/causantic-*/` and work as slash commands in Claude Code. They orchestrate the MCP tools above with structured prompts tailored to each use case.
 
@@ -272,6 +273,7 @@ See [Security Guide](docs/guides/security.md).
 - [User Guides](docs/guides/) — Dashboard, benchmarking, integration, security, maintenance
 - [CLI Reference](docs/reference/cli-commands.md) — All commands and options
 - [MCP Tools Reference](docs/reference/mcp-tools.md) — Tool schemas and usage
+- [Skills Reference](docs/reference/skills.md) — All 14 slash commands
 - [Configuration Reference](docs/reference/configuration.md) — All configuration options
 - [Research Documentation](docs/research/) — Experiment results and design decisions
 - [Design Decision Log](docs/research/decisions.md) — Why things are the way they are

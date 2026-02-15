@@ -28,9 +28,10 @@ Deep dives into specific topics:
 Technical reference documentation:
 
 - [CLI Commands](reference/cli-commands.md) - Command-line interface reference
-- [MCP Tools](reference/mcp-tools.md) - MCP server tool documentation (6 tools)
+- [MCP Tools](reference/mcp-tools.md) - MCP server tool documentation (9 tools)
 - [Configuration Reference](reference/configuration.md) - All configuration options
 - [Storage API](reference/storage-api.md) - Storage layer internals
+- [Skills Reference](reference/skills.md) - Skill templates for Claude Code
 - [Traversal Algorithm](reference/traversal-algorithm.md) - Chain walking algorithm reference
 
 ## Research

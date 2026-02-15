@@ -1233,6 +1233,95 @@ Write the plan to \`CLEANUP_PLAN.md\` in project root with:
 - Documentation updates can be done in parallel with code changes
 `,
   },
+  {
+    dirName: 'causantic-forget',
+    content: `---
+name: causantic-forget
+description: "Delete old or unwanted memory by project, time range, session, or topic. Always previews before deleting. Use when asked to forget, clean up, or remove specific memory."
+argument-hint: [query or filters]
+---
+
+# Forget Memory
+
+Use the \`forget\` MCP tool from \`causantic\` to delete chunks from memory. Supports deletion by time range, session, or semantic topic query. Always defaults to dry-run preview.
+
+## Usage
+
+\\\`\\\`\\\`
+/causantic-forget authentication flow
+/causantic-forget everything before January
+/causantic-forget session abc12345
+/causantic-forget old deployment scripts
+\\\`\\\`\\\`
+
+## Workflow
+
+1. **Identify the project**: Derive from the current working directory, or ask the user. Use \`list-projects\` if ambiguous.
+2. **Determine deletion mode** based on user intent (see table below)
+3. **Always preview first**: Call \`forget\` with \`dry_run: true\` (the default)
+4. **Show the user what would be deleted** and ask for confirmation
+5. **Only after explicit confirmation**: Call \`forget\` with \`dry_run: false\`
+
+## Interpreting User Intent
+
+| User says | Parameters |
+|-----------|-----------|
+| "forget about authentication" | \`query: "authentication", project: "..."\` |
+| "forget everything before January" | \`before: "2025-01-01T00:00:00Z", project: "..."\` |
+| "forget session abc123" | \`session_id: "abc123", project: "..."\` |
+| "forget old auth stuff from December" | \`query: "authentication", after: "2024-12-01T00:00:00Z", before: "2025-01-01T00:00:00Z", project: "..."\` |
+| "forget everything about X but be selective" | \`query: "X", threshold: 0.8, project: "..."\` |
+
+## Parameters
+
+Pass these to the \`forget\` MCP tool:
+
+- **project** (required): Project slug. Use \`/causantic-list-projects\` to discover names.
+- **query**: Semantic query for topic-based deletion. Finds similar chunks by embedding similarity.
+- **threshold**: Similarity threshold (0–1, default 0.6). Higher = more selective. Values >1 treated as percentages (e.g., 60 → 0.6).
+- **before**: Delete chunks before this ISO 8601 date.
+- **after**: Delete chunks on or after this ISO 8601 date.
+- **session_id**: Delete chunks from a specific session.
+- **dry_run**: Preview without deleting (default: true). Set to false only after user confirmation.
+
+When \`query\` is combined with time/session filters, they intersect (AND logic).
+
+## Threshold Tuning
+
+- Default 0.6 is conservative — includes moderately related chunks
+- Use 0.7–0.8 for more selective deletion
+- Use 0.5 for broader cleanup
+- The dry-run preview shows score distribution (min/max/median) to help tune
+- When >20 chunks match, the preview suggests higher thresholds
+
+## When to Use
+
+- User asks to forget, remove, or clean up specific memory
+- User wants to delete memory about a topic ("forget everything about auth")
+- User wants to delete old memory by time range
+- User wants to delete a specific session's memory
+- Memory contains incorrect or outdated information the user wants removed
+
+## Guidelines
+
+- **Always preview first** — never skip the dry-run step
+- **Always confirm** — show the user what will be deleted and wait for explicit approval
+- Semantic deletion uses vector-only search (no keyword/RRF) for precision
+- Time and session filters can be combined with semantic query for targeted deletion
+- After deletion, vectors, edges, clusters, and FTS entries are all cleaned up
+- Deletion is irreversible — emphasise this to the user before confirming
+
+## Recovery
+
+If chunks are accidentally deleted, they can be recovered by re-ingesting the original session transcripts:
+
+\\\`\\\`\\\`
+npx causantic batch-ingest
+\\\`\\\`\\\`
+
+This re-reads session files from \`~/.claude/projects/\` and re-creates chunks, embeddings, and edges. Only missing chunks are created (existing ones are skipped via checkpoints).
+`,
+  },
 ];
 
 /**
@@ -1271,6 +1360,9 @@ Long-term memory is available via the \`causantic\` MCP server.
 - \`/causantic-retro [scope]\` — Retrospective pattern analysis across sessions
 - \`/causantic-cleanup\` — Memory-informed codebase review and cleanup plan
 
+**Memory management:**
+- \`/causantic-forget [query or filters]\` — Delete memory by topic, time range, or session (always previews first)
+
 ### Quick Decision Guide
 
 | User intent | Skill |
@@ -1279,6 +1371,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 | "How did we solve X?" | \`recall\` |
 | "Why does X work this way?" | \`explain\` |
 | "What might be relevant?" | \`predict\` |
+| "Forget/delete memory about X" | \`forget\` |
 
 ### Proactive Memory Usage
 
