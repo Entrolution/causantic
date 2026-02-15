@@ -330,6 +330,19 @@ async function installSkillsAndClaudeMd(): Promise<void> {
     console.log(`\u2713 Installed ${skillsInstalled} Causantic skills to ~/.claude/skills/`);
   }
 
+  // Clean up removed skills (causantic-context merged into causantic-explain)
+  const removedSkills = ['causantic-context'];
+  for (const name of removedSkills) {
+    const removedDir = path.join(skillsDir, name);
+    if (fs.existsSync(removedDir)) {
+      try {
+        fs.rmSync(removedDir, { recursive: true });
+      } catch {
+        // best-effort cleanup
+      }
+    }
+  }
+
   const claudeMdPath = path.join(os.homedir(), '.claude', 'CLAUDE.md');
   const CAUSANTIC_START = '<!-- CAUSANTIC_MEMORY_START -->';
   const CAUSANTIC_END = '<!-- CAUSANTIC_MEMORY_END -->';

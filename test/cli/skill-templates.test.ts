@@ -7,8 +7,8 @@ import { CAUSANTIC_SKILLS, getMinimalClaudeMdBlock } from '../../src/cli/skill-t
 
 describe('skill-templates', () => {
   describe('CAUSANTIC_SKILLS', () => {
-    it('has 14 skill templates', () => {
-      expect(CAUSANTIC_SKILLS.length).toBe(14);
+    it('has 13 skill templates', () => {
+      expect(CAUSANTIC_SKILLS.length).toBe(13);
     });
 
     it('includes causantic-recall skill', () => {
@@ -43,11 +43,6 @@ describe('skill-templates', () => {
 
     it('includes causantic-debug skill', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-debug');
-      expect(skill).toBeDefined();
-    });
-
-    it('includes causantic-context skill', () => {
-      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-context');
       expect(skill).toBeDefined();
     });
 
@@ -206,17 +201,6 @@ describe('skill-templates', () => {
       expect(skill.content).toContain('error');
     });
 
-    it('causantic-context has argument-hint', () => {
-      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-context')!;
-      expect(skill.content).toContain('argument-hint:');
-    });
-
-    it('causantic-context references recall and search tools', () => {
-      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-context')!;
-      expect(skill.content).toContain('`recall`');
-      expect(skill.content).toContain('`search`');
-    });
-
     it('causantic-summary has argument-hint', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-summary')!;
       expect(skill.content).toContain('argument-hint:');
@@ -245,9 +229,10 @@ describe('skill-templates', () => {
       expect(skill.content).toContain('argument-hint:');
     });
 
-    it('causantic-crossref mentions searching without project filter', () => {
+    it('causantic-crossref mentions list-projects and per-project search', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-crossref')!;
-      expect(skill.content).toContain('WITHOUT a project filter');
+      expect(skill.content).toContain('`list-projects`');
+      expect(skill.content).toContain('project filter');
     });
 
     it('causantic-retro has argument-hint', () => {
@@ -277,22 +262,22 @@ describe('skill-templates', () => {
       expect(skill.content).toContain('`search`');
     });
 
-    it('causantic-explain mentions why questions and decision narrative', () => {
+    it('causantic-explain handles both why questions and area briefings', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-explain')!;
-      expect(skill.content).toContain('why');
+      // Focused decision format
       expect(skill.content).toContain('Decision');
       expect(skill.content).toContain('Rationale');
+      // Area briefing format
+      expect(skill.content).toContain('Area Briefing');
+      expect(skill.content).toContain('Evolution');
+      // Intent detection table
+      expect(skill.content).toContain('Intent Detection');
     });
 
     it('causantic-predict documents context as required parameter', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-predict')!;
       expect(skill.content).toContain('**context** (required)');
       expect(skill.content).not.toContain('**query** (optional)');
-    });
-
-    it('causantic-context mentions /causantic-explain', () => {
-      const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-context')!;
-      expect(skill.content).toContain('/causantic-explain');
     });
 
     it('causantic-crossref references search tool', () => {
@@ -339,7 +324,7 @@ describe('skill-templates', () => {
       expect(block).toContain('causantic');
     });
 
-    it('references all 13 Causantic skills', () => {
+    it('references all 12 Causantic skills', () => {
       expect(block).toContain('/causantic-recall');
       expect(block).toContain('/causantic-search');
       expect(block).toContain('/causantic-predict');
@@ -348,11 +333,14 @@ describe('skill-templates', () => {
       expect(block).toContain('/causantic-reconstruct');
       expect(block).toContain('/causantic-resume');
       expect(block).toContain('/causantic-debug');
-      expect(block).toContain('/causantic-context');
       expect(block).toContain('/causantic-crossref');
       expect(block).toContain('/causantic-retro');
       expect(block).toContain('/causantic-summary');
       expect(block).toContain('/causantic-cleanup');
+    });
+
+    it('does not reference removed causantic-context skill', () => {
+      expect(block).not.toContain('/causantic-context');
     });
 
     it('has proactive memory usage section', () => {
@@ -400,7 +388,6 @@ describe('skill-templates', () => {
       expect(paths).toContain(`${skillsBase}/causantic-reconstruct/SKILL.md`);
       expect(paths).toContain(`${skillsBase}/causantic-resume/SKILL.md`);
       expect(paths).toContain(`${skillsBase}/causantic-debug/SKILL.md`);
-      expect(paths).toContain(`${skillsBase}/causantic-context/SKILL.md`);
       expect(paths).toContain(`${skillsBase}/causantic-crossref/SKILL.md`);
       expect(paths).toContain(`${skillsBase}/causantic-retro/SKILL.md`);
       expect(paths).toContain(`${skillsBase}/causantic-summary/SKILL.md`);
