@@ -7,8 +7,8 @@ import { CAUSANTIC_SKILLS, getMinimalClaudeMdBlock } from '../../src/cli/skill-t
 
 describe('skill-templates', () => {
   describe('CAUSANTIC_SKILLS', () => {
-    it('has 12 skill templates', () => {
-      expect(CAUSANTIC_SKILLS.length).toBe(12);
+    it('has 13 skill templates', () => {
+      expect(CAUSANTIC_SKILLS.length).toBe(13);
     });
 
     it('includes causantic-recall skill', () => {

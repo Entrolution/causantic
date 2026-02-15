@@ -429,6 +429,50 @@ Returns a list of projects with:
 `,
   },
   {
+    dirName: 'causantic-status',
+    content: `---
+name: causantic-status
+description: "Check Causantic system health: hook status, memory statistics, and version info. Use to diagnose setup issues or get an overview of the memory system."
+---
+
+# System Status
+
+Check Causantic system health by combining hook status and memory statistics.
+
+## Usage
+
+\`\`\`
+/causantic-status
+\`\`\`
+
+## Workflow
+
+1. Call the \`hook-status\` MCP tool from \`causantic\` to check when hooks last ran and whether they succeeded
+2. Call the \`stats\` MCP tool from \`causantic\` to get version, chunk/edge/cluster counts, and per-project breakdowns
+3. Present a combined health report
+
+## Output Format
+
+- **Version**: Causantic version
+- **Hook Status**: For each hook (session-start, session-end, pre-compact, claudemd-generator) — last run time, success/failure, duration
+- **Memory Statistics**: Chunk, edge, and cluster counts
+- **Projects**: Per-project chunk counts and date ranges
+
+## When to Use
+
+- After running \`causantic init\` to verify hooks are firing
+- When memory seems stale or missing — check if hooks are running
+- To get an overview of how much memory is stored
+- To diagnose issues with the memory system
+
+## Guidelines
+
+- If hooks show errors, suggest common fixes (re-run init, check permissions)
+- If memory stats are empty, suggest running batch-ingest
+- Present the report concisely — this is a diagnostic tool
+`,
+  },
+  {
     dirName: 'causantic-crossref',
     content: `---
 name: causantic-crossref
@@ -1165,6 +1209,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 - \`/causantic-resume\` — Resume interrupted work (start-of-session briefing)
 - \`/causantic-reconstruct [time range]\` — Reconstruct session context by time
 - \`/causantic-list-projects\` — Discover available projects
+- \`/causantic-status\` — Check system health and memory statistics
 
 **Cross-cutting analysis:**
 - \`/causantic-crossref [pattern]\` — Search across all projects for reusable patterns

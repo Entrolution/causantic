@@ -398,6 +398,15 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
           timeout: 300,
         },
       },
+      {
+        event: 'SessionEnd',
+        matcher: '',
+        hook: {
+          type: 'command',
+          command: `${nodeBin} ${cliEntry} hook claudemd-generator`,
+          timeout: 60,
+        },
+      },
     ];
 
     if (!config.hooks) {

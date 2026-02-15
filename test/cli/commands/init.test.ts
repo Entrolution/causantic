@@ -400,8 +400,9 @@ describe('initCommand', () => {
       expect(written.hooks.PreCompact[0].hooks[0].command).toContain('hook pre-compact');
       expect(written.hooks.SessionStart[0].hooks[0].command).toContain('hook session-start');
       expect(written.hooks.SessionEnd[0].hooks[0].command).toContain('hook session-end');
+      expect(written.hooks.SessionEnd[1].hooks[0].command).toContain('hook claudemd-generator');
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Configured 3 Claude Code hooks'),
+        expect.stringContaining('Configured 4 Claude Code hooks'),
       );
     });
 
@@ -442,7 +443,17 @@ describe('initCommand', () => {
           {
             matcher: '',
             hooks: [
-              { type: 'command', command: `${nodeBin} ${cliEntry} hook session-end`, timeout: 60 },
+              { type: 'command', command: `${nodeBin} ${cliEntry} hook session-end`, timeout: 300 },
+            ],
+          },
+          {
+            matcher: '',
+            hooks: [
+              {
+                type: 'command',
+                command: `${nodeBin} ${cliEntry} hook claudemd-generator`,
+                timeout: 60,
+              },
             ],
           },
         ],
@@ -488,6 +499,10 @@ describe('initCommand', () => {
             matcher: '',
             hooks: [{ type: 'command', command: 'node /old/path hook session-end' }],
           },
+          {
+            matcher: '',
+            hooks: [{ type: 'command', command: 'node /old/path hook claudemd-generator' }],
+          },
         ],
       };
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
@@ -508,13 +523,14 @@ describe('initCommand', () => {
       await initCommand.handler([]);
 
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Configured 3 Claude Code hooks'),
+        expect.stringContaining('Configured 4 Claude Code hooks'),
       );
       // Verify no duplicates — each event should have exactly 1 entry
+      // except SessionEnd which has 2 (session-end + claudemd-generator)
       const written = JSON.parse(mockFs.writeFileSync.mock.calls.at(-1)![1] as string);
       expect(written.hooks.PreCompact).toHaveLength(1);
       expect(written.hooks.SessionStart).toHaveLength(1);
-      expect(written.hooks.SessionEnd).toHaveLength(1);
+      expect(written.hooks.SessionEnd).toHaveLength(2);
     });
 
     it('handles unreadable config gracefully', async () => {

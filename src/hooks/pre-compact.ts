@@ -3,65 +3,23 @@
  * Called before a Claude Code session is compacted.
  * Ingests the session into the memory system.
  *
- * Features:
- * - Retry logic for transient errors
- * - Structured JSON logging
- * - Execution metrics
- * - Graceful degradation on failure
+ * Delegates to shared handleIngestionHook() for retry, metrics, and fallback.
  */
 
-import { basename } from 'node:path';
 import {
-  executeHook,
-  isTransientError,
-  ingestCurrentSession,
-  type HookMetrics,
+  handleIngestionHook,
+  type IngestionHookResult,
+  type IngestionHookOptions,
 } from './hook-utils.js';
-import { recordHookStatus } from './hook-status.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('pre-compact');
 
-/**
- * Result of pre-compact hook execution.
- */
-export interface PreCompactResult {
-  /** Session ID that was ingested */
-  sessionId: string;
-  /** Number of chunks created */
-  chunkCount: number;
-  /** Number of edges created */
-  edgeCount: number;
-  /** Number of clusters the new chunks were assigned to */
-  clustersAssigned: number;
-  /** Time taken in milliseconds */
-  durationMs: number;
-  /** Whether ingestion was skipped (already existed) */
-  skipped: boolean;
-  /** Hook execution metrics */
-  metrics?: HookMetrics;
-  /** Whether this is a fallback result due to error */
-  degraded?: boolean;
-}
+/** Result of pre-compact hook execution (alias for shared type). */
+export type PreCompactResult = IngestionHookResult;
 
-/**
- * Options for pre-compact hook.
- */
-export interface PreCompactOptions {
-  /** Enable retry on transient errors. Default: true */
-  enableRetry?: boolean;
-  /** Maximum retries. Default: 3 */
-  maxRetries?: number;
-  /** Return fallback on total failure. Default: true */
-  gracefulDegradation?: boolean;
-}
-
-/**
- * Internal handler without retry logic.
- */
-async function internalHandlePreCompact(sessionPath: string): Promise<PreCompactResult> {
-  return ingestCurrentSession('pre-compact', sessionPath);
-}
+/** Options for pre-compact hook (alias for shared type). */
+export type PreCompactOptions = IngestionHookOptions;
 
 /**
  * Handle pre-compact hook.
@@ -73,50 +31,9 @@ async function internalHandlePreCompact(sessionPath: string): Promise<PreCompact
  */
 export async function handlePreCompact(
   sessionPath: string,
-  options: PreCompactOptions & { project?: string; sessionId?: string } = {},
+  options: PreCompactOptions = {},
 ): Promise<PreCompactResult> {
-  const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
-
-  const fallbackResult: PreCompactResult = {
-    sessionId: 'unknown',
-    chunkCount: 0,
-    edgeCount: 0,
-    clustersAssigned: 0,
-    durationMs: 0,
-    skipped: false,
-    degraded: true,
-  };
-
-  const project = options.project ?? basename(process.cwd());
-
-  const { result, metrics } = await executeHook(
-    'pre-compact',
-    () => internalHandlePreCompact(sessionPath),
-    {
-      retry: enableRetry
-        ? {
-            maxRetries,
-            retryOn: isTransientError,
-          }
-        : undefined,
-      fallback: gracefulDegradation ? fallbackResult : undefined,
-      project,
-      sessionId: options.sessionId,
-    },
-  );
-
-  // Enrich status with ingestion details (chunks, edges)
-  if (!result.degraded && !result.skipped) {
-    recordHookStatus('pre-compact', {
-      details: { chunks: result.chunkCount, edges: result.edgeCount },
-    });
-  }
-
-  return {
-    ...result,
-    metrics,
-    durationMs: metrics.durationMs ?? result.durationMs,
-  };
+  return handleIngestionHook('pre-compact', sessionPath, options);
 }
 
 /**

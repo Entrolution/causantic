@@ -3,65 +3,23 @@
  * Called when a Claude Code session ends (clear, logout, exit).
  * Ingests the session into the memory system.
  *
- * Features:
- * - Retry logic for transient errors
- * - Structured JSON logging
- * - Execution metrics
- * - Graceful degradation on failure
+ * Delegates to shared handleIngestionHook() for retry, metrics, and fallback.
  */
 
-import { basename } from 'node:path';
 import {
-  executeHook,
-  isTransientError,
-  ingestCurrentSession,
-  type HookMetrics,
+  handleIngestionHook,
+  type IngestionHookResult,
+  type IngestionHookOptions,
 } from './hook-utils.js';
-import { recordHookStatus } from './hook-status.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('session-end');
 
-/**
- * Result of session-end hook execution.
- */
-export interface SessionEndResult {
-  /** Session ID that was ingested */
-  sessionId: string;
-  /** Number of chunks created */
-  chunkCount: number;
-  /** Number of edges created */
-  edgeCount: number;
-  /** Number of clusters the new chunks were assigned to */
-  clustersAssigned: number;
-  /** Time taken in milliseconds */
-  durationMs: number;
-  /** Whether ingestion was skipped (already existed) */
-  skipped: boolean;
-  /** Hook execution metrics */
-  metrics?: HookMetrics;
-  /** Whether this is a fallback result due to error */
-  degraded?: boolean;
-}
+/** Result of session-end hook execution (alias for shared type). */
+export type SessionEndResult = IngestionHookResult;
 
-/**
- * Options for session-end hook.
- */
-export interface SessionEndOptions {
-  /** Enable retry on transient errors. Default: true */
-  enableRetry?: boolean;
-  /** Maximum retries. Default: 3 */
-  maxRetries?: number;
-  /** Return fallback on total failure. Default: true */
-  gracefulDegradation?: boolean;
-}
-
-/**
- * Internal handler without retry logic.
- */
-async function internalHandleSessionEnd(sessionPath: string): Promise<SessionEndResult> {
-  return ingestCurrentSession('session-end', sessionPath);
-}
+/** Options for session-end hook (alias for shared type). */
+export type SessionEndOptions = IngestionHookOptions;
 
 /**
  * Handle session-end hook.
@@ -73,50 +31,9 @@ async function internalHandleSessionEnd(sessionPath: string): Promise<SessionEnd
  */
 export async function handleSessionEnd(
   sessionPath: string,
-  options: SessionEndOptions & { project?: string; sessionId?: string } = {},
+  options: SessionEndOptions = {},
 ): Promise<SessionEndResult> {
-  const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
-
-  const fallbackResult: SessionEndResult = {
-    sessionId: 'unknown',
-    chunkCount: 0,
-    edgeCount: 0,
-    clustersAssigned: 0,
-    durationMs: 0,
-    skipped: false,
-    degraded: true,
-  };
-
-  const project = options.project ?? basename(process.cwd());
-
-  const { result, metrics } = await executeHook(
-    'session-end',
-    () => internalHandleSessionEnd(sessionPath),
-    {
-      retry: enableRetry
-        ? {
-            maxRetries,
-            retryOn: isTransientError,
-          }
-        : undefined,
-      fallback: gracefulDegradation ? fallbackResult : undefined,
-      project,
-      sessionId: options.sessionId,
-    },
-  );
-
-  // Enrich status with ingestion details (chunks, edges)
-  if (!result.degraded && !result.skipped) {
-    recordHookStatus('session-end', {
-      details: { chunks: result.chunkCount, edges: result.edgeCount },
-    });
-  }
-
-  return {
-    ...result,
-    metrics,
-    durationMs: metrics.durationMs ?? result.durationMs,
-  };
+  return handleIngestionHook('session-end', sessionPath, options);
 }
 
 /**

@@ -11,6 +11,7 @@ import {
   recallTool,
   predictTool,
   listProjectsTool,
+  statsTool,
 } from '../../src/mcp/tools.js';
 
 describe('mcp-tools', () => {
@@ -110,6 +111,25 @@ describe('mcp-tools', () => {
     });
   });
 
+  describe('statsTool', () => {
+    it('has correct name', () => {
+      expect(statsTool.name).toBe('stats');
+    });
+
+    it('has description mentioning statistics', () => {
+      expect(statsTool.description).toBeTruthy();
+      expect(statsTool.description.toLowerCase()).toContain('statistic');
+    });
+
+    it('requires no parameters', () => {
+      expect(statsTool.inputSchema.required).toEqual([]);
+    });
+
+    it('has no required properties', () => {
+      expect(Object.keys(statsTool.inputSchema.properties)).toEqual([]);
+    });
+  });
+
   describe('project parameter', () => {
     it('search has optional project parameter', () => {
       expect(searchTool.inputSchema.properties.project).toBeTruthy();
@@ -132,7 +152,7 @@ describe('mcp-tools', () => {
 
   describe('tools array', () => {
     it('contains all seven tools', () => {
-      expect(tools.length).toBe(7);
+      expect(tools.length).toBe(8);
     });
 
     it('contains search tool', () => {
@@ -275,7 +295,7 @@ describe('mcp-tools', () => {
         inputSchema: t.inputSchema,
       }));
 
-      expect(toolList.length).toBe(7);
+      expect(toolList.length).toBe(8);
       expect(toolList[0]).not.toHaveProperty('handler'); // Handler not included
       expect(toolList[0]).toHaveProperty('name');
       expect(toolList[0]).toHaveProperty('description');

@@ -420,7 +420,7 @@ Causantic content only
     it('includes skill directory artifacts', () => {
       const plan = buildRemovalPlan(false);
       const skills = plan.filter((a) => a.label.includes('skills/'));
-      expect(skills.length).toBe(12); // recall, search, explain, predict, list-projects, reconstruct, resume, debug, context, crossref, retro, cleanup
+      expect(skills.length).toBe(13); // recall, search, explain, predict, list-projects, reconstruct, resume, debug, context, crossref, retro, cleanup, status
     });
 
     it('includes keychain artifacts', () => {

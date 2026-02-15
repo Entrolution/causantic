@@ -18,8 +18,17 @@ vi.mock('../../src/retrieval/search-assembler.js', () => ({
 }));
 
 vi.mock('../../src/storage/chunk-store.js', () => ({
+  getChunkCount: vi.fn(),
   getDistinctProjects: vi.fn(),
   getSessionsForProject: vi.fn(),
+}));
+
+vi.mock('../../src/storage/edge-store.js', () => ({
+  getEdgeCount: vi.fn(),
+}));
+
+vi.mock('../../src/storage/cluster-store.js', () => ({
+  getClusterCount: vi.fn(),
 }));
 
 vi.mock('../../src/retrieval/session-reconstructor.js', () => ({
@@ -38,11 +47,18 @@ import {
   listProjectsTool,
   listSessionsTool,
   reconstructTool,
+  statsTool,
 } from '../../src/mcp/tools.js';
 
 import { recall, predict } from '../../src/retrieval/context-assembler.js';
 import { searchContext } from '../../src/retrieval/search-assembler.js';
-import { getDistinctProjects, getSessionsForProject } from '../../src/storage/chunk-store.js';
+import {
+  getChunkCount,
+  getDistinctProjects,
+  getSessionsForProject,
+} from '../../src/storage/chunk-store.js';
+import { getEdgeCount } from '../../src/storage/edge-store.js';
+import { getClusterCount } from '../../src/storage/cluster-store.js';
 import {
   reconstructSession,
   formatReconstruction,
@@ -51,8 +67,11 @@ import {
 const mockRecall = vi.mocked(recall);
 const mockPredict = vi.mocked(predict);
 const mockSearchContext = vi.mocked(searchContext);
+const mockGetChunkCount = vi.mocked(getChunkCount);
 const mockGetDistinctProjects = vi.mocked(getDistinctProjects);
 const mockGetSessionsForProject = vi.mocked(getSessionsForProject);
+const mockGetEdgeCount = vi.mocked(getEdgeCount);
+const mockGetClusterCount = vi.mocked(getClusterCount);
 const mockReconstructSession = vi.mocked(reconstructSession);
 const mockFormatReconstruction = vi.mocked(formatReconstruction);
 
@@ -523,5 +542,51 @@ describe('reconstructTool.handler', () => {
     const result = await reconstructTool.handler({ project: 'my-app' });
 
     expect(result).toBe('Error: unexpected string error');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// statsTool.handler
+// ---------------------------------------------------------------------------
+describe('statsTool.handler', () => {
+  it('returns version, counts, and projects', async () => {
+    mockGetChunkCount.mockReturnValue(100);
+    mockGetEdgeCount.mockReturnValue(50);
+    mockGetClusterCount.mockReturnValue(10);
+    mockGetDistinctProjects.mockReturnValue([
+      {
+        slug: 'my-app',
+        chunkCount: 80,
+        firstSeen: '2025-01-01T00:00:00Z',
+        lastSeen: '2025-02-01T00:00:00Z',
+      },
+      {
+        slug: 'lib',
+        chunkCount: 20,
+        firstSeen: '2025-03-01T00:00:00Z',
+        lastSeen: '2025-03-01T00:00:00Z',
+      },
+    ]);
+
+    const result = await statsTool.handler({});
+
+    expect(result).toContain('Causantic v');
+    expect(result).toContain('Chunks: 100');
+    expect(result).toContain('Edges: 50');
+    expect(result).toContain('Clusters: 10');
+    expect(result).toContain('my-app: 80 chunks');
+    expect(result).toContain('lib: 20 chunks');
+  });
+
+  it('omits Projects section when no projects exist', async () => {
+    mockGetChunkCount.mockReturnValue(0);
+    mockGetEdgeCount.mockReturnValue(0);
+    mockGetClusterCount.mockReturnValue(0);
+    mockGetDistinctProjects.mockReturnValue([]);
+
+    const result = await statsTool.handler({});
+
+    expect(result).toContain('Chunks: 0');
+    expect(result).not.toContain('Projects:');
   });
 });
