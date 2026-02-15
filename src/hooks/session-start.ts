@@ -206,25 +206,58 @@ export async function handleSessionStart(
     degraded: true,
   };
 
-  const { result, metrics } = await executeHook(
-    'session-start',
-    async () => internalHandleSessionStart(projectPath, options),
-    {
-      retry: enableRetry
-        ? {
-            maxRetries,
-            retryOn: isTransientError,
-          }
-        : undefined,
-      fallback: gracefulDegradation ? fallbackResult : undefined,
-      project: basename(projectPath) || projectPath,
-    },
-  );
+  try {
+    const { result, metrics } = await executeHook(
+      'session-start',
+      async () => internalHandleSessionStart(projectPath, options),
+      {
+        retry: enableRetry
+          ? {
+              maxRetries,
+              retryOn: isTransientError,
+            }
+          : undefined,
+        fallback: gracefulDegradation ? undefined : undefined,
+        project: basename(projectPath) || projectPath,
+      },
+    );
 
-  return {
-    ...result,
-    metrics,
-  };
+    return {
+      ...result,
+      metrics,
+    };
+  } catch (error) {
+    if (!gracefulDegradation) throw error;
+
+    const hint = classifyError(error);
+    return {
+      ...fallbackResult,
+      summary: `Memory context temporarily unavailable (${hint} — will retry next session).`,
+    };
+  }
+}
+
+/**
+ * Classify an error into a short diagnostic hint.
+ */
+export function classifyError(error: unknown): string {
+  const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+  if (msg.includes('database is locked') || msg.includes('busy') || msg.includes('sqlite_busy')) {
+    return 'database busy';
+  }
+  if (msg.includes('enoent') || msg.includes('no such file')) {
+    return 'database not found';
+  }
+  if (
+    msg.includes('embed') ||
+    msg.includes('model') ||
+    msg.includes('onnx') ||
+    msg.includes('inference')
+  ) {
+    return 'embedder unavailable';
+  }
+  return 'internal error';
 }
 
 /**

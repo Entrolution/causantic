@@ -5,11 +5,24 @@
 import { recall, predict } from '../retrieval/context-assembler.js';
 import { searchContext } from '../retrieval/search-assembler.js';
 import { getConfig } from '../config/memory-config.js';
-import { getDistinctProjects, getSessionsForProject } from '../storage/chunk-store.js';
+import {
+  getChunkCount,
+  getDistinctProjects,
+  getSessionsForProject,
+} from '../storage/chunk-store.js';
+import { getEdgeCount } from '../storage/edge-store.js';
+import { getClusterCount } from '../storage/cluster-store.js';
 import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 import type { SearchResponse } from '../retrieval/search-assembler.js';
+
+const __tools_dirname = dirname(fileURLToPath(import.meta.url));
+const toolsPkg = JSON.parse(readFileSync(resolve(__tools_dirname, '../../package.json'), 'utf-8'));
+const TOOLS_VERSION: string = toolsPkg.version;
 
 /**
  * Tool definition for MCP.
@@ -351,6 +364,53 @@ export const hookStatusTool: ToolDefinition = {
 };
 
 /**
+ * Stats tool: memory statistics and version info.
+ */
+export const statsTool: ToolDefinition = {
+  name: 'stats',
+  description:
+    'Show memory statistics including version, chunk/edge/cluster counts, and per-project breakdowns. Use to check system health and memory usage.',
+  inputSchema: {
+    type: 'object',
+    properties: {},
+    required: [],
+  },
+  handler: async () => {
+    const chunks = getChunkCount();
+    const edges = getEdgeCount();
+    const clusters = getClusterCount();
+    const projects = getDistinctProjects();
+
+    const lines = [
+      `Causantic v${TOOLS_VERSION}`,
+      '',
+      'Memory Statistics:',
+      `- Chunks: ${chunks}`,
+      `- Edges: ${edges}`,
+      `- Clusters: ${clusters}`,
+    ];
+
+    if (projects.length > 0) {
+      lines.push('', 'Projects:');
+      for (const p of projects) {
+        const first = new Date(p.firstSeen).toLocaleDateString('en-US', {
+          month: 'short',
+          year: 'numeric',
+        });
+        const last = new Date(p.lastSeen).toLocaleDateString('en-US', {
+          month: 'short',
+          year: 'numeric',
+        });
+        const range = first === last ? first : `${first} – ${last}`;
+        lines.push(`- ${p.slug}: ${p.chunkCount} chunks (${range})`);
+      }
+    }
+
+    return lines.join('\n');
+  },
+};
+
+/**
  * All available tools.
  */
 export const tools: ToolDefinition[] = [
@@ -361,6 +421,7 @@ export const tools: ToolDefinition[] = [
   listSessionsTool,
   reconstructTool,
   hookStatusTool,
+  statsTool,
 ];
 
 /**

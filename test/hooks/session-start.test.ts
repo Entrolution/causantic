@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { SessionStartOptions, SessionStartResult } from '../../src/hooks/session-start.js';
+import { classifyError } from '../../src/hooks/session-start.js';
 
 describe('session-start', () => {
   describe('SessionStartOptions interface', () => {
@@ -482,6 +483,40 @@ ${result.summary}
       const firstThree = clusters.slice(0, 3);
 
       expect(firstThree).toEqual(['a', 'b', 'c']);
+    });
+  });
+
+  describe('classifyError', () => {
+    it('classifies database busy errors', () => {
+      expect(classifyError(new Error('database is locked'))).toBe('database busy');
+      expect(classifyError(new Error('SQLITE_BUSY'))).toBe('database busy');
+      expect(classifyError(new Error('busy timeout'))).toBe('database busy');
+    });
+
+    it('classifies file not found errors', () => {
+      expect(classifyError(new Error('ENOENT: no such file or directory'))).toBe(
+        'database not found',
+      );
+      expect(classifyError(new Error('no such file'))).toBe('database not found');
+    });
+
+    it('classifies embedder errors', () => {
+      expect(classifyError(new Error('Failed to load embedding model'))).toBe(
+        'embedder unavailable',
+      );
+      expect(classifyError(new Error('ONNX runtime error'))).toBe('embedder unavailable');
+      expect(classifyError(new Error('inference failed'))).toBe('embedder unavailable');
+    });
+
+    it('returns "internal error" for unknown errors', () => {
+      expect(classifyError(new Error('Something went wrong'))).toBe('internal error');
+      expect(classifyError(new Error('Validation failed'))).toBe('internal error');
+    });
+
+    it('handles non-Error values', () => {
+      expect(classifyError('database is locked')).toBe('database busy');
+      expect(classifyError('random string')).toBe('internal error');
+      expect(classifyError(42)).toBe('internal error');
     });
   });
 

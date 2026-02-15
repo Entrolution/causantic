@@ -8,6 +8,8 @@ import type {
   HookMetrics,
   RetryOptions,
   HookConfig,
+  IngestionHookResult,
+  IngestionHookOptions,
 } from '../../src/hooks/hook-utils.js';
 import { isTransientError, createMetrics, completeMetrics } from '../../src/hooks/hook-utils.js';
 
@@ -359,6 +361,81 @@ describe('hook-utils', () => {
       const message = error instanceof Error ? error.message : String(error);
 
       expect(message).toBe('null');
+    });
+  });
+
+  describe('IngestionHookResult interface', () => {
+    it('has correct structure for success', () => {
+      const result: IngestionHookResult = {
+        sessionId: 'sess-1',
+        chunkCount: 5,
+        edgeCount: 3,
+        clustersAssigned: 2,
+        durationMs: 50,
+        skipped: false,
+      };
+
+      expect(result.sessionId).toBe('sess-1');
+      expect(result.chunkCount).toBe(5);
+      expect(result.degraded).toBeUndefined();
+    });
+
+    it('has correct structure for degraded result', () => {
+      const result: IngestionHookResult = {
+        sessionId: 'unknown',
+        chunkCount: 0,
+        edgeCount: 0,
+        clustersAssigned: 0,
+        durationMs: 0,
+        skipped: false,
+        degraded: true,
+      };
+
+      expect(result.degraded).toBe(true);
+    });
+
+    it('supports optional metrics', () => {
+      const result: IngestionHookResult = {
+        sessionId: 'sess-2',
+        chunkCount: 10,
+        edgeCount: 5,
+        clustersAssigned: 3,
+        durationMs: 100,
+        skipped: false,
+        metrics: {
+          hookName: 'session-end',
+          startTime: Date.now() - 100,
+          endTime: Date.now(),
+          durationMs: 100,
+          success: true,
+          retryCount: 0,
+        },
+      };
+
+      expect(result.metrics?.success).toBe(true);
+    });
+  });
+
+  describe('IngestionHookOptions interface', () => {
+    it('has correct defaults', () => {
+      const options: IngestionHookOptions = {
+        enableRetry: true,
+        maxRetries: 3,
+        gracefulDegradation: true,
+      };
+
+      expect(options.enableRetry).toBe(true);
+      expect(options.maxRetries).toBe(3);
+    });
+
+    it('supports optional project and sessionId', () => {
+      const options: IngestionHookOptions = {
+        project: 'my-project',
+        sessionId: 'sess-abc',
+      };
+
+      expect(options.project).toBe('my-project');
+      expect(options.sessionId).toBe('sess-abc');
     });
   });
 });

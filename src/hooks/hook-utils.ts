@@ -356,6 +356,77 @@ export async function ingestCurrentSession(
   };
 }
 
+/** Result of an ingestion hook (session-end or pre-compact). */
+export interface IngestionHookResult extends IngestionResult {
+  metrics?: HookMetrics;
+  degraded?: boolean;
+}
+
+/** Options for ingestion hooks (session-end or pre-compact). */
+export interface IngestionHookOptions {
+  enableRetry?: boolean;
+  maxRetries?: number;
+  gracefulDegradation?: boolean;
+  project?: string;
+  sessionId?: string;
+}
+
+/**
+ * Shared handler for ingestion hooks (session-end and pre-compact).
+ * Wraps ingestCurrentSession with retry, fallback, and status recording.
+ */
+export async function handleIngestionHook(
+  hookName: string,
+  sessionPath: string,
+  options: IngestionHookOptions = {},
+): Promise<IngestionHookResult> {
+  const { basename } = await import('node:path');
+  const { recordHookStatus } = await import('./hook-status.js');
+
+  const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
+
+  const fallbackResult: IngestionHookResult = {
+    sessionId: 'unknown',
+    chunkCount: 0,
+    edgeCount: 0,
+    clustersAssigned: 0,
+    durationMs: 0,
+    skipped: false,
+    degraded: true,
+  };
+
+  const project = options.project ?? basename(process.cwd());
+
+  const { result, metrics } = await executeHook<IngestionHookResult>(
+    hookName,
+    async () => ingestCurrentSession(hookName, sessionPath),
+    {
+      retry: enableRetry
+        ? {
+            maxRetries,
+            retryOn: isTransientError,
+          }
+        : undefined,
+      fallback: gracefulDegradation ? fallbackResult : undefined,
+      project,
+      sessionId: options.sessionId,
+    },
+  );
+
+  // Enrich status with ingestion details (chunks, edges)
+  if (!result.degraded && !result.skipped) {
+    recordHookStatus(hookName, {
+      details: { chunks: result.chunkCount, edges: result.edgeCount },
+    });
+  }
+
+  return {
+    ...result,
+    metrics,
+    durationMs: metrics.durationMs ?? result.durationMs,
+  };
+}
+
 /**
  * Check if an error is transient (worth retrying).
  */

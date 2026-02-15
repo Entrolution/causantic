@@ -1,38 +1,14 @@
 /**
  * Tests for session-end hook handler.
+ * Since session-end.ts now delegates to handleIngestionHook(),
+ * these tests verify the delegation and CLI entry point behavior.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type * as HookUtils from '../../src/hooks/hook-utils.js';
 
-vi.mock('../../src/ingest/ingest-session.js', () => ({
-  ingestSession: vi.fn(),
+vi.mock('../../src/hooks/hook-utils.js', () => ({
+  handleIngestionHook: vi.fn(),
 }));
-
-vi.mock('../../src/clusters/cluster-manager.js', () => ({
-  clusterManager: {
-    assignNewChunks: vi.fn(),
-  },
-}));
-
-vi.mock('../../src/storage/vector-store.js', () => ({
-  vectorStore: {
-    getAllVectors: vi.fn(),
-  },
-}));
-
-vi.mock('../../src/hooks/hook-utils.js', async (importOriginal) => {
-  const actual = (await importOriginal()) as typeof HookUtils;
-  return {
-    ...actual,
-    executeHook: vi.fn(async (_name: string, fn: () => Promise<unknown>, _opts?: unknown) => {
-      const result = await fn();
-      return { result, metrics: { durationMs: 10 } };
-    }),
-    logHook: vi.fn(),
-    isTransientError: vi.fn(() => false),
-  };
-});
 
 vi.mock('../../src/utils/logger.js', () => ({
   createLogger: vi.fn(() => ({
@@ -44,13 +20,9 @@ vi.mock('../../src/utils/logger.js', () => ({
 }));
 
 import { handleSessionEnd } from '../../src/hooks/session-end.js';
-import { ingestSession } from '../../src/ingest/ingest-session.js';
-import { clusterManager } from '../../src/clusters/cluster-manager.js';
-import { vectorStore } from '../../src/storage/vector-store.js';
+import { handleIngestionHook } from '../../src/hooks/hook-utils.js';
 
-const mockedIngestSession = vi.mocked(ingestSession);
-const mockedAssignNewChunks = vi.mocked(clusterManager.assignNewChunks);
-const mockedGetAllVectors = vi.mocked(vectorStore.getAllVectors);
+const mockHandleIngestionHook = vi.mocked(handleIngestionHook);
 
 describe('session-end', () => {
   beforeEach(() => {
@@ -58,116 +30,78 @@ describe('session-end', () => {
   });
 
   describe('handleSessionEnd', () => {
-    it('returns skipped result when session already ingested', async () => {
-      mockedIngestSession.mockResolvedValue({
+    it('delegates to handleIngestionHook with "session-end" hook name', async () => {
+      mockHandleIngestionHook.mockResolvedValue({
         sessionId: 'sess-123',
-        sessionSlug: 'my-project',
+        chunkCount: 5,
+        edgeCount: 3,
+        clustersAssigned: 2,
+        durationMs: 50,
+        skipped: false,
+      });
+
+      const result = await handleSessionEnd('/path/to/session.jsonl');
+
+      expect(mockHandleIngestionHook).toHaveBeenCalledWith(
+        'session-end',
+        '/path/to/session.jsonl',
+        {},
+      );
+      expect(result.sessionId).toBe('sess-123');
+      expect(result.chunkCount).toBe(5);
+      expect(result.edgeCount).toBe(3);
+    });
+
+    it('passes options through to handleIngestionHook', async () => {
+      mockHandleIngestionHook.mockResolvedValue({
+        sessionId: 'sess-456',
         chunkCount: 0,
         edgeCount: 0,
-        crossSessionEdges: 0,
-        subAgentEdges: 0,
+        clustersAssigned: 0,
+        durationMs: 0,
         skipped: true,
-        skipReason: 'already_ingested',
+      });
+
+      const options = { enableRetry: false, maxRetries: 1, project: 'my-proj' };
+      await handleSessionEnd('/path/to/session.jsonl', options);
+
+      expect(mockHandleIngestionHook).toHaveBeenCalledWith(
+        'session-end',
+        '/path/to/session.jsonl',
+        options,
+      );
+    });
+
+    it('returns skipped result', async () => {
+      mockHandleIngestionHook.mockResolvedValue({
+        sessionId: 'sess-789',
+        chunkCount: 0,
+        edgeCount: 0,
+        clustersAssigned: 0,
         durationMs: 5,
-        subAgentCount: 0,
+        skipped: true,
       });
 
       const result = await handleSessionEnd('/path/to/session.jsonl');
 
       expect(result.skipped).toBe(true);
-      expect(result.sessionId).toBe('sess-123');
-      expect(result.chunkCount).toBe(0);
-      expect(result.edgeCount).toBe(0);
-      expect(result.clustersAssigned).toBe(0);
-
-      expect(mockedIngestSession).toHaveBeenCalledWith('/path/to/session.jsonl', {
-        skipIfExists: true,
-        linkCrossSessions: true,
-      });
-      expect(mockedGetAllVectors).not.toHaveBeenCalled();
-      expect(mockedAssignNewChunks).not.toHaveBeenCalled();
-    });
-
-    it('returns result with chunk/edge counts on successful ingestion', async () => {
-      mockedIngestSession.mockResolvedValue({
-        sessionId: 'sess-456',
-        sessionSlug: 'my-project',
-        chunkCount: 5,
-        edgeCount: 3,
-        crossSessionEdges: 1,
-        subAgentEdges: 0,
-        skipped: false,
-        durationMs: 50,
-        subAgentCount: 0,
-      });
-
-      const fakeVectors = [
-        { id: 'c1', embedding: [0.1, 0.2] },
-        { id: 'c2', embedding: [0.3, 0.4] },
-        { id: 'c3', embedding: [0.5, 0.6] },
-        { id: 'c4', embedding: [0.7, 0.8] },
-        { id: 'c5', embedding: [0.9, 1.0] },
-      ];
-      mockedGetAllVectors.mockResolvedValue(fakeVectors);
-      mockedAssignNewChunks.mockResolvedValue({ assigned: 3, total: 5 });
-
-      const result = await handleSessionEnd('/path/to/session.jsonl');
-
-      expect(result.skipped).toBe(false);
-      expect(result.sessionId).toBe('sess-456');
-      expect(result.chunkCount).toBe(5);
-      expect(result.edgeCount).toBe(3);
-      expect(result.clustersAssigned).toBe(3);
-    });
-
-    it('handles cluster assignment failure gracefully', async () => {
-      mockedIngestSession.mockResolvedValue({
-        sessionId: 'sess-789',
-        sessionSlug: 'my-project',
-        chunkCount: 2,
-        edgeCount: 1,
-        crossSessionEdges: 0,
-        subAgentEdges: 0,
-        skipped: false,
-        durationMs: 30,
-        subAgentCount: 0,
-      });
-
-      mockedGetAllVectors.mockResolvedValue([
-        { id: 'c1', embedding: [0.1] },
-        { id: 'c2', embedding: [0.2] },
-      ]);
-      mockedAssignNewChunks.mockRejectedValue(new Error('Cluster DB locked'));
-
-      const result = await handleSessionEnd('/path/to/session.jsonl');
-
-      expect(result.skipped).toBe(false);
       expect(result.sessionId).toBe('sess-789');
-      expect(result.chunkCount).toBe(2);
-      expect(result.edgeCount).toBe(1);
-      expect(result.clustersAssigned).toBe(0);
     });
 
-    it('does not attempt cluster assignment when chunkCount is 0 but not skipped', async () => {
-      mockedIngestSession.mockResolvedValue({
-        sessionId: 'sess-empty',
-        sessionSlug: 'my-project',
+    it('returns degraded result', async () => {
+      mockHandleIngestionHook.mockResolvedValue({
+        sessionId: 'unknown',
         chunkCount: 0,
         edgeCount: 0,
-        crossSessionEdges: 0,
-        subAgentEdges: 0,
+        clustersAssigned: 0,
+        durationMs: 0,
         skipped: false,
-        durationMs: 10,
-        subAgentCount: 0,
+        degraded: true,
       });
 
       const result = await handleSessionEnd('/path/to/session.jsonl');
 
-      expect(result.skipped).toBe(false);
-      expect(result.chunkCount).toBe(0);
-      expect(result.clustersAssigned).toBe(0);
-      expect(mockedGetAllVectors).not.toHaveBeenCalled();
-      expect(mockedAssignNewChunks).not.toHaveBeenCalled();
+      expect(result.degraded).toBe(true);
     });
   });
 });
