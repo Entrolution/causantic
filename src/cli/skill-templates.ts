@@ -1390,6 +1390,31 @@ Long-term memory is available via the \`causantic\` MCP server.
 - The user explicitly provides all needed context
 - First attempt at resolving a new error (try solving it first, check memory if stuck)
 
+### CLI Commands
+
+When the user asks to run Causantic operations from the command line:
+
+\`\`\`
+npx causantic init                  — Setup wizard (MCP, hooks, skills, import)
+npx causantic serve                 — Start the MCP server
+npx causantic dashboard             — Launch the web dashboard
+npx causantic batch-ingest [dir]    — Ingest all sessions from a directory
+npx causantic ingest <path>         — Ingest a single session or project
+npx causantic recall <query>        — Query memory from the CLI
+npx causantic stats                 — Show memory statistics
+npx causantic health                — Check system health
+npx causantic config [subcommand]   — Manage configuration
+npx causantic maintenance [status|run|daemon] — Maintenance tasks
+npx causantic benchmark-collection [--quick|--standard|--full] — Run benchmarks
+npx causantic encryption [subcommand] — Manage database encryption
+npx causantic export                — Export memory data
+npx causantic import <file>         — Import memory data
+npx causantic hook <name>           — Run a hook manually
+npx causantic uninstall             — Remove Causantic and all its artifacts
+\`\`\`
+
+Run \`npx causantic <command> --help\` for command-specific options.
+
 ### Combining Memory with Other Tools
 
 Memory provides historical context, not current code state. After retrieving memory:

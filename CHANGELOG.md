@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-02-15
+
+### Added
+- **CLI commands reference in CLAUDE.md block**: Claude Code now knows all 16 CLI commands without needing to run `causantic --help`. Eliminates repeated help lookups during sessions.
+
+### Fixed
+- README Key Differentiators numbering (duplicate "5." corrected to "4." and "5.")
+- SECURITY.md supported versions updated to v0.4.x only
+
 ## [0.4.0] - 2026-02-15
 
 ### Changed

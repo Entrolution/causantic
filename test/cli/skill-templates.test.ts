@@ -381,6 +381,17 @@ describe('skill-templates', () => {
       expect(block).toContain('verify');
     });
 
+    it('has CLI commands reference section', () => {
+      expect(block).toContain('### CLI Commands');
+      expect(block).toContain('npx causantic init');
+      expect(block).toContain('npx causantic serve');
+      expect(block).toContain('npx causantic dashboard');
+      expect(block).toContain('npx causantic batch-ingest');
+      expect(block).toContain('npx causantic benchmark-collection');
+      expect(block).toContain('npx causantic export');
+      expect(block).toContain('npx causantic uninstall');
+    });
+
     it('includes nuanced triggers', () => {
       expect(block).toContain('after 2 failed attempts');
       expect(block).toContain('First attempt at resolving a new error');
