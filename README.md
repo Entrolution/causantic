@@ -74,7 +74,7 @@ Vector search finds chunks that *look similar*. BM25 keyword search finds chunks
 **3. Sequential Causal Graph with Episodic Chain Walking**
 Chunks are connected in a sequential linked list — intra-turn chunks chained sequentially, inter-turn edges linking last→first, cross-session edges bridging sessions. The `recall` tool walks this graph backward to reconstruct episodic narratives; `predict` walks forward. Chains are scored by cosine similarity per token, producing ordered narratives where each chunk adds new information.
 
-**5. HDBSCAN Cluster-Guided Expansion**
+**4. HDBSCAN Cluster-Guided Expansion**
 Topic clusters group semantically related chunks. During retrieval, results expand through cluster siblings — surfacing context that neither vector nor keyword search found independently. Native TypeScript implementation (130× faster than hdbscan-ts).
 
 **5. Self-Benchmarking Suite**
