@@ -66,6 +66,15 @@ const ErrorCodes = {
 /**
  * MCP request message.
  */
+/** Incoming JSON-RPC message — notifications omit id. */
+interface McpMessage {
+  jsonrpc: '2.0';
+  id?: string | number;
+  method: string;
+  params?: Record<string, unknown>;
+}
+
+/** JSON-RPC request (has id — notifications filtered before this). */
 interface McpRequest {
   jsonrpc: '2.0';
   id: string | number;
@@ -191,7 +200,19 @@ export class McpServer {
       this.requestCount++;
 
       try {
-        const request = JSON.parse(line) as McpRequest;
+        const message = JSON.parse(line) as McpMessage;
+
+        // JSON-RPC notifications have no id — silently ignore per spec
+        if (message.id === undefined) {
+          this.log({
+            level: 'debug',
+            event: 'notification_received',
+            method: message.method,
+          });
+          return;
+        }
+
+        const request = message as McpRequest;
 
         this.log({
           level: 'debug',
