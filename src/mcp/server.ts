@@ -504,10 +504,12 @@ export class McpServer {
         error: error instanceof Error ? error.message : String(error),
       });
 
-      return createErrorResponse(id, ErrorCodes.TOOL_ERROR, 'Tool execution failed', {
-        tool: name,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return createErrorResponse(
+        id,
+        ErrorCodes.TOOL_ERROR,
+        `Tool '${name}' failed: ${errorMessage}`,
+      );
     }
   }
 
