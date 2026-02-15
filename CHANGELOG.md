@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2026-02-15
 
 ### Changed
 - **Episodic Retrieval Pipeline**: Redesigned recall/predict from graph traversal to chain walking. Seeds found by semantic search; the causal graph unfolds them into ordered narrative chains; chains ranked by aggregate semantic relevance per token.
@@ -101,7 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Source Attribution**: Returned chunks tagged with retrieval source (`vector`, `keyword`, `cluster`, `graph`)
 - **Graph Agreement Boost**: Vector+graph score fusion — when both pipelines agree on a chunk, its score is boosted; `graphBoostedCount` metric added to benchmarks
 - **Post-HDBSCAN Noise Reassignment**: Noise points reassigned to nearest cluster via centroid distance, improving cluster coverage
-- **6 MCP Tools** (v0.2.0): recall, explain, predict, list-projects, list-sessions, reconstruct (Note: `explain` was later replaced by `search`; `hook-status`, `stats`, and `forget` added in Unreleased)
+- **6 MCP Tools** (v0.2.0): recall, explain, predict, list-projects, list-sessions, reconstruct (Note: `explain` was later replaced by `search`; `hook-status`, `stats`, and `forget` added in v0.4.0)
 - **Schema v5 Migration**: FTS5 virtual table with automatic sync triggers; graceful fallback when FTS5 is unavailable
 - Initial open source release
 - Core memory ingestion and storage system
@@ -129,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Research Findings
 - Topic continuity detection: 0.998 AUC
 - Clustering threshold optimization: F1=0.940 at 0.09
-- Graph traversal experiment: 4.65× context augmentation (v0.2 sum-product; replaced by chain walking in Unreleased)
+- Graph traversal experiment: 4.65× context augmentation (v0.2 sum-product; replaced by chain walking in v0.4.0)
 - Embedding model selection: jina-small for optimal size/quality tradeoff
 - Direction-specific decay: backward (dies@10 hops) vs forward (5-hop hold, dies@20)
 
