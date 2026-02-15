@@ -334,9 +334,10 @@ npx causantic hook <hook-name> [options]
 
 | Hook | Description |
 |------|-------------|
-| `session-start` | Session start hook |
-| `pre-compact` | Pre-compaction hook |
-| `claudemd-generator` | Update CLAUDE.md |
+| `session-start` | Session start hook — retrieves memory context |
+| `session-end` | Session end hook — ingests the current session |
+| `pre-compact` | Pre-compaction hook — ingests the current session before compaction |
+| `claudemd-generator` | Update CLAUDE.md with memory context |
 
 **Example**:
 ```bash
@@ -367,7 +368,7 @@ npx causantic dashboard
 npx causantic dashboard --port 8080
 ```
 
-The dashboard provides 5 pages: Overview (collection stats), Search (query memory), Graph Explorer (visualize causal graph), Clusters (browse topic clusters), and Projects (per-project breakdowns).
+The dashboard provides 5 pages: Overview (collection stats), Timeline (D3.js swimlane visualization with chain walking), Search (query memory), Clusters (browse topic clusters), and Projects (per-project breakdowns).
 
 See [Dashboard Guide](../guides/dashboard.md) for details.
 

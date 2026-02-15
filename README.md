@@ -90,9 +90,12 @@ Measure how well your memory system is working with built-in benchmarks. Health,
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Hook System                                 │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │session-start │  │ pre-compact  │  │ claudemd-generator   │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐            │
+│  │session-start │  │ session-end  │  │ pre-compact │            │
+│  └──────────────┘  └──────────────┘  └─────────────┘            │
+│  ┌──────────────────────┐                                        │
+│  │ claudemd-generator   │                                        │
+│  └──────────────────────┘                                        │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -135,9 +138,9 @@ Measure how well your memory system is working with built-in benchmarks. Health,
 │  │ search │ │ recall │ │ predict │ │list-      │ │list-      │ │
 │  │        │ │        │ │         │ │projects   │ │sessions   │ │
 │  └────────┘ └────────┘ └─────────┘ └───────────┘ └───────────┘ │
-│  ┌─────────────┐                                                │
-│  │ reconstruct │                                                │
-│  └─────────────┘                                                │
+│  ┌─────────────┐ ┌─────────────┐ ┌───────┐ ┌────────┐          │
+│  │ reconstruct │ │ hook-status │ │ stats │ │ forget │          │
+│  └─────────────┘ └─────────────┘ └───────┘ └────────┘          │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -152,16 +155,19 @@ Measure how well your memory system is working with built-in benchmarks. Health,
 
 ## MCP Tools
 
-The MCP server exposes six tools:
+The MCP server exposes nine tools:
 
 | Tool | Description |
 |------|-------------|
 | `search` | Semantic discovery — "what do I know about X?" Vector + keyword + RRF + cluster expansion. |
-| `recall` | Episodic memory — "how did we solve the auth bug?" Seeds → backward chain walk → ordered narrative. |
-| `predict` | Forward episodic — "what's likely next?" Seeds → forward chain walk → ordered narrative. |
+| `recall` | Episodic memory — "how did we solve X?" Seeds → backward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
+| `predict` | Forward episodic — "what's likely next?" Seeds → forward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
 | `list-projects` | Discover available projects with chunk counts and date ranges. |
 | `list-sessions` | Browse sessions for a project with time filtering. |
 | `reconstruct` | Rebuild session context chronologically — "what did I work on yesterday?" |
+| `hook-status` | Check when hooks last ran and whether they succeeded. |
+| `stats` | Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns. |
+| `forget` | Delete chunks by project, time range, or session. Defaults to dry-run preview. |
 
 ### Claude Code Integration
 
@@ -182,21 +188,23 @@ Or run `npx causantic init` to configure automatically.
 
 ## Skills
 
-Causantic installs 11 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
+Causantic installs 13 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
 
 | Skill | Description |
 |-------|-------------|
-| `/causantic-recall [query]` | Look up context from past sessions |
-| `/causantic-search [query]` | Semantic search across memory — find what you know about a topic |
-| `/causantic-predict` | Surface relevant past context proactively |
-| `/causantic-resume` | Resume interrupted work — start-of-session briefing |
+| `/causantic-recall [query]` | Walk causal chains to reconstruct narrative (how did we solve X?) |
+| `/causantic-search [query]` | Ranked discovery across memory by relevance (what do I know about X?) |
+| `/causantic-predict <context>` | Surface relevant past context proactively for a given task |
+| `/causantic-explain [question]` | Answer "why" questions and explore codebase areas |
 | `/causantic-debug [error]` | Search for prior encounters with an error (auto-extracts from conversation if no argument) |
-| `/causantic-context [area]` | Deep dive into a codebase area's history and decisions |
+| `/causantic-resume` | Resume interrupted work — start-of-session briefing |
+| `/causantic-reconstruct [time]` | Reconstruct session context by time range |
+| `/causantic-summary [time]` | Summarize recent work across sessions |
+| `/causantic-list-projects` | Discover available projects in memory |
+| `/causantic-status` | Check system health and memory statistics |
 | `/causantic-crossref [pattern]` | Search across all projects for reusable patterns |
 | `/causantic-retro [scope]` | Retrospective analysis across past sessions |
 | `/causantic-cleanup` | Memory-informed codebase review and cleanup plan |
-| `/causantic-list-projects` | Discover available projects in memory |
-| `/causantic-reconstruct [time]` | Reconstruct session context by time range |
 
 Skills are installed to `~/.claude/skills/causantic-*/` and work as slash commands in Claude Code. They orchestrate the MCP tools above with structured prompts tailored to each use case.
 
