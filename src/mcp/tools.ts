@@ -9,7 +9,11 @@ import {
   getChunkCount,
   getDistinctProjects,
   getSessionsForProject,
+  queryChunkIds,
+  deleteChunks,
+  invalidateProjectsCache,
 } from '../storage/chunk-store.js';
+import { vectorStore } from '../storage/vector-store.js';
 import { getEdgeCount } from '../storage/edge-store.js';
 import { getClusterCount } from '../storage/cluster-store.js';
 import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
@@ -411,6 +415,64 @@ export const statsTool: ToolDefinition = {
 };
 
 /**
+ * Forget tool: delete chunks from memory by project, time range, or session.
+ */
+export const forgetTool: ToolDefinition = {
+  name: 'forget',
+  description:
+    'Delete chunks from memory filtered by project, time range, or session. Requires project. Defaults to dry_run=true (preview only). Set dry_run=false to actually delete.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description: 'Project slug (required). Use list-projects to see available projects.',
+      },
+      before: {
+        type: 'string',
+        description: 'Delete chunks before this ISO 8601 date. Optional.',
+      },
+      after: {
+        type: 'string',
+        description: 'Delete chunks on or after this ISO 8601 date. Optional.',
+      },
+      session_id: {
+        type: 'string',
+        description: 'Delete chunks from a specific session. Optional.',
+      },
+      dry_run: {
+        type: 'boolean',
+        description: 'Preview without deleting (default: true). Set to false to actually delete.',
+      },
+    },
+    required: ['project'],
+  },
+  handler: async (args) => {
+    const project = args.project as string;
+    const before = args.before as string | undefined;
+    const after = args.after as string | undefined;
+    const sessionId = args.session_id as string | undefined;
+    const dryRun = (args.dry_run as boolean | undefined) ?? true;
+
+    const ids = queryChunkIds({ project, before, after, sessionId });
+
+    if (ids.length === 0) {
+      return 'No chunks match the given filters.';
+    }
+
+    if (dryRun) {
+      return `Dry run: ${ids.length} chunk(s) would be deleted from project "${project}". Set dry_run=false to proceed.`;
+    }
+
+    const deleted = deleteChunks(ids);
+    await vectorStore.deleteBatch(ids);
+    invalidateProjectsCache();
+
+    return `Deleted ${deleted} chunk(s) from project "${project}" (vectors and related edges/clusters also removed).`;
+  },
+};
+
+/**
  * All available tools.
  */
 export const tools: ToolDefinition[] = [
@@ -422,6 +484,7 @@ export const tools: ToolDefinition[] = [
   reconstructTool,
   hookStatusTool,
   statsTool,
+  forgetTool,
 ];
 
 /**

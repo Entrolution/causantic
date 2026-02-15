@@ -364,6 +364,7 @@ export class VectorStore {
 
     for (const id of ids) {
       this.vectors.delete(id);
+      this.chunkProjectIndex.delete(id);
     }
 
     return result.changes;

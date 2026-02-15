@@ -359,6 +359,113 @@ describe('chunk-store', () => {
     });
   });
 
+  describe('queryChunkIds', () => {
+    it('returns all chunk IDs for a project', () => {
+      insertTestChunk(db, createSampleChunk({ id: 'c1', sessionSlug: 'proj-a' }));
+      insertTestChunk(db, createSampleChunk({ id: 'c2', sessionSlug: 'proj-a' }));
+      insertTestChunk(db, createSampleChunk({ id: 'c3', sessionSlug: 'proj-b' }));
+
+      const ids = db.prepare('SELECT id FROM chunks WHERE session_slug = ?').all('proj-a') as {
+        id: string;
+      }[];
+      expect(ids.map((r) => r.id)).toEqual(['c1', 'c2']);
+    });
+
+    it('filters by before date', () => {
+      insertTestChunk(
+        db,
+        createSampleChunk({ id: 'c1', sessionSlug: 'proj', startTime: '2025-01-01T00:00:00Z' }),
+      );
+      insertTestChunk(
+        db,
+        createSampleChunk({ id: 'c2', sessionSlug: 'proj', startTime: '2025-06-01T00:00:00Z' }),
+      );
+
+      const ids = db
+        .prepare('SELECT id FROM chunks WHERE session_slug = ? AND start_time < ?')
+        .all('proj', '2025-03-01T00:00:00Z') as { id: string }[];
+      expect(ids.map((r) => r.id)).toEqual(['c1']);
+    });
+
+    it('filters by after date', () => {
+      insertTestChunk(
+        db,
+        createSampleChunk({ id: 'c1', sessionSlug: 'proj', startTime: '2025-01-01T00:00:00Z' }),
+      );
+      insertTestChunk(
+        db,
+        createSampleChunk({ id: 'c2', sessionSlug: 'proj', startTime: '2025-06-01T00:00:00Z' }),
+      );
+
+      const ids = db
+        .prepare('SELECT id FROM chunks WHERE session_slug = ? AND start_time >= ?')
+        .all('proj', '2025-03-01T00:00:00Z') as { id: string }[];
+      expect(ids.map((r) => r.id)).toEqual(['c2']);
+    });
+
+    it('filters by session ID', () => {
+      insertTestChunk(
+        db,
+        createSampleChunk({ id: 'c1', sessionSlug: 'proj', sessionId: 'sess-1' }),
+      );
+      insertTestChunk(
+        db,
+        createSampleChunk({ id: 'c2', sessionSlug: 'proj', sessionId: 'sess-2' }),
+      );
+
+      const ids = db
+        .prepare('SELECT id FROM chunks WHERE session_slug = ? AND session_id = ?')
+        .all('proj', 'sess-1') as { id: string }[];
+      expect(ids.map((r) => r.id)).toEqual(['c1']);
+    });
+
+    it('combines multiple filters', () => {
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c1',
+          sessionSlug: 'proj',
+          sessionId: 'sess-1',
+          startTime: '2025-01-01T00:00:00Z',
+        }),
+      );
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c2',
+          sessionSlug: 'proj',
+          sessionId: 'sess-1',
+          startTime: '2025-06-01T00:00:00Z',
+        }),
+      );
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: 'c3',
+          sessionSlug: 'proj',
+          sessionId: 'sess-2',
+          startTime: '2025-01-15T00:00:00Z',
+        }),
+      );
+
+      const ids = db
+        .prepare(
+          'SELECT id FROM chunks WHERE session_slug = ? AND session_id = ? AND start_time >= ? AND start_time < ?',
+        )
+        .all('proj', 'sess-1', '2025-01-01T00:00:00Z', '2025-03-01T00:00:00Z') as {
+        id: string;
+      }[];
+      expect(ids.map((r) => r.id)).toEqual(['c1']);
+    });
+
+    it('returns empty array when no chunks match', () => {
+      const ids = db.prepare('SELECT id FROM chunks WHERE session_slug = ?').all('nonexistent') as {
+        id: string;
+      }[];
+      expect(ids).toEqual([]);
+    });
+  });
+
   describe('project_path column', () => {
     it('stores and retrieves project_path', () => {
       insertTestChunk(

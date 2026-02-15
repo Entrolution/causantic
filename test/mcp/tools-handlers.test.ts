@@ -21,6 +21,9 @@ vi.mock('../../src/storage/chunk-store.js', () => ({
   getChunkCount: vi.fn(),
   getDistinctProjects: vi.fn(),
   getSessionsForProject: vi.fn(),
+  queryChunkIds: vi.fn(),
+  deleteChunks: vi.fn(),
+  invalidateProjectsCache: vi.fn(),
 }));
 
 vi.mock('../../src/storage/edge-store.js', () => ({
@@ -29,6 +32,12 @@ vi.mock('../../src/storage/edge-store.js', () => ({
 
 vi.mock('../../src/storage/cluster-store.js', () => ({
   getClusterCount: vi.fn(),
+}));
+
+vi.mock('../../src/storage/vector-store.js', () => ({
+  vectorStore: {
+    deleteBatch: vi.fn().mockResolvedValue(0),
+  },
 }));
 
 vi.mock('../../src/retrieval/session-reconstructor.js', () => ({
@@ -48,6 +57,7 @@ import {
   listSessionsTool,
   reconstructTool,
   statsTool,
+  forgetTool,
 } from '../../src/mcp/tools.js';
 
 import { recall, predict } from '../../src/retrieval/context-assembler.js';
@@ -56,7 +66,11 @@ import {
   getChunkCount,
   getDistinctProjects,
   getSessionsForProject,
+  queryChunkIds,
+  deleteChunks,
+  invalidateProjectsCache,
 } from '../../src/storage/chunk-store.js';
+import { vectorStore } from '../../src/storage/vector-store.js';
 import { getEdgeCount } from '../../src/storage/edge-store.js';
 import { getClusterCount } from '../../src/storage/cluster-store.js';
 import {
@@ -74,6 +88,10 @@ const mockGetEdgeCount = vi.mocked(getEdgeCount);
 const mockGetClusterCount = vi.mocked(getClusterCount);
 const mockReconstructSession = vi.mocked(reconstructSession);
 const mockFormatReconstruction = vi.mocked(formatReconstruction);
+const mockQueryChunkIds = vi.mocked(queryChunkIds);
+const mockDeleteChunks = vi.mocked(deleteChunks);
+const mockInvalidateProjectsCache = vi.mocked(invalidateProjectsCache);
+const mockVectorStoreDeletBatch = vi.mocked(vectorStore.deleteBatch);
 
 /** Helper to build a minimal RetrievalResponse. */
 function makeResponse(
@@ -588,5 +606,63 @@ describe('statsTool.handler', () => {
 
     expect(result).toContain('Chunks: 0');
     expect(result).not.toContain('Projects:');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// forgetTool.handler
+// ---------------------------------------------------------------------------
+describe('forgetTool.handler', () => {
+  it('returns "No chunks match" when query finds nothing', async () => {
+    mockQueryChunkIds.mockReturnValue([]);
+
+    const result = await forgetTool.handler({ project: 'my-app' });
+
+    expect(result).toBe('No chunks match the given filters.');
+    expect(mockDeleteChunks).not.toHaveBeenCalled();
+  });
+
+  it('dry_run=true (default) returns preview without deleting', async () => {
+    mockQueryChunkIds.mockReturnValue(['c1', 'c2', 'c3']);
+
+    const result = await forgetTool.handler({ project: 'my-app' });
+
+    expect(result).toContain('Dry run: 3 chunk(s) would be deleted');
+    expect(result).toContain('my-app');
+    expect(result).toContain('Set dry_run=false to proceed');
+    expect(mockDeleteChunks).not.toHaveBeenCalled();
+    expect(mockVectorStoreDeletBatch).not.toHaveBeenCalled();
+  });
+
+  it('dry_run=false deletes chunks and vectors', async () => {
+    mockQueryChunkIds.mockReturnValue(['c1', 'c2']);
+    mockDeleteChunks.mockReturnValue(2);
+    mockVectorStoreDeletBatch.mockResolvedValue(2);
+
+    const result = await forgetTool.handler({ project: 'my-app', dry_run: false });
+
+    expect(mockDeleteChunks).toHaveBeenCalledWith(['c1', 'c2']);
+    expect(mockVectorStoreDeletBatch).toHaveBeenCalledWith(['c1', 'c2']);
+    expect(mockInvalidateProjectsCache).toHaveBeenCalled();
+    expect(result).toContain('Deleted 2 chunk(s)');
+    expect(result).toContain('my-app');
+  });
+
+  it('passes all filters to queryChunkIds', async () => {
+    mockQueryChunkIds.mockReturnValue([]);
+
+    await forgetTool.handler({
+      project: 'my-app',
+      before: '2025-06-01T00:00:00Z',
+      after: '2025-01-01T00:00:00Z',
+      session_id: 'sess-123',
+    });
+
+    expect(mockQueryChunkIds).toHaveBeenCalledWith({
+      project: 'my-app',
+      before: '2025-06-01T00:00:00Z',
+      after: '2025-01-01T00:00:00Z',
+      sessionId: 'sess-123',
+    });
   });
 });
