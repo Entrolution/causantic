@@ -8,7 +8,7 @@
 
 **Long-term memory for Claude Code — local-first, graph-augmented, self-benchmarking.**
 
-No cloud. No API keys. No data leaves your machine. Runs entirely on your hardware with optional per-chunk encryption.
+No cloud. No data leaves your machine. Runs entirely on your hardware with optional per-chunk encryption. An optional Anthropic API key enables cluster topic labeling via Haiku — all core retrieval works without it.
 
 <p align="center">
 <strong>Long-term episodic memory for Claude Code</strong><br/>
