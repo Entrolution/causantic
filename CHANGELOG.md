@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-02-16
+
+### Changed
+- **Async hooks**: `PreCompact` and both `SessionEnd` hooks now run with `async: true` (fire-and-forget), so they no longer block Claude Code sessions. `SessionStart` remains synchronous since its stdout delivers memory context.
+- **Hook dedup logic**: `causantic init` now compares full hook objects (not just command strings), so existing installs pick up the async flag on re-init.
+
+### Fixed
+- **N+1 cluster query in SessionStart**: Replaced per-cluster loop (`getClusterChunkIds` + `getChunksByIds` × N clusters) with a single batch SQL query (`getClusterProjectRelevance`). 50 clusters now costs 1 query instead of 100+.
+- **SessionStart loads all chunks to slice last N**: New `getRecentChunksBySessionSlug()` uses SQL `ORDER BY ... DESC LIMIT` instead of loading every chunk then slicing in JS.
+- **SessionStart loads all clusters then filters**: New `getClustersWithDescriptions()` uses SQL `WHERE description IS NOT NULL` instead of loading all clusters then filtering in JS.
+
 ## [0.5.0] - 2026-02-16
 
 ### Fixed
