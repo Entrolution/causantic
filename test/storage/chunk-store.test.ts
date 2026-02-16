@@ -11,7 +11,10 @@ import {
   insertTestChunk,
   insertTestCluster,
   assignChunkToCluster,
+  setupTestDb,
+  teardownTestDb,
 } from './test-utils.js';
+import { getRecentChunksBySessionSlug } from '../../src/storage/chunk-store.js';
 
 describe('chunk-store', () => {
   let db: Database.Database;
@@ -490,5 +493,91 @@ describe('chunk-store', () => {
       };
       expect(row.project_path).toBeNull();
     });
+  });
+});
+
+describe('getRecentChunksBySessionSlug', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = createTestDb();
+    setupTestDb(db);
+  });
+
+  afterEach(() => {
+    teardownTestDb(db);
+  });
+
+  it('returns the most recent N chunks in chronological order', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c1', sessionSlug: 'proj', startTime: '2025-01-01T00:00:00Z' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c2', sessionSlug: 'proj', startTime: '2025-02-01T00:00:00Z' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c3', sessionSlug: 'proj', startTime: '2025-03-01T00:00:00Z' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c4', sessionSlug: 'proj', startTime: '2025-04-01T00:00:00Z' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c5', sessionSlug: 'proj', startTime: '2025-05-01T00:00:00Z' }),
+    );
+
+    const chunks = getRecentChunksBySessionSlug('proj', 3);
+
+    expect(chunks).toHaveLength(3);
+    // Chronological order (oldest first)
+    expect(chunks[0].id).toBe('c3');
+    expect(chunks[1].id).toBe('c4');
+    expect(chunks[2].id).toBe('c5');
+  });
+
+  it('returns all chunks when fewer than limit exist', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c1', sessionSlug: 'proj', startTime: '2025-01-01T00:00:00Z' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c2', sessionSlug: 'proj', startTime: '2025-02-01T00:00:00Z' }),
+    );
+
+    const chunks = getRecentChunksBySessionSlug('proj', 5);
+
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0].id).toBe('c1');
+    expect(chunks[1].id).toBe('c2');
+  });
+
+  it('only returns chunks for the specified slug', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c1', sessionSlug: 'proj-a', startTime: '2025-01-01T00:00:00Z' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c2', sessionSlug: 'proj-b', startTime: '2025-02-01T00:00:00Z' }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({ id: 'c3', sessionSlug: 'proj-a', startTime: '2025-03-01T00:00:00Z' }),
+    );
+
+    const chunks = getRecentChunksBySessionSlug('proj-a', 10);
+
+    expect(chunks).toHaveLength(2);
+    expect(chunks.every((c) => c.sessionSlug === 'proj-a')).toBe(true);
+  });
+
+  it('returns empty array for non-existent slug', () => {
+    const chunks = getRecentChunksBySessionSlug('nonexistent', 3);
+    expect(chunks).toEqual([]);
   });
 });

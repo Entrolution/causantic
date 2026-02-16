@@ -11,10 +11,12 @@
  */
 
 import { basename } from 'node:path';
-import { getAllClusters, getClusterChunkIds } from '../storage/cluster-store.js';
 import {
-  getChunksByIds,
-  getChunksBySessionSlug,
+  getClustersWithDescriptions,
+  getClusterProjectRelevance,
+} from '../storage/cluster-store.js';
+import {
+  getRecentChunksBySessionSlug,
   getSessionsForProject,
   getChunksByTimeRange,
 } from '../storage/chunk-store.js';
@@ -76,26 +78,24 @@ function internalHandleSessionStart(
     includeCrossProject = 2,
   } = options;
 
-  // Get clusters with descriptions
-  const allClusters = getAllClusters();
-  const clustersWithDesc = allClusters.filter((c) => c.description);
+  // Get clusters with descriptions (SQL-level filter)
+  const clustersWithDesc = getClustersWithDescriptions();
 
   logHook({
     level: 'debug',
     hook: 'session-start',
     event: 'clusters_loaded',
-    details: { total: allClusters.length, withDescription: clustersWithDesc.length },
+    details: { withDescription: clustersWithDesc.length },
   });
 
-  // Get recent chunks for this project
-  const projectChunks = getChunksBySessionSlug(projectPath);
-  const recentChunks = projectChunks.slice(-includeRecent);
+  // Get recent chunks for this project (SQL-level LIMIT)
+  const recentChunks = getRecentChunksBySessionSlug(projectPath, includeRecent);
 
   logHook({
     level: 'debug',
     hook: 'session-start',
     event: 'chunks_loaded',
-    details: { total: projectChunks.length, recent: recentChunks.length },
+    details: { recent: recentChunks.length },
   });
 
   // Build summary
@@ -338,26 +338,14 @@ function buildLastSessionSection(projectPath: string, tokenBudget: number): stri
  * Find clusters relevant to a project.
  */
 function findProjectClusters(clusters: StoredCluster[], projectPath: string): StoredCluster[] {
-  const relevant: Array<{ cluster: StoredCluster; relevance: number }> = [];
+  if (clusters.length === 0) return [];
 
-  for (const cluster of clusters) {
-    const chunkIds = getClusterChunkIds(cluster.id);
-    const chunks = getChunksByIds(chunkIds);
+  const clusterIds = clusters.map((c) => c.id);
+  const relevanceScores = getClusterProjectRelevance(clusterIds, projectPath);
 
-    // Count chunks from this project
-    const projectCount = chunks.filter((c) => c.sessionSlug === projectPath).length;
-
-    if (projectCount > 0) {
-      relevant.push({
-        cluster,
-        relevance: projectCount / chunks.length,
-      });
-    }
-  }
-
-  // Sort by relevance
-  relevant.sort((a, b) => b.relevance - a.relevance);
-  return relevant.map((r) => r.cluster);
+  // Map cluster IDs back to StoredCluster objects (already sorted by relevance)
+  const clusterMap = new Map(clusters.map((c) => [c.id, c]));
+  return relevanceScores.map((r) => clusterMap.get(r.clusterId)!);
 }
 
 /**

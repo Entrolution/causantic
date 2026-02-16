@@ -139,6 +139,23 @@ export function getChunksBySessionSlug(sessionSlug: string): StoredChunk[] {
 }
 
 /**
+ * Get the most recent N chunks for a session slug.
+ * Uses SQL-level LIMIT to avoid loading all chunks into memory.
+ */
+export function getRecentChunksBySessionSlug(sessionSlug: string, limit: number): StoredChunk[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT * FROM chunks WHERE session_slug = ?
+       ORDER BY start_time DESC LIMIT ?`,
+    )
+    .all(sessionSlug, limit) as DbChunkRow[];
+
+  // Reverse to chronological order
+  return rows.reverse().map(rowToChunk);
+}
+
+/**
  * Get all chunks.
  */
 export function getAllChunks(): StoredChunk[] {

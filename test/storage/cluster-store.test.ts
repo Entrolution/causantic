@@ -10,7 +10,13 @@ import {
   insertTestChunk,
   insertTestCluster,
   assignChunkToCluster,
+  setupTestDb,
+  teardownTestDb,
 } from './test-utils.js';
+import {
+  getClusterProjectRelevance,
+  getClustersWithDescriptions,
+} from '../../src/storage/cluster-store.js';
 
 describe('cluster-store', () => {
   let db: Database.Database;
@@ -394,5 +400,123 @@ describe('cluster-store', () => {
         .all('cluster-1');
       expect(assignments).toEqual([]);
     });
+  });
+});
+
+describe('getClusterProjectRelevance', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = createTestDb();
+    setupTestDb(db);
+  });
+
+  afterEach(() => {
+    teardownTestDb(db);
+  });
+
+  it('returns relevant clusters with correct relevance scores', () => {
+    insertTestCluster(db, { id: 'c1', name: 'Cluster 1' });
+    insertTestChunk(db, createSampleChunk({ id: 'ch1', sessionSlug: 'my-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch2', sessionSlug: 'my-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch3', sessionSlug: 'other-project' }));
+    assignChunkToCluster(db, 'ch1', 'c1', 0.1);
+    assignChunkToCluster(db, 'ch2', 'c1', 0.2);
+    assignChunkToCluster(db, 'ch3', 'c1', 0.3);
+
+    const results = getClusterProjectRelevance(['c1'], 'my-project');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].clusterId).toBe('c1');
+    expect(results[0].relevance).toBeCloseTo(2 / 3);
+  });
+
+  it('excludes clusters with no project chunks', () => {
+    insertTestCluster(db, { id: 'c1', name: 'Relevant' });
+    insertTestCluster(db, { id: 'c2', name: 'Irrelevant' });
+    insertTestChunk(db, createSampleChunk({ id: 'ch1', sessionSlug: 'my-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch2', sessionSlug: 'other-project' }));
+    assignChunkToCluster(db, 'ch1', 'c1', 0.1);
+    assignChunkToCluster(db, 'ch2', 'c2', 0.1);
+
+    const results = getClusterProjectRelevance(['c1', 'c2'], 'my-project');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].clusterId).toBe('c1');
+  });
+
+  it('returns empty array for empty input', () => {
+    const results = getClusterProjectRelevance([], 'my-project');
+    expect(results).toEqual([]);
+  });
+
+  it('handles clusters with mixed project membership', () => {
+    insertTestCluster(db, { id: 'c1', name: 'Mostly mine' });
+    insertTestCluster(db, { id: 'c2', name: 'Partly mine' });
+    // c1: 3 project chunks, 1 other = 75% relevance
+    insertTestChunk(db, createSampleChunk({ id: 'ch1', sessionSlug: 'my-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch2', sessionSlug: 'my-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch3', sessionSlug: 'my-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch4', sessionSlug: 'other-project' }));
+    assignChunkToCluster(db, 'ch1', 'c1', 0.1);
+    assignChunkToCluster(db, 'ch2', 'c1', 0.2);
+    assignChunkToCluster(db, 'ch3', 'c1', 0.3);
+    assignChunkToCluster(db, 'ch4', 'c1', 0.4);
+
+    // c2: 1 project chunk, 3 other = 25% relevance
+    insertTestChunk(db, createSampleChunk({ id: 'ch5', sessionSlug: 'my-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch6', sessionSlug: 'other-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch7', sessionSlug: 'other-project' }));
+    insertTestChunk(db, createSampleChunk({ id: 'ch8', sessionSlug: 'other-project' }));
+    assignChunkToCluster(db, 'ch5', 'c2', 0.1);
+    assignChunkToCluster(db, 'ch6', 'c2', 0.2);
+    assignChunkToCluster(db, 'ch7', 'c2', 0.3);
+    assignChunkToCluster(db, 'ch8', 'c2', 0.4);
+
+    const results = getClusterProjectRelevance(['c1', 'c2'], 'my-project');
+
+    expect(results).toHaveLength(2);
+    // Sorted by relevance desc
+    expect(results[0].clusterId).toBe('c1');
+    expect(results[0].relevance).toBeCloseTo(0.75);
+    expect(results[1].clusterId).toBe('c2');
+    expect(results[1].relevance).toBeCloseTo(0.25);
+  });
+});
+
+describe('getClustersWithDescriptions', () => {
+  let db: Database.Database;
+
+  beforeEach(() => {
+    db = createTestDb();
+    setupTestDb(db);
+  });
+
+  afterEach(() => {
+    teardownTestDb(db);
+  });
+
+  it('returns only clusters that have a description', () => {
+    insertTestCluster(db, { id: 'c1', name: 'With desc', description: 'Has a description' });
+    insertTestCluster(db, { id: 'c2', name: 'No desc' });
+    insertTestCluster(db, { id: 'c3', name: 'Also has desc', description: 'Another description' });
+
+    const results = getClustersWithDescriptions();
+
+    expect(results).toHaveLength(2);
+    expect(results.map((c) => c.id).sort()).toEqual(['c1', 'c3']);
+  });
+
+  it('returns empty array when no clusters have descriptions', () => {
+    insertTestCluster(db, { id: 'c1', name: 'No desc' });
+    insertTestCluster(db, { id: 'c2', name: 'Also no desc' });
+
+    const results = getClustersWithDescriptions();
+    expect(results).toEqual([]);
+  });
+
+  it('returns empty array when no clusters exist', () => {
+    const results = getClustersWithDescriptions();
+    expect(results).toEqual([]);
   });
 });
