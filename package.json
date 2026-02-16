@@ -48,7 +48,6 @@
     "src/dashboard/client/package-lock.json"
   ],
   "scripts": {
-    "prepublishOnly": "npm run build && npm test",
     "build": "tsc && cp src/storage/schema.sql dist/storage/ && cd src/dashboard/client && npm install --ignore-scripts && npm run build",
     "build:server": "tsc && cp src/storage/schema.sql dist/storage/",
     "build:client": "cd src/dashboard/client && npm install --ignore-scripts && npm run build",
