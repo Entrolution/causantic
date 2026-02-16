@@ -175,54 +175,96 @@ function initializeDatabase(encryptionEnabled: boolean): void {
   }
 }
 
-async function configureMcp(claudeConfigPath: string): Promise<void> {
-  if (!fs.existsSync(claudeConfigPath)) {
-    console.log('\u26a0 Claude Code config not found');
-    console.log('  Create it manually or install Claude Code first');
-    return;
-  }
-
-  console.log('\u2713 Claude Code config found');
-
+/**
+ * Migrate Causantic MCP entry from ~/.claude/settings.json to ~/.claude.json.
+ * Claude Code reads MCP servers from ~/.claude.json, not settings.json.
+ * This cleans up entries left by pre-0.5.0 installs.
+ */
+function migrateMcpFromSettings(settingsPath: string, mcpConfigPath: string): void {
   try {
-    const configContent = fs.readFileSync(claudeConfigPath, 'utf-8');
-    const config = JSON.parse(configContent);
+    if (!fs.existsSync(settingsPath)) return;
+
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
     const CAUSANTIC_SERVER_KEY = 'causantic';
 
-    // Migrate old 'memory' key -> 'causantic'
-    if (config.mcpServers?.memory && !config.mcpServers[CAUSANTIC_SERVER_KEY]) {
-      config.mcpServers[CAUSANTIC_SERVER_KEY] = config.mcpServers.memory;
-      delete config.mcpServers.memory;
-      fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
-      console.log('\u2713 Migrated config: memory \u2192 causantic');
+    if (!settings.mcpServers?.[CAUSANTIC_SERVER_KEY]) return;
+
+    // Check if already present in mcpConfigPath
+    let mcpConfig: Record<string, unknown> = {};
+    if (fs.existsSync(mcpConfigPath)) {
+      try {
+        mcpConfig = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf-8'));
+      } catch {
+        // Treat as empty if unparseable
+      }
     }
 
-    if (config.mcpServers?.[CAUSANTIC_SERVER_KEY]) {
-      if (config.mcpServers[CAUSANTIC_SERVER_KEY].command === 'npx') {
-        config.mcpServers[CAUSANTIC_SERVER_KEY] = {
-          command: process.execPath,
-          args: [getCliEntryPath(), 'serve'],
-        };
-        fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
-        console.log('\u2713 Updated Causantic config to use absolute paths');
-      } else {
-        console.log('\u2713 Causantic already configured in Claude Code');
-      }
-    } else {
-      if (await promptYesNo('Add Causantic to Claude Code MCP config?', true)) {
-        config.mcpServers = config.mcpServers || {};
-        config.mcpServers[CAUSANTIC_SERVER_KEY] = {
-          command: process.execPath,
-          args: [getCliEntryPath(), 'serve'],
-        };
-        fs.writeFileSync(claudeConfigPath, JSON.stringify(config, null, 2));
-        console.log('\u2713 Added Causantic to Claude Code config');
-        console.log(`  Node: ${process.execPath}`);
-        console.log('  Restart Claude Code to activate');
-      }
+    const mcpServers = (mcpConfig.mcpServers ?? {}) as Record<string, unknown>;
+    if (!mcpServers[CAUSANTIC_SERVER_KEY]) {
+      mcpConfig.mcpServers = { ...mcpServers, [CAUSANTIC_SERVER_KEY]: settings.mcpServers[CAUSANTIC_SERVER_KEY] };
+      fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
+      console.log('\u2713 Migrated Causantic MCP config: settings.json \u2192 ~/.claude.json');
     }
+
+    // Clean up old entry from settings.json
+    delete settings.mcpServers[CAUSANTIC_SERVER_KEY];
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
   } catch {
-    console.log('\u26a0 Could not parse Claude Code config');
+    // Best-effort migration
+  }
+}
+
+async function configureMcp(mcpConfigPath: string): Promise<void> {
+  let config: Record<string, unknown>;
+
+  if (!fs.existsSync(mcpConfigPath)) {
+    config = { mcpServers: {} };
+  } else {
+    try {
+      const configContent = fs.readFileSync(mcpConfigPath, 'utf-8');
+      config = JSON.parse(configContent);
+    } catch {
+      console.log('\u26a0 Could not parse Claude Code MCP config');
+      return;
+    }
+  }
+
+  const CAUSANTIC_SERVER_KEY = 'causantic';
+  const mcpServers = (config.mcpServers ?? {}) as Record<string, Record<string, unknown>>;
+
+  // Migrate old 'memory' key -> 'causantic'
+  if (mcpServers.memory && !mcpServers[CAUSANTIC_SERVER_KEY]) {
+    mcpServers[CAUSANTIC_SERVER_KEY] = mcpServers.memory;
+    delete mcpServers.memory;
+    config.mcpServers = mcpServers;
+    fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2));
+    console.log('\u2713 Migrated config: memory \u2192 causantic');
+  }
+
+  if (mcpServers[CAUSANTIC_SERVER_KEY]) {
+    if (mcpServers[CAUSANTIC_SERVER_KEY].command === 'npx') {
+      mcpServers[CAUSANTIC_SERVER_KEY] = {
+        command: process.execPath,
+        args: [getCliEntryPath(), 'serve'],
+      };
+      config.mcpServers = mcpServers;
+      fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2));
+      console.log('\u2713 Updated Causantic config to use absolute paths');
+    } else {
+      console.log('\u2713 Causantic already configured in Claude Code');
+    }
+  } else {
+    if (await promptYesNo('Add Causantic to Claude Code MCP config?', true)) {
+      mcpServers[CAUSANTIC_SERVER_KEY] = {
+        command: process.execPath,
+        args: [getCliEntryPath(), 'serve'],
+      };
+      config.mcpServers = mcpServers;
+      fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2));
+      console.log('\u2713 Added Causantic to Claude Code config');
+      console.log(`  Node: ${process.execPath}`);
+      console.log('  Restart Claude Code to activate');
+    }
   }
 }
 
@@ -787,11 +829,12 @@ export const initCommand: Command = {
     initializeDatabase(encryptionEnabled);
 
     const claudeConfigPath = path.join(os.homedir(), '.claude', 'settings.json');
+    const mcpConfigPath = path.join(os.homedir(), '.claude.json');
     console.log('');
-    console.log(`Claude Code config: ${claudeConfigPath}`);
 
     if (!skipMcp) {
-      await configureMcp(claudeConfigPath);
+      migrateMcpFromSettings(claudeConfigPath, mcpConfigPath);
+      await configureMcp(mcpConfigPath);
       if (process.stdin.isTTY) {
         await patchProjectMcpFiles();
       }

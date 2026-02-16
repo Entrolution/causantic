@@ -71,6 +71,7 @@ const mockPromptYesNo = vi.mocked(promptYesNo);
 const MOCK_HOME = '/mock/home';
 const CAUSANTIC_DIR = `${MOCK_HOME}/.causantic`;
 const CLAUDE_CONFIG_PATH = `${MOCK_HOME}/.claude/settings.json`;
+const MCP_CONFIG_PATH = `${MOCK_HOME}/.claude.json`;
 
 /** Build a mock database object that satisfies getDb() consumers. */
 function createMockDb() {
@@ -215,6 +216,7 @@ describe('initCommand', () => {
 
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
+        if (s === MCP_CONFIG_PATH) return makeClaudeConfig();
         if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         return '';
       });
@@ -229,26 +231,34 @@ describe('initCommand', () => {
   // ── configureMcp ────────────────────────────────────────────────────────
 
   describe('configureMcp', () => {
-    it('warns when Claude config file not found', async () => {
+    it('creates ~/.claude.json when it does not exist', async () => {
       mockFs.existsSync.mockImplementation((p: fs.PathLike) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) return false;
+        if (s === MCP_CONFIG_PATH) return false;
         return true;
       });
+      mockPromptYesNo.mockResolvedValue(true);
 
       await initCommand.handler([]);
 
+      const writeCalls = mockFs.writeFileSync.mock.calls.filter(
+        (c) => String(c[0]) === MCP_CONFIG_PATH,
+      );
+      expect(writeCalls.length).toBeGreaterThan(0);
+      const written = JSON.parse(writeCalls[0][1] as string);
+      expect(written.mcpServers.causantic).toBeDefined();
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Claude Code config not found'),
+        expect.stringContaining('Added Causantic to Claude Code config'),
       );
     });
 
     it('migrates old "memory" key to "causantic"', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({ memory: { command: 'npx', args: ['causantic', 'serve'] } });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         return '';
       });
 
@@ -256,7 +266,7 @@ describe('initCommand', () => {
 
       // Should have written config with causantic key
       const writeCalls = mockFs.writeFileSync.mock.calls.filter(
-        (c) => String(c[0]) === CLAUDE_CONFIG_PATH,
+        (c) => String(c[0]) === MCP_CONFIG_PATH,
       );
       expect(writeCalls.length).toBeGreaterThan(0);
       const written = JSON.parse(writeCalls[0][1] as string);
@@ -268,16 +278,17 @@ describe('initCommand', () => {
     it('updates causantic config from npx to absolute paths', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({ causantic: { command: 'npx', args: ['causantic', 'serve'] } });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         return '';
       });
 
       await initCommand.handler([]);
 
       const writeCalls = mockFs.writeFileSync.mock.calls.filter(
-        (c) => String(c[0]) === CLAUDE_CONFIG_PATH,
+        (c) => String(c[0]) === MCP_CONFIG_PATH,
       );
       expect(writeCalls.length).toBeGreaterThan(0);
       const written = JSON.parse(writeCalls[0][1] as string);
@@ -290,11 +301,12 @@ describe('initCommand', () => {
     it('skips when causantic is already configured with correct paths', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['some/path', 'serve'] },
           });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         return '';
       });
 
@@ -308,7 +320,8 @@ describe('initCommand', () => {
     it('prompts to add causantic when not present and user accepts', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig({});
+        if (s === MCP_CONFIG_PATH) return makeClaudeConfig({});
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         return '';
       });
       mockPromptYesNo.mockResolvedValue(true);
@@ -320,7 +333,7 @@ describe('initCommand', () => {
         true,
       );
       const writeCalls = mockFs.writeFileSync.mock.calls.filter(
-        (c) => String(c[0]) === CLAUDE_CONFIG_PATH,
+        (c) => String(c[0]) === MCP_CONFIG_PATH,
       );
       expect(writeCalls.length).toBeGreaterThan(0);
       const written = JSON.parse(writeCalls[0][1] as string);
@@ -333,18 +346,18 @@ describe('initCommand', () => {
     it('does not add causantic when user declines', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig({});
+        if (s === MCP_CONFIG_PATH) return makeClaudeConfig({});
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         return '';
       });
       mockPromptYesNo.mockResolvedValue(false);
 
       await initCommand.handler([]);
 
-      // The write calls for the config should only be for hooks, not for MCP server addition
+      // No writes to MCP config should contain causantic in mcpServers
       const writeCalls = mockFs.writeFileSync.mock.calls.filter(
-        (c) => String(c[0]) === CLAUDE_CONFIG_PATH,
+        (c) => String(c[0]) === MCP_CONFIG_PATH,
       );
-      // Hooks still write to the file, but none of the writes should contain causantic in mcpServers
       for (const call of writeCalls) {
         const written = JSON.parse(call[1] as string);
         if (written.mcpServers) {
@@ -353,17 +366,82 @@ describe('initCommand', () => {
       }
     });
 
-    it('handles unparseable config gracefully', async () => {
+    it('handles unparseable MCP config gracefully', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) return 'not valid json {{{';
+        if (s === MCP_CONFIG_PATH) return 'not valid json {{{';
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         return '';
       });
 
       await initCommand.handler([]);
 
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining('Could not parse Claude Code config'),
+        expect.stringContaining('Could not parse Claude Code MCP config'),
+      );
+    });
+  });
+
+  // ── migrateMcpFromSettings ──────────────────────────────────────────────
+
+  describe('migrateMcpFromSettings', () => {
+    it('migrates causantic from settings.json to ~/.claude.json', async () => {
+      const settingsConfig = makeClaudeConfig({
+        causantic: { command: process.execPath, args: ['old/path', 'serve'] },
+      });
+
+      mockFs.existsSync.mockImplementation((p: fs.PathLike) => {
+        const s = String(p);
+        // ~/.claude.json does not exist yet
+        if (s === MCP_CONFIG_PATH) return false;
+        return true;
+      });
+
+      mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
+        const s = String(p);
+        if (s === CLAUDE_CONFIG_PATH) return settingsConfig;
+        return '';
+      });
+
+      await initCommand.handler([]);
+
+      // Should have written to MCP config path
+      const mcpWrites = mockFs.writeFileSync.mock.calls.filter(
+        (c) => String(c[0]) === MCP_CONFIG_PATH,
+      );
+      expect(mcpWrites.length).toBeGreaterThan(0);
+
+      // The first write should be from migration (has causantic from settings)
+      const migrated = JSON.parse(mcpWrites[0][1] as string);
+      expect(migrated.mcpServers.causantic).toBeDefined();
+
+      // Should have cleaned up settings.json
+      const settingsWrites = mockFs.writeFileSync.mock.calls.filter(
+        (c) => String(c[0]) === CLAUDE_CONFIG_PATH,
+      );
+      const cleanedSettings = settingsWrites.find((c) => {
+        const parsed = JSON.parse(c[1] as string);
+        return parsed.mcpServers && !parsed.mcpServers.causantic;
+      });
+      expect(cleanedSettings).toBeDefined();
+
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('Migrated Causantic MCP config: settings.json'),
+      );
+    });
+
+    it('skips migration when settings.json has no causantic entry', async () => {
+      mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
+        const s = String(p);
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig({});
+        if (s === MCP_CONFIG_PATH) return makeClaudeConfig({});
+        return '';
+      });
+
+      await initCommand.handler([]);
+
+      expect(console.log).not.toHaveBeenCalledWith(
+        expect.stringContaining('Migrated Causantic MCP config'),
       );
     });
   });
@@ -374,10 +452,13 @@ describe('initCommand', () => {
     it('adds hooks when not present', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['x', 'serve'] },
           });
+        }
+        if (s === CLAUDE_CONFIG_PATH) {
+          return makeClaudeConfig({});
         }
         return '';
       });
@@ -460,10 +541,15 @@ describe('initCommand', () => {
       };
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
+        if (s === MCP_CONFIG_PATH) {
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
+        }
         if (s === CLAUDE_CONFIG_PATH) {
           return JSON.stringify(
             {
-              mcpServers: { causantic: { command: process.execPath, args: ['x', 'serve'] } },
+              mcpServers: {},
               hooks: existingHooks,
             },
             null,
@@ -507,10 +593,15 @@ describe('initCommand', () => {
       };
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
+        if (s === MCP_CONFIG_PATH) {
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
+        }
         if (s === CLAUDE_CONFIG_PATH) {
           return JSON.stringify(
             {
-              mcpServers: { causantic: { command: process.execPath, args: ['x', 'serve'] } },
+              mcpServers: {},
               hooks: existingHooks,
             },
             null,
@@ -534,17 +625,15 @@ describe('initCommand', () => {
     });
 
     it('handles unreadable config gracefully', async () => {
-      // First readFileSync call (for configureMcp) returns valid JSON
-      // Second call (for configureHooks) throws
-      let callCount = 0;
+      // MCP config reads fine, but hooks config (settings.json) throws
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
+        if (s === MCP_CONFIG_PATH) {
+          return makeClaudeConfig({
+            causantic: { command: process.execPath, args: ['x', 'serve'] },
+          });
+        }
         if (s === CLAUDE_CONFIG_PATH) {
-          callCount++;
-          if (callCount <= 1)
-            return makeClaudeConfig({
-              causantic: { command: process.execPath, args: ['x', 'serve'] },
-            });
           throw new Error('Read error');
         }
         return '';
@@ -571,11 +660,12 @@ describe('initCommand', () => {
 
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['x', 'serve'] },
           });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         // CLAUDE.md exists with existing content
         if (s.includes('CLAUDE.md')) return '# My Claude Config\n';
         return '';
@@ -608,11 +698,12 @@ describe('initCommand', () => {
 
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['x', 'serve'] },
           });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         return '';
       });
 
@@ -634,11 +725,12 @@ describe('initCommand', () => {
 
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['x', 'serve'] },
           });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         if (s.includes('CLAUDE.md')) return existingClaudeMd;
         return '';
       });
@@ -662,11 +754,12 @@ describe('initCommand', () => {
     it('appends to existing CLAUDE.md when no markers are present', async () => {
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['x', 'serve'] },
           });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         if (s.includes('CLAUDE.md')) return '# My Claude Config\n';
         return '';
       });
@@ -763,11 +856,12 @@ describe('initCommand', () => {
       // Need MCP config to be parseable for the full path
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['x', 'serve'] },
           });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         if (s.includes('CLAUDE.md')) return '';
         return '';
       });
@@ -834,19 +928,14 @@ describe('initCommand', () => {
     it('skips when user declines encryption prompt', async () => {
       mockPromptYesNo.mockResolvedValue(false);
 
-      mockFs.existsSync.mockImplementation((p: fs.PathLike) => {
-        const s = String(p);
-        if (s.includes('memory.db')) return false;
-        return true;
-      });
-
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['x', 'serve'] },
           });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         if (s.includes('CLAUDE.md')) return '';
         return '';
       });
@@ -885,11 +974,12 @@ describe('initCommand', () => {
 
       mockFs.readFileSync.mockImplementation((p: fs.PathOrFileDescriptor) => {
         const s = String(p);
-        if (s === CLAUDE_CONFIG_PATH) {
+        if (s === MCP_CONFIG_PATH) {
           return makeClaudeConfig({
             causantic: { command: process.execPath, args: ['x', 'serve'] },
           });
         }
+        if (s === CLAUDE_CONFIG_PATH) return makeClaudeConfig();
         if (s.includes('CLAUDE.md')) return '';
         return '';
       });
