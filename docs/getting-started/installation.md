@@ -5,11 +5,13 @@ This guide covers installing Causantic and its dependencies.
 ## Prerequisites
 
 - **Node.js 20+**: Causantic requires Node.js version 20 or later
+- **Claude Code 5.1+**: Hooks require Claude Code version 5.1 or later (for `async` hook support)
 
 ### Verify Prerequisites
 
 ```bash
 node --version  # Should be v20.x or higher
+claude --version  # Should be 5.1.x or higher
 ```
 
 ## Installation
