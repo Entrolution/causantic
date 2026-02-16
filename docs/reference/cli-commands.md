@@ -241,7 +241,7 @@ npx causantic encryption audit 20
 
 ### export
 
-Export memory data.
+Export memory data. Archives are gzip-compressed by default and include vector embeddings for semantic search continuity.
 
 ```bash
 npx causantic export [options]
@@ -251,19 +251,25 @@ npx causantic export [options]
 
 | Option | Description |
 |--------|-------------|
-| `--output <path>` | Output file path |
+| `--output <path>` | Output file path (default: `causantic-backup.causantic`) |
 | `--no-encrypt` | Skip encryption |
-| `--format <fmt>` | Output format (json, archive) |
+| `--projects <slugs>` | Comma-separated project slugs to export |
+| `--redact-paths` | Redact file paths in content |
+| `--redact-code` | Redact code blocks in content |
+| `--no-vectors` | Skip vector embeddings (smaller file, but semantic search won't work after import) |
 
 **Example**:
 ```bash
-npx causantic export --output backup.causantic.json
+npx causantic export --output backup.causantic
 npx causantic export --output backup.json --no-encrypt
+npx causantic export --projects my-project,other-project --no-encrypt --output filtered.json
+npx causantic export --redact-paths --redact-code --output sanitized.causantic
+npx causantic export --no-vectors --output lightweight.causantic
 ```
 
 ### import
 
-Import memory data.
+Import memory data. Supports encrypted, compressed, and plain JSON archives.
 
 ```bash
 npx causantic import <file> [options]
@@ -273,13 +279,14 @@ npx causantic import <file> [options]
 
 | Option | Description |
 |--------|-------------|
-| `--merge` | Merge with existing data |
-| `--replace` | Replace existing data |
+| `--merge` | Merge with existing data (default: replace) |
+| `--dry-run` | Validate and report without importing |
 
 **Example**:
 ```bash
-npx causantic import backup.causantic.json
-npx causantic import backup.causantic.json --merge
+npx causantic import backup.causantic
+npx causantic import backup.causantic --merge
+npx causantic import backup.causantic --dry-run
 ```
 
 ### stats
