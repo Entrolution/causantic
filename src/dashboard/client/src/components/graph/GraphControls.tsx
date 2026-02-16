@@ -12,7 +12,12 @@ interface GraphControlsProps {
   onLimitChange: (limit: number) => void;
 }
 
-export function GraphControls({ project, onProjectChange, limit, onLimitChange }: GraphControlsProps) {
+export function GraphControls({
+  project,
+  onProjectChange,
+  limit,
+  onLimitChange,
+}: GraphControlsProps) {
   const { data: projectsData } = useApi<ProjectsResponse>('/api/projects');
 
   const projectOptions = (projectsData?.projects ?? []).map((p) => ({

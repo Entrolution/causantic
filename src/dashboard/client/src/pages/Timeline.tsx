@@ -88,7 +88,9 @@ export function Timeline() {
       {clustersData && timelineData && timelineData.chunks.length > 0 && (
         <ClusterLegend
           clusters={clustersData.clusters}
-          activeClusterIds={[...new Set(timelineData.chunks.map((c) => c.clusterId).filter(Boolean))] as string[]}
+          activeClusterIds={
+            [...new Set(timelineData.chunks.map((c) => c.clusterId).filter(Boolean))] as string[]
+          }
           unclusteredCount={timelineData.chunks.filter((c) => !c.clusterId).length}
         />
       )}

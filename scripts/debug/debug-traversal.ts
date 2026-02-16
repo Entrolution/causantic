@@ -9,50 +9,66 @@ async function debug() {
   const query = process.argv[2] || 'git commit workflow';
   const embedder = new Embedder();
   await embedder.load(getModel('jina-small'));
-  
+
   const { embedding } = await embedder.embed(query, true);
   const results = await vectorStore.search(embedding, 10);
-  
+
   console.log('Query: "' + query + '"\n');
   console.log('Vector search results and their edges:\n');
-  
+
   const allTargets = new Set<string>();
-  const vectorIds = new Set(results.map(r => r.id));
-  
+  const vectorIds = new Set(results.map((r) => r.id));
+
   for (const r of results) {
     const chunk = getChunkById(r.id);
     const backEdges = getOutgoingEdges(r.id, 'backward');
     const fwdEdges = getOutgoingEdges(r.id, 'forward');
-    
+
     console.log('Chunk: ' + r.id.slice(-25));
     console.log('  Session: ' + chunk?.sessionSlug);
     console.log('  Sim: ' + (1 - r.distance).toFixed(3));
     console.log('  Backward edges: ' + backEdges.length);
     console.log('  Forward edges: ' + fwdEdges.length);
-    
+
     if (backEdges.length > 0 || fwdEdges.length > 0) {
       for (const e of backEdges) {
         allTargets.add(e.targetChunkId);
         const inVector = vectorIds.has(e.targetChunkId) ? ' (OVERLAP)' : '';
-        console.log('    BACK -> ' + e.targetChunkId.slice(-20) + ' w=' + e.initialWeight.toFixed(2) + ' links=' + e.linkCount + inVector);
+        console.log(
+          '    BACK -> ' +
+            e.targetChunkId.slice(-20) +
+            ' w=' +
+            e.initialWeight.toFixed(2) +
+            ' links=' +
+            e.linkCount +
+            inVector,
+        );
       }
 
       for (const e of fwdEdges) {
         allTargets.add(e.targetChunkId);
         const inVector = vectorIds.has(e.targetChunkId) ? ' (OVERLAP)' : '';
-        console.log('    FWD  -> ' + e.targetChunkId.slice(-20) + ' w=' + e.initialWeight.toFixed(2) + ' links=' + e.linkCount + inVector);
+        console.log(
+          '    FWD  -> ' +
+            e.targetChunkId.slice(-20) +
+            ' w=' +
+            e.initialWeight.toFixed(2) +
+            ' links=' +
+            e.linkCount +
+            inVector,
+        );
       }
     }
     console.log('');
   }
-  
-  const overlapping = [...allTargets].filter(t => vectorIds.has(t)).length;
+
+  const overlapping = [...allTargets].filter((t) => vectorIds.has(t)).length;
   const newTargets = allTargets.size - overlapping;
   console.log('='.repeat(60));
   console.log('Total edge targets: ' + allTargets.size);
   console.log('  Already in vector results: ' + overlapping);
   console.log('  NEW (added by traversal):  ' + newTargets);
-  
+
   await embedder.dispose();
   closeDb();
 }

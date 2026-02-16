@@ -32,16 +32,20 @@ interface PythonHDBSCANResult {
 async function runPythonHDBSCAN(
   ids: string[],
   embeddings: number[][],
-  minClusterSize: number
+  minClusterSize: number,
 ): Promise<PythonHDBSCANResult> {
   const scriptPath = join(__dirname, 'hdbscan-python.py');
 
   const args = [
     scriptPath,
-    '--min-cluster-size', String(minClusterSize),
-    '--min-samples', String(minClusterSize),
-    '--core-dist-n-jobs', '-1', // Use all cores
-    '--metric', 'euclidean',
+    '--min-cluster-size',
+    String(minClusterSize),
+    '--min-samples',
+    String(minClusterSize),
+    '--core-dist-n-jobs',
+    '-1', // Use all cores
+    '--metric',
+    'euclidean',
   ];
 
   return new Promise((resolve, reject) => {
@@ -166,8 +170,8 @@ Requires: pip install hdbscan numpy
 
   // Run Python HDBSCAN
   console.log(`\nRunning HDBSCAN (Python, parallel)...`);
-  const ids = vectors.map(v => v.id);
-  const embeddings = vectors.map(v => v.embedding);
+  const ids = vectors.map((v) => v.id);
+  const embeddings = vectors.map((v) => v.embedding);
 
   const hdbscanResult = await runPythonHDBSCAN(ids, embeddings, minClusterSize);
 
@@ -191,18 +195,18 @@ Requires: pip install hdbscan numpy
 
   for (const [label, members] of clusterMembers) {
     // Compute centroid
-    const centroid = computeCentroid(members.map(m => m.embedding));
+    const centroid = computeCentroid(members.map((m) => m.embedding));
 
     // Select exemplars (closest to centroid)
-    const withDistances = members.map(m => ({
+    const withDistances = members.map((m) => ({
       ...m,
       distance: angularDistance(m.embedding, centroid),
     }));
     withDistances.sort((a, b) => a.distance - b.distance);
-    const exemplarIds = withDistances.slice(0, 3).map(m => m.id);
+    const exemplarIds = withDistances.slice(0, 3).map((m) => m.id);
 
     // Compute membership hash
-    const memberIds = members.map(m => m.id);
+    const memberIds = members.map((m) => m.id);
     const membershipHash = computeMembershipHash(memberIds);
 
     // Create cluster
@@ -238,7 +242,9 @@ Requires: pip install hdbscan numpy
   console.log(`Clusters found:      ${clusterMembers.size}`);
   console.log(`Chunks assigned:     ${assignments.length}`);
   console.log(`Noise chunks:        ${hdbscanResult.n_noise}`);
-  console.log(`Noise ratio:         ${(hdbscanResult.n_noise / vectors.length * 100).toFixed(1)}%`);
+  console.log(
+    `Noise ratio:         ${((hdbscanResult.n_noise / vectors.length) * 100).toFixed(1)}%`,
+  );
   console.log(`Duration:            ${(durationMs / 1000).toFixed(1)}s`);
 
   if (clusterSizes.length > 0) {

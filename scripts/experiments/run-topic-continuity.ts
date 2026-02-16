@@ -85,10 +85,7 @@ async function main(): Promise<void> {
   if (exportOnly) {
     // Just export the labeled dataset
     const exportPath = join(outputDir, 'topic-continuity-dataset.json');
-    await exportTransitionsDataset(
-      { projectsDir, maxSessions, timeGapMinutes },
-      exportPath,
-    );
+    await exportTransitionsDataset({ projectsDir, maxSessions, timeGapMinutes }, exportPath);
     return;
   }
 

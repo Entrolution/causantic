@@ -163,7 +163,7 @@ function printAsciiChart(comparison: ReturnType<typeof compareModels>): void {
 
   // Print grid with Y axis
   for (let y = 0; y < height; y++) {
-    const weightLabel = ((height - 1 - y) / (height - 1) * maxWeight).toFixed(1);
+    const weightLabel = (((height - 1 - y) / (height - 1)) * maxWeight).toFixed(1);
     console.log(`${weightLabel.padStart(5)} |${grid[y].join('')}|`);
   }
 

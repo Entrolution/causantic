@@ -12,9 +12,21 @@ interface ClusterBubblesProps {
 }
 
 const COLORS = [
-  '#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#ef4444',
-  '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16',
-  '#0ea5e9', '#d946ef', '#22c55e', '#eab308', '#a855f7',
+  '#10b981',
+  '#06b6d4',
+  '#8b5cf6',
+  '#f59e0b',
+  '#ef4444',
+  '#ec4899',
+  '#14b8a6',
+  '#f97316',
+  '#6366f1',
+  '#84cc16',
+  '#0ea5e9',
+  '#d946ef',
+  '#22c55e',
+  '#eab308',
+  '#a855f7',
 ];
 
 export function ClusterBubbles({ clusters }: ClusterBubblesProps) {
@@ -34,10 +46,7 @@ export function ClusterBubbles({ clusters }: ClusterBubblesProps) {
 
     svg.attr('width', width).attr('height', height);
 
-    const pack = d3
-      .pack<ClusterData>()
-      .size([width, height])
-      .padding(6);
+    const pack = d3.pack<ClusterData>().size([width, height]).padding(6);
 
     const root = d3
       .hierarchy<{ children: ClusterData[] }>({ children: clusters })
@@ -71,7 +80,9 @@ export function ClusterBubbles({ clusters }: ClusterBubblesProps) {
       .attr('fill', fg)
       .attr('font-size', (d) => Math.min(14, d.r / 3))
       .attr('font-weight', 600)
-      .text((d) => (d.data as ClusterData).name?.slice(0, 20) ?? (d.data as ClusterData).id.slice(0, 8));
+      .text(
+        (d) => (d.data as ClusterData).name?.slice(0, 20) ?? (d.data as ClusterData).id.slice(0, 8),
+      );
 
     node
       .filter((d) => d.r > 30)

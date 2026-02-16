@@ -59,19 +59,30 @@ Example:
   console.log(`Clusters: ${result.numClusters}`);
   console.log(`Noise ratio: ${(result.noiseRatio * 100).toFixed(1)}%`);
   console.log(`Silhouette: ${result.silhouetteScore.toFixed(3)}`);
-  console.log(`\nWithin-cluster distance: ${result.withinClusterDistances.mean.toFixed(3)} ± ${result.withinClusterDistances.std.toFixed(3)}`);
-  console.log(`Cross-cluster distance: ${result.crossClusterDistances.mean.toFixed(3)} ± ${result.crossClusterDistances.std.toFixed(3)}`);
+  console.log(
+    `\nWithin-cluster distance: ${result.withinClusterDistances.mean.toFixed(3)} ± ${result.withinClusterDistances.std.toFixed(3)}`,
+  );
+  console.log(
+    `Cross-cluster distance: ${result.crossClusterDistances.mean.toFixed(3)} ± ${result.crossClusterDistances.std.toFixed(3)}`,
+  );
   console.log(`\n*** Recommended threshold: ${result.recommendedThreshold} ***`);
 
   // Find best by precision if different
-  const bestPrecision = result.thresholds.reduce((a, b) => a.precision > b.precision ? a : b);
-  const bestRecall = result.thresholds.reduce((a, b) => a.recall > b.recall ? a : b);
+  const bestPrecision = result.thresholds.reduce((a, b) => (a.precision > b.precision ? a : b));
+  const bestRecall = result.thresholds.reduce((a, b) => (a.recall > b.recall ? a : b));
 
   if (bestPrecision.threshold !== result.recommendedThreshold) {
-    console.log(`    (Best precision: ${bestPrecision.threshold} with ${(bestPrecision.precision * 100).toFixed(1)}%)`);
+    console.log(
+      `    (Best precision: ${bestPrecision.threshold} with ${(bestPrecision.precision * 100).toFixed(1)}%)`,
+    );
   }
-  if (bestRecall.threshold !== result.recommendedThreshold && bestRecall.threshold !== bestPrecision.threshold) {
-    console.log(`    (Best recall: ${bestRecall.threshold} with ${(bestRecall.recall * 100).toFixed(1)}%)`);
+  if (
+    bestRecall.threshold !== result.recommendedThreshold &&
+    bestRecall.threshold !== bestPrecision.threshold
+  ) {
+    console.log(
+      `    (Best recall: ${bestRecall.threshold} with ${(bestRecall.recall * 100).toFixed(1)}%)`,
+    );
   }
 }
 

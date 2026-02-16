@@ -112,7 +112,7 @@ async function main(): Promise<void> {
   console.log(`Projects directory: ${projectsDir}`);
   console.log(`Max sessions: ${maxSessions}`);
   console.log(`Output directory: ${outputDir}`);
-  console.log(`Decay models: ${PRESET_MODELS.map(m => m.id).join(', ')}\n`);
+  console.log(`Decay models: ${PRESET_MODELS.map((m) => m.id).join(', ')}\n`);
 
   await mkdir(outputDir, { recursive: true });
 

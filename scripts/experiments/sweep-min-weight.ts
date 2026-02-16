@@ -58,9 +58,9 @@ async function runSweep(embedder: Embedder): Promise<SweepResult[]> {
       // Get vector search results
       const { embedding } = await embedder.embed(query, true);
       const vectorResults = await vectorStore.search(embedding, 10);
-      const vectorChunkIds = new Set(vectorResults.map(r => r.id));
+      const vectorChunkIds = new Set(vectorResults.map((r) => r.id));
 
-      const startIds = vectorResults.map(r => r.id);
+      const startIds = vectorResults.map((r) => r.id);
 
       // Traverse backward
       const backwardResult = traverseMultiple(startIds, {
@@ -78,8 +78,8 @@ async function runSweep(embedder: Embedder): Promise<SweepResult[]> {
 
       // Combine and dedupe
       const allChunks = [...backwardResult.chunks, ...forwardResult.chunks];
-      const newChunks = allChunks.filter(c => !vectorChunkIds.has(c.chunkId));
-      const weights = newChunks.map(c => c.weight).sort((a, b) => b - a);
+      const newChunks = allChunks.filter((c) => !vectorChunkIds.has(c.chunkId));
+      const weights = newChunks.map((c) => c.weight).sort((a, b) => b - a);
 
       totalChunksAdded += newChunks.length;
       totalPathsExplored += backwardResult.visited + forwardResult.visited;
@@ -90,7 +90,9 @@ async function runSweep(embedder: Embedder): Promise<SweepResult[]> {
         totalMinWeight += weights[weights.length - 1];
       }
 
-      console.log(`+${newChunks.length} chunks, ${backwardResult.visited + forwardResult.visited} paths`);
+      console.log(
+        `+${newChunks.length} chunks, ${backwardResult.visited + forwardResult.visited} paths`,
+      );
     }
 
     const elapsed = Date.now() - startTime;
@@ -115,18 +117,26 @@ function printResults(results: SweepResult[]) {
   console.log('MIN WEIGHT SWEEP RESULTS');
   console.log('='.repeat(100));
 
-  console.log('\nminWeight   | Chunks Added | Paths Explored | Max Weight | Median Weight | Min Weight | Time (ms)');
+  console.log(
+    '\nminWeight   | Chunks Added | Paths Explored | Max Weight | Median Weight | Min Weight | Time (ms)',
+  );
   console.log('-'.repeat(100));
 
   for (const r of results) {
     console.log(
-      String(r.minWeight).padEnd(11) + ' | ' +
-      r.avgChunksAdded.toFixed(1).padStart(12) + ' | ' +
-      r.avgPathsExplored.toFixed(0).padStart(14) + ' | ' +
-      r.avgMaxWeight.toFixed(4).padStart(10) + ' | ' +
-      r.avgMedianWeight.toFixed(4).padStart(13) + ' | ' +
-      r.avgMinWeight.toFixed(4).padStart(10) + ' | ' +
-      String(r.totalTimeMs).padStart(9)
+      String(r.minWeight).padEnd(11) +
+        ' | ' +
+        r.avgChunksAdded.toFixed(1).padStart(12) +
+        ' | ' +
+        r.avgPathsExplored.toFixed(0).padStart(14) +
+        ' | ' +
+        r.avgMaxWeight.toFixed(4).padStart(10) +
+        ' | ' +
+        r.avgMedianWeight.toFixed(4).padStart(13) +
+        ' | ' +
+        r.avgMinWeight.toFixed(4).padStart(10) +
+        ' | ' +
+        String(r.totalTimeMs).padStart(9),
     );
   }
 
@@ -139,15 +149,16 @@ function printResults(results: SweepResult[]) {
   for (let i = 1; i < results.length; i++) {
     const prev = results[i - 1];
     const curr = results[i];
-    const chunkIncrease = ((curr.avgChunksAdded - prev.avgChunksAdded) / prev.avgChunksAdded * 100);
-    const pathIncrease = ((curr.avgPathsExplored - prev.avgPathsExplored) / prev.avgPathsExplored * 100);
+    const chunkIncrease = ((curr.avgChunksAdded - prev.avgChunksAdded) / prev.avgChunksAdded) * 100;
+    const pathIncrease =
+      ((curr.avgPathsExplored - prev.avgPathsExplored) / prev.avgPathsExplored) * 100;
     const efficiency = chunkIncrease / pathIncrease;
 
     console.log(
       `  ${prev.minWeight} → ${curr.minWeight}: ` +
-      `+${chunkIncrease.toFixed(1)}% chunks, ` +
-      `+${pathIncrease.toFixed(1)}% paths, ` +
-      `efficiency: ${efficiency.toFixed(2)}`
+        `+${chunkIncrease.toFixed(1)}% chunks, ` +
+        `+${pathIncrease.toFixed(1)}% paths, ` +
+        `efficiency: ${efficiency.toFixed(2)}`,
     );
   }
 
@@ -158,8 +169,8 @@ function printResults(results: SweepResult[]) {
   for (let i = 0; i < results.length - 1; i++) {
     const curr = results[i];
     const next = results[i + 1];
-    const efficiency = (next.avgChunksAdded / next.avgPathsExplored) /
-                       (curr.avgChunksAdded / curr.avgPathsExplored);
+    const efficiency =
+      next.avgChunksAdded / next.avgPathsExplored / (curr.avgChunksAdded / curr.avgPathsExplored);
     if (efficiency > bestEfficiency && next.avgChunksAdded > curr.avgChunksAdded) {
       bestEfficiency = efficiency;
       bestIdx = i + 1;
@@ -167,7 +178,9 @@ function printResults(results: SweepResult[]) {
   }
 
   console.log(`  Best efficiency at minWeight = ${results[bestIdx].minWeight}`);
-  console.log(`  (${results[bestIdx].avgChunksAdded.toFixed(1)} chunks / ${results[bestIdx].avgPathsExplored.toFixed(0)} paths)`);
+  console.log(
+    `  (${results[bestIdx].avgChunksAdded.toFixed(1)} chunks / ${results[bestIdx].avgPathsExplored.toFixed(0)} paths)`,
+  );
 }
 
 async function main() {

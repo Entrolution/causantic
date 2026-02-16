@@ -22,9 +22,7 @@ export function ClusterCard({ cluster }: ClusterCardProps) {
     <Card>
       <CardHeader className="cursor-pointer" onClick={() => setExpanded(!expanded)}>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base">
-            {cluster.name ?? cluster.id.slice(0, 12)}
-          </CardTitle>
+          <CardTitle className="text-base">{cluster.name ?? cluster.id.slice(0, 12)}</CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">{cluster.memberCount} chunks</Badge>
             {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -49,7 +47,10 @@ export function ClusterCard({ cluster }: ClusterCardProps) {
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Exemplar Chunks</p>
               {cluster.exemplarPreviews.map((ex) => (
-                <div key={ex.id} className="rounded border border-border p-2 text-xs text-muted-foreground">
+                <div
+                  key={ex.id}
+                  className="rounded border border-border p-2 text-xs text-muted-foreground"
+                >
                   <code className="text-[10px]">{ex.id.slice(0, 8)}</code>
                   <p className="mt-1 line-clamp-2">{ex.preview}</p>
                 </div>

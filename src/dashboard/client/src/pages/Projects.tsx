@@ -33,15 +33,26 @@ export function Projects() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Project</th>
-                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">Chunks</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">First Seen</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Last Seen</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      Project
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                      Chunks
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      First Seen
+                    </th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                      Last Seen
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.projects.map((project) => (
-                    <tr key={project.slug} className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
+                    <tr
+                      key={project.slug}
+                      className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
+                    >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{project.slug}</span>

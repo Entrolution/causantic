@@ -64,7 +64,10 @@ export function Overview() {
           <CardContent>
             <div className="space-y-3">
               {recent.chunks.map((chunk) => (
-                <div key={chunk.id} className="flex items-start gap-3 rounded-md border border-border p-3">
+                <div
+                  key={chunk.id}
+                  className="flex items-start gap-3 rounded-md border border-border p-3"
+                >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Badge variant="secondary">{chunk.sessionSlug}</Badge>

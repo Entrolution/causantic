@@ -15,9 +15,17 @@ interface TooltipState {
   anchorRect: DOMRect | null;
 }
 
-export function ClusterLegend({ clusters, activeClusterIds, unclusteredCount }: ClusterLegendProps) {
+export function ClusterLegend({
+  clusters,
+  activeClusterIds,
+  unclusteredCount,
+}: ClusterLegendProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [tooltip, setTooltip] = useState<TooltipState>({ visible: false, cluster: null, anchorRect: null });
+  const [tooltip, setTooltip] = useState<TooltipState>({
+    visible: false,
+    cluster: null,
+    anchorRect: null,
+  });
 
   const clusterMap = new Map(clusters.map((c) => [c.id, c]));
 
@@ -35,7 +43,15 @@ export function ClusterLegend({ clusters, activeClusterIds, unclusteredCount }: 
       info: c.info ?? null,
     })),
     ...(unclusteredCount > 0
-      ? [{ key: '_unclustered', color: '#64748b', name: 'Unclustered', count: unclusteredCount, info: null }]
+      ? [
+          {
+            key: '_unclustered',
+            color: '#64748b',
+            name: 'Unclustered',
+            count: unclusteredCount,
+            info: null,
+          },
+        ]
       : []),
   ];
 
@@ -50,18 +66,18 @@ export function ClusterLegend({ clusters, activeClusterIds, unclusteredCount }: 
 
   // Compute tooltip position relative to container
   const containerRect = containerRef.current?.getBoundingClientRect();
-  const tipLeft = tooltip.anchorRect && containerRect
-    ? Math.min(
-        tooltip.anchorRect.left - containerRect.left,
-        containerRect.width - 296,
-      )
-    : 0;
-  const tipTop = tooltip.anchorRect && containerRect
-    ? tooltip.anchorRect.bottom - containerRect.top + 6
-    : 0;
+  const tipLeft =
+    tooltip.anchorRect && containerRect
+      ? Math.min(tooltip.anchorRect.left - containerRect.left, containerRect.width - 296)
+      : 0;
+  const tipTop =
+    tooltip.anchorRect && containerRect ? tooltip.anchorRect.bottom - containerRect.top + 6 : 0;
 
   return (
-    <div ref={containerRef} className="relative rounded-lg border border-border bg-card px-4 py-2.5">
+    <div
+      ref={containerRef}
+      className="relative rounded-lg border border-border bg-card px-4 py-2.5"
+    >
       <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
         Topic Clusters
       </div>
@@ -82,7 +98,9 @@ export function ClusterLegend({ clusters, activeClusterIds, unclusteredCount }: 
               style={{ backgroundColor: item.color }}
             />
             <span className="text-foreground truncate">{item.name}</span>
-            <span className="text-muted-foreground tabular-nums ml-auto shrink-0">{item.count}</span>
+            <span className="text-muted-foreground tabular-nums ml-auto shrink-0">
+              {item.count}
+            </span>
           </div>
         ))}
       </div>
@@ -96,12 +114,19 @@ export function ClusterLegend({ clusters, activeClusterIds, unclusteredCount }: 
             top: tipTop,
           }}
         >
-          <div className="font-semibold text-foreground mb-1">{tooltip.cluster.name ?? 'Unnamed'}</div>
+          <div className="font-semibold text-foreground mb-1">
+            {tooltip.cluster.name ?? 'Unnamed'}
+          </div>
           {tooltip.cluster.description && (
-            <p className="text-muted-foreground mb-2 leading-relaxed">{tooltip.cluster.description}</p>
+            <p className="text-muted-foreground mb-2 leading-relaxed">
+              {tooltip.cluster.description}
+            </p>
           )}
           <div className="flex gap-4 text-muted-foreground">
-            <div>Members: <span className="text-foreground tabular-nums">{tooltip.cluster.memberCount}</span></div>
+            <div>
+              Members:{' '}
+              <span className="text-foreground tabular-nums">{tooltip.cluster.memberCount}</span>
+            </div>
           </div>
         </div>
       )}

@@ -207,28 +207,38 @@ Example:
     console.log('-'.repeat(70));
 
     for (const ncResult of nonCodingResults.retrievalRanking) {
-      const codingResult = codingResults.retrievalRanking.find((r) => r.modelId === ncResult.modelId);
+      const codingResult = codingResults.retrievalRanking.find(
+        (r) => r.modelId === ncResult.modelId,
+      );
       if (codingResult) {
         const diff = ncResult.mrr - codingResult.mrr;
         const sign = diff >= 0 ? '+' : '';
         console.log(
-          `${ncResult.modelName.padEnd(25)} | ${ncResult.mrr.toFixed(3).padEnd(14)} | ${codingResult.mrr.toFixed(3).padEnd(10)} | ${sign}${(diff * 100).toFixed(1)}%`
+          `${ncResult.modelName.padEnd(25)} | ${ncResult.mrr.toFixed(3).padEnd(14)} | ${codingResult.mrr.toFixed(3).padEnd(10)} | ${sign}${(diff * 100).toFixed(1)}%`,
         );
       }
     }
 
     // Conclusion
-    const avgNonCoding = nonCodingResults.retrievalRanking.reduce((sum, r) => sum + r.mrr, 0) / nonCodingResults.retrievalRanking.length;
-    const avgCoding = codingResults.retrievalRanking.reduce((sum, r) => sum + r.mrr, 0) / codingResults.retrievalRanking.length;
+    const avgNonCoding =
+      nonCodingResults.retrievalRanking.reduce((sum, r) => sum + r.mrr, 0) /
+      nonCodingResults.retrievalRanking.length;
+    const avgCoding =
+      codingResults.retrievalRanking.reduce((sum, r) => sum + r.mrr, 0) /
+      codingResults.retrievalRanking.length;
     const avgDiff = avgNonCoding - avgCoding;
 
     console.log('-'.repeat(70));
     if (Math.abs(avgDiff) < 0.02) {
       console.log('\n✓ Models perform similarly on non-coding and coding sessions');
     } else if (avgDiff > 0) {
-      console.log(`\n✓ Models perform ${(avgDiff * 100).toFixed(1)}% better on non-coding sessions`);
+      console.log(
+        `\n✓ Models perform ${(avgDiff * 100).toFixed(1)}% better on non-coding sessions`,
+      );
     } else {
-      console.log(`\n⚠ Models perform ${(-avgDiff * 100).toFixed(1)}% worse on non-coding sessions`);
+      console.log(
+        `\n⚠ Models perform ${(-avgDiff * 100).toFixed(1)}% worse on non-coding sessions`,
+      );
       console.log('  Consider parameter adjustments for non-coding use cases');
     }
   }
@@ -236,7 +246,7 @@ Example:
 
 function generateComparison(
   nonCoding: { retrievalRanking: Array<{ modelId: string; mrr: number }> },
-  coding: { retrievalRanking: Array<{ modelId: string; mrr: number }> }
+  coding: { retrievalRanking: Array<{ modelId: string; mrr: number }> },
 ): Record<string, { nonCodingMrr: number; codingMrr: number; diff: number }> {
   const comparison: Record<string, { nonCodingMrr: number; codingMrr: number; diff: number }> = {};
 

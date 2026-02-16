@@ -16,7 +16,12 @@ interface PipelineComparisonProps {
   };
 }
 
-function ResultColumn({ title, results, color, allIds }: {
+function ResultColumn({
+  title,
+  results,
+  color,
+  allIds,
+}: {
   title: string;
   results: SearchResult[];
   color: string;
@@ -40,10 +45,7 @@ function ResultColumn({ title, results, color, allIds }: {
         {results.map((result, i) => {
           const sourceCount = getSourceCount(result.id);
           return (
-            <div
-              key={result.id}
-              className="rounded-md border border-border p-3 space-y-1"
-            >
+            <div key={result.id} className="rounded-md border border-border p-3 space-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground">#{i + 1}</span>
                 <span className="text-xs tabular-nums font-mono" style={{ color }}>

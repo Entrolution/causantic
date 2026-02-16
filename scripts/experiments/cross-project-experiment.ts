@@ -41,12 +41,16 @@ const GENERIC_QUERIES = [
 async function extractProjectQueries(projectSlug: string, limit: number = 5): Promise<string[]> {
   const db = getDb();
 
-  const chunks = db.prepare(`
+  const chunks = db
+    .prepare(
+      `
     SELECT content FROM chunks
     WHERE session_slug LIKE ?
     ORDER BY RANDOM()
     LIMIT 20
-  `).all(`%${projectSlug}%`) as Array<{content: string}>;
+  `,
+    )
+    .all(`%${projectSlug}%`) as Array<{ content: string }>;
 
   const queries: string[] = [];
 
@@ -58,7 +62,9 @@ async function extractProjectQueries(projectSlug: string, limit: number = 5): Pr
 
     const codeMatches = chunk.content.match(/(?:function|class|const|def)\s+(\w+)/g);
     if (codeMatches) {
-      queries.push(...codeMatches.slice(0, 2).map(m => m.replace(/^(function|class|const|def)\s+/, '')));
+      queries.push(
+        ...codeMatches.slice(0, 2).map((m) => m.replace(/^(function|class|const|def)\s+/, '')),
+      );
     }
 
     if (queries.length >= limit) break;
@@ -88,17 +94,21 @@ interface ProjectResult {
 async function analyzeProject(
   embedder: Embedder,
   projectSlug: string,
-  queries: string[]
+  queries: string[],
 ): Promise<ProjectResult> {
   const db = getDb();
 
-  const stats = db.prepare(`
+  const stats = db
+    .prepare(
+      `
     SELECT
       COUNT(DISTINCT session_slug) as sessions,
       COUNT(*) as chunks
     FROM chunks
     WHERE session_slug LIKE ?
-  `).get(`%${projectSlug}%`) as {sessions: number, chunks: number};
+  `,
+    )
+    .get(`%${projectSlug}%`) as { sessions: number; chunks: number };
 
   const queryResults: ProjectResult['queryResults'] = [];
   let totalVectorResults = 0;
@@ -114,8 +124,8 @@ async function analyzeProject(
 
       if (vectorResults.length === 0) continue;
 
-      const vectorChunkIds = new Set(vectorResults.map(r => r.id));
-      const startIds = vectorResults.map(r => r.id);
+      const vectorChunkIds = new Set(vectorResults.map((r) => r.id));
+      const startIds = vectorResults.map((r) => r.id);
 
       // Walk chains backward + forward from seeds
       const backwardChains = await walkChains(startIds, {
@@ -142,7 +152,7 @@ async function analyzeProject(
         }
       }
 
-      const chainAdditions = [...allChainChunkIds].filter(id => !vectorChunkIds.has(id)).length;
+      const chainAdditions = [...allChainChunkIds].filter((id) => !vectorChunkIds.has(id)).length;
 
       queryResults.push({
         query: query.slice(0, 50),
@@ -185,12 +195,16 @@ async function main() {
   console.log('='.repeat(100));
   console.log('CROSS-PROJECT CHAIN WALKING AUGMENTATION EXPERIMENT (v0.3)');
   console.log('='.repeat(100));
-  console.log('\nMethodology: vector search → chain walk (backward + forward) → count additional chunks');
+  console.log(
+    '\nMethodology: vector search → chain walk (backward + forward) → count additional chunks',
+  );
   console.log('Comparable to v0.2 experiment (traverseMultiple → sum-product graph traversal)');
 
   const db = getDb();
 
-  const projects = db.prepare(`
+  const projects = db
+    .prepare(
+      `
     SELECT
       session_slug,
       COUNT(*) as chunk_count
@@ -198,7 +212,9 @@ async function main() {
     GROUP BY session_slug
     HAVING chunk_count >= 20
     ORDER BY chunk_count DESC
-  `).all() as Array<{session_slug: string, chunk_count: number}>;
+  `,
+    )
+    .all() as Array<{ session_slug: string; chunk_count: number }>;
 
   const projectMap = new Map<string, number>();
   for (const p of projects) {
@@ -230,7 +246,9 @@ async function main() {
     const result = await analyzeProject(embedder, project, allQueries);
     results.push(result);
 
-    console.log(`${result.augmentationRatio.toFixed(2)}x (${result.queryCount} queries, avg chain: ${result.avgChainLength.toFixed(1)})`);
+    console.log(
+      `${result.augmentationRatio.toFixed(2)}x (${result.queryCount} queries, avg chain: ${result.avgChainLength.toFixed(1)})`,
+    );
   }
 
   // Print detailed results
@@ -238,21 +256,32 @@ async function main() {
   console.log('RESULTS BY PROJECT');
   console.log('='.repeat(120));
 
-  console.log('\nProject'.padEnd(45) + ' | Sessions | Chunks | Queries | Vector | +Chain | Augment | Avg Chain | % w/ Chain');
+  console.log(
+    '\nProject'.padEnd(45) +
+      ' | Sessions | Chunks | Queries | Vector | +Chain | Augment | Avg Chain | % w/ Chain',
+  );
   console.log('-'.repeat(120));
 
   for (const r of results) {
-    const chainPct = r.queryCount > 0 ? (r.queriesProducingChains / r.queryCount * 100) : 0;
+    const chainPct = r.queryCount > 0 ? (r.queriesProducingChains / r.queryCount) * 100 : 0;
     console.log(
-      r.project.slice(0, 43).padEnd(45) + ' | ' +
-      String(r.sessionCount).padStart(8) + ' | ' +
-      String(r.chunkCount).padStart(6) + ' | ' +
-      String(r.queryCount).padStart(7) + ' | ' +
-      r.avgVectorResults.toFixed(1).padStart(6) + ' | ' +
-      ('+' + r.avgChainAdditions.toFixed(1)).padStart(6) + ' | ' +
-      (r.augmentationRatio.toFixed(2) + 'x').padStart(7) + ' | ' +
-      r.avgChainLength.toFixed(1).padStart(9) + ' | ' +
-      (chainPct.toFixed(0) + '%').padStart(9)
+      r.project.slice(0, 43).padEnd(45) +
+        ' | ' +
+        String(r.sessionCount).padStart(8) +
+        ' | ' +
+        String(r.chunkCount).padStart(6) +
+        ' | ' +
+        String(r.queryCount).padStart(7) +
+        ' | ' +
+        r.avgVectorResults.toFixed(1).padStart(6) +
+        ' | ' +
+        ('+' + r.avgChainAdditions.toFixed(1)).padStart(6) +
+        ' | ' +
+        (r.augmentationRatio.toFixed(2) + 'x').padStart(7) +
+        ' | ' +
+        r.avgChainLength.toFixed(1).padStart(9) +
+        ' | ' +
+        (chainPct.toFixed(0) + '%').padStart(9),
     );
   }
 
@@ -266,11 +295,13 @@ async function main() {
   const totalQueries = results.reduce((s, r) => s + r.queryCount, 0);
   const totalQueriesWithChains = results.reduce((s, r) => s + r.queriesProducingChains, 0);
 
-  const weightedAugmentation = results.reduce((s, r) => s + r.augmentationRatio * r.queryCount, 0) / totalQueries;
-  const simpleAvgAugmentation = results.reduce((s, r) => s + r.augmentationRatio, 0) / results.length;
+  const weightedAugmentation =
+    results.reduce((s, r) => s + r.augmentationRatio * r.queryCount, 0) / totalQueries;
+  const simpleAvgAugmentation =
+    results.reduce((s, r) => s + r.augmentationRatio, 0) / results.length;
 
-  const minAug = Math.min(...results.map(r => r.augmentationRatio));
-  const maxAug = Math.max(...results.map(r => r.augmentationRatio));
+  const minAug = Math.min(...results.map((r) => r.augmentationRatio));
+  const maxAug = Math.max(...results.map((r) => r.augmentationRatio));
 
   const avgChainLength = results.reduce((s, r) => s + r.avgChainLength, 0) / results.length;
 
@@ -285,7 +316,7 @@ async function main() {
   console.log(`  Simple average:        ${simpleAvgAugmentation.toFixed(2)}x`);
   console.log(`  Range:                 ${minAug.toFixed(2)}x - ${maxAug.toFixed(2)}x`);
 
-  const augmentations = results.map(r => r.augmentationRatio).sort((a, b) => a - b);
+  const augmentations = results.map((r) => r.augmentationRatio).sort((a, b) => a - b);
   const median = augmentations[Math.floor(augmentations.length / 2)];
   const q1 = augmentations[Math.floor(augmentations.length * 0.25)];
   const q3 = augmentations[Math.floor(augmentations.length * 0.75)];
@@ -295,18 +326,26 @@ async function main() {
 
   console.log('\nChain-Specific Metrics:');
   console.log(`  Mean chain length:     ${avgChainLength.toFixed(1)} chunks`);
-  console.log(`  Queries producing chains: ${totalQueriesWithChains}/${totalQueries} (${(totalQueriesWithChains / totalQueries * 100).toFixed(0)}%)`);
+  console.log(
+    `  Queries producing chains: ${totalQueriesWithChains}/${totalQueries} (${((totalQueriesWithChains / totalQueries) * 100).toFixed(0)}%)`,
+  );
 
   console.log('\nComparison to v0.2 (sum-product traversal, m×n edges):');
   console.log(`  v0.2 weighted average: 4.65x (492 queries, 25 projects)`);
-  console.log(`  v0.3 weighted average: ${weightedAugmentation.toFixed(2)}x (${totalQueries} queries, ${results.length} projects)`);
+  console.log(
+    `  v0.3 weighted average: ${weightedAugmentation.toFixed(2)}x (${totalQueries} queries, ${results.length} projects)`,
+  );
 
   console.log('\n' + '='.repeat(120));
   console.log('CONCLUSION');
   console.log('='.repeat(120));
   console.log(`\nAcross ${results.length} independent projects and ${totalQueries} queries:`);
-  console.log(`Chain walking provides ${weightedAugmentation.toFixed(2)}× augmentation vs vector search alone.`);
-  console.log(`${(totalQueriesWithChains / totalQueries * 100).toFixed(0)}% of queries produce episodic chains (avg ${avgChainLength.toFixed(1)} chunks).`);
+  console.log(
+    `Chain walking provides ${weightedAugmentation.toFixed(2)}× augmentation vs vector search alone.`,
+  );
+  console.log(
+    `${((totalQueriesWithChains / totalQueries) * 100).toFixed(0)}% of queries produce episodic chains (avg ${avgChainLength.toFixed(1)} chunks).`,
+  );
 
   await embedder.dispose();
   closeDb();
