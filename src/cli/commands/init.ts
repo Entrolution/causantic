@@ -201,7 +201,10 @@ function migrateMcpFromSettings(settingsPath: string, mcpConfigPath: string): vo
 
     const mcpServers = (mcpConfig.mcpServers ?? {}) as Record<string, unknown>;
     if (!mcpServers[CAUSANTIC_SERVER_KEY]) {
-      mcpConfig.mcpServers = { ...mcpServers, [CAUSANTIC_SERVER_KEY]: settings.mcpServers[CAUSANTIC_SERVER_KEY] };
+      mcpConfig.mcpServers = {
+        ...mcpServers,
+        [CAUSANTIC_SERVER_KEY]: settings.mcpServers[CAUSANTIC_SERVER_KEY],
+      };
       fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2));
       console.log('\u2713 Migrated Causantic MCP config: settings.json \u2192 ~/.claude.json');
     }
