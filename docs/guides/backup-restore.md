@@ -1,6 +1,6 @@
 # Backup & Restore
 
-Causantic supports encrypted exports for secure backup and migration of your memory data.
+Causantic supports encrypted, compressed exports for secure backup and migration of your memory data.
 
 ## Export Memory
 
@@ -25,6 +25,7 @@ npx causantic export --output backup.json --no-encrypt
 
 ```bash
 npx causantic export --output backup.causantic --projects my-project
+npx causantic export --output backup.causantic --projects project-a,project-b
 ```
 
 ### With Redaction (for sharing)
@@ -32,6 +33,14 @@ npx causantic export --output backup.causantic --projects my-project
 ```bash
 # Redact file paths and code blocks
 npx causantic export --output backup.causantic --redact-paths --redact-code
+```
+
+### Without Vectors (lightweight)
+
+```bash
+# Skip vector embeddings for a smaller file
+# Note: semantic search will not work after import until re-embedding
+npx causantic export --output backup.causantic --no-vectors
 ```
 
 ## Import Memory
@@ -54,6 +63,12 @@ npx causantic import backup.causantic --merge
 
 Without `--merge`, existing data is replaced.
 
+### Dry Run (validate without importing)
+
+```bash
+npx causantic import backup.causantic --dry-run
+```
+
 ## Environment Variable (CI/Scripts)
 
 For non-interactive environments, set the password via environment variable:
@@ -71,10 +86,26 @@ CAUSANTIC_EXPORT_PASSWORD="your-secure-password" npx causantic import backup.cau
 | Data | Description |
 |------|-------------|
 | Chunks | Conversation segments with semantic content |
-| Edges | Causal relationships (backward/forward links) |
-| Clusters | Topic groupings from HDBSCAN clustering |
+| Edges | Causal relationships (forward/backward links) with identity and link counts |
+| Clusters | Topic groupings with centroids, exemplar IDs, distances, and membership hashes |
+| Vectors | Embedding vectors for semantic search (skip with `--no-vectors`) |
 
-## Encryption Details
+## Archive Format
+
+### Version History
+
+| Version | Changes |
+|---------|---------|
+| 1.1 | Added vector embeddings, full cluster data (centroid, distances, exemplars), gzip compression, edge identity |
+| 1.0 | Initial format (chunks, edges, basic clusters) |
+
+Archives are backward-compatible: v1.1 can import v1.0 archives (with a warning that vectors are missing).
+
+### Compression
+
+All v1.1 exports are gzip-compressed. On import, Causantic auto-detects compressed, encrypted, and plain JSON formats.
+
+### Encryption Details
 
 Causantic uses strong encryption for archive files:
 
@@ -83,33 +114,35 @@ Causantic uses strong encryption for archive files:
 - **Nonce**: 12 bytes (random per encryption)
 - **Salt**: 16 bytes (unique per password)
 
-The archive format uses magic bytes (`Causantic\0`) to identify encrypted files.
+The archive format uses magic bytes (`CST\0`) to identify encrypted files.
 
-## File Formats
+### File Structure
 
-### Encrypted (.causantic)
-
-Binary format with structure:
+**Encrypted + compressed:**
 ```
-[Magic: 4 bytes "Causantic\0"]
+[Magic: 4 bytes "CST\0"]
 [Salt: 16 bytes]
 [Nonce: 12 bytes]
 [Auth Tag: 16 bytes]
-[Ciphertext: variable]
+[Ciphertext: gzip(JSON) encrypted with AES-256-GCM]
 ```
 
-### Unencrypted (.json)
+**Unencrypted compressed (default):**
+```
+[gzip(JSON)]
+```
 
-Standard JSON with structure:
+**Plain JSON (v1.0 backward compat):**
 ```json
 {
   "format": "causantic-archive",
-  "version": "1.0",
+  "version": "1.1",
   "created": "2024-01-15T10:30:00Z",
   "metadata": { ... },
   "chunks": [ ... ],
   "edges": [ ... ],
-  "clusters": [ ... ]
+  "clusters": [ ... ],
+  "vectors": [ ... ]
 }
 ```
 
@@ -163,3 +196,9 @@ The file is not a valid Causantic archive. Check that:
 ### "Decryption failed"
 
 Wrong password. Re-enter the password carefully.
+
+### "Archive version 1.0: no vector embeddings"
+
+The archive was created with v1.0 (before vector support). After import:
+- Semantic search (`recall`, `search`, `predict`) won't work until vectors are regenerated
+- Run `npx causantic maintenance run scan-projects` to re-ingest and generate embeddings
