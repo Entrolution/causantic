@@ -12,9 +12,12 @@ The `hdbscan-ts` package has O(n² × k) complexity due to `Array.includes()` ca
 
 ```javascript
 // Problematic pattern in hdbscan-ts
-for (const point of points) {           // O(n)
-  for (const cluster of clusters) {     // O(k)
-    if (cluster.includes(point)) {      // O(n) - Array.includes is linear!
+for (const point of points) {
+  // O(n)
+  for (const cluster of clusters) {
+    // O(k)
+    if (cluster.includes(point)) {
+      // O(n) - Array.includes is linear!
       // ...
     }
   }
@@ -29,13 +32,13 @@ Causantic now uses a native TypeScript HDBSCAN implementation with proper data s
 
 ### Key Optimizations
 
-| Issue | hdbscan-ts | Native Implementation |
-|-------|------------|----------------------|
-| Point lookup | `Array.includes()` O(n) | `Set.has()` O(1) |
-| Memory | JS arrays | Float64Array |
-| Union-Find | None | Path compression + rank |
-| k-th nearest | Full sort O(n log n) | Quickselect O(n) |
-| Core distances | Single-threaded | Parallel (worker_threads) |
+| Issue          | hdbscan-ts              | Native Implementation     |
+| -------------- | ----------------------- | ------------------------- |
+| Point lookup   | `Array.includes()` O(n) | `Set.has()` O(1)          |
+| Memory         | JS arrays               | Float64Array              |
+| Union-Find     | None                    | Path compression + rank   |
+| k-th nearest   | Full sort O(n log n)    | Quickselect O(n)          |
+| Core distances | Single-threaded         | Parallel (worker_threads) |
 
 ### Algorithm Steps
 
@@ -48,11 +51,11 @@ Causantic now uses a native TypeScript HDBSCAN implementation with proper data s
 ### Performance
 
 | Dataset Size | hdbscan-ts (old) | Native (new) |
-|--------------|------------------|--------------|
-| 500 | ~5s | ~0.3s |
-| 1,000 | ~30s | ~1s |
-| 2,000 | ~3 min | ~4s |
-| 6,000 | 65+ min | ~30s |
+| ------------ | ---------------- | ------------ |
+| 500          | ~5s              | ~0.3s        |
+| 1,000        | ~30s             | ~1s          |
+| 2,000        | ~3 min           | ~4s          |
+| 6,000        | 65+ min          | ~30s         |
 
 ### Features
 

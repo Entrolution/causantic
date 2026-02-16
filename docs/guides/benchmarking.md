@@ -46,12 +46,12 @@ npx causantic benchmark-collection --full
 
 The overall score (0-100) is a weighted composite:
 
-| Category | Weight | What it means |
-|----------|--------|---------------|
-| Health | 25% | Collection structure and organization |
-| Retrieval | 35% | Can the system find the right context? |
-| Chain Quality | 25% | Does episodic chain walking produce useful narratives? |
-| Latency | 15% | Is query performance acceptable? |
+| Category      | Weight | What it means                                          |
+| ------------- | ------ | ------------------------------------------------------ |
+| Health        | 25%    | Collection structure and organization                  |
+| Retrieval     | 35%    | Can the system find the right context?                 |
+| Chain Quality | 25%    | Does episodic chain walking produce useful narratives? |
+| Latency       | 15%    | Is query performance acceptable?                       |
 
 Only scored categories contribute; weights renormalize. A `--quick` run scores health only.
 
@@ -127,16 +127,16 @@ The same seed produces identical query samples, making before/after comparisons 
 
 ## Options Reference
 
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--quick` | Health only | - |
-| `--standard` | Health + retrieval | (default) |
-| `--full` | All categories | - |
-| `--categories` | Comma-separated list | (from profile) |
-| `--sample-size` | Queries to sample | 50 |
-| `--seed` | Random seed | (random) |
-| `--project` | Limit to one project | (all) |
-| `--output` | Report directory | `./causantic-benchmark/` |
-| `--json` | JSON output only | false |
-| `--no-tuning` | Skip recommendations | false |
-| `--history` | Show past trends | false |
+| Flag            | Description          | Default                  |
+| --------------- | -------------------- | ------------------------ |
+| `--quick`       | Health only          | -                        |
+| `--standard`    | Health + retrieval   | (default)                |
+| `--full`        | All categories       | -                        |
+| `--categories`  | Comma-separated list | (from profile)           |
+| `--sample-size` | Queries to sample    | 50                       |
+| `--seed`        | Random seed          | (random)                 |
+| `--project`     | Limit to one project | (all)                    |
+| `--output`      | Report directory     | `./causantic-benchmark/` |
+| `--json`        | JSON output only     | false                    |
+| `--no-tuning`   | Skip recommendations | false                    |
+| `--history`     | Show past trends     | false                    |

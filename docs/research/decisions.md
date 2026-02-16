@@ -95,6 +95,7 @@ A chronological narrative of every major design decision in Causantic's developm
 **Why**: The causal graph should encode only causal structure. Semantic association (what topics are related) is vector search and clustering's job.
 
 **Key design choices**:
+
 - 4 structural roles: within-chain (1.0), cross-session (0.7), brief (0.9), debrief (0.9)
 - m×n all-pairs at each consecutive turn boundary (no edges within the same turn)
 - Topic-shift gating: time gap > 30min or explicit shift markers → no edges
@@ -177,6 +178,7 @@ A chronological narrative of every major design decision in Causantic's developm
 **What replaced it**: Sequential linked-list edges (each chunk links to the next in its session), walked by `chain-walker.ts`. Chain walking follows edges forward or backward from vector/keyword seeds, scoring each step by direct cosine similarity against the query. This produces ordered episodic narratives rather than ranked disconnected chunks.
 
 **Key design choices**:
+
 - Sequential edges: 1-to-1 (not m×n), preserving session order
 - Cosine-similarity scoring per hop (not multiplicative path products)
 - `search-assembler.ts` replaces `context-assembler.ts` as the retrieval pipeline

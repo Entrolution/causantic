@@ -83,21 +83,21 @@ CAUSANTIC_EXPORT_PASSWORD="your-secure-password" npx causantic import backup.cau
 
 ## What Gets Exported
 
-| Data | Description |
-|------|-------------|
-| Chunks | Conversation segments with semantic content |
-| Edges | Causal relationships (forward/backward links) with identity and link counts |
+| Data     | Description                                                                    |
+| -------- | ------------------------------------------------------------------------------ |
+| Chunks   | Conversation segments with semantic content                                    |
+| Edges    | Causal relationships (forward/backward links) with identity and link counts    |
 | Clusters | Topic groupings with centroids, exemplar IDs, distances, and membership hashes |
-| Vectors | Embedding vectors for semantic search (skip with `--no-vectors`) |
+| Vectors  | Embedding vectors for semantic search (skip with `--no-vectors`)               |
 
 ## Archive Format
 
 ### Version History
 
-| Version | Changes |
-|---------|---------|
-| 1.1 | Added vector embeddings, full cluster data (centroid, distances, exemplars), gzip compression, edge identity |
-| 1.0 | Initial format (chunks, edges, basic clusters) |
+| Version | Changes                                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------ |
+| 1.1     | Added vector embeddings, full cluster data (centroid, distances, exemplars), gzip compression, edge identity |
+| 1.0     | Initial format (chunks, edges, basic clusters)                                                               |
 
 Archives are backward-compatible: v1.1 can import v1.0 archives (with a warning that vectors are missing).
 
@@ -119,6 +119,7 @@ The archive format uses magic bytes (`CST\0`) to identify encrypted files.
 ### File Structure
 
 **Encrypted + compressed:**
+
 ```
 [Magic: 4 bytes "CST\0"]
 [Salt: 16 bytes]
@@ -128,11 +129,13 @@ The archive format uses magic bytes (`CST\0`) to identify encrypted files.
 ```
 
 **Unencrypted compressed (default):**
+
 ```
 [gzip(JSON)]
 ```
 
 **Plain JSON (v1.0 backward compat):**
+
 ```json
 {
   "format": "causantic-archive",
@@ -151,6 +154,7 @@ The archive format uses magic bytes (`CST\0`) to identify encrypted files.
 ### Moving to a New Machine
 
 1. Export on old machine:
+
    ```bash
    npx causantic export --output ~/backup.causantic
    ```
@@ -158,6 +162,7 @@ The archive format uses magic bytes (`CST\0`) to identify encrypted files.
 2. Transfer `backup.causantic` to new machine
 
 3. Initialize Causantic on new machine:
+
    ```bash
    npx causantic init
    ```
@@ -184,12 +189,14 @@ npx causantic import shared.causantic --merge
 ### "Archive is encrypted. Please provide a password."
 
 The file was encrypted but no password was provided. Either:
+
 - Run interactively and enter the password when prompted
 - Set `CAUSANTIC_EXPORT_PASSWORD` environment variable
 
 ### "Invalid archive format"
 
 The file is not a valid Causantic archive. Check that:
+
 - The file wasn't corrupted during transfer
 - It's the correct file (not a random JSON file)
 
@@ -200,5 +207,6 @@ Wrong password. Re-enter the password carefully.
 ### "Archive version 1.0: no vector embeddings"
 
 The archive was created with v1.0 (before vector support). After import:
+
 - Semantic search (`recall`, `search`, `predict`) won't work until vectors are regenerated
 - Run `npx causantic maintenance run scan-projects` to re-ingest and generate embeddings

@@ -8,34 +8,36 @@ This experiment evaluates classifiers for detecting whether a user's message **c
 
 **Source**: 75 Claude Code sessions from `~/.claude/projects/`
 
-| Metric | Count |
-|--------|-------|
-| Total transitions | 3,179 |
-| Valid (with prior context) | 2,817 |
-| Continuations | 2,952 (93%) |
-| New topics | 227 (7%) |
-| High confidence labels | 1,554 (49%) |
+| Metric                     | Count       |
+| -------------------------- | ----------- |
+| Total transitions          | 3,179       |
+| Valid (with prior context) | 2,817       |
+| Continuations              | 2,952 (93%) |
+| New topics                 | 227 (7%)    |
+| High confidence labels     | 1,554 (49%) |
 
 ### Label Distribution by Source
 
-| Source | Count | Label | Confidence |
-|--------|-------|-------|------------|
-| Same-session adjacent | 1,470 | continuation | medium |
-| Tool/file references | 772 | continuation | high |
-| Explicit continuation markers | 710 | continuation | high |
-| Time gap (>30 min) | 155 | new_topic | medium |
-| Session boundaries | 45 | new_topic | high |
-| Explicit shift markers | 27 | new_topic | high |
+| Source                        | Count | Label        | Confidence |
+| ----------------------------- | ----- | ------------ | ---------- |
+| Same-session adjacent         | 1,470 | continuation | medium     |
+| Tool/file references          | 772   | continuation | high       |
+| Explicit continuation markers | 710   | continuation | high       |
+| Time gap (>30 min)            | 155   | new_topic    | medium     |
+| Session boundaries            | 45    | new_topic    | high       |
+| Explicit shift markers        | 27    | new_topic    | high       |
 
 The dataset is imbalanced (93% continuations), reflecting the reality that most adjacent turns in coding sessions continue the same topic.
 
 ## Classifiers Evaluated
 
 ### 1. Embedding-Only
+
 - Compute angular distance between user text embedding and previous assistant output embedding
 - Score = 1 - distance (higher = more likely continuation)
 
 ### 2. Lexical-Only
+
 - Time gap threshold (>30 minutes suggests new topic)
 - Topic-shift markers: `/^actually,?\s*(let's|can we)/i`, `/^(new|different) (question|topic)/i`, etc.
 - Continuation markers: `/^(yes|no|right|correct)/i`, `/^(the|your) (error|output|result)/i`, etc.
@@ -43,6 +45,7 @@ The dataset is imbalanced (93% continuations), reflecting the reality that most 
 - Keyword overlap (Jaccard coefficient)
 
 ### 3. Hybrid
+
 - Weighted combination of embedding distance and lexical features
 - Default weights: embedding (0.5), topic-shift (0.2), continuation (0.15), time-gap (0.05), paths (0.05), keywords (0.05)
 
@@ -50,12 +53,12 @@ The dataset is imbalanced (93% continuations), reflecting the reality that most 
 
 All 4 registered embedding models were evaluated:
 
-| Model | Dims | Embedding AUC | Embedding F1 | Hybrid AUC | Hybrid F1 |
-|-------|------|--------------|--------------|------------|-----------|
-| nomic-v1.5 | 768 | 0.574 | 0.532 | 0.944 | 0.937 |
-| **jina-small** | 512 | 0.541 | 0.498 | **0.946** | **0.979** |
-| bge-small | 384 | 0.558 | 0.548 | 0.927 | 0.965 |
-| jina-code | 768 | 0.551 | 0.582 | 0.883 | 0.904 |
+| Model          | Dims | Embedding AUC | Embedding F1 | Hybrid AUC | Hybrid F1 |
+| -------------- | ---- | ------------- | ------------ | ---------- | --------- |
+| nomic-v1.5     | 768  | 0.574         | 0.532        | 0.944      | 0.937     |
+| **jina-small** | 512  | 0.541         | 0.498        | **0.946**  | **0.979** |
+| bge-small      | 384  | 0.558         | 0.548        | 0.927      | 0.965     |
+| jina-code      | 768  | 0.551         | 0.582        | 0.883      | 0.904     |
 
 **Lexical-only** achieves **0.998 AUC** (F1=0.999) across all configurations.
 
@@ -72,18 +75,18 @@ All 4 registered embedding models were evaluated:
 
 Using nomic-v1.5 as the embedding baseline (comprehensive 75-session run):
 
-| Configuration | ROC AUC | Delta vs Embedding |
-|---------------|---------|-------------------|
-| All lexical features | 1.000 | +0.426 |
-| **Time gap only** | **0.921** | **+0.347** |
-| Embedding + time gap | 0.860 | +0.287 |
-| Embedding + markers | 0.745 | +0.172 |
-| All features (hybrid) | 0.944 | +0.370 |
-| Continuation markers only | 0.605 | +0.031 |
-| Shift markers only | 0.573 | -0.001 |
-| Embedding only | 0.574 | baseline |
-| Keyword overlap only | 0.564 | -0.010 |
-| File path overlap only | 0.484 | -0.090 |
+| Configuration             | ROC AUC   | Delta vs Embedding |
+| ------------------------- | --------- | ------------------ |
+| All lexical features      | 1.000     | +0.426             |
+| **Time gap only**         | **0.921** | **+0.347**         |
+| Embedding + time gap      | 0.860     | +0.287             |
+| Embedding + markers       | 0.745     | +0.172             |
+| All features (hybrid)     | 0.944     | +0.370             |
+| Continuation markers only | 0.605     | +0.031             |
+| Shift markers only        | 0.573     | -0.001             |
+| Embedding only            | 0.574     | baseline           |
+| Keyword overlap only      | 0.564     | -0.010             |
+| File path overlap only    | 0.484     | -0.090             |
 
 ### Feature Importance Ranking
 
@@ -97,19 +100,22 @@ Using nomic-v1.5 as the embedding baseline (comprehensive 75-session run):
 ## Threshold Analysis
 
 ### Time Gap Threshold
+
 The experiment used 30 minutes as the default time gap threshold. Results confirm this is highly effective:
+
 - 155 transitions labeled as `new_topic` due to time gap
 - Time gap alone achieves 0.921 AUC
 - The 30-minute threshold is the single most valuable signal in the dataset
 
 ### Classification Threshold
+
 Optimal thresholds found via Youden's J statistic:
 
-| Classifier | Optimal Threshold | F1 |
-|------------|------------------|-----|
-| Lexical-only | 0.400 | 0.999 |
-| Hybrid (jina-small) | varies | 0.979 |
-| Embedding-only | varies | 0.498-0.582 |
+| Classifier          | Optimal Threshold | F1          |
+| ------------------- | ----------------- | ----------- |
+| Lexical-only        | 0.400             | 0.999       |
+| Hybrid (jina-small) | varies            | 0.979       |
+| Embedding-only      | varies            | 0.498-0.582 |
 
 ## Recommendations
 
@@ -124,11 +130,7 @@ Optimal thresholds found via Youden's J statistic:
 
 ```typescript
 // Simple, effective approach
-function isTopicContinuation(
-  prevTurn: Turn,
-  nextTurn: Turn,
-  timeGapMs: number,
-): boolean {
+function isTopicContinuation(prevTurn: Turn, nextTurn: Turn, timeGapMs: number): boolean {
   const timeGapMinutes = timeGapMs / (1000 * 60);
 
   // Large time gap strongly suggests new topic
@@ -151,6 +153,7 @@ function isTopicContinuation(
 ### For Edge Detection in D-T-D
 
 When creating edges in the Document-Turn-Document model:
+
 - **Continuation** → Create causal edges from previous assistant chunks to user chunk
 - **New topic** → No backward edges; user chunk starts a new subgraph
 
@@ -170,10 +173,10 @@ When creating edges in the Document-Turn-Document model:
 
 ## Experiment History
 
-| Run | Sessions | Transitions | Valid | Lexical AUC | Best Hybrid AUC |
-|-----|----------|-------------|-------|-------------|-----------------|
-| Initial | 30 | 1,538 | 1,407 | 0.999 | 0.934 (nomic-v1.5) |
-| Comprehensive | 75 | 3,179 | 2,817 | 0.998 | 0.946 (jina-small) |
+| Run           | Sessions | Transitions | Valid | Lexical AUC | Best Hybrid AUC    |
+| ------------- | -------- | ----------- | ----- | ----------- | ------------------ |
+| Initial       | 30       | 1,538       | 1,407 | 0.999       | 0.934 (nomic-v1.5) |
+| Comprehensive | 75       | 3,179       | 2,817 | 0.998       | 0.946 (jina-small) |
 
 Results are consistent across runs — lexical features dominate, embeddings add marginal value.
 

@@ -15,11 +15,12 @@ The obvious approach is to decay edges based on elapsed time:
 function timeDecay(edge: Edge, now: Date): number {
   const ageMs = now.getTime() - edge.createdAt.getTime();
   const ageDays = ageMs / (1000 * 60 * 60 * 24);
-  return Math.max(0, 1 - ageDays / 30);  // Dies after 30 days
+  return Math.max(0, 1 - ageDays / 30); // Dies after 30 days
 }
 ```
 
 **Problem**: This fails catastrophically for development work:
+
 - Sessions may be days apart but semantically adjacent
 - Work pauses (weekends, vacations) shouldn't kill edges
 - A bug fix 2 weeks later is still relevant to the original code
@@ -96,6 +97,7 @@ Weight
 ```
 
 **What was validated**:
+
 - No hold period — hold periods hurt backward MRR (0.423 vs 0.985) by creating ties at short range
 - Strictly monotonic — all strictly monotonic models score identically (ρ=1.0 with reference rate)
 - Long range needed — previous linear dies@10 killed real signal at 11-30 hops (3-9% reference rate)

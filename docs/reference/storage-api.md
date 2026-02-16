@@ -6,13 +6,13 @@ Reference documentation for Causantic's storage layer APIs.
 
 The storage layer provides persistence for the Causantic memory system. It consists of several stores:
 
-| Store | Purpose | Module |
-|-------|---------|--------|
-| Chunk Store | Conversation segments | `chunk-store.ts` |
-| Edge Store | Sequential causal connections | `edge-store.ts` |
-| Vector Store | Embedding vectors for similarity search | `vector-store.ts` |
+| Store         | Purpose                                 | Module             |
+| ------------- | --------------------------------------- | ------------------ |
+| Chunk Store   | Conversation segments                   | `chunk-store.ts`   |
+| Edge Store    | Sequential causal connections           | `edge-store.ts`    |
+| Vector Store  | Embedding vectors for similarity search | `vector-store.ts`  |
 | Keyword Store | FTS5 full-text search with BM25 ranking | `keyword-store.ts` |
-| Cluster Store | Topic groupings | `cluster-store.ts` |
+| Cluster Store | Topic groupings                         | `cluster-store.ts` |
 
 All stores use SQLite for persistence via `better-sqlite3-multiple-ciphers`.
 
@@ -24,19 +24,19 @@ Chunks are the fundamental unit of storage, representing segments of conversatio
 
 ```typescript
 interface StoredChunk {
-  id: string;              // UUID
-  sessionId: string;       // Claude session ID
-  sessionSlug: string;     // Project folder name
-  turnIndices: number[];   // Turn indices included (0-based)
-  startTime: string;       // ISO timestamp of first message
-  endTime: string;         // ISO timestamp of last message
-  content: string;         // Rendered text content
-  codeBlockCount: number;  // Number of code blocks
-  toolUseCount: number;    // Number of tool uses
-  approxTokens: number;    // Approximate token count
-  createdAt: string;       // ISO timestamp when stored
-  agentId: string | null;  // 'ui' for main, agent ID for sub-agents
-  spawnDepth: number;      // 0=main, 1=sub-agent, 2=nested
+  id: string; // UUID
+  sessionId: string; // Claude session ID
+  sessionSlug: string; // Project folder name
+  turnIndices: number[]; // Turn indices included (0-based)
+  startTime: string; // ISO timestamp of first message
+  endTime: string; // ISO timestamp of last message
+  content: string; // Rendered text content
+  codeBlockCount: number; // Number of code blocks
+  toolUseCount: number; // Number of tool uses
+  approxTokens: number; // Approximate token count
+  createdAt: string; // ISO timestamp when stored
+  agentId: string | null; // 'ui' for main, agent ID for sub-agents
+  spawnDepth: number; // 0=main, 1=sub-agent, 2=nested
 }
 ```
 
@@ -51,9 +51,9 @@ interface StoredEdge {
   targetChunkId: string;
   edgeType: 'backward' | 'forward';
   referenceType: ReferenceType | null;
-  initialWeight: number;    // 0-1, before decay
+  initialWeight: number; // 0-1, before decay
   createdAt: string;
-  linkCount: number;        // Boost count for duplicates
+  linkCount: number; // Boost count for duplicates
 }
 ```
 
@@ -61,12 +61,12 @@ interface StoredEdge {
 
 Edge reference types are purely structural roles that determine initial weight:
 
-| Type | Weight | Description |
-|------|--------|-------------|
-| `within-chain` | 1.0 | D-T-D causal edge within one thinking entity (m×n all-pairs at turn boundaries) |
-| `brief` | 0.9 | Parent agent spawning a sub-agent (m×n all-pairs, with 0.9^depth penalty) |
-| `debrief` | 0.9 | Sub-agent returning results to parent (m×n all-pairs, with 0.9^depth penalty) |
-| `cross-session` | 0.7 | Session continuation (previous final chunks ↔ new first chunks, m×n) |
+| Type            | Weight | Description                                                                     |
+| --------------- | ------ | ------------------------------------------------------------------------------- |
+| `within-chain`  | 1.0    | D-T-D causal edge within one thinking entity (m×n all-pairs at turn boundaries) |
+| `brief`         | 0.9    | Parent agent spawning a sub-agent (m×n all-pairs, with 0.9^depth penalty)       |
+| `debrief`       | 0.9    | Sub-agent returning results to parent (m×n all-pairs, with 0.9^depth penalty)   |
+| `cross-session` | 0.7    | Session continuation (previous final chunks ↔ new first chunks, m×n)            |
 
 ### Weighted Edges
 
@@ -74,7 +74,7 @@ During traversal, edges include computed weight after decay:
 
 ```typescript
 interface WeightedEdge extends StoredEdge {
-  weight: number;  // Computed: initialWeight × hopDecay(depth) × linkBoost
+  weight: number; // Computed: initialWeight × hopDecay(depth) × linkBoost
 }
 ```
 
@@ -278,11 +278,11 @@ Close the database connection.
 
 Storage operations throw standard JavaScript errors. Common error scenarios:
 
-| Scenario | Error Type |
-|----------|------------|
-| Database not initialized | `Error: Database not initialized` |
-| Duplicate ID | `Error: SQLITE_CONSTRAINT` |
-| Invalid foreign key | `Error: SQLITE_CONSTRAINT` |
+| Scenario                  | Error Type                                |
+| ------------------------- | ----------------------------------------- |
+| Database not initialized  | `Error: Database not initialized`         |
+| Duplicate ID              | `Error: SQLITE_CONSTRAINT`                |
+| Invalid foreign key       | `Error: SQLITE_CONSTRAINT`                |
 | Vector dimension mismatch | Detected at search time via NaN distances |
 
 ## Transaction Support
@@ -298,15 +298,15 @@ vectorStore.insertBatch([...]);
 
 ## Performance Notes
 
-| Operation | Complexity | Notes |
-|-----------|------------|-------|
-| Chunk lookup by ID | O(1) | Primary key index |
-| Chunks by session | O(k) | Indexed by session_id |
-| Edge lookup | O(1) | Primary key index |
-| Outgoing edges | O(k) | Indexed by source_chunk_id |
-| Vector search | O(n) | Brute-force, optimize if >100k vectors |
-| Keyword search | O(log n) | FTS5 inverted index with BM25 ranking |
-| Batch insert | O(n) | Single transaction |
+| Operation          | Complexity | Notes                                  |
+| ------------------ | ---------- | -------------------------------------- |
+| Chunk lookup by ID | O(1)       | Primary key index                      |
+| Chunks by session  | O(k)       | Indexed by session_id                  |
+| Edge lookup        | O(1)       | Primary key index                      |
+| Outgoing edges     | O(k)       | Indexed by source_chunk_id             |
+| Vector search      | O(n)       | Brute-force, optimize if >100k vectors |
+| Keyword search     | O(log n)   | FTS5 inverted index with BM25 ranking  |
+| Batch insert       | O(n)       | Single transaction                     |
 
 ## Related
 

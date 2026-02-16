@@ -82,11 +82,11 @@ With chunks as nodes:
 
 The current design separates concerns:
 
-| Concern | Mechanism | Unit |
-|---------|-----------|------|
-| Causal traversal | Edge weights + decay | Chunks (precise) |
-| Topic discovery | HDBSCAN clustering | Clusters (semantic grouping) |
-| Entry point search | Vector similarity | Embeddings (similarity) |
+| Concern            | Mechanism            | Unit                         |
+| ------------------ | -------------------- | ---------------------------- |
+| Causal traversal   | Edge weights + decay | Chunks (precise)             |
+| Topic discovery    | HDBSCAN clustering   | Clusters (semantic grouping) |
+| Entry point search | Vector similarity    | Embeddings (similarity)      |
 
 Clusters serve as a **lens for browsing and labeling** rather than a **unit of causality**. This keeps the entropic decay well-behaved while still providing topic organization.
 
@@ -94,22 +94,22 @@ Clusters serve as a **lens for browsing and labeling** rather than a **unit of c
 
 Causantic uses purely structural edge types — semantic association is handled by vector search and clustering. Edges encode causal structure only:
 
-| Type | Weight | Description |
-|------|--------|-------------|
-| `within-chain` | 1.0 | D-T-D causal edge within one thinking entity. Created as m×n all-pairs at each consecutive turn boundary, with topic-shift gating. |
-| `brief` | 0.9 | Parent agent spawning a sub-agent. m×n all-pairs between parent turn chunks and sub-agent first-turn chunks. 0.9^depth penalty for nested agents. |
-| `debrief` | 0.9 | Sub-agent returning results to parent. m×n all-pairs between sub-agent final-turn chunks and parent turn chunks. 0.9^depth penalty. |
-| `cross-session` | 0.7 | Session continuation. m×n between previous session's final-turn chunks and new session's first-turn chunks. |
+| Type            | Weight | Description                                                                                                                                       |
+| --------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `within-chain`  | 1.0    | D-T-D causal edge within one thinking entity. Created as m×n all-pairs at each consecutive turn boundary, with topic-shift gating.                |
+| `brief`         | 0.9    | Parent agent spawning a sub-agent. m×n all-pairs between parent turn chunks and sub-agent first-turn chunks. 0.9^depth penalty for nested agents. |
+| `debrief`       | 0.9    | Sub-agent returning results to parent. m×n all-pairs between sub-agent final-turn chunks and parent turn chunks. 0.9^depth penalty.               |
+| `cross-session` | 0.7    | Session continuation. m×n between previous session's final-turn chunks and new session's first-turn chunks.                                       |
 
 ### Design evolution: from max entropy to sequential edges
 
-| Aspect | v0.2 (m×n all-pairs) | v0.3 (sequential) |
-|--------|----------------------|-------------------|
-| Edge topology | m×n at each turn boundary | 1-to-1 linked list |
-| Edges per transition | O(m×n), e.g. 5×5 = 25 | O(max(m,n)), e.g. 5 |
-| Retrieval mechanism | Sum-product traversal with decay | Chain walking with cosine scoring |
-| Scoring | Multiplicative path products | Independent cosine similarity per hop |
-| Edge types | 4 structural (within-chain, cross-session, brief, debrief) | Sequential + cross-session + brief/debrief |
+| Aspect               | v0.2 (m×n all-pairs)                                       | v0.3 (sequential)                          |
+| -------------------- | ---------------------------------------------------------- | ------------------------------------------ |
+| Edge topology        | m×n at each turn boundary                                  | 1-to-1 linked list                         |
+| Edges per transition | O(m×n), e.g. 5×5 = 25                                      | O(max(m,n)), e.g. 5                        |
+| Retrieval mechanism  | Sum-product traversal with decay                           | Chain walking with cosine scoring          |
+| Scoring              | Multiplicative path products                               | Independent cosine similarity per hop      |
+| Edge types           | 4 structural (within-chain, cross-session, brief, debrief) | Sequential + cross-session + brief/debrief |
 
 > **Historical note**: v0.2 used m×n all-pairs edges with sum-product traversal. This was theoretically motivated by maximum entropy (don't impose false structure), but in practice the graph contributed only ~2% of retrieval results. v0.3 uses sequential 1-to-1 edges — simpler, fewer edges, and the graph's value is structural ordering (episodic narratives) rather than semantic ranking.
 >
@@ -117,11 +117,11 @@ Causantic uses purely structural edge types — semantic association is handled 
 
 ## Comparison
 
-| Approach | Finds Similar | Finds Related | Temporal Aware |
-|----------|--------------|---------------|----------------|
-| Vector DB | Yes | No | No |
-| Graph DB | No | Yes | Partial |
-| Causantic | Yes | Yes | Yes |
+| Approach  | Finds Similar | Finds Related | Temporal Aware |
+| --------- | ------------- | ------------- | -------------- |
+| Vector DB | Yes           | No            | No             |
+| Graph DB  | No            | Yes           | Partial        |
+| Causantic | Yes           | Yes           | Yes            |
 
 ## Results
 

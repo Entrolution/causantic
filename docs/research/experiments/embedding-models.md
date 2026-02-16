@@ -10,13 +10,13 @@ Different embedding models offer trade-offs between quality, size, and inference
 
 ### Models Tested
 
-| Model | Dimensions | Size |
-|-------|------------|------|
-| jina-small | 512 | 33M |
-| jina-base | 768 | 137M |
-| all-MiniLM-L6 | 384 | 22M |
-| bge-small | 384 | 33M |
-| e5-small | 384 | 33M |
+| Model         | Dimensions | Size |
+| ------------- | ---------- | ---- |
+| jina-small    | 512        | 33M  |
+| jina-base     | 768        | 137M |
+| all-MiniLM-L6 | 384        | 22M  |
+| bge-small     | 384        | 33M  |
+| e5-small      | 384        | 33M  |
 
 ### Metrics
 
@@ -35,23 +35,23 @@ Different embedding models offer trade-offs between quality, size, and inference
 
 ### Quality Metrics
 
-| Model | Silhouette | MRR | ROC AUC |
-|-------|------------|-----|---------|
-| jina-small | 0.412 | 0.687 | 0.891 |
-| jina-base | 0.438 | 0.712 | 0.903 |
-| all-MiniLM-L6 | 0.389 | 0.654 | 0.867 |
-| bge-small | 0.401 | 0.671 | 0.882 |
-| e5-small | 0.395 | 0.668 | 0.879 |
+| Model         | Silhouette | MRR   | ROC AUC |
+| ------------- | ---------- | ----- | ------- |
+| jina-small    | 0.412      | 0.687 | 0.891   |
+| jina-base     | 0.438      | 0.712 | 0.903   |
+| all-MiniLM-L6 | 0.389      | 0.654 | 0.867   |
+| bge-small     | 0.401      | 0.671 | 0.882   |
+| e5-small      | 0.395      | 0.668 | 0.879   |
 
 ### Performance Metrics
 
-| Model | Embeddings/sec | Memory (MB) |
-|-------|---------------|-------------|
-| jina-small | 145 | 180 |
-| jina-base | 67 | 420 |
-| all-MiniLM-L6 | 312 | 95 |
-| bge-small | 178 | 150 |
-| e5-small | 189 | 145 |
+| Model         | Embeddings/sec | Memory (MB) |
+| ------------- | -------------- | ----------- |
+| jina-small    | 145            | 180         |
+| jina-base     | 67             | 420         |
+| all-MiniLM-L6 | 312            | 95          |
+| bge-small     | 178            | 150         |
+| e5-small      | 189            | 145         |
 
 ## Analysis
 
@@ -74,6 +74,7 @@ Quality (MRR)
 **Winner**: jina-small
 
 Rationale:
+
 - 97% of jina-base quality at 2.2x speed
 - Best quality-to-speed ratio
 - Reasonable memory footprint
@@ -81,11 +82,11 @@ Rationale:
 
 ### When to Consider Alternatives
 
-| Use Case | Recommendation |
-|----------|---------------|
-| Maximum quality | jina-base |
-| Minimum resources | all-MiniLM-L6 |
-| Balanced | jina-small (default) |
+| Use Case          | Recommendation       |
+| ----------------- | -------------------- |
+| Maximum quality   | jina-base            |
+| Minimum resources | all-MiniLM-L6        |
+| Balanced          | jina-small (default) |
 
 ## Implementation
 
@@ -94,10 +95,7 @@ Causantic uses jina-small via Hugging Face Transformers:
 ```typescript
 import { pipeline } from '@huggingface/transformers';
 
-const embedder = await pipeline(
-  'feature-extraction',
-  'jinaai/jina-embeddings-v2-small-en'
-);
+const embedder = await pipeline('feature-extraction', 'jinaai/jina-embeddings-v2-small-en');
 
 async function embed(text: string): Promise<number[]> {
   const result = await embedder(text, {
@@ -123,12 +121,12 @@ Note: Changing models requires re-embedding all chunks.
 
 Five targeted experiments on jina-small validated the production recommendation:
 
-| Experiment | Baseline AUC | Variant AUC | Delta AUC | Baseline Silh. | Variant Silh. | Delta Silh. |
-|------------|-------------|-------------|-----------|----------------|---------------|-------------|
-| Truncation (512 tokens) | 0.715 | 0.671 | **-0.044** | 0.384 | 0.229 | **-0.155** |
-| Boilerplate filter | 0.715 | 0.720 | +0.004 | 0.384 | 0.395 | +0.011 |
-| Thinking block ablation | 0.715 | 0.778 | **+0.063** | 0.384 | 0.376 | -0.009 |
-| Code-focused mode | 0.715 | 0.761 | +0.045 | 0.384 | 0.356 | -0.028 |
+| Experiment              | Baseline AUC | Variant AUC | Delta AUC  | Baseline Silh. | Variant Silh. | Delta Silh. |
+| ----------------------- | ------------ | ----------- | ---------- | -------------- | ------------- | ----------- |
+| Truncation (512 tokens) | 0.715        | 0.671       | **-0.044** | 0.384          | 0.229         | **-0.155**  |
+| Boilerplate filter      | 0.715        | 0.720       | +0.004     | 0.384          | 0.395         | +0.011      |
+| Thinking block ablation | 0.715        | 0.778       | **+0.063** | 0.384          | 0.376         | -0.009      |
+| Code-focused mode       | 0.715        | 0.761       | +0.045     | 0.384          | 0.356         | -0.028      |
 
 ### Key Findings
 

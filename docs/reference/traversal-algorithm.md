@@ -6,18 +6,15 @@ Causantic uses a chain-walking algorithm to reconstruct episodic narratives from
 
 The causal graph is a **sequential linked list** with branch points at sub-agent forks. The chain walker follows directed edges to build ordered narrative chains from seed chunks.
 
-| Direction | Edge following | Use case |
-|-----------|---------------|----------|
+| Direction    | Edge following                            | Use case                            |
+| ------------ | ----------------------------------------- | ----------------------------------- |
 | **Backward** | Follow edges where target = current chunk | `recall` — "how did we solve this?" |
-| **Forward** | Follow edges where source = current chunk | `predict` — "what comes next?" |
+| **Forward**  | Follow edges where source = current chunk | `predict` — "what comes next?"      |
 
 ## Core Algorithm
 
 ```typescript
-function walkChains(
-  seedIds: string[],
-  options: ChainWalkerOptions
-): Chain[]
+function walkChains(seedIds: string[], options: ChainWalkerOptions): Chain[];
 ```
 
 ### Pseudocode
@@ -95,15 +92,16 @@ Query
 
 Edges are stored as single `forward` rows:
 
-| Field | Value |
-|-------|-------|
-| `edge_type` | Always `'forward'` |
-| `reference_type` | `'within-chain'`, `'cross-session'`, `'brief'`, or `'debrief'` |
-| `source_chunk_id` | Earlier chunk |
-| `target_chunk_id` | Later chunk |
-| `initial_weight` | Always `1.0` |
+| Field             | Value                                                          |
+| ----------------- | -------------------------------------------------------------- |
+| `edge_type`       | Always `'forward'`                                             |
+| `reference_type`  | `'within-chain'`, `'cross-session'`, `'brief'`, or `'debrief'` |
+| `source_chunk_id` | Earlier chunk                                                  |
+| `target_chunk_id` | Later chunk                                                    |
+| `initial_weight`  | Always `1.0`                                                   |
 
 Direction is inferred at query time:
+
 - **Forward edges**: `source_chunk_id = chunkId AND edge_type = 'forward'`
 - **Backward edges**: `target_chunk_id = chunkId AND edge_type = 'forward'`
 
@@ -131,9 +129,9 @@ Median is robust to bridge nodes (semantic novelty) in short chains. A 3-node ch
 ```typescript
 interface ChainWalkerOptions {
   direction: 'forward' | 'backward';
-  tokenBudget: number;      // Max tokens across all chains
+  tokenBudget: number; // Max tokens across all chains
   queryEmbedding: number[]; // For per-node scoring
-  maxDepth?: number;        // Safety cap (default: from config, typically 50)
+  maxDepth?: number; // Safety cap (default: from config, typically 50)
 }
 ```
 
@@ -151,12 +149,12 @@ interface ChainWalkerOptions {
 
 ## Performance Characteristics
 
-| Aspect | Behavior |
-|--------|----------|
-| Time complexity | O(S × L) where S = seeds (5), L = max chain length |
-| Space complexity | O(V) where V = unique chunks visited |
-| Edge lookups | O(1) per hop via indexed queries |
-| Scoring | O(1) per node (in-memory vector Map lookup + dot product) |
+| Aspect           | Behavior                                                  |
+| ---------------- | --------------------------------------------------------- |
+| Time complexity  | O(S × L) where S = seeds (5), L = max chain length        |
+| Space complexity | O(V) where V = unique chunks visited                      |
+| Edge lookups     | O(1) per hop via indexed queries                          |
+| Scoring          | O(1) per node (in-memory vector Map lookup + dot product) |
 
 ### Optimizations
 

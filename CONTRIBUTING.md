@@ -39,6 +39,7 @@ npm test
 ## Pull Request Process
 
 1. **Create a branch** from `main` with a descriptive name:
+
    ```bash
    git checkout -b feature/add-new-tool
    git checkout -b fix/clustering-performance
@@ -49,11 +50,13 @@ npm test
 3. **Write tests** for new functionality
 
 4. **Run the test suite**:
+
    ```bash
    npm test
    ```
 
 5. **Build and verify**:
+
    ```bash
    npm run build
    ```

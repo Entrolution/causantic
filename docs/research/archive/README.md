@@ -6,17 +6,17 @@ For distilled, up-to-date documentation, see the parent [Research](../README.md)
 
 ## Documents
 
-| Document | Description |
-|----------|-------------|
-| [feasibility-study.md](feasibility-study.md) | Initial feasibility analysis including competitor landscape, integration points, causal graph formalism, and architecture recommendation |
-| [pre-implementation-plan.md](pre-implementation-plan.md) | Prioritized checklist of ~25 open questions organized into P0/P1/P2, with resolved answers from experiments |
-| [edge-decay-model.md](edge-decay-model.md) | Comprehensive design document for temporal decay curves including multi-linear, delayed linear, and exponential models with full experiment results |
-| [session-data-inventory.md](session-data-inventory.md) | Audit of 32 projects, 251 sessions, 3.5 GB of Claude Code session data used for experiments |
-| [embedding-benchmark-results.md](embedding-benchmark-results.md) | Two-run embedding model benchmark (66 → 294 chunks) plus 5 follow-up experiments on jina-small |
-| [topic-continuity-results.md](topic-continuity-results.md) | Topic boundary detection experiment across 75 sessions, 2,817 transitions — lexical-only achieves 0.998 AUC |
-| [vector-clocks.md](vector-clocks.md) | D-T-D vector clock model for logical distance — replaced by chain walking in v0.3 |
-| [decay-models.md](decay-models.md) | Hop-based decay models (exponential backward, linear forward) — removed in v0.3 |
-| [decay-curves.md](decay-curves.md) | Decay curve experiments: 9 models, 30 sessions, MRR analysis — superseded by chain walking |
+| Document                                                         | Description                                                                                                                                         |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [feasibility-study.md](feasibility-study.md)                     | Initial feasibility analysis including competitor landscape, integration points, causal graph formalism, and architecture recommendation            |
+| [pre-implementation-plan.md](pre-implementation-plan.md)         | Prioritized checklist of ~25 open questions organized into P0/P1/P2, with resolved answers from experiments                                         |
+| [edge-decay-model.md](edge-decay-model.md)                       | Comprehensive design document for temporal decay curves including multi-linear, delayed linear, and exponential models with full experiment results |
+| [session-data-inventory.md](session-data-inventory.md)           | Audit of 32 projects, 251 sessions, 3.5 GB of Claude Code session data used for experiments                                                         |
+| [embedding-benchmark-results.md](embedding-benchmark-results.md) | Two-run embedding model benchmark (66 → 294 chunks) plus 5 follow-up experiments on jina-small                                                      |
+| [topic-continuity-results.md](topic-continuity-results.md)       | Topic boundary detection experiment across 75 sessions, 2,817 transitions — lexical-only achieves 0.998 AUC                                         |
+| [vector-clocks.md](vector-clocks.md)                             | D-T-D vector clock model for logical distance — replaced by chain walking in v0.3                                                                   |
+| [decay-models.md](decay-models.md)                               | Hop-based decay models (exponential backward, linear forward) — removed in v0.3                                                                     |
+| [decay-curves.md](decay-curves.md)                               | Decay curve experiments: 9 models, 30 sessions, MRR analysis — superseded by chain walking                                                          |
 
 ## Relationship to Current Docs
 

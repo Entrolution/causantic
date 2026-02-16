@@ -59,7 +59,7 @@ The research findings above shaped v0.2's architecture. v0.3.0 made significant 
 - **Vector clocks removed**: Hop-based decay (itself removed with traversal) replaced vector-clock hop counting.
 - **`search` tool replaces `explain`**: Honest about what it does — pure semantic discovery with optional chain context.
 
-The core insights remain valid: causal structure matters more than wall-clock time, lexical features detect topic shifts, and HDBSCAN clustering provides topic organization. What changed is *how* the causal graph is used — for structural ordering, not semantic ranking.
+The core insights remain valid: causal structure matters more than wall-clock time, lexical features detect topic shifts, and HDBSCAN clustering provides topic organization. What changed is _how_ the causal graph is used — for structural ordering, not semantic ranking.
 
 See [experiments/lessons-learned.md](experiments/lessons-learned.md) for detailed post-mortems.
 
@@ -75,7 +75,7 @@ See [approach/role-of-entropy.md](approach/role-of-entropy.md).
 
 ### Why Causal Graphs?
 
-Unlike simple vector databases, Causantic tracks *relationships* between memory chunks:
+Unlike simple vector databases, Causantic tracks _relationships_ between memory chunks:
 
 - **Causality**: What led to what
 - **Temporal ordering**: Edge age tracks recency

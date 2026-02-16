@@ -58,15 +58,15 @@ The benchmark harness consists of:
 
 ### Metrics Definitions
 
-| Metric | Description |
-|--------|-------------|
-| **ROC AUC** | Area under ROC curve. Related pairs scored by angular distance vs unrelated. Higher = better discrimination. |
-| **Cluster count** | Number of clusters found by HDBSCAN (`minClusterSize=3`). |
-| **Noise ratio** | Proportion of chunks HDBSCAN could not assign to any cluster. Lower = more structure found. |
-| **Silhouette score** | Cluster cohesion vs separation, range [-1, 1]. Higher = tighter, better-separated clusters. |
-| **Code-NL alignment** | Ratio of mean code-NL pair distance to mean random pair distance. Lower = better code/NL alignment. |
-| **ms/chunk** | Mean inference time per chunk. |
-| **Heap (MB)** | Heap memory delta after model load. |
+| Metric                | Description                                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **ROC AUC**           | Area under ROC curve. Related pairs scored by angular distance vs unrelated. Higher = better discrimination. |
+| **Cluster count**     | Number of clusters found by HDBSCAN (`minClusterSize=3`).                                                    |
+| **Noise ratio**       | Proportion of chunks HDBSCAN could not assign to any cluster. Lower = more structure found.                  |
+| **Silhouette score**  | Cluster cohesion vs separation, range [-1, 1]. Higher = tighter, better-separated clusters.                  |
+| **Code-NL alignment** | Ratio of mean code-NL pair distance to mean random pair distance. Lower = better code/NL alignment.          |
+| **ms/chunk**          | Mean inference time per chunk.                                                                               |
+| **Heap (MB)**         | Heap memory delta after model load.                                                                          |
 
 ### Distance Metric
 
@@ -78,24 +78,25 @@ All distance calculations use **angular distance**: `arccos(cosine_similarity) /
 
 ### Run 2 Sessions (expanded)
 
-| Session | Project | Messages | Turns | Chunks | Sampled |
-|---------|---------|----------|-------|--------|---------|
-| wild-churning-stream | speed-read | 3,041 | 118 | 69 | 30 |
-| wild-churning-stream | speed-read | 2,493 | 108 | 55 | 30 |
-| wild-churning-stream | speed-read | 1,099 | 22 | 23 | 23 |
-| curried-wishing-star | semansiation | 518 | 33 | 23 | 23 |
-| curried-wishing-star | semansiation | 229 | 8 | 4 | 4 |
-| magical-marinating-wolf | Ultan | 2,002 | 46 | 49 | 30 |
-| magical-marinating-wolf | Ultan | 800 | 24 | 24 | 24 |
-| shiny-sniffing-forest | cdx-core | 2,098 | 39 | 45 | 30 |
-| shiny-sniffing-forest | cdx-core | 543 | 16 | 11 | 11 |
-| snuggly-wandering-porcupine | apolitical-assistant | 2,036 | 42 | 58 | 30 |
-| tingly-brewing-lantern | apolitical-assistant | 2,514 | 73 | 60 | 30 |
-| encapsulated-noodling-valley | apolitical-assistant | 1,153 | 70 | 29 | 29 |
+| Session                      | Project              | Messages | Turns | Chunks | Sampled |
+| ---------------------------- | -------------------- | -------- | ----- | ------ | ------- |
+| wild-churning-stream         | speed-read           | 3,041    | 118   | 69     | 30      |
+| wild-churning-stream         | speed-read           | 2,493    | 108   | 55     | 30      |
+| wild-churning-stream         | speed-read           | 1,099    | 22    | 23     | 23      |
+| curried-wishing-star         | semansiation         | 518      | 33    | 23     | 23      |
+| curried-wishing-star         | semansiation         | 229      | 8     | 4      | 4       |
+| magical-marinating-wolf      | Ultan                | 2,002    | 46    | 49     | 30      |
+| magical-marinating-wolf      | Ultan                | 800      | 24    | 24     | 24      |
+| shiny-sniffing-forest        | cdx-core             | 2,098    | 39    | 45     | 30      |
+| shiny-sniffing-forest        | cdx-core             | 543      | 16    | 11     | 11      |
+| snuggly-wandering-porcupine  | apolitical-assistant | 2,036    | 42    | 58     | 30      |
+| tingly-brewing-lantern       | apolitical-assistant | 2,514    | 73    | 60     | 30      |
+| encapsulated-noodling-valley | apolitical-assistant | 1,153    | 70    | 29     | 29      |
 
 **Total**: 294 chunks from 12 sessions across 5 projects.
 
 **Project diversity**:
+
 - **speed-read**: TypeScript, EPUB/PDF reader web component (code-heavy)
 - **semansiation**: Research/design for this project (conversational, NL-heavy)
 - **Ultan**: Swift, bibliography management app (code-heavy, different language)
@@ -104,13 +105,13 @@ All distance calculations use **angular distance**: `arccos(cosine_similarity) /
 
 ### Labeled Pairs
 
-| Category | Run 1 | Run 2 |
-|----------|-------|-------|
-| Same-session adjacent (related) | 30 | 60 |
-| Same-project cross-session (related) | 20 | 40 |
-| Cross-project random (unrelated) | 40 | 80 |
-| Code-NL pairs | 3 | 17 |
-| **Total** | **93** | **197** |
+| Category                             | Run 1  | Run 2   |
+| ------------------------------------ | ------ | ------- |
+| Same-session adjacent (related)      | 30     | 60      |
+| Same-project cross-session (related) | 20     | 40      |
+| Cross-project random (unrelated)     | 40     | 80      |
+| Code-NL pairs                        | 3      | 17      |
+| **Total**                            | **93** | **197** |
 
 Run 2's 17 code-NL pairs (vs 3 in Run 1) gives much better reliability for the alignment metric.
 
@@ -120,21 +121,21 @@ Run 2's 17 code-NL pairs (vs 3 in Run 1) gives much better reliability for the a
 
 ### Run 2 — Primary Results (294 chunks, 5 projects)
 
-| Model | Dims | Context | ROC AUC | Clusters | Noise % | Silhouette | Code-NL | ms/chunk | Load (s) | Heap (MB) |
-|-------|------|---------|---------|----------|---------|------------|---------|----------|----------|-----------|
-| **jina-small** | 512 | 8,192 | **0.715** | 7 | 88.4% | **0.384** | 0.922 | 512 | 0.1 | ~0 |
-| nomic-v1.5 | 768 | 8,192 | 0.683 | 2 | 95.9% | 0.310 | 0.974 | 2,083 | 0.3 | 19 |
-| jina-code | 768 | 8,192 | 0.639 | **17** | **78.6%** | 0.327 | **0.863** | 2,356 | 0.4 | 30 |
-| bge-small | 384 | 512 | 0.632 | 13 | 83.7% | 0.272 | 0.865 | **51** | 0.1 | ~0 |
+| Model          | Dims | Context | ROC AUC   | Clusters | Noise %   | Silhouette | Code-NL   | ms/chunk | Load (s) | Heap (MB) |
+| -------------- | ---- | ------- | --------- | -------- | --------- | ---------- | --------- | -------- | -------- | --------- |
+| **jina-small** | 512  | 8,192   | **0.715** | 7        | 88.4%     | **0.384**  | 0.922     | 512      | 0.1      | ~0        |
+| nomic-v1.5     | 768  | 8,192   | 0.683     | 2        | 95.9%     | 0.310      | 0.974     | 2,083    | 0.3      | 19        |
+| jina-code      | 768  | 8,192   | 0.639     | **17**   | **78.6%** | 0.327      | **0.863** | 2,356    | 0.4      | 30        |
+| bge-small      | 384  | 512     | 0.632     | 13       | 83.7%     | 0.272      | 0.865     | **51**   | 0.1      | ~0        |
 
 ### Run 1 — Initial Results (66 chunks, 2 projects)
 
-| Model | Dims | Context | ROC AUC | Clusters | Noise % | Silhouette | Code-NL | ms/chunk |
-|-------|------|---------|---------|----------|---------|------------|---------|----------|
-| **jina-small** | 512 | 8,192 | **0.794** | 2 | 87.9% | **0.432** | 1.059 | 613 |
-| bge-small | 384 | 512 | 0.730 | 4 | **75.8%** | 0.260 | **0.898** | **60** |
-| jina-code | 768 | 8,192 | 0.721 | 4 | 80.3% | 0.383 | 0.954 | 2,670 |
-| nomic-v1.5 | 768 | 8,192 | 0.605 | 3 | 84.8% | 0.381 | 1.088 | 2,261 |
+| Model          | Dims | Context | ROC AUC   | Clusters | Noise %   | Silhouette | Code-NL   | ms/chunk |
+| -------------- | ---- | ------- | --------- | -------- | --------- | ---------- | --------- | -------- |
+| **jina-small** | 512  | 8,192   | **0.794** | 2        | 87.9%     | **0.432**  | 1.059     | 613      |
+| bge-small      | 384  | 512     | 0.730     | 4        | **75.8%** | 0.260      | **0.898** | **60**   |
+| jina-code      | 768  | 8,192   | 0.721     | 4        | 80.3%     | 0.383      | 0.954     | 2,670    |
+| nomic-v1.5     | 768  | 8,192   | 0.605     | 3        | 84.8%     | 0.381      | 1.088     | 2,261    |
 
 ---
 
@@ -142,23 +143,23 @@ Run 2's 17 code-NL pairs (vs 3 in Run 1) gives much better reliability for the a
 
 The expanded corpus changed the picture materially:
 
-| Model | ROC AUC (R1) | ROC AUC (R2) | Delta | Interpretation |
-|-------|-------------|-------------|-------|----------------|
-| jina-small | 0.794 | 0.715 | -0.079 | Moderate drop — still best. Expected regression with harder cross-project pairs. |
-| bge-small | 0.730 | 0.632 | **-0.098** | Largest drop. Truncation hurts more with diverse projects. |
-| jina-code | 0.721 | 0.639 | -0.082 | Similar drop to jina-small despite 8K context. |
-| nomic-v1.5 | 0.605 | 0.683 | **+0.078** | Improved — more projects means more obviously-unrelated cross-project pairs, which nomic separates better than same-project related pairs. |
+| Model      | ROC AUC (R1) | ROC AUC (R2) | Delta      | Interpretation                                                                                                                             |
+| ---------- | ------------ | ------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| jina-small | 0.794        | 0.715        | -0.079     | Moderate drop — still best. Expected regression with harder cross-project pairs.                                                           |
+| bge-small  | 0.730        | 0.632        | **-0.098** | Largest drop. Truncation hurts more with diverse projects.                                                                                 |
+| jina-code  | 0.721        | 0.639        | -0.082     | Similar drop to jina-small despite 8K context.                                                                                             |
+| nomic-v1.5 | 0.605        | 0.683        | **+0.078** | Improved — more projects means more obviously-unrelated cross-project pairs, which nomic separates better than same-project related pairs. |
 
 **Key takeaway**: All models' AUCs dropped when moving from 2 to 5 projects, which is expected — cross-project "unrelated" pairs from 5 diverse projects are a harder test than 2 similar TypeScript projects. The important signal is **relative ordering held**: jina-small remained on top. bge-small's steeper decline suggests its 512-token truncation loses discriminative information that matters more with project diversity.
 
 ### Clustering Scale-Up
 
-| Model | Clusters (R1) | Clusters (R2) | Noise (R1) | Noise (R2) |
-|-------|--------------|--------------|-----------|-----------|
-| jina-code | 4 | 17 | 80.3% | 78.6% |
-| bge-small | 4 | 13 | 75.8% | 83.7% |
-| jina-small | 2 | 7 | 87.9% | 88.4% |
-| nomic-v1.5 | 3 | 2 | 84.8% | 95.9% |
+| Model      | Clusters (R1) | Clusters (R2) | Noise (R1) | Noise (R2) |
+| ---------- | ------------- | ------------- | ---------- | ---------- |
+| jina-code  | 4             | 17            | 80.3%      | 78.6%      |
+| bge-small  | 4             | 13            | 75.8%      | 83.7%      |
+| jina-small | 2             | 7             | 87.9%      | 88.4%      |
+| nomic-v1.5 | 3             | 2             | 84.8%      | 95.9%      |
 
 jina-code found the most clusters (17) with the lowest noise (78.6%) — its code specialization may help it differentiate tool-heavy conversations at scale. bge-small went from lowest noise to second-highest, confirming that truncation becomes more problematic with diverse content. nomic-v1.5 collapsed to just 2 clusters at 96% noise — essentially failing to find structure.
 
@@ -169,6 +170,7 @@ jina-code found the most clusters (17) with the lowest noise (78.6%) — its cod
 ### jina-small — Recommended
 
 **Strengths**:
+
 - Highest ROC AUC in both runs (0.794 → 0.715) — best pair discrimination
 - Highest silhouette in both runs (0.432 → 0.384) — tightest clusters
 - 8,192-token context avoids truncation artifacts
@@ -176,6 +178,7 @@ jina-code found the most clusters (17) with the lowest noise (78.6%) — its cod
 - 512ms/chunk is ~4x faster than the 768-dim models
 
 **Clustering at scale** (7 clusters, 34 chunks assigned):
+
 - Cluster 0 (7 chunks): PR completions, CI passing, build summaries — cross-project "done" pattern
 - Cluster 5 (4 chunks): Implementation summaries from Ultan (cdx-core) — build results
 - Cluster 6 (3 chunks): Semansiation research doc-editing turns
@@ -189,11 +192,13 @@ jina-code found the most clusters (17) with the lowest noise (78.6%) — its cod
 ### bge-small — Fast but Limited
 
 **Strengths**:
+
 - 51ms/chunk — by far the fastest
 - Good code-NL alignment (0.865)
 - Most clusters found in Run 1 (4 clusters, 24.2% assigned)
 
 **Weaknesses exposed at scale**:
+
 - ROC AUC dropped most steeply (0.730 → 0.632) — worst discrimination at scale
 - **Boilerplate clustering problem**: Cluster 3 groups 4 chunks that all begin with "This session is being continued from a previous conversation..." — the model can only see the first 512 tokens, and these session-continuation messages all start identically. The actual content after the boilerplate is truncated away.
 - Cluster 2 groups commit-related turns ("commit these changes", "let's do a commit") — surface-level similarity rather than deep semantic grouping
@@ -204,6 +209,7 @@ jina-code found the most clusters (17) with the lowest noise (78.6%) — its cod
 ### jina-code — Surprising Cluster Density
 
 **Run 2 changed the picture for jina-code**:
+
 - Found 17 clusters (most of any model) with 78.6% noise (lowest)
 - ROC AUC (0.639) is mediocre, but the clustering tells a different story
 - Cluster composition is semantically rich:
@@ -242,12 +248,12 @@ Some groupings recur across 3+ models, suggesting genuine semantic structure:
 
 ### Cluster Size Distribution (Run 2)
 
-| Model | Clusters | Sizes | Total clustered | % clustered |
-|-------|----------|-------|-----------------|-------------|
-| jina-code | 17 | 6,6,4,4,4,4,4,4,3,3,3,3,3,3,3,3,3 | 63 | 21.4% |
-| bge-small | 13 | 6,4,4,4,4,4,4,3,3,3,3,3,3 | 48 | 16.3% |
-| jina-small | 7 | 7,7,6,4,4,3,3 | 34 | 11.6% |
-| nomic-v1.5 | 2 | 9,3 | 12 | 4.1% |
+| Model      | Clusters | Sizes                             | Total clustered | % clustered |
+| ---------- | -------- | --------------------------------- | --------------- | ----------- |
+| jina-code  | 17       | 6,6,4,4,4,4,4,4,3,3,3,3,3,3,3,3,3 | 63              | 21.4%       |
+| bge-small  | 13       | 6,4,4,4,4,4,4,3,3,3,3,3,3         | 48              | 16.3%       |
+| jina-small | 7        | 7,7,6,4,4,3,3                     | 34              | 11.6%       |
+| nomic-v1.5 | 2        | 9,3                               | 12              | 4.1%        |
 
 jina-code finds the most structure, but jina-small's fewer clusters are individually more coherent (higher silhouette).
 
@@ -257,10 +263,10 @@ jina-code finds the most structure, but jina-small's fewer clusters are individu
 
 ### Cross-Model Drift (Run 2)
 
-| Chunk type | Count | Mean drift |
-|------------|-------|------------|
-| Long (>512 tokens) | 288 | 0.491 |
-| Short (≤512 tokens) | 6 | 0.497 |
+| Chunk type          | Count | Mean drift |
+| ------------------- | ----- | ---------- |
+| Long (>512 tokens)  | 288   | 0.491      |
+| Short (≤512 tokens) | 6     | 0.497      |
 
 98% of chunks exceed 512 tokens. The drift metric compares bge-small vs nomic-v1.5 embeddings, which inhabit different spaces, so the ~0.49 values reflect architectural differences rather than truncation impact.
 
@@ -284,12 +290,12 @@ Five targeted experiments were run on jina-small to validate the production reco
 
 ### Summary Table
 
-| Experiment | Baseline AUC | Variant AUC | dAUC | Baseline Silh. | Variant Silh. | dSilh. |
-|------------|-------------|-------------|------|----------------|---------------|--------|
-| Truncation (512 tokens) | 0.715 | 0.671 | **-0.044** | 0.384 | 0.229 | **-0.155** |
-| Boilerplate filter | 0.715 | 0.720 | +0.004 | 0.384 | 0.395 | +0.011 |
-| Thinking ablation | 0.715 | 0.778 | **+0.063** | 0.384 | 0.376 | -0.009 |
-| Code-focused mode | 0.715 | 0.761 | +0.045 | 0.384 | 0.356 | -0.028 |
+| Experiment              | Baseline AUC | Variant AUC | dAUC       | Baseline Silh. | Variant Silh. | dSilh.     |
+| ----------------------- | ------------ | ----------- | ---------- | -------------- | ------------- | ---------- |
+| Truncation (512 tokens) | 0.715        | 0.671       | **-0.044** | 0.384          | 0.229         | **-0.155** |
+| Boilerplate filter      | 0.715        | 0.720       | +0.004     | 0.384          | 0.395         | +0.011     |
+| Thinking ablation       | 0.715        | 0.778       | **+0.063** | 0.384          | 0.376         | -0.009     |
+| Code-focused mode       | 0.715        | 0.761       | +0.045     | 0.384          | 0.356         | -0.028     |
 
 ### Experiment 1: Same-Model Truncation Test
 
@@ -305,17 +311,17 @@ Hard-truncated all chunk text to ~512 tokens (1,792 characters) before embedding
 
 Swept `minClusterSize` from 2 to 10, re-clustering the same jina-small embeddings each time.
 
-| minClusterSize | Clusters | Noise % | Silhouette |
-|---------------|----------|---------|------------|
-| 2 | 22 | 78.9% | 0.283 |
-| 3 | 7 | 88.4% | 0.384 |
-| **4** | **6** | **89.8%** | **0.438** |
-| 5 | 5 | 87.8% | 0.380 |
-| 6 | 6 | 86.1% | 0.373 |
-| 7 | 5 | 85.4% | 0.336 |
-| 8 | 4 | 88.8% | 0.381 |
-| 9 | 3 | 89.1% | 0.356 |
-| 10 | 3 | 87.8% | 0.286 |
+| minClusterSize | Clusters | Noise %   | Silhouette |
+| -------------- | -------- | --------- | ---------- |
+| 2              | 22       | 78.9%     | 0.283      |
+| 3              | 7        | 88.4%     | 0.384      |
+| **4**          | **6**    | **89.8%** | **0.438**  |
+| 5              | 5        | 87.8%     | 0.380      |
+| 6              | 6        | 86.1%     | 0.373      |
+| 7              | 5        | 85.4%     | 0.336      |
+| 8              | 4        | 88.8%     | 0.381      |
+| 9              | 3        | 89.1%     | 0.356      |
+| 10             | 3        | 87.8%     | 0.286      |
 
 **Result**: `minClusterSize=4` produces the best silhouette (0.438, up from 0.384 at 3), with 6 clusters instead of 7. The value of 2 produces 22 fragmented clusters with poor cohesion. Values above 5 start losing structure. **Recommendation: use `minClusterSize=4` in production.**
 
@@ -360,6 +366,7 @@ Boilerplate filtering and code-focused mode are smaller, situational improvement
 ### Auto-Labeled Pairs
 
 The labeled pairs are heuristic, not human-validated:
+
 - "Adjacent chunks are related" assumes topical continuity, which may not hold across topic switches
 - "Cross-project chunks are unrelated" may miss genuinely similar patterns (e.g., git operations, session boilerplate appear across all projects)
 - 17 code-NL pairs in Run 2 is better but still modest
@@ -387,6 +394,7 @@ Model inference is deterministic but HDBSCAN stability with borderline points wa
 ### Primary: jina-small
 
 **Rationale**:
+
 - Highest ROC AUC across both corpus sizes — discrimination scales with project diversity
 - Highest silhouette — produces the most coherent clusters
 - 8,192-token context avoids the boilerplate-clustering problem that plagues bge-small
@@ -396,12 +404,14 @@ Model inference is deterministic but HDBSCAN stability with borderline points wa
 - 512 dimensions is a good balance: compact enough for LanceDB storage, rich enough for semantic nuance
 
 **Recommended preprocessing** (from follow-up experiments):
+
 - Exclude thinking blocks from chunk text before embedding (`includeThinking: false`) — +0.063 AUC
 - Strip session-continuation boilerplate — small but consistent improvement
 - Use `minClusterSize=4` for HDBSCAN — +0.054 silhouette over default of 3
 - Keep `renderMode: 'full'` for clustering; consider `'code-focused'` for retrieval
 
 **Production integration path**:
+
 - SessionEnd hook: Parse + chunk + embed the session (~30 chunks → ~15s)
 - Batch reprocessing: Viable at 512ms/chunk for the full corpus
 - Storage: 512 dims × 4 bytes = 2KB per chunk in LanceDB
@@ -409,10 +419,12 @@ Model inference is deterministic but HDBSCAN stability with borderline points wa
 ### When to Consider Alternatives
 
 **bge-small** — if inference latency is critical (real-time retrieval at query time):
+
 - Use as a fast first-pass ranker, with jina-small for re-ranking
 - Only viable if chunks are pre-truncated to remove session-continuation boilerplate
 
 **jina-code** — if cluster density matters more than discrimination:
+
 - Found 17 clusters vs jina-small's 7; may be useful if downstream tasks need fine-grained groupings
 - Not recommended as primary due to 2.4s/chunk inference and 30MB heap
 
@@ -437,10 +449,10 @@ Model inference is deterministic but HDBSCAN stability with borderline points wa
 
 ## Raw Data
 
-| Run | Corpus | JSON |
-|-----|--------|------|
-| Run 1 | 66 chunks, 2 projects | [`benchmark-2026-02-03T14-56-58-170Z.json`](../benchmark-results/benchmark-2026-02-03T14-56-58-170Z.json) |
-| Run 2 | 294 chunks, 5 projects | [`benchmark-2026-02-03T16-06-13-827Z.json`](../benchmark-results/benchmark-2026-02-03T16-06-13-827Z.json) |
+| Run         | Corpus                                | JSON                                                                                                          |
+| ----------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Run 1       | 66 chunks, 2 projects                 | [`benchmark-2026-02-03T14-56-58-170Z.json`](../benchmark-results/benchmark-2026-02-03T14-56-58-170Z.json)     |
+| Run 2       | 294 chunks, 5 projects                | [`benchmark-2026-02-03T16-06-13-827Z.json`](../benchmark-results/benchmark-2026-02-03T16-06-13-827Z.json)     |
 | Experiments | 5 follow-up experiments on jina-small | [`experiments-2026-02-03T22-05-59-321Z.json`](../benchmark-results/experiments-2026-02-03T22-05-59-321Z.json) |
 
 ### Reproduction

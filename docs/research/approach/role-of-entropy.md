@@ -63,7 +63,7 @@ Causantic used a **sum-product** calculation for node weights, analogous to Feyn
 
 ### Product Along Paths
 
-Edge weights multiply along a single path. For a path of length *n* with edge weights *w₁, w₂, ..., wₙ*:
+Edge weights multiply along a single path. For a path of length _n_ with edge weights _w₁, w₂, ..., wₙ_:
 
 ```
 path_weight = w₁ × w₂ × ... × wₙ
@@ -117,13 +117,13 @@ Since edge weights are <1, each additional cycle multiplies by a factor <1. The 
 
 This mirrors perturbation theory in quantum field theory:
 
-| Perturbation Theory | Semantic Graph |
-|---------------------|----------------|
-| Coupling constant α < 1 | Edge weight ∈ (0,1] |
+| Perturbation Theory                    | Semantic Graph                          |
+| -------------------------------------- | --------------------------------------- |
+| Coupling constant α < 1                | Edge weight ∈ (0,1]                     |
 | Higher-order diagrams suppressed by αⁿ | Longer paths suppressed by w₁×w₂×...×wₙ |
-| Sum over all diagrams | Sum over all paths |
-| Renormalization handles infinities | Normalisation keeps weights bounded |
-| Loop diagrams finite | Cycles attenuate naturally |
+| Sum over all diagrams                  | Sum over all paths                      |
+| Renormalization handles infinities     | Normalisation keeps weights bounded     |
+| Loop diagrams finite                   | Cycles attenuate naturally              |
 
 Just as Feynman diagrams with more loops contribute less to physical amplitudes (suppressed by powers of α), graph cycles contribute diminishingly to node influence (suppressed by products of weights <1).
 
@@ -132,11 +132,13 @@ Just as Feynman diagrams with more loops contribute less to physical amplitudes 
 Entropy accumulates differently by traversal direction:
 
 **Backward edges** (historical context): "What caused this?"
+
 - Linear decay, dies at 10 hops
 - Discrimination fades quickly into the past
 - Recent causes are sharply discriminated; old causes blur together
 
 **Forward edges** (predictive context): "What might follow?"
+
 - Delayed linear, holds for 5 hops, dies at 20 hops
 - Immediate predictions stay discriminated longer
 - Anticipatory context retains information longer before entropy dominates
@@ -145,16 +147,16 @@ Entropy accumulates differently by traversal direction:
 
 A key insight from the design:
 
-> Edge accumulation encodes frequency of co-occurrence, decay encodes recency, and path products encode causal distance. **The graph *is* the clock.**
+> Edge accumulation encodes frequency of co-occurrence, decay encodes recency, and path products encode causal distance. **The graph _is_ the clock.**
 
 Traditional systems use external timestamps and apply global decay. Causantic embeds temporal dynamics directly into the graph structure — entropy flows through the graph topology itself.
 
-| Aspect | Traditional | Entropic |
-|--------|-------------|----------|
-| Time reference | Wall clock | Causal hops |
-| Entropy source | Age threshold | Path attenuation |
+| Aspect         | Traditional      | Entropic                     |
+| -------------- | ---------------- | ---------------------------- |
+| Time reference | Wall clock       | Causal hops                  |
+| Entropy source | Age threshold    | Path attenuation             |
 | Discrimination | Binary (old/new) | Continuous (weight products) |
-| Compression | Arbitrary cutoff | Natural convergence to zero |
+| Compression    | Arbitrary cutoff | Natural convergence to zero  |
 
 ## Maximum Entropy Edge Creation (Historical — v0.2)
 

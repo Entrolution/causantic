@@ -20,11 +20,11 @@ npx causantic init [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
-| `--skip-mcp` | Skip MCP configuration (settings.json, project .mcp.json, skills, CLAUDE.md) |
-| `--skip-encryption` | Skip the database encryption prompt |
-| `--skip-ingest` | Skip the session import step |
+| Option              | Description                                                                  |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `--skip-mcp`        | Skip MCP configuration (settings.json, project .mcp.json, skills, CLAUDE.md) |
+| `--skip-encryption` | Skip the database encryption prompt                                          |
+| `--skip-ingest`     | Skip the session import step                                                 |
 
 The wizard performs the following steps:
 
@@ -42,6 +42,7 @@ The wizard performs the following steps:
 12. Offers Anthropic API key setup for cluster labeling
 
 **Example**:
+
 ```bash
 # Full interactive setup
 npx causantic init
@@ -60,12 +61,13 @@ npx causantic serve [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
-| `--port <port>` | HTTP port (default: stdio) |
+| Option           | Description                  |
+| ---------------- | ---------------------------- |
+| `--port <port>`  | HTTP port (default: stdio)   |
 | `--health-check` | Enable health check endpoint |
 
 **Example**:
+
 ```bash
 npx causantic serve
 npx causantic serve --health-check
@@ -81,18 +83,19 @@ npx causantic ingest <session-path> [options]
 
 **Arguments**:
 
-| Argument | Description |
-|----------|-------------|
+| Argument       | Description                                     |
+| -------------- | ----------------------------------------------- |
 | `session-path` | Path to session JSONL file or project directory |
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
-| `--force` | Re-ingest even if already processed |
-| `--dry-run` | Show what would be ingested |
+| Option      | Description                         |
+| ----------- | ----------------------------------- |
+| `--force`   | Re-ingest even if already processed |
+| `--dry-run` | Show what would be ingested         |
 
 **Example**:
+
 ```bash
 npx causantic ingest ~/.claude/projects/my-project/session-123.jsonl
 npx causantic ingest ~/.claude/projects/my-project/
@@ -108,12 +111,13 @@ npx causantic batch-ingest <directory> [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
+| Option           | Description                             |
+| ---------------- | --------------------------------------- |
 | `--parallel <n>` | Number of parallel workers (default: 4) |
-| `--force` | Re-ingest all sessions |
+| `--force`        | Re-ingest all sessions                  |
 
 **Example**:
+
 ```bash
 npx causantic batch-ingest ~/.claude/projects
 npx causantic batch-ingest ~/.claude/projects --parallel 8
@@ -129,12 +133,13 @@ npx causantic recall <query> [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
+| Option        | Description                   |
+| ------------- | ----------------------------- |
 | `--limit <n>` | Maximum results (default: 10) |
-| `--json` | Output as JSON |
+| `--json`      | Output as JSON                |
 
 **Example**:
+
 ```bash
 npx causantic recall "authentication flow"
 npx causantic recall "error handling" --limit 5 --json
@@ -150,23 +155,24 @@ npx causantic maintenance <subcommand> [options]
 
 **Subcommands**:
 
-| Subcommand | Description |
-|------------|-------------|
-| `run <task>` | Run a specific task |
-| `run all` | Run all tasks |
-| `status` | Show task status |
-| `daemon` | Run as background daemon |
+| Subcommand   | Description              |
+| ------------ | ------------------------ |
+| `run <task>` | Run a specific task      |
+| `run all`    | Run all tasks            |
+| `status`     | Show task status         |
+| `daemon`     | Run as background daemon |
 
 **Tasks**:
 
-| Task | Description |
-|------|-------------|
-| `scan-projects` | Discover and ingest new sessions |
-| `update-clusters` | Re-run HDBSCAN clustering and refresh labels |
+| Task              | Description                                        |
+| ----------------- | -------------------------------------------------- |
+| `scan-projects`   | Discover and ingest new sessions                   |
+| `update-clusters` | Re-run HDBSCAN clustering and refresh labels       |
 | `cleanup-vectors` | Remove expired vectors and chunks (TTL + FIFO cap) |
-| `vacuum` | Optimize database |
+| `vacuum`          | Optimize database                                  |
 
 **Example**:
+
 ```bash
 npx causantic maintenance run cleanup-vectors
 npx causantic maintenance run all
@@ -184,14 +190,15 @@ npx causantic config <subcommand> [options]
 
 **Subcommands**:
 
-| Subcommand | Description |
-|------------|-------------|
-| `show` | Display current configuration |
-| `validate` | Validate configuration files |
-| `set-key <name>` | Store an API key |
-| `get-key <name>` | Retrieve an API key |
+| Subcommand       | Description                   |
+| ---------------- | ----------------------------- |
+| `show`           | Display current configuration |
+| `validate`       | Validate configuration files  |
+| `set-key <name>` | Store an API key              |
+| `get-key <name>` | Retrieve an API key           |
 
 **Example**:
+
 ```bash
 npx causantic config show
 npx causantic config validate
@@ -209,16 +216,17 @@ npx causantic encryption <subcommand> [options]
 
 **Subcommands**:
 
-| Subcommand | Description |
-|------------|-------------|
-| `setup` | Enable encryption and generate a key |
-| `status` | Show encryption status |
-| `rotate-key` | Rotate the encryption key |
-| `backup-key [path]` | Back up the encryption key to a password-protected file |
-| `restore-key <path>` | Restore an encryption key from a backup file |
-| `audit [limit]` | Show recent audit log entries |
+| Subcommand           | Description                                             |
+| -------------------- | ------------------------------------------------------- |
+| `setup`              | Enable encryption and generate a key                    |
+| `status`             | Show encryption status                                  |
+| `rotate-key`         | Rotate the encryption key                               |
+| `backup-key [path]`  | Back up the encryption key to a password-protected file |
+| `restore-key <path>` | Restore an encryption key from a backup file            |
+| `audit [limit]`      | Show recent audit log entries                           |
 
 **Example**:
+
 ```bash
 # Enable encryption
 npx causantic encryption setup
@@ -249,16 +257,17 @@ npx causantic export [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
-| `--output <path>` | Output file path (default: `causantic-backup.causantic`) |
-| `--no-encrypt` | Skip encryption |
-| `--projects <slugs>` | Comma-separated project slugs to export |
-| `--redact-paths` | Redact file paths in content |
-| `--redact-code` | Redact code blocks in content |
-| `--no-vectors` | Skip vector embeddings (smaller file, but semantic search won't work after import) |
+| Option               | Description                                                                        |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `--output <path>`    | Output file path (default: `causantic-backup.causantic`)                           |
+| `--no-encrypt`       | Skip encryption                                                                    |
+| `--projects <slugs>` | Comma-separated project slugs to export                                            |
+| `--redact-paths`     | Redact file paths in content                                                       |
+| `--redact-code`      | Redact code blocks in content                                                      |
+| `--no-vectors`       | Skip vector embeddings (smaller file, but semantic search won't work after import) |
 
 **Example**:
+
 ```bash
 npx causantic export --output backup.causantic
 npx causantic export --output backup.json --no-encrypt
@@ -277,12 +286,13 @@ npx causantic import <file> [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
-| `--merge` | Merge with existing data (default: replace) |
-| `--dry-run` | Validate and report without importing |
+| Option      | Description                                 |
+| ----------- | ------------------------------------------- |
+| `--merge`   | Merge with existing data (default: replace) |
+| `--dry-run` | Validate and report without importing       |
 
 **Example**:
+
 ```bash
 npx causantic import backup.causantic
 npx causantic import backup.causantic --merge
@@ -299,11 +309,12 @@ npx causantic stats [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
+| Option   | Description    |
+| -------- | -------------- |
 | `--json` | Output as JSON |
 
 **Example**:
+
 ```bash
 npx causantic stats
 npx causantic stats --json
@@ -319,11 +330,12 @@ npx causantic health [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
+| Option      | Description          |
+| ----------- | -------------------- |
 | `--verbose` | Show detailed status |
 
 **Example**:
+
 ```bash
 npx causantic health
 npx causantic health --verbose
@@ -339,14 +351,15 @@ npx causantic hook <hook-name> [options]
 
 **Hooks**:
 
-| Hook | Description |
-|------|-------------|
-| `session-start` | Session start hook — retrieves memory context |
-| `session-end` | Session end hook — ingests the current session |
-| `pre-compact` | Pre-compaction hook — ingests the current session before compaction |
-| `claudemd-generator` | Update CLAUDE.md with memory context |
+| Hook                 | Description                                                         |
+| -------------------- | ------------------------------------------------------------------- |
+| `session-start`      | Session start hook — retrieves memory context                       |
+| `session-end`        | Session end hook — ingests the current session                      |
+| `pre-compact`        | Pre-compaction hook — ingests the current session before compaction |
+| `claudemd-generator` | Update CLAUDE.md with memory context                                |
 
 **Example**:
+
 ```bash
 npx causantic hook session-start
 npx causantic hook claudemd-generator
@@ -362,11 +375,12 @@ npx causantic dashboard [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
+| Option          | Description               |
+| --------------- | ------------------------- |
 | `--port <port>` | HTTP port (default: 3333) |
 
 **Example**:
+
 ```bash
 # Launch on default port
 npx causantic dashboard
@@ -389,21 +403,22 @@ npx causantic benchmark-collection [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
-| `--quick` | Health only (~1 second) |
-| `--standard` | Health + retrieval (~30 seconds, default) |
-| `--full` | All categories (~2-5 minutes) |
-| `--categories <list>` | Comma-separated: health,retrieval,graph,latency |
-| `--sample-size <n>` | Number of sample queries (default: 50) |
-| `--seed <n>` | Random seed for reproducibility |
-| `--project <slug>` | Limit to one project |
-| `--output <path>` | Output directory (default: ./causantic-benchmark/) |
-| `--json` | Output JSON only (no markdown) |
-| `--no-tuning` | Skip tuning recommendations |
-| `--history` | Show trend from past runs |
+| Option                | Description                                        |
+| --------------------- | -------------------------------------------------- |
+| `--quick`             | Health only (~1 second)                            |
+| `--standard`          | Health + retrieval (~30 seconds, default)          |
+| `--full`              | All categories (~2-5 minutes)                      |
+| `--categories <list>` | Comma-separated: health,retrieval,graph,latency    |
+| `--sample-size <n>`   | Number of sample queries (default: 50)             |
+| `--seed <n>`          | Random seed for reproducibility                    |
+| `--project <slug>`    | Limit to one project                               |
+| `--output <path>`     | Output directory (default: ./causantic-benchmark/) |
+| `--json`              | Output JSON only (no markdown)                     |
+| `--no-tuning`         | Skip tuning recommendations                        |
+| `--history`           | Show trend from past runs                          |
 
 **Example**:
+
 ```bash
 # Quick health check
 npx causantic benchmark-collection --quick
@@ -430,13 +445,14 @@ npx causantic uninstall [options]
 
 **Options**:
 
-| Option | Description |
-|--------|-------------|
-| `--force` | Skip confirmation prompt and export offer |
+| Option        | Description                                           |
+| ------------- | ----------------------------------------------------- |
+| `--force`     | Skip confirmation prompt and export offer             |
 | `--keep-data` | Remove integrations but preserve `~/.causantic/` data |
-| `--dry-run` | Show what would be removed without making changes |
+| `--dry-run`   | Show what would be removed without making changes     |
 
 Removes the following artifacts:
+
 - CLAUDE.md Causantic memory block
 - `~/.claude.json` MCP server entry
 - `~/.claude/settings.json` legacy MCP server entry (pre-0.5.0)
@@ -446,6 +462,7 @@ Removes the following artifacts:
 - `~/.causantic/` data directory (unless `--keep-data`)
 
 **Example**:
+
 ```bash
 # Preview what would be removed
 npx causantic uninstall --dry-run
@@ -464,20 +481,20 @@ npx causantic uninstall --force
 
 These options work with all commands:
 
-| Option | Description |
-|--------|-------------|
-| `--config <path>` | Use specific config file |
-| `--debug` | Enable debug logging |
-| `--quiet` | Suppress non-error output |
-| `--version` | Show version |
-| `--help` | Show help |
+| Option            | Description               |
+| ----------------- | ------------------------- |
+| `--config <path>` | Use specific config file  |
+| `--debug`         | Enable debug logging      |
+| `--quiet`         | Suppress non-error output |
+| `--version`       | Show version              |
+| `--help`          | Show help                 |
 
 ## Exit Codes
 
-| Code | Description |
-|------|-------------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Invalid arguments |
-| 3 | Configuration error |
-| 4 | Database error |
+| Code | Description         |
+| ---- | ------------------- |
+| 0    | Success             |
+| 1    | General error       |
+| 2    | Invalid arguments   |
+| 3    | Configuration error |
+| 4    | Database error      |
