@@ -32,7 +32,7 @@ The wizard performs the following steps:
 2. Creates `~/.causantic/` directory structure
 3. Offers database encryption setup (ChaCha20-Poly1305, key stored in system keychain)
 4. Initializes the SQLite database
-5. Configures MCP server in `~/.claude/settings.json`
+5. Configures MCP server in `~/.claude.json`
 6. Patches project-level `.mcp.json` files
 7. Installs Causantic skills to `~/.claude/skills/`
 8. Updates `~/.claude/CLAUDE.md` with Causantic reference block
@@ -431,7 +431,8 @@ npx causantic uninstall [options]
 
 Removes the following artifacts:
 - CLAUDE.md Causantic memory block
-- `~/.claude/settings.json` MCP server entry
+- `~/.claude.json` MCP server entry
+- `~/.claude/settings.json` legacy MCP server entry (pre-0.5.0)
 - Project `.mcp.json` Causantic server entries
 - `~/.claude/skills/causantic-*/` skill directories
 - Keychain entries (`causantic-db-key`, `anthropic-api-key`)

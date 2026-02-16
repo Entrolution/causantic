@@ -235,6 +235,34 @@ function findClaudeMdArtifact(): RemovalArtifact {
 }
 
 function findMcpConfigArtifact(): RemovalArtifact {
+  const mcpConfigPath = path.join(os.homedir(), '.claude.json');
+  let found = false;
+  try {
+    const config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf-8'));
+    found = CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
+  } catch {
+    // File doesn't exist or can't be read
+  }
+
+  return {
+    label: '~/.claude.json',
+    description: 'MCP server entry',
+    category: 'integration',
+    found,
+    remove: async () => removeJsonKey(mcpConfigPath, ['mcpServers', CAUSANTIC_SERVER_KEY]),
+    verify: () => {
+      try {
+        const config = JSON.parse(fs.readFileSync(mcpConfigPath, 'utf-8'));
+        return CAUSANTIC_SERVER_KEY in (config.mcpServers ?? {});
+      } catch {
+        return false;
+      }
+    },
+  };
+}
+
+/** Check for legacy MCP entries left by pre-0.5.0 installs in settings.json. */
+function findLegacyMcpConfigArtifact(): RemovalArtifact {
   const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
   let found = false;
   try {
@@ -246,7 +274,7 @@ function findMcpConfigArtifact(): RemovalArtifact {
 
   return {
     label: '~/.claude/settings.json',
-    description: 'MCP server entry',
+    description: 'Legacy MCP server entry',
     category: 'integration',
     found,
     remove: async () => removeJsonKey(settingsPath, ['mcpServers', CAUSANTIC_SERVER_KEY]),
@@ -392,6 +420,7 @@ export function buildRemovalPlan(keepData: boolean): RemovalArtifact[] {
   const artifacts: RemovalArtifact[] = [
     findClaudeMdArtifact(),
     findMcpConfigArtifact(),
+    findLegacyMcpConfigArtifact(),
     findHooksArtifact(),
     ...findProjectMcpArtifacts(),
     ...findSkillArtifacts(),

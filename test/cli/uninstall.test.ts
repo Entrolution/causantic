@@ -410,11 +410,30 @@ Causantic content only
       expect(claudeMd!.category).toBe('integration');
     });
 
-    it('includes settings.json artifact', () => {
+    it('includes ~/.claude.json MCP artifact', () => {
       const plan = buildRemovalPlan(false);
-      const settings = plan.find((a) => a.label.includes('settings.json'));
-      expect(settings).toBeDefined();
-      expect(settings!.category).toBe('integration');
+      const mcpConfig = plan.find((a) => a.label === '~/.claude.json');
+      expect(mcpConfig).toBeDefined();
+      expect(mcpConfig!.category).toBe('integration');
+      expect(mcpConfig!.description).toBe('MCP server entry');
+    });
+
+    it('includes settings.json legacy MCP artifact', () => {
+      const plan = buildRemovalPlan(false);
+      const legacy = plan.find(
+        (a) => a.label.includes('settings.json') && a.description.includes('Legacy'),
+      );
+      expect(legacy).toBeDefined();
+      expect(legacy!.category).toBe('integration');
+    });
+
+    it('includes settings.json hooks artifact', () => {
+      const plan = buildRemovalPlan(false);
+      const hooks = plan.find(
+        (a) => a.label.includes('settings.json') && a.description === 'Claude Code hooks',
+      );
+      expect(hooks).toBeDefined();
+      expect(hooks!.category).toBe('integration');
     });
 
     it('includes skill directory artifacts', () => {
