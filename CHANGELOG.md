@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-02-16
+
+### Changed
+- **Claude Code 5.1+ minimum**: Documented Claude Code 5.1+ as a prerequisite. The async hook support added in v0.5.1 requires it.
+- **Removed `prepublishOnly` script**: Build and test are handled by CI, not by npm lifecycle hooks.
+
 ## [0.5.1] - 2026-02-16
 
 ### Changed

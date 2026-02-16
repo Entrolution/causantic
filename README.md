@@ -4,6 +4,7 @@
 [![CI](https://github.com/Entrolution/causantic/actions/workflows/ci.yml/badge.svg)](https://github.com/Entrolution/causantic/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](https://nodejs.org)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-%3E%3D5.1-blueviolet)](https://docs.anthropic.com/en/docs/claude-code)
 [![TypeScript](https://img.shields.io/badge/TypeScript-native-blue)](https://www.typescriptlang.org/)
 
 **Long-term memory for Claude Code — local-first, graph-augmented, self-benchmarking.**
@@ -304,7 +305,7 @@ The name reflects how the causal graph's value is **structural ordering** — wh
 - **Initial ingestion time**: Large session histories take time to parse, embed, and cluster. This is a one-time cost.
 - **Edge quality dependency**: Chain walking depends on connected edges. Sparse or orphaned chunks fall back to ranked search results.
 - **Collection size effects**: Benchmark scores improve as more sessions are ingested. Small collections (<100 chunks) won't benefit much from chain walking or clustering.
-- **Claude Code specific**: The parser assumes Claude Code session format (JSONL transcripts). Not a general-purpose memory system.
+- **Claude Code 5.1+ required**: Hooks use `async` mode which requires Claude Code 5.1 or later. The parser assumes Claude Code session format (JSONL transcripts). Not a general-purpose memory system.
 - **Local compute**: Embedding inference runs on your hardware. Apple Silicon (CoreML) and NVIDIA GPUs are supported; CPU-only is slower.
 
 ## Maintenance
