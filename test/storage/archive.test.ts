@@ -29,7 +29,10 @@ import { serializeEmbedding, deserializeEmbedding } from '../../src/utils/embedd
 
 // Helper to create a temp file path
 function tempPath(suffix = '.json'): string {
-  return join(tmpdir(), `causantic-test-${Date.now()}-${Math.random().toString(36).slice(2)}${suffix}`);
+  return join(
+    tmpdir(),
+    `causantic-test-${Date.now()}-${Math.random().toString(36).slice(2)}${suffix}`,
+  );
 }
 
 // Helper to create vectors table in test db
@@ -120,7 +123,11 @@ function seedTestData(db: Database.Database): {
   createVectorsTable(db);
   const embedding = Array.from({ length: 8 }, (_, i) => i * 0.1);
   insertTestVector(db, 'chunk-1', embedding);
-  insertTestVector(db, 'chunk-2', embedding.map((v) => v + 0.01));
+  insertTestVector(
+    db,
+    'chunk-2',
+    embedding.map((v) => v + 0.01),
+  );
 
   return {
     chunkIds: ['chunk-1', 'chunk-2', 'chunk-3'],
@@ -174,7 +181,9 @@ describe('archive', () => {
       expect(importResult.dryRun).toBe(false);
 
       // Verify data
-      const chunks = db.prepare('SELECT * FROM chunks ORDER BY id').all() as Array<Record<string, unknown>>;
+      const chunks = db.prepare('SELECT * FROM chunks ORDER BY id').all() as Array<
+        Record<string, unknown>
+      >;
       expect(chunks).toHaveLength(3);
       expect(chunks[0].id).toBe('chunk-1');
       expect(chunks[0].session_id).toBe('session-1');
@@ -196,12 +205,16 @@ describe('archive', () => {
       expect(clusters[0].description).toBe('Authentication related');
       expect(clusters[0].membership_hash).toBe('abc123');
 
-      const members = db.prepare('SELECT * FROM chunk_clusters ORDER BY chunk_id').all() as Array<Record<string, unknown>>;
+      const members = db.prepare('SELECT * FROM chunk_clusters ORDER BY chunk_id').all() as Array<
+        Record<string, unknown>
+      >;
       expect(members).toHaveLength(2);
       expect(members[0].chunk_id).toBe('chunk-1');
       expect(members[0].distance).toBe(0.3);
 
-      const vectors = db.prepare('SELECT * FROM vectors ORDER BY id').all() as Array<Record<string, unknown>>;
+      const vectors = db.prepare('SELECT * FROM vectors ORDER BY id').all() as Array<
+        Record<string, unknown>
+      >;
       expect(vectors).toHaveLength(2);
     });
   });
@@ -299,7 +312,9 @@ describe('archive', () => {
       const importResult = await importArchive({ inputPath: outputPath });
       expect(importResult.vectorCount).toBe(0);
 
-      const vectors = db.prepare('SELECT COUNT(*) as count FROM vectors').get() as { count: number };
+      const vectors = db.prepare('SELECT COUNT(*) as count FROM vectors').get() as {
+        count: number;
+      };
       expect(vectors.count).toBe(0);
     });
   });
@@ -317,7 +332,10 @@ describe('archive', () => {
 
       await importArchive({ inputPath: outputPath });
 
-      const cluster = db.prepare('SELECT * FROM clusters WHERE id = ?').get('cluster-1') as Record<string, unknown>;
+      const cluster = db.prepare('SELECT * FROM clusters WHERE id = ?').get('cluster-1') as Record<
+        string,
+        unknown
+      >;
       expect(cluster.name).toBe('Auth cluster');
       expect(cluster.description).toBe('Authentication related');
       expect(cluster.membership_hash).toBe('abc123');
@@ -329,7 +347,9 @@ describe('archive', () => {
       expect(centroid[0]).toBeCloseTo(0.1, 5);
 
       // Verify member distances
-      const members = db.prepare('SELECT * FROM chunk_clusters WHERE cluster_id = ? ORDER BY chunk_id').all('cluster-1') as Array<Record<string, unknown>>;
+      const members = db
+        .prepare('SELECT * FROM chunk_clusters WHERE cluster_id = ? ORDER BY chunk_id')
+        .all('cluster-1') as Array<Record<string, unknown>>;
       expect(members).toHaveLength(2);
       expect(members[0].distance).toBe(0.3);
       expect(members[1].distance).toBe(0.5);
@@ -363,9 +383,21 @@ describe('archive', () => {
 
   describe('edge completeness', () => {
     it('excludes edges with one endpoint outside the export', async () => {
-      const chunk1 = createSampleChunk({ id: 'chunk-a', sessionSlug: 'proj-1', sessionId: 'ses-1' });
-      const chunk2 = createSampleChunk({ id: 'chunk-b', sessionSlug: 'proj-1', sessionId: 'ses-1' });
-      const chunk3 = createSampleChunk({ id: 'chunk-c', sessionSlug: 'proj-2', sessionId: 'ses-2' });
+      const chunk1 = createSampleChunk({
+        id: 'chunk-a',
+        sessionSlug: 'proj-1',
+        sessionId: 'ses-1',
+      });
+      const chunk2 = createSampleChunk({
+        id: 'chunk-b',
+        sessionSlug: 'proj-1',
+        sessionId: 'ses-1',
+      });
+      const chunk3 = createSampleChunk({
+        id: 'chunk-c',
+        sessionSlug: 'proj-2',
+        sessionId: 'ses-2',
+      });
       insertTestChunk(db, chunk1);
       insertTestChunk(db, chunk2);
       insertTestChunk(db, chunk3);
@@ -407,7 +439,9 @@ describe('archive', () => {
 
       await importArchive({ inputPath: outputPath });
 
-      const chunk = db.prepare('SELECT content FROM chunks WHERE id = ?').get('chunk-1') as { content: string };
+      const chunk = db.prepare('SELECT content FROM chunks WHERE id = ?').get('chunk-1') as {
+        content: string;
+      };
       expect(chunk.content).toContain('[REDACTED_PATH]');
       expect(chunk.content).not.toContain('/path/to/file.ts');
     });
@@ -424,7 +458,9 @@ describe('archive', () => {
 
       await importArchive({ inputPath: outputPath });
 
-      const chunk = db.prepare('SELECT content FROM chunks WHERE id = ?').get('chunk-2') as { content: string };
+      const chunk = db.prepare('SELECT content FROM chunks WHERE id = ?').get('chunk-2') as {
+        content: string;
+      };
       expect(chunk.content).toContain('[REDACTED_CODE]');
       expect(chunk.content).not.toContain('const x = 1');
     });
@@ -436,7 +472,11 @@ describe('archive', () => {
       await exportArchive({ outputPath });
 
       // Add extra data before import
-      const extra = createSampleChunk({ id: 'chunk-extra', sessionSlug: 'project-a', sessionId: 'ses-x' });
+      const extra = createSampleChunk({
+        id: 'chunk-extra',
+        sessionSlug: 'project-a',
+        sessionId: 'ses-x',
+      });
       insertTestChunk(db, extra);
       expect(
         (db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number }).count,
@@ -461,13 +501,18 @@ describe('archive', () => {
       db = createTestDb();
       setupTestDb(db);
       createVectorsTable(db);
-      const other = createSampleChunk({ id: 'chunk-other', sessionSlug: 'project-c', sessionId: 'ses-c' });
+      const other = createSampleChunk({
+        id: 'chunk-other',
+        sessionSlug: 'project-c',
+        sessionId: 'ses-c',
+      });
       insertTestChunk(db, other);
 
       await importArchive({ inputPath: outputPath, merge: true });
 
       // Should have both the imported chunks AND the existing one
-      const count = (db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number }).count;
+      const count = (db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number })
+        .count;
       expect(count).toBe(3); // 2 from project-a + 1 existing
     });
   });
@@ -487,7 +532,8 @@ describe('archive', () => {
       expect(result.edgeCount).toBe(1);
 
       // Database should be empty
-      const count = (db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number }).count;
+      const count = (db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number })
+        .count;
       expect(count).toBe(0);
     });
   });
@@ -533,7 +579,8 @@ describe('archive', () => {
       expect(result.chunkCount).toBe(1);
       expect(result.vectorCount).toBe(0);
 
-      const count = (db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number }).count;
+      const count = (db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number })
+        .count;
       expect(count).toBe(1);
     });
 
@@ -584,7 +631,9 @@ describe('archive', () => {
       createVectorsTable(db);
       await importArchive({ inputPath: outputPath });
 
-      const members = db.prepare('SELECT * FROM chunk_clusters').all() as Array<Record<string, unknown>>;
+      const members = db.prepare('SELECT * FROM chunk_clusters').all() as Array<
+        Record<string, unknown>
+      >;
       expect(members).toHaveLength(1);
       expect(members[0].chunk_id).toBe('v1-chunk');
       expect(members[0].distance).toBe(0); // default distance for v1.0

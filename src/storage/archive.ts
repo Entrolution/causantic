@@ -326,9 +326,9 @@ export async function exportArchive(options: ExportOptions): Promise<ExportResul
       SELECT DISTINCT cluster_id FROM chunk_clusters
       WHERE chunk_id IN (${chunkIds.map(() => '?').join(',')})
     `);
-    const clusterIds = (
-      clusterIdsQuery.all(...chunkIds) as Array<{ cluster_id: string }>
-    ).map((r) => r.cluster_id);
+    const clusterIds = (clusterIdsQuery.all(...chunkIds) as Array<{ cluster_id: string }>).map(
+      (r) => r.cluster_id,
+    );
 
     if (clusterIds.length > 0) {
       const clustersQuery = db.prepare(`
@@ -601,9 +601,10 @@ export async function importArchive(options: ImportOptions): Promise<ImportResul
       // Handle both v1.1 (members with distance) and v1.0 compat (memberChunkIds)
       const members: ClusterMember[] =
         cluster.members ??
-        ((cluster as unknown as { memberChunkIds?: string[] }).memberChunkIds)?.map(
-          (id) => ({ chunkId: id, distance: 0 }),
-        ) ??
+        (cluster as unknown as { memberChunkIds?: string[] }).memberChunkIds?.map((id) => ({
+          chunkId: id,
+          distance: 0,
+        })) ??
         [];
       for (const member of members) {
         insertMember.run(member.chunkId, cluster.id, member.distance);

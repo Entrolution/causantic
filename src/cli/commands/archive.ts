@@ -70,10 +70,7 @@ export const exportCommand: Command = {
       `${formatCount(result.clusterCount)} clusters`,
       `${formatCount(result.vectorCount)} vectors`,
     ];
-    const suffix = [
-      result.compressed ? 'compressed' : null,
-      result.encrypted ? 'encrypted' : null,
-    ]
+    const suffix = [result.compressed ? 'compressed' : null, result.encrypted ? 'encrypted' : null]
       .filter(Boolean)
       .join(', ');
 
