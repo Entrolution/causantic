@@ -11,7 +11,10 @@
  */
 
 import { basename } from 'node:path';
-import { getClustersWithDescriptions, getClusterProjectRelevance } from '../storage/cluster-store.js';
+import {
+  getClustersWithDescriptions,
+  getClusterProjectRelevance,
+} from '../storage/cluster-store.js';
 import {
   getRecentChunksBySessionSlug,
   getSessionsForProject,

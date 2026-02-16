@@ -142,10 +142,7 @@ export function getChunksBySessionSlug(sessionSlug: string): StoredChunk[] {
  * Get the most recent N chunks for a session slug.
  * Uses SQL-level LIMIT to avoid loading all chunks into memory.
  */
-export function getRecentChunksBySessionSlug(
-  sessionSlug: string,
-  limit: number,
-): StoredChunk[] {
+export function getRecentChunksBySessionSlug(sessionSlug: string, limit: number): StoredChunk[] {
   const db = getDb();
   const rows = db
     .prepare(
