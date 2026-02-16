@@ -142,15 +142,6 @@ export async function discoverSessions(dir: string): Promise<string[]> {
 }
 
 /**
- * Filter out already-ingested sessions.
- */
-export async function filterAlreadyIngested(sessionPaths: string[]): Promise<string[]> {
-  // We need to check by session ID, not path
-  // For now, just return all paths - the ingest function will skip
-  return sessionPaths;
-}
-
-/**
  * Batch ingest sessions from paths.
  */
 export async function batchIngest(

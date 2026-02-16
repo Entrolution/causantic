@@ -61,4 +61,4 @@ Claude: [Uses memory tools to recall relevant context]
 
 - [Configuration](configuration.md) - Customize decay curves, thresholds, etc.
 - [How It Works](../guides/how-it-works.md) - Understand the architecture
-- [MCP Tools](../reference/mcp-tools.md) - Learn about recall, explain, and predict
+- [MCP Tools](../reference/mcp-tools.md) - Learn about search, recall, and predict

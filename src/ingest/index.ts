@@ -7,12 +7,7 @@ export { ingestSession, chunkToInput } from './ingest-session.js';
 export type { IngestOptions, IngestResult } from './ingest-session.js';
 
 // Batch ingestion
-export {
-  batchIngest,
-  batchIngestDirectory,
-  discoverSessions,
-  filterAlreadyIngested,
-} from './batch-ingest.js';
+export { batchIngest, batchIngestDirectory, discoverSessions } from './batch-ingest.js';
 export type { BatchIngestOptions, BatchIngestResult } from './batch-ingest.js';
 
 // Edge detection
