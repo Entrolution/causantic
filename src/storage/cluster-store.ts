@@ -98,6 +98,18 @@ export function getAllClusters(): StoredCluster[] {
 }
 
 /**
+ * Get all clusters that have a description.
+ * Avoids loading description-less clusters that would be filtered out anyway.
+ */
+export function getClustersWithDescriptions(): StoredCluster[] {
+  const db = getDb();
+  const rows = db
+    .prepare('SELECT * FROM clusters WHERE description IS NOT NULL ORDER BY created_at')
+    .all() as DbClusterRow[];
+  return rows.map(rowToCluster);
+}
+
+/**
  * Get clusters that need refresh (stale descriptions).
  * A cluster is stale if its membership_hash doesn't match current members
  * or if it has never been refreshed.
@@ -178,6 +190,46 @@ export function getClusterChunkIds(clusterId: string): string[] {
     .all(clusterId) as { chunk_id: string }[];
 
   return rows.map((r) => r.chunk_id);
+}
+
+/**
+ * Get project relevance scores for multiple clusters in a single query.
+ * Replaces the N+1 pattern of calling getClusterChunkIds + getChunksByIds per cluster.
+ */
+export function getClusterProjectRelevance(
+  clusterIds: string[],
+  projectSlug: string,
+): Array<{ clusterId: string; relevance: number }> {
+  if (clusterIds.length === 0) return [];
+
+  const db = getDb();
+  const placeholders = clusterIds.map(() => '?').join(', ');
+
+  const rows = db
+    .prepare(
+      `
+      SELECT cc.cluster_id,
+             SUM(CASE WHEN c.session_slug = ? THEN 1 ELSE 0 END) as project_count,
+             COUNT(*) as total_count
+      FROM chunk_clusters cc
+      JOIN chunks c ON cc.chunk_id = c.id
+      WHERE cc.cluster_id IN (${placeholders})
+      GROUP BY cc.cluster_id
+      HAVING project_count > 0
+    `,
+    )
+    .all(projectSlug, ...clusterIds) as Array<{
+    cluster_id: string;
+    project_count: number;
+    total_count: number;
+  }>;
+
+  return rows
+    .map((r) => ({
+      clusterId: r.cluster_id,
+      relevance: r.project_count / r.total_count,
+    }))
+    .sort((a, b) => b.relevance - a.relevance);
 }
 
 /**

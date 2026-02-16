@@ -479,9 +479,13 @@ describe('initCommand', () => {
       expect(written.hooks.SessionStart).toBeDefined();
       expect(written.hooks.SessionEnd).toBeDefined();
       expect(written.hooks.PreCompact[0].hooks[0].command).toContain('hook pre-compact');
+      expect(written.hooks.PreCompact[0].hooks[0].async).toBe(true);
       expect(written.hooks.SessionStart[0].hooks[0].command).toContain('hook session-start');
+      expect(written.hooks.SessionStart[0].hooks[0].async).toBeUndefined();
       expect(written.hooks.SessionEnd[0].hooks[0].command).toContain('hook session-end');
+      expect(written.hooks.SessionEnd[0].hooks[0].async).toBe(true);
       expect(written.hooks.SessionEnd[1].hooks[0].command).toContain('hook claudemd-generator');
+      expect(written.hooks.SessionEnd[1].hooks[0].async).toBe(true);
       expect(console.log).toHaveBeenCalledWith(
         expect.stringContaining('Configured 4 Claude Code hooks'),
       );
@@ -504,7 +508,12 @@ describe('initCommand', () => {
           {
             matcher: '',
             hooks: [
-              { type: 'command', command: `${nodeBin} ${cliEntry} hook pre-compact`, timeout: 300 },
+              {
+                type: 'command',
+                command: `${nodeBin} ${cliEntry} hook pre-compact`,
+                timeout: 300,
+                async: true,
+              },
             ],
           },
         ],
@@ -524,7 +533,12 @@ describe('initCommand', () => {
           {
             matcher: '',
             hooks: [
-              { type: 'command', command: `${nodeBin} ${cliEntry} hook session-end`, timeout: 300 },
+              {
+                type: 'command',
+                command: `${nodeBin} ${cliEntry} hook session-end`,
+                timeout: 300,
+                async: true,
+              },
             ],
           },
           {
@@ -534,6 +548,7 @@ describe('initCommand', () => {
                 type: 'command',
                 command: `${nodeBin} ${cliEntry} hook claudemd-generator`,
                 timeout: 60,
+                async: true,
               },
             ],
           },

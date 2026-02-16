@@ -436,6 +436,7 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
           type: 'command',
           command: `${nodeBin} ${cliEntry} hook pre-compact`,
           timeout: 300,
+          async: true,
         },
       },
       {
@@ -454,6 +455,7 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
           type: 'command',
           command: `${nodeBin} ${cliEntry} hook session-end`,
           timeout: 300,
+          async: true,
         },
       },
       {
@@ -463,6 +465,7 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
           type: 'command',
           command: `${nodeBin} ${cliEntry} hook claudemd-generator`,
           timeout: 60,
+          async: true,
         },
       },
     ];
@@ -486,10 +489,11 @@ async function configureHooks(claudeConfigPath: string): Promise<void> {
 
       const subCmd = hookSubcommand(hook.command);
 
-      // Check if an identical entry already exists (same full command).
+      // Check if an identical entry already exists (same hook object).
+      const hookStr = JSON.stringify(hook);
       const exactMatch = config.hooks[event].some(
-        (entry: { hooks?: Array<{ command?: string }> }) =>
-          entry.hooks?.some((h: { command?: string }) => h.command === hook.command),
+        (entry: { hooks?: Array<Record<string, unknown>> }) =>
+          entry.hooks?.some((h: Record<string, unknown>) => JSON.stringify(h) === hookStr),
       );
 
       if (exactMatch) continue;
