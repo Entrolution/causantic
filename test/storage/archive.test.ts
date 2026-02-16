@@ -8,8 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { writeFileSync, readFileSync, unlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { gzipSync } from 'node:zlib';
-import Database from 'better-sqlite3-multiple-ciphers';
+import type Database from 'better-sqlite3-multiple-ciphers';
 import {
   createTestDb,
   setupTestDb,
@@ -25,8 +24,6 @@ import {
   importArchive,
   validateArchive,
   type Archive,
-  type ExportResult,
-  type ImportResult,
 } from '../../src/storage/archive.js';
 import { serializeEmbedding, deserializeEmbedding } from '../../src/utils/embedding-utils.js';
 
@@ -152,7 +149,7 @@ describe('archive', () => {
 
   describe('unencrypted round-trip', () => {
     it('exports and imports all data correctly', async () => {
-      const { embedding } = seedTestData(db);
+      seedTestData(db);
 
       const exportResult = await exportArchive({ outputPath });
       expect(exportResult.chunkCount).toBe(3);
