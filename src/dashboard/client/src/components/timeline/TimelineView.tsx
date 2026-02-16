@@ -31,7 +31,14 @@ interface TimelineViewProps {
   clusters?: ClusterInfo[];
 }
 
-export function TimelineView({ chunks, edges: _edges, timeRange, onChunkClick, selectedChunkId, clusters }: TimelineViewProps) {
+export function TimelineView({
+  chunks,
+  edges: _edges,
+  timeRange,
+  onChunkClick,
+  selectedChunkId,
+  clusters,
+}: TimelineViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   // Build cluster lookup: id → sorted index + metadata
@@ -69,34 +76,35 @@ export function TimelineView({ chunks, edges: _edges, timeRange, onChunkClick, s
     const sessionSlugs = [...new Set(chunks.map((c) => c.sessionSlug))];
 
     // Scales
-    const xScale = d3.scaleTime()
+    const xScale = d3
+      .scaleTime()
       .domain([new Date(timeRange.earliest!), new Date(timeRange.latest!)])
       .range([0, innerWidth]);
 
-    const yScale = d3.scaleBand<string>()
-      .domain(sessionSlugs)
-      .range([0, innerHeight])
-      .padding(0.3);
+    const yScale = d3.scaleBand<string>().domain(sessionSlugs).range([0, innerHeight]).padding(0.3);
 
     // Container group with margins
     svg.attr('width', width).attr('height', height);
 
     // Clip path to constrain chunks/edges within chart area
-    svg.append('defs')
+    svg
+      .append('defs')
       .append('clipPath')
       .attr('id', 'timeline-clip')
       .append('rect')
       .attr('width', innerWidth)
       .attr('height', innerHeight);
 
-    const g = svg
-      .append('g')
-      .attr('transform', `translate(${margin.left},${margin.top})`);
+    const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     // Zoom on X axis
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.5, 20])
-      .translateExtent([[-100, 0], [innerWidth + 100, height]])
+      .translateExtent([
+        [-100, 0],
+        [innerWidth + 100, height],
+      ])
       .on('zoom', (event) => {
         const newXScale = event.transform.rescaleX(xScale);
         xAxisG.call(d3.axisBottom(newXScale).ticks(8));
@@ -113,7 +121,8 @@ export function TimelineView({ chunks, edges: _edges, timeRange, onChunkClick, s
     svg.call(zoom);
 
     // Draw axes
-    const xAxisG = g.append('g')
+    const xAxisG = g
+      .append('g')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(xScale).ticks(8))
       .attr('class', 'timeline-axis');
@@ -125,16 +134,18 @@ export function TimelineView({ chunks, edges: _edges, timeRange, onChunkClick, s
       .style('font-size', '11px');
 
     // Style axis lines
-    g.selectAll('.timeline-axis line, .timeline-axis path')
-      .attr('stroke', 'var(--border-color, #334155)');
-    g.selectAll('.timeline-axis text')
-      .attr('fill', 'var(--muted-foreground, #94a3b8)');
+    g.selectAll('.timeline-axis line, .timeline-axis path').attr(
+      'stroke',
+      'var(--border-color, #334155)',
+    );
+    g.selectAll('.timeline-axis text').attr('fill', 'var(--muted-foreground, #94a3b8)');
 
     // Clipped group for chart content
     const chartArea = g.append('g').attr('clip-path', 'url(#timeline-clip)');
 
     // Draw chunks
-    const chunkRects = chartArea.append('g')
+    const chunkRects = chartArea
+      .append('g')
       .selectAll('rect')
       .data(chunks)
       .join('rect')
@@ -147,8 +158,8 @@ export function TimelineView({ chunks, edges: _edges, timeRange, onChunkClick, s
       .attr('height', yScale.bandwidth())
       .attr('rx', 2)
       .attr('fill', (d) => getColor(d.clusterId))
-      .attr('fill-opacity', (d) => d.id === selectedChunkId ? 1.0 : 0.7)
-      .attr('stroke', (d) => d.id === selectedChunkId ? '#ffffff' : 'none')
+      .attr('fill-opacity', (d) => (d.id === selectedChunkId ? 1.0 : 0.7))
+      .attr('stroke', (d) => (d.id === selectedChunkId ? '#ffffff' : 'none'))
       .attr('stroke-width', 2)
       .attr('cursor', 'pointer')
       .on('click', (_event, d) => onChunkClick(d.id))
@@ -160,14 +171,21 @@ export function TimelineView({ chunks, edges: _edges, timeRange, onChunkClick, s
       });
 
     // Chunk tooltips — include cluster name
-    chunkRects.append('title')
-      .text((d) => {
-        const info = d.clusterId ? clusterMap.get(d.clusterId) : null;
-        const clusterLabel = info?.name ?? (d.clusterId ? 'Unknown cluster' : 'Unclustered');
-        return `${d.sessionSlug}\n${clusterLabel}\n${d.preview.slice(0, 100)}...\n${new Date(d.startTime).toLocaleString()}`;
-      });
-
-  }, [chunks, timeRange, onChunkClick, selectedChunkId, clusters, sortedClusters, colorIndex, clusterMap]);
+    chunkRects.append('title').text((d) => {
+      const info = d.clusterId ? clusterMap.get(d.clusterId) : null;
+      const clusterLabel = info?.name ?? (d.clusterId ? 'Unknown cluster' : 'Unclustered');
+      return `${d.sessionSlug}\n${clusterLabel}\n${d.preview.slice(0, 100)}...\n${new Date(d.startTime).toLocaleString()}`;
+    });
+  }, [
+    chunks,
+    timeRange,
+    onChunkClick,
+    selectedChunkId,
+    clusters,
+    sortedClusters,
+    colorIndex,
+    clusterMap,
+  ]);
 
   return (
     <div className="w-full h-full">

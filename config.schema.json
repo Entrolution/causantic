@@ -13,7 +13,7 @@
           "type": "number",
           "minimum": 0.01,
           "maximum": 0.5,
-          "default": 0.10,
+          "default": 0.1,
           "description": "Angular distance threshold for cluster assignment"
         },
         "minClusterSize": {

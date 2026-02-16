@@ -18,10 +18,16 @@ services:
       # - CAUSANTIC_ANTHROPIC_KEY=${CAUSANTIC_ANTHROPIC_KEY}
     ports:
       # HTTP port for web dashboard (when implemented)
-      - "3000:3000"
+      - '3000:3000'
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "node", "-e", "require('./dist/storage/db.js').getDatabase().prepare('SELECT 1').get()"]
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('./dist/storage/db.js').getDatabase().prepare('SELECT 1').get()",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -39,7 +45,7 @@ services:
     environment:
       - CAUSANTIC_STORAGE_DB_PATH=/data/causantic/memory.db
       - CAUSANTIC_STORAGE_VECTOR_PATH=/data/causantic/vectors
-    command: ["node", "dist/cli/index.js", "maintenance", "daemon"]
+    command: ['node', 'dist/cli/index.js', 'maintenance', 'daemon']
     restart: unless-stopped
     depends_on:
       - causantic

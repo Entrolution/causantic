@@ -86,7 +86,10 @@ export function NodeInspector({ node, onClose, onExploreNeighborhood }: NodeInsp
           <div className="space-y-1 max-h-48 overflow-y-auto">
             {edgeData.edges.map((edge) => (
               <div key={edge.id} className="flex items-center gap-2 text-xs">
-                <Badge variant={edge.type === 'backward' ? 'default' : 'outline'} className="text-[10px]">
+                <Badge
+                  variant={edge.type === 'backward' ? 'default' : 'outline'}
+                  className="text-[10px]"
+                >
                   {edge.type}
                 </Badge>
                 {edge.referenceType && (

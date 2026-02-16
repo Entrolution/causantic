@@ -46,10 +46,16 @@ interface TopicStats {
   focusScore: number;
 }
 
-function computeStats(sorted: TimelineChunk[], clusterLabel: (id: string | null) => string): TopicStats {
+function computeStats(
+  sorted: TimelineChunk[],
+  clusterLabel: (id: string | null) => string,
+): TopicStats {
   if (sorted.length <= 1) {
     return {
-      longestStreak: sorted.length === 1 ? { cluster: clusterLabel(sorted[0].clusterId), count: 1, durationMs: 0 } : null,
+      longestStreak:
+        sorted.length === 1
+          ? { cluster: clusterLabel(sorted[0].clusterId), count: 1, durationMs: 0 }
+          : null,
       mostSwitches: null,
       focusScore: 1,
     };
@@ -73,7 +79,9 @@ function computeStats(sorted: TimelineChunk[], clusterLabel: (id: string | null)
   if (curStreak.count > bestStreak.count) {
     bestStreak = { ...curStreak, endIdx: sorted.length - 1 };
   }
-  const streakDuration = new Date(sorted[bestStreak.endIdx].endTime).getTime() - new Date(sorted[bestStreak.startIdx].startTime).getTime();
+  const streakDuration =
+    new Date(sorted[bestStreak.endIdx].endTime).getTime() -
+    new Date(sorted[bestStreak.startIdx].startTime).getTime();
 
   // Switch counts between pairs
   const pairCounts = new Map<string, { from: string; to: string; count: number }>();
@@ -96,12 +104,20 @@ function computeStats(sorted: TimelineChunk[], clusterLabel: (id: string | null)
   let mostSwitches: TopicStats['mostSwitches'] = null;
   for (const pair of pairCounts.values()) {
     if (!mostSwitches || pair.count > mostSwitches.count) {
-      mostSwitches = { from: clusterLabel(pair.from === '__unclustered' ? null : pair.from), to: clusterLabel(pair.to === '__unclustered' ? null : pair.to), count: pair.count };
+      mostSwitches = {
+        from: clusterLabel(pair.from === '__unclustered' ? null : pair.from),
+        to: clusterLabel(pair.to === '__unclustered' ? null : pair.to),
+        count: pair.count,
+      };
     }
   }
 
   return {
-    longestStreak: { cluster: clusterLabel(bestStreak.cluster), count: bestStreak.count, durationMs: streakDuration },
+    longestStreak: {
+      cluster: clusterLabel(bestStreak.cluster),
+      count: bestStreak.count,
+      durationMs: streakDuration,
+    },
     mostSwitches,
     focusScore: 1 - switchCount / (sorted.length - 1),
   };
@@ -116,14 +132,22 @@ function formatDuration(ms: number): string {
   return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`;
 }
 
-export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, selectedChunkId, clusters }: TopicFlowViewProps) {
+export function TopicFlowView({
+  chunks,
+  edges: _edges,
+  timeRange,
+  onChunkClick,
+  selectedChunkId,
+  clusters,
+}: TopicFlowViewProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   const clusterMap = useMemo(() => new Map((clusters ?? []).map((c) => [c.id, c])), [clusters]);
 
   // Sort chunks chronologically
-  const sorted = useMemo(() =>
-    [...chunks].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+  const sorted = useMemo(
+    () =>
+      [...chunks].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
     [chunks],
   );
 
@@ -217,11 +241,13 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
     const innerHeight = height - margin.top - margin.bottom;
 
     // Scales
-    const xScale = d3.scaleTime()
+    const xScale = d3
+      .scaleTime()
       .domain([new Date(timeRange.earliest!), new Date(timeRange.latest!)])
       .range([0, innerWidth]);
 
-    const yScale = d3.scaleBand<string>()
+    const yScale = d3
+      .scaleBand<string>()
       .domain(clusterOrder)
       .range([0, innerHeight])
       .padding(0.25);
@@ -232,7 +258,8 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
 
     // Defs: clip path + gradients
     const defs = svg.append('defs');
-    defs.append('clipPath')
+    defs
+      .append('clipPath')
       .attr('id', 'topicflow-clip')
       .append('rect')
       .attr('width', innerWidth)
@@ -250,18 +277,30 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
     for (const pair of gradientPairs) {
       const [fromId, toId] = pair.split('||');
       const gradId = `grad-${fromId}-${toId}`.replace(/[^a-zA-Z0-9-]/g, '_');
-      const grad = defs.append('linearGradient')
+      const grad = defs
+        .append('linearGradient')
         .attr('id', gradId)
-        .attr('x1', '0%').attr('y1', '0%')
-        .attr('x2', '100%').attr('y2', '0%');
-      grad.append('stop').attr('offset', '0%').attr('stop-color', getColor(fromId === '__unclustered' ? null : fromId)).attr('stop-opacity', 0.3);
-      grad.append('stop').attr('offset', '100%').attr('stop-color', getColor(toId === '__unclustered' ? null : toId)).attr('stop-opacity', 0.3);
+        .attr('x1', '0%')
+        .attr('y1', '0%')
+        .attr('x2', '100%')
+        .attr('y2', '0%');
+      grad
+        .append('stop')
+        .attr('offset', '0%')
+        .attr('stop-color', getColor(fromId === '__unclustered' ? null : fromId))
+        .attr('stop-opacity', 0.3);
+      grad
+        .append('stop')
+        .attr('offset', '100%')
+        .attr('stop-color', getColor(toId === '__unclustered' ? null : toId))
+        .attr('stop-opacity', 0.3);
     }
 
     const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
     // X axis
-    const xAxisG = g.append('g')
+    const xAxisG = g
+      .append('g')
       .attr('transform', `translate(0,${innerHeight})`)
       .call(d3.axisBottom(xScale).ticks(8))
       .attr('class', 'topicflow-axis');
@@ -272,10 +311,15 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
       const yPos = (yScale(cid) ?? 0) + bandwidth / 2;
       const label = clusterLabel(cid === '__unclustered' ? null : cid);
       const cs = clusterStats.get(cid);
-      const tokenStr = cs ? (cs.tokens >= 1000 ? `${Math.round(cs.tokens / 1000)}k` : `${cs.tokens}`) : '0';
+      const tokenStr = cs
+        ? cs.tokens >= 1000
+          ? `${Math.round(cs.tokens / 1000)}k`
+          : `${cs.tokens}`
+        : '0';
       const fullLabel = cs ? `${label} (${cs.count}, ${tokenStr} tok)` : label;
       const truncated = fullLabel.length > 30 ? fullLabel.slice(0, 28) + '…' : fullLabel;
-      yAxisG.append('text')
+      yAxisG
+        .append('text')
         .attr('x', -8)
         .attr('y', yPos)
         .attr('text-anchor', 'end')
@@ -283,19 +327,24 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
         .attr('fill', 'var(--muted-foreground, #94a3b8)')
         .attr('font-size', '11px')
         .text(truncated)
-        .append('title').text(fullLabel);
+        .append('title')
+        .text(fullLabel);
     }
     // Y axis line
-    yAxisG.append('line')
-      .attr('x1', 0).attr('y1', 0)
-      .attr('x2', 0).attr('y2', innerHeight)
+    yAxisG
+      .append('line')
+      .attr('x1', 0)
+      .attr('y1', 0)
+      .attr('x2', 0)
+      .attr('y2', innerHeight)
       .attr('stroke', 'var(--border-color, #334155)');
 
     // Style axis
-    g.selectAll('.topicflow-axis line, .topicflow-axis path')
-      .attr('stroke', 'var(--border-color, #334155)');
-    g.selectAll('.topicflow-axis text')
-      .attr('fill', 'var(--muted-foreground, #94a3b8)');
+    g.selectAll('.topicflow-axis line, .topicflow-axis path').attr(
+      'stroke',
+      'var(--border-color, #334155)',
+    );
+    g.selectAll('.topicflow-axis text').attr('fill', 'var(--muted-foreground, #94a3b8)');
 
     const chartArea = g.append('g').attr('clip-path', 'url(#topicflow-clip)');
 
@@ -307,14 +356,18 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
       const sessionG = chartArea.append('g').attr('class', 'session-boundaries');
       for (const sb of sessionBoundaries) {
         const x = xS(new Date(sb.time));
-        sessionG.append('line')
-          .attr('x1', x).attr('y1', 0)
-          .attr('x2', x).attr('y2', innerHeight)
+        sessionG
+          .append('line')
+          .attr('x1', x)
+          .attr('y1', 0)
+          .attr('x2', x)
+          .attr('y2', innerHeight)
           .attr('stroke', '#475569')
           .attr('stroke-width', 1)
           .attr('stroke-dasharray', '4,4')
           .attr('stroke-opacity', 0.3);
-        sessionG.append('text')
+        sessionG
+          .append('text')
           .attr('x', x + 4)
           .attr('y', 10)
           .attr('fill', 'var(--muted-foreground, #94a3b8)')
@@ -336,7 +389,8 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
           // Gap indicator
           const midX = (xS(new Date(cur.endTime)) + xS(new Date(next.startTime))) / 2;
           const midY = innerHeight / 2;
-          ribbonG.append('text')
+          ribbonG
+            .append('text')
             .attr('class', 'gap-indicator')
             .attr('x', midX)
             .attr('y', midY)
@@ -359,7 +413,8 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
         if (fromCid === toCid) {
           // Same-cluster: flat horizontal band
           const yTop = (yScale(fromCid) ?? 0) + bandwidth * 0.25;
-          ribbonG.append('rect')
+          ribbonG
+            .append('rect')
             .attr('class', `ribbon ribbon-${i}`)
             .attr('x', Math.min(x1, x2))
             .attr('y', yTop)
@@ -377,15 +432,19 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
 
           const gradId = `grad-${fromCid}-${toCid}`.replace(/[^a-zA-Z0-9-]/g, '_');
 
-          ribbonG.append('path')
+          ribbonG
+            .append('path')
             .attr('class', `ribbon ribbon-${i}`)
-            .attr('d', [
-              `M${x1},${y1Top}`,
-              `C${mx},${y1Top} ${mx},${y2Top} ${x2},${y2Top}`,
-              `L${x2},${y2Bot}`,
-              `C${mx},${y2Bot} ${mx},${y1Bot} ${x1},${y1Bot}`,
-              'Z',
-            ].join(' '))
+            .attr(
+              'd',
+              [
+                `M${x1},${y1Top}`,
+                `C${mx},${y1Top} ${mx},${y2Top} ${x2},${y2Top}`,
+                `L${x2},${y2Bot}`,
+                `C${mx},${y2Bot} ${mx},${y1Bot} ${x1},${y1Bot}`,
+                'Z',
+              ].join(' '),
+            )
             .attr('fill', `url(#${gradId})`)
             .attr('stroke', 'none');
         }
@@ -393,7 +452,8 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
 
       // Chunks
       const chunkG = chartArea.append('g').attr('class', 'chunks');
-      chunkG.selectAll('rect')
+      chunkG
+        .selectAll('rect')
         .data(sorted)
         .join('rect')
         .attr('class', (_, i) => `chunk chunk-${i}`)
@@ -409,8 +469,8 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
         .attr('height', bandwidth * 0.7)
         .attr('rx', 2)
         .attr('fill', (d) => getColor(d.clusterId))
-        .attr('fill-opacity', (d) => d.id === selectedChunkId ? 1.0 : 0.7)
-        .attr('stroke', (d) => d.id === selectedChunkId ? '#ffffff' : 'none')
+        .attr('fill-opacity', (d) => (d.id === selectedChunkId ? 1.0 : 0.7))
+        .attr('stroke', (d) => (d.id === selectedChunkId ? '#ffffff' : 'none'))
         .attr('stroke-width', 2)
         .attr('cursor', 'pointer')
         .on('click', (_event, d) => onChunkClick(d.id))
@@ -423,7 +483,8 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
         });
 
       // Chunk tooltips
-      chunkG.selectAll('rect')
+      chunkG
+        .selectAll('rect')
         .append('title')
         .text((_: unknown, i: number) => {
           const d = sorted[i];
@@ -438,13 +499,15 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
       const highlighted = new Set<number>();
       highlighted.add(centerIdx);
       for (let i = centerIdx - 1; i >= 0 && highlighted.size < CHAIN_MAX; i--) {
-        const gap = new Date(sorted[i + 1].startTime).getTime() - new Date(sorted[i].endTime).getTime();
+        const gap =
+          new Date(sorted[i + 1].startTime).getTime() - new Date(sorted[i].endTime).getTime();
         if (gap > GAP_THRESHOLD_MS) break;
         highlighted.add(i);
       }
       // Walk forward
       for (let i = centerIdx + 1; i < sorted.length && highlighted.size < CHAIN_MAX; i++) {
-        const gap = new Date(sorted[i].startTime).getTime() - new Date(sorted[i - 1].endTime).getTime();
+        const gap =
+          new Date(sorted[i].startTime).getTime() - new Date(sorted[i - 1].endTime).getTime();
         if (gap > GAP_THRESHOLD_MS) break;
         highlighted.add(i);
       }
@@ -467,8 +530,11 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
     }
 
     function clearHighlight() {
-      chartArea.selectAll('.chunk')
-        .attr('fill-opacity', (d: unknown) => (d as TimelineChunk).id === selectedChunkId ? 1.0 : 0.7);
+      chartArea
+        .selectAll('.chunk')
+        .attr('fill-opacity', (d: unknown) =>
+          (d as TimelineChunk).id === selectedChunkId ? 1.0 : 0.7,
+        );
       chartArea.selectAll('.ribbon').attr('opacity', 1.0);
       chartArea.selectAll('.gap-indicator').attr('fill-opacity', 0.5);
     }
@@ -477,9 +543,13 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
     renderContent(xScale);
 
     // Zoom
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
+    const zoom = d3
+      .zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.5, 20])
-      .translateExtent([[-100, 0], [innerWidth + 100, height]])
+      .translateExtent([
+        [-100, 0],
+        [innerWidth + 100, height],
+      ])
       .on('zoom', (event) => {
         const newXScale = event.transform.rescaleX(xScale);
         xAxisG.call(d3.axisBottom(newXScale).ticks(8));
@@ -487,8 +557,17 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
       });
 
     svg.call(zoom);
-
-  }, [sorted, timeRange, onChunkClick, selectedChunkId, clusterOrder, clusterMap, colorIndex, clusterStats, sessionBoundaries]);
+  }, [
+    sorted,
+    timeRange,
+    onChunkClick,
+    selectedChunkId,
+    clusterOrder,
+    clusterMap,
+    colorIndex,
+    clusterStats,
+    sessionBoundaries,
+  ]);
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -499,14 +578,17 @@ export function TopicFlowView({ chunks, edges: _edges, timeRange, onChunkClick, 
             <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/30 rounded">
               <span className="font-medium text-foreground">Longest streak:</span>
               <span className="tabular-nums">
-                {stats.longestStreak.cluster} ({stats.longestStreak.count} chunks, {formatDuration(stats.longestStreak.durationMs)})
+                {stats.longestStreak.cluster} ({stats.longestStreak.count} chunks,{' '}
+                {formatDuration(stats.longestStreak.durationMs)})
               </span>
             </div>
           )}
           <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/30 rounded">
             <span className="font-medium text-foreground">Most switches:</span>
             <span className="tabular-nums">
-              {stats.mostSwitches ? `${stats.mostSwitches.from} ↔ ${stats.mostSwitches.to} (${stats.mostSwitches.count}×)` : '—'}
+              {stats.mostSwitches
+                ? `${stats.mostSwitches.from} ↔ ${stats.mostSwitches.to} (${stats.mostSwitches.count}×)`
+                : '—'}
             </span>
           </div>
           <div className="flex items-center gap-1.5 px-2 py-1 bg-muted/30 rounded">

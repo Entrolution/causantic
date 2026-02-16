@@ -49,9 +49,7 @@ export function SearchPage() {
 
       {data && <PipelineComparison data={data} />}
 
-      {!data && !loading && query && (
-        <div className="text-muted-foreground">No results found.</div>
-      )}
+      {!data && !loading && query && <div className="text-muted-foreground">No results found.</div>}
     </div>
   );
 }

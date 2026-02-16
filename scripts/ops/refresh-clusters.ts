@@ -50,7 +50,9 @@ Example:
   const apiKey = await getApiKey('ANTHROPIC_API_KEY');
   if (!apiKey) {
     console.error('Error: ANTHROPIC_API_KEY not found');
-    console.error('Set via environment variable or run: npm run refresh-clusters -- --set-key <your-key>');
+    console.error(
+      'Set via environment variable or run: npm run refresh-clusters -- --set-key <your-key>',
+    );
     process.exit(1);
   }
 

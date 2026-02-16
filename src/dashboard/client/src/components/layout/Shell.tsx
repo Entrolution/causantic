@@ -1,15 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Clock,
-  Boxes,
-  Search,
-  FolderOpen,
-  Menu,
-  X,
-  Brain,
-} from 'lucide-react';
+import { LayoutDashboard, Clock, Boxes, Search, FolderOpen, Menu, X, Brain } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { cn } from '../../lib/utils';
 
@@ -72,9 +63,7 @@ export function Shell() {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-border p-4 text-xs text-muted-foreground">
-          Causantic
-        </div>
+        <div className="border-t border-border p-4 text-xs text-muted-foreground">Causantic</div>
       </aside>
 
       {/* Main content */}

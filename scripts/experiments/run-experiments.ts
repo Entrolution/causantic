@@ -15,7 +15,10 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Corpus } from '../src/eval/corpus-builder.js';
 import type { AnnotationSet } from '../src/eval/annotation-schema.js';
-import { singleModelRun, type SingleModelResult } from '../src/eval/experiments/single-model-run.js';
+import {
+  singleModelRun,
+  type SingleModelResult,
+} from '../src/eval/experiments/single-model-run.js';
 import { runTruncationExperiment } from '../src/eval/experiments/truncation.js';
 import { runHdbscanSweep } from '../src/eval/experiments/hdbscan-sweep.js';
 import { runBoilerplateExperiment } from '../src/eval/experiments/boilerplate-filter.js';
@@ -103,9 +106,7 @@ async function main(): Promise<void> {
   const pairsJson = await readFile(join(corpusDir, 'labeled-pairs.json'), 'utf-8');
   const annotations: AnnotationSet = JSON.parse(pairsJson);
 
-  console.log(
-    `Corpus: ${corpus.chunks.length} chunks, ${annotations.pairs.length} pairs`,
-  );
+  console.log(`Corpus: ${corpus.chunks.length} chunks, ${annotations.pairs.length} pairs`);
   console.log(`Experiments to run: ${experiments.join(', ')}\n`);
 
   // Experiments 1-3 share baseline embeddings — compute once
@@ -117,8 +118,8 @@ async function main(): Promise<void> {
     baselineResult = await singleModelRun(MODEL_ID, corpus.chunks, annotations.pairs);
     console.log(
       `  Baseline: ROC AUC=${baselineResult.rocAuc.toFixed(3)}, ` +
-      `Silhouette=${baselineResult.silhouetteScore.toFixed(3)}, ` +
-      `Clusters=${baselineResult.clusterCount}`,
+        `Silhouette=${baselineResult.silhouetteScore.toFixed(3)}, ` +
+        `Clusters=${baselineResult.clusterCount}`,
     );
   }
 
@@ -127,30 +128,18 @@ async function main(): Promise<void> {
 
   // Experiment 1: Truncation
   if (experiments.includes(1)) {
-    const result = await runTruncationExperiment(
-      corpus.chunks,
-      annotations.pairs,
-      baselineResult,
-    );
+    const result = await runTruncationExperiment(corpus.chunks, annotations.pairs, baselineResult);
     experimentResults.push(result);
   }
 
   // Experiment 2: HDBSCAN sweep (different return type)
   if (experiments.includes(2)) {
-    sweepResult = await runHdbscanSweep(
-      corpus.chunks,
-      annotations.pairs,
-      baselineResult,
-    );
+    sweepResult = await runHdbscanSweep(corpus.chunks, annotations.pairs, baselineResult);
   }
 
   // Experiment 3: Boilerplate filter
   if (experiments.includes(3)) {
-    const result = await runBoilerplateExperiment(
-      corpus.chunks,
-      annotations.pairs,
-      baselineResult,
-    );
+    const result = await runBoilerplateExperiment(corpus.chunks, annotations.pairs, baselineResult);
     experimentResults.push(result);
   }
 
@@ -159,12 +148,8 @@ async function main(): Promise<void> {
   const needsRebuild = experiments.some((e) => [4, 5].includes(e));
 
   if (needsRebuild && corpus.config.sessionPaths.length === 0) {
-    console.warn(
-      '\nWARNING: Experiments 4 and 5 require session file paths in the corpus config.',
-    );
-    console.warn(
-      'The loaded corpus may not have accessible sessionPaths. Attempting anyway...\n',
-    );
+    console.warn('\nWARNING: Experiments 4 and 5 require session file paths in the corpus config.');
+    console.warn('The loaded corpus may not have accessible sessionPaths. Attempting anyway...\n');
   }
 
   // For experiments 4 and 5, compute a fresh baseline from the original corpus
@@ -180,21 +165,13 @@ async function main(): Promise<void> {
 
   // Experiment 4: Thinking ablation
   if (experiments.includes(4)) {
-    const result = await runThinkingAblation(
-      corpus,
-      annotations.pairs,
-      rechunkBaseline,
-    );
+    const result = await runThinkingAblation(corpus, annotations.pairs, rechunkBaseline);
     experimentResults.push(result);
   }
 
   // Experiment 5: Code-focused mode
   if (experiments.includes(5)) {
-    const result = await runCodeFocusedExperiment(
-      corpus,
-      annotations.pairs,
-      rechunkBaseline,
-    );
+    const result = await runCodeFocusedExperiment(corpus, annotations.pairs, rechunkBaseline);
     experimentResults.push(result);
   }
 

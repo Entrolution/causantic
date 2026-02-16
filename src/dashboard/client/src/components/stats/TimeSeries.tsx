@@ -56,7 +56,12 @@ export function TimeSeries({ data }: TimeSeriesProps) {
     // X axis
     g.append('g')
       .attr('transform', `translate(0,${innerHeight})`)
-      .call(d3.axisBottom(x).ticks(6).tickFormat(d3.timeFormat('%b %y') as (d: Date | d3.NumberValue) => string))
+      .call(
+        d3
+          .axisBottom(x)
+          .ticks(6)
+          .tickFormat(d3.timeFormat('%b %y') as (d: Date | d3.NumberValue) => string),
+      )
       .attr('color', mutedFg)
       .selectAll('line')
       .attr('stroke', borderColor);

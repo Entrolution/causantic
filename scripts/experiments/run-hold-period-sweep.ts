@@ -100,9 +100,7 @@ Example:
   console.log(`Found ${allSessionPaths.length} sessions`);
 
   // Sample and build session sources
-  const selectedPaths = allSessionPaths
-    .sort(() => Math.random() - 0.5)
-    .slice(0, maxSessions);
+  const selectedPaths = allSessionPaths.sort(() => Math.random() - 0.5).slice(0, maxSessions);
 
   const sessions: SessionSource[] = [];
   for (const path of selectedPaths) {
@@ -145,7 +143,9 @@ Example:
   for (const r of sorted) {
     const holdMatch = r.modelName.match(/\((\d+)min\)/);
     const hold = holdMatch ? holdMatch[1] : '?';
-    console.log(`  ${hold}min hold: MRR=${r.mrr.toFixed(3)}, Rank@1=${r.rankDistribution.rank1} (${((r.rankDistribution.rank1 / r.queryCount) * 100).toFixed(0)}%)`);
+    console.log(
+      `  ${hold}min hold: MRR=${r.mrr.toFixed(3)}, Rank@1=${r.rankDistribution.rank1} (${((r.rankDistribution.rank1 / r.queryCount) * 100).toFixed(0)}%)`,
+    );
   }
 
   const best = sorted[0];
@@ -153,7 +153,9 @@ Example:
   const bestHold = holdMatch ? holdMatch[1] : '?';
 
   console.log(`\n*** Recommended hold period: ${bestHold} minutes ***`);
-  console.log(`    (MRR=${best.mrr.toFixed(3)}, Rank@1=${((best.rankDistribution.rank1 / best.queryCount) * 100).toFixed(0)}%)`);
+  console.log(
+    `    (MRR=${best.mrr.toFixed(3)}, Rank@1=${((best.rankDistribution.rank1 / best.queryCount) * 100).toFixed(0)}%)`,
+  );
 }
 
 main().catch((err) => {

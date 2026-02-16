@@ -14,7 +14,7 @@ async function debug(query: string) {
 
   // Vector search
   const vectorResults = await vectorStore.search(embedding, 20);
-  const vectorIds = new Set(vectorResults.map(r => r.id));
+  const vectorIds = new Set(vectorResults.map((r) => r.id));
 
   console.log(`\n=== Query: "${query}" ===\n`);
   console.log(`Vector search found: ${vectorResults.length} chunks\n`);
@@ -35,15 +35,17 @@ async function debug(query: string) {
       totalForwardTargets++;
       if (vectorIds.has(edge.targetChunkId)) {
         targetsAlreadyInVectorSearch++;
-        console.log(`    -> Target ${edge.targetChunkId.slice(0,30)}... ALREADY in vector search`);
+        console.log(`    -> Target ${edge.targetChunkId.slice(0, 30)}... ALREADY in vector search`);
       } else {
         // Check if it was filtered by decay
-        const weighted = weightedForward.find(w => w.targetChunkId === edge.targetChunkId);
+        const weighted = weightedForward.find((w) => w.targetChunkId === edge.targetChunkId);
         if (!weighted) {
           targetsWithZeroWeight++;
-          console.log(`    -> Target ${edge.targetChunkId.slice(0,30)}... FILTERED (zero weight)`);
+          console.log(`    -> Target ${edge.targetChunkId.slice(0, 30)}... FILTERED (zero weight)`);
         } else {
-          console.log(`    -> Target ${edge.targetChunkId.slice(0,30)}... weight=${weighted.weight.toFixed(3)} SHOULD BE ADDED`);
+          console.log(
+            `    -> Target ${edge.targetChunkId.slice(0, 30)}... weight=${weighted.weight.toFixed(3)} SHOULD BE ADDED`,
+          );
         }
       }
     }
@@ -54,7 +56,9 @@ async function debug(query: string) {
   console.log(`Total forward edge targets: ${totalForwardTargets}`);
   console.log(`Already in vector search: ${targetsAlreadyInVectorSearch}`);
   console.log(`Filtered by decay: ${targetsWithZeroWeight}`);
-  console.log(`Should be added: ${totalForwardTargets - targetsAlreadyInVectorSearch - targetsWithZeroWeight}`);
+  console.log(
+    `Should be added: ${totalForwardTargets - targetsAlreadyInVectorSearch - targetsWithZeroWeight}`,
+  );
 
   await embedder.dispose();
 }

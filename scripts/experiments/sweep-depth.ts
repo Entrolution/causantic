@@ -58,9 +58,9 @@ async function runSweep(embedder: Embedder): Promise<DepthResult[]> {
       // Get vector search results
       const { embedding } = await embedder.embed(query, true);
       const vectorResults = await vectorStore.search(embedding, 10);
-      const vectorChunkIds = new Set(vectorResults.map(r => r.id));
+      const vectorChunkIds = new Set(vectorResults.map((r) => r.id));
 
-      const startIds = vectorResults.map(r => r.id);
+      const startIds = vectorResults.map((r) => r.id);
 
       // Traverse backward
       const backwardResult = traverseMultiple(startIds, {
@@ -78,8 +78,8 @@ async function runSweep(embedder: Embedder): Promise<DepthResult[]> {
 
       // Combine and dedupe
       const allChunks = [...backwardResult.chunks, ...forwardResult.chunks];
-      const newChunks = allChunks.filter(c => !vectorChunkIds.has(c.chunkId));
-      const weights = newChunks.map(c => c.weight).sort((a, b) => b - a);
+      const newChunks = allChunks.filter((c) => !vectorChunkIds.has(c.chunkId));
+      const weights = newChunks.map((c) => c.weight).sort((a, b) => b - a);
 
       totalChunksAdded += newChunks.length;
       totalPathsExplored += backwardResult.visited + forwardResult.visited;
@@ -90,7 +90,9 @@ async function runSweep(embedder: Embedder): Promise<DepthResult[]> {
         totalMinWeight += weights[weights.length - 1];
       }
 
-      console.log(`+${newChunks.length} chunks, ${backwardResult.visited + forwardResult.visited} paths`);
+      console.log(
+        `+${newChunks.length} chunks, ${backwardResult.visited + forwardResult.visited} paths`,
+      );
     }
 
     const elapsed = Date.now() - startTime;
@@ -115,7 +117,9 @@ function printResults(results: DepthResult[]) {
   console.log('MAX DEPTH SWEEP RESULTS (minWeight=' + MIN_WEIGHT + ')');
   console.log('='.repeat(110));
 
-  console.log('\nmaxDepth | Chunks Added | Paths Explored | Augmentation | Max Weight | Median Weight | Time (ms)');
+  console.log(
+    '\nmaxDepth | Chunks Added | Paths Explored | Augmentation | Max Weight | Median Weight | Time (ms)',
+  );
   console.log('-'.repeat(110));
 
   const baselineChunks = 10; // vector search returns 10 seeds
@@ -123,13 +127,19 @@ function printResults(results: DepthResult[]) {
   for (const r of results) {
     const augmentation = ((r.avgChunksAdded + baselineChunks) / baselineChunks).toFixed(2) + 'x';
     console.log(
-      String(r.depth).padStart(8) + ' | ' +
-      r.avgChunksAdded.toFixed(1).padStart(12) + ' | ' +
-      r.avgPathsExplored.toFixed(0).padStart(14) + ' | ' +
-      augmentation.padStart(12) + ' | ' +
-      r.avgMaxWeight.toFixed(4).padStart(10) + ' | ' +
-      r.avgMedianWeight.toFixed(4).padStart(13) + ' | ' +
-      String(r.totalTimeMs).padStart(9)
+      String(r.depth).padStart(8) +
+        ' | ' +
+        r.avgChunksAdded.toFixed(1).padStart(12) +
+        ' | ' +
+        r.avgPathsExplored.toFixed(0).padStart(14) +
+        ' | ' +
+        augmentation.padStart(12) +
+        ' | ' +
+        r.avgMaxWeight.toFixed(4).padStart(10) +
+        ' | ' +
+        r.avgMedianWeight.toFixed(4).padStart(13) +
+        ' | ' +
+        String(r.totalTimeMs).padStart(9),
     );
   }
 
@@ -149,9 +159,9 @@ function printResults(results: DepthResult[]) {
 
     console.log(
       `  depth ${prev.depth} → ${curr.depth}: ` +
-      `+${chunkGain.toFixed(1)} chunks (+${(chunkGain / prev.avgChunksAdded * 100).toFixed(1)}%), ` +
-      `+${pathGain.toFixed(0)} paths, ` +
-      `${chunksPerDepth.toFixed(2)} chunks/depth`
+        `+${chunkGain.toFixed(1)} chunks (+${((chunkGain / prev.avgChunksAdded) * 100).toFixed(1)}%), ` +
+        `+${pathGain.toFixed(0)} paths, ` +
+        `${chunksPerDepth.toFixed(2)} chunks/depth`,
     );
   }
 
@@ -179,17 +189,21 @@ function printResults(results: DepthResult[]) {
   for (let i = 1; i < results.length; i++) {
     const prev = results[i - 1];
     const curr = results[i];
-    const percentGain = (curr.avgChunksAdded - prev.avgChunksAdded) / prev.avgChunksAdded * 100;
+    const percentGain = ((curr.avgChunksAdded - prev.avgChunksAdded) / prev.avgChunksAdded) * 100;
     const gainPerDepth = percentGain / (curr.depth - prev.depth);
 
-    if (gainPerDepth < 1.0) {  // Less than 1% gain per depth unit
+    if (gainPerDepth < 1.0) {
+      // Less than 1% gain per depth unit
       recommendedDepth = prev.depth;
-      console.log(`\nDiminishing returns start at depth=${prev.depth} (${gainPerDepth.toFixed(2)}%/depth after)`);
+      console.log(
+        `\nDiminishing returns start at depth=${prev.depth} (${gainPerDepth.toFixed(2)}%/depth after)`,
+      );
       break;
     }
   }
 
-  const finalResult = results.find(r => r.depth === recommendedDepth) || results[results.length - 1];
+  const finalResult =
+    results.find((r) => r.depth === recommendedDepth) || results[results.length - 1];
   console.log(`\nRecommended: maxDepth=${recommendedDepth}`);
   console.log(`  - Chunks added: ${finalResult.avgChunksAdded.toFixed(1)}`);
   console.log(`  - Augmentation: ${((finalResult.avgChunksAdded + 10) / 10).toFixed(2)}x`);

@@ -69,12 +69,7 @@ export function ChainView({ chunkId, direction, onDirectionChange }: ChainViewPr
       {data && (
         <div className="flex-1 overflow-y-auto space-y-2">
           {/* Seed chunk */}
-          <ChainCard
-            chunk={data.seed}
-            position={0}
-            total={data.chain.length + 1}
-            isSeed
-          />
+          <ChainCard chunk={data.seed} position={0} total={data.chain.length + 1} isSeed />
 
           {/* Chain chunks */}
           {data.chain.map((chunk, i) => (

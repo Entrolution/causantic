@@ -31,12 +31,8 @@ interface ChunkInspectorProps {
 }
 
 export function ChunkInspector({ chunkId, onClose, onWalkChain }: ChunkInspectorProps) {
-  const { data: chunkData } = useApi<{ chunks: ChunkDetail[] }>(
-    `/api/chunks?chunkId=${chunkId}`,
-  );
-  const { data: edgeData } = useApi<EdgeData>(
-    `/api/edges?chunkId=${chunkId}&limit=20`,
-  );
+  const { data: chunkData } = useApi<{ chunks: ChunkDetail[] }>(`/api/chunks?chunkId=${chunkId}`);
+  const { data: edgeData } = useApi<EdgeData>(`/api/edges?chunkId=${chunkId}&limit=20`);
 
   const chunk = chunkData?.chunks?.[0];
 

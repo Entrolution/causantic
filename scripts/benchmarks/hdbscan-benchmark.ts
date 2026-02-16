@@ -108,7 +108,7 @@ async function runBenchmarks() {
     }
 
     console.log(
-      `| ${size.toString().padEnd(4)} | ${String(nativeParallel.ms).padEnd(17)}ms | ${String(nativeSingle.ms).padEnd(15)}ms | ${String(oldLib.ms).padEnd(10)}ms |`
+      `| ${size.toString().padEnd(4)} | ${String(nativeParallel.ms).padEnd(17)}ms | ${String(nativeSingle.ms).padEnd(15)}ms | ${String(oldLib.ms).padEnd(10)}ms |`,
     );
   }
 
@@ -155,7 +155,9 @@ async function runBenchmarks() {
   console.log(`Approximate k-NN: ${approxResult.ms}ms`);
 
   console.log('\n--- Cluster Quality Comparison ---');
-  console.log(`Native clusters: ${defaultResult.value.numClusters}, noise: ${defaultResult.value.noiseCount}`);
+  console.log(
+    `Native clusters: ${defaultResult.value.numClusters}, noise: ${defaultResult.value.noiseCount}`,
+  );
 
   try {
     const oldH = new OldHDBSCAN({ minClusterSize: 4, minSamples: 4 });
