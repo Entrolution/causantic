@@ -24,6 +24,7 @@ npx causantic maintenance run scan-projects
 **Frequency**: Hourly (or on-demand)
 
 **What it does**:
+
 - Scans `~/.claude/projects/` for new sessions
 - Ingests new content into the memory store
 - Updates edge relationships
@@ -39,6 +40,7 @@ npx causantic maintenance run update-clusters
 **Frequency**: Daily (configurable via `maintenance.clusterHour`)
 
 **What it does**:
+
 - Full rebuild of cluster assignments using HDBSCAN
 - Identifies new topic groups and updates centroids
 - Refreshes cluster labels via Haiku (if Anthropic API key is configured)
@@ -56,6 +58,7 @@ npx causantic maintenance run cleanup-vectors
 **Frequency**: Daily (1 hour after `update-clusters`)
 
 **What it does**:
+
 - Finds vectors not accessed within the TTL period (default 90 days)
 - Deletes expired chunks (FK CASCADE removes edges and cluster assignments)
 - Deletes expired vectors
@@ -73,6 +76,7 @@ npx causantic maintenance run vacuum
 **Frequency**: Weekly (Sundays at 5am)
 
 **What it does**:
+
 - Runs SQLite VACUUM to reclaim disk space
 - Rebuilds internal data structures for better query performance
 
@@ -105,6 +109,7 @@ npx causantic maintenance daemon
 ```
 
 Uses cron-style scheduling (assuming default `clusterHour` of 2):
+
 - `scan-projects`: Every hour
 - `update-clusters`: Daily at 2am
 - `cleanup-vectors`: Daily at 3am
@@ -186,6 +191,7 @@ npx causantic health
 ```
 
 Checks:
+
 - Database connectivity
 - Vector store status
 - Cluster count
@@ -198,6 +204,7 @@ npx causantic stats
 ```
 
 Shows:
+
 - Total chunks
 - Total edges (by type)
 - Cluster count

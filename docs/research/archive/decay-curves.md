@@ -52,15 +52,16 @@ Edge weights should decay based on logical hop distance (turn count difference),
 The ground truth from 30 sessions reveals two distinct regimes:
 
 | Hop Distance | Turn Pairs | Reference Rate | Normalized |
-|-------------|-----------|----------------|------------|
-| 1 hop | 1,512 | 1.150 | 100% |
-| 2-3 hops | 2,934 | 0.136 | 12% |
-| 4-6 hops | 4,176 | 0.126 | 11% |
-| 7-10 hops | 5,148 | 0.102 | 9% |
-| 11-20 hops | 10,815 | 0.093 | 8% |
-| 21+ hops | 41,785 | 0.031 | 3% |
+| ------------ | ---------- | -------------- | ---------- |
+| 1 hop        | 1,512      | 1.150          | 100%       |
+| 2-3 hops     | 2,934      | 0.136          | 12%        |
+| 4-6 hops     | 4,176      | 0.126          | 11%        |
+| 7-10 hops    | 5,148      | 0.102          | 9%         |
+| 11-20 hops   | 10,815     | 0.093          | 8%         |
+| 21+ hops     | 41,785     | 0.031          | 3%         |
 
 **Two regimes**:
+
 1. **Steep initial drop** (hop 1 → 2): 88% loss — adjacent turns are overwhelmingly the most referenced
 2. **Long slow tail** (hop 2 → 21+): gradual decline from 12% to 3% — references exist at all distances
 
@@ -70,42 +71,42 @@ The ground truth from 30 sessions reveals two distinct regimes:
 
 ### Overall MRR
 
-| Model | MRR | Rank@1 | Rank@2-5 | Rank@6+ |
-|-------|-----|--------|----------|---------|
-| Simple Linear | 0.985 | 1,479 | 25 | 8 |
-| Multi-Linear (Fast) | **0.985** | **1,479** | 25 | 8 |
-| Multi-Linear (Default) | 0.985 | 1,479 | 25 | 8 |
-| Exponential | 0.985 | 1,479 | 25 | 8 |
-| Exponential (Slow) | 0.985 | 1,479 | 25 | 8 |
-| Power Law (α=1) | 0.985 | 1,479 | 25 | 8 |
-| Power Law (α=2) | 0.985 | 1,479 | 25 | 8 |
-| Delayed Linear | 0.423 | 188 | 1,316 | 8 |
-| Multi-Linear (Slow) | 0.423 | 188 | 1,316 | 8 |
+| Model                  | MRR       | Rank@1    | Rank@2-5 | Rank@6+ |
+| ---------------------- | --------- | --------- | -------- | ------- |
+| Simple Linear          | 0.985     | 1,479     | 25       | 8       |
+| Multi-Linear (Fast)    | **0.985** | **1,479** | 25       | 8       |
+| Multi-Linear (Default) | 0.985     | 1,479     | 25       | 8       |
+| Exponential            | 0.985     | 1,479     | 25       | 8       |
+| Exponential (Slow)     | 0.985     | 1,479     | 25       | 8       |
+| Power Law (α=1)        | 0.985     | 1,479     | 25       | 8       |
+| Power Law (α=2)        | 0.985     | 1,479     | 25       | 8       |
+| Delayed Linear         | 0.423     | 188       | 1,316    | 8       |
+| Multi-Linear (Slow)    | 0.423     | 188       | 1,316    | 8       |
 
 **Key finding**: All strictly monotonic models score identically (MRR=0.985). Models with hold periods (Delayed Linear, Multi-Linear Slow) score dramatically worse (0.423) because the plateau at short range creates ties that prevent ranking the nearest turn first.
 
 ### Hop-Distance Correlation (ρ)
 
-| Model | Spearman ρ |
-|-------|-----------|
-| Simple Linear | **1.000** |
-| Multi-Linear (Default) | **1.000** |
-| Exponential | **1.000** |
-| Power Law (α=1, α=2) | **1.000** |
-| Delayed Linear | 0.943 |
-| Multi-Linear (Slow) | 0.943 |
+| Model                  | Spearman ρ |
+| ---------------------- | ---------- |
+| Simple Linear          | **1.000**  |
+| Multi-Linear (Default) | **1.000**  |
+| Exponential            | **1.000**  |
+| Power Law (α=1, α=2)   | **1.000**  |
+| Delayed Linear         | 0.943      |
+| Multi-Linear (Slow)    | 0.943      |
 
 All strictly monotonic models achieve perfect correlation with the empirical reference rate curve. Hold periods break monotonicity and reduce correlation.
 
 ### Stratified Analysis (Backward)
 
-| Stratum | Refs | Best Model | MRR | Rank@1 |
-|---------|------|------------|-----|--------|
-| All references | 5,505 | Multi-Linear (Fast) | 0.985 | 98% |
-| Non-adjacent (>1 hop) | 3,766 | Delayed Linear | 0.693 | 56% |
-| Mid-range (>3 hops) | 3,366 | Multi-Linear (Fast) | 0.208 | 0% |
-| Long-range (>5 hops, high conf) | 1,753 | Multi-Linear (Fast) | 0.142 | 0% |
-| Very long-range (>10 hops) | 2,315 | Multi-Linear (Fast) | 0.088 | 0% |
+| Stratum                         | Refs  | Best Model          | MRR   | Rank@1 |
+| ------------------------------- | ----- | ------------------- | ----- | ------ |
+| All references                  | 5,505 | Multi-Linear (Fast) | 0.985 | 98%    |
+| Non-adjacent (>1 hop)           | 3,766 | Delayed Linear      | 0.693 | 56%    |
+| Mid-range (>3 hops)             | 3,366 | Multi-Linear (Fast) | 0.208 | 0%     |
+| Long-range (>5 hops, high conf) | 1,753 | Multi-Linear (Fast) | 0.142 | 0%     |
+| Very long-range (>10 hops)      | 2,315 | Multi-Linear (Fast) | 0.088 | 0%     |
 
 **Critical insight**: At >3 hops, all models converge to ~0.2 MRR. At >10 hops, best is 0.088. **Decay curves alone cannot identify which specific distant turn is relevant.** Long-range retrieval requires content-based search (vector/keyword), not distance-based decay.
 
@@ -113,14 +114,15 @@ All strictly monotonic models achieve perfect correlation with the empirical ref
 
 ### Stratified Forward MRR
 
-| Stratum | Queries | MRR | Rank@1 |
-|---------|---------|-----|--------|
-| All (≥1 hop) | 1,496 | 0.992 | 99% |
-| Non-adjacent (≥2 hops) | 891 | 0.372 | 18% |
-| Mid-range (≥4 hops) | 830 | 0.376 | 19% |
-| Long-range (≥6 hops) | 767 | 0.365 | 18% |
+| Stratum                | Queries | MRR   | Rank@1 |
+| ---------------------- | ------- | ----- | ------ |
+| All (≥1 hop)           | 1,496   | 0.992 | 99%    |
+| Non-adjacent (≥2 hops) | 891     | 0.372 | 18%    |
+| Mid-range (≥4 hops)    | 830     | 0.376 | 19%    |
+| Long-range (≥6 hops)   | 767     | 0.365 | 18%    |
 
 **All 9 models produce identical forward MRR at every stratum.** This is because:
+
 1. Candidate future turns have unique integer hop distances
 2. All models are monotonically decreasing
 3. So all models produce the same ranking: closest candidate first
@@ -130,13 +132,13 @@ All strictly monotonic models achieve perfect correlation with the empirical ref
 
 ### Why backward and forward need different treatment
 
-| Property | Backward | Forward |
-|----------|----------|---------|
-| Shape matters? | Partially — no hold period | No — any monotonic function |
-| Best model type | Exponential (steep initial, long tail) | Simple linear (minimal complexity) |
-| Hold period? | Hurts discrimination (0.423 vs 0.985 MRR) | No effect (all models identical) |
-| Effective range | ~30 hops (references exist at 21+) | ~30 hops (match backward) |
-| Key insight | Steep-then-tail matches empirical reference rate | Only monotonicity matters |
+| Property        | Backward                                         | Forward                            |
+| --------------- | ------------------------------------------------ | ---------------------------------- |
+| Shape matters?  | Partially — no hold period                       | No — any monotonic function        |
+| Best model type | Exponential (steep initial, long tail)           | Simple linear (minimal complexity) |
+| Hold period?    | Hurts discrimination (0.423 vs 0.985 MRR)        | No effect (all models identical)   |
+| Effective range | ~30 hops (references exist at 21+)               | ~30 hops (match backward)          |
+| Key insight     | Steep-then-tail matches empirical reference rate | Only monotonicity matters          |
 
 ## Production Configuration
 
@@ -146,14 +148,14 @@ Based on these experiments:
 // Backward: Exponential (half-life ~5 hops, effective range ~30)
 export const BACKWARD_HOP_DECAY: HopDecayConfig = {
   type: 'exponential',
-  weightPerHop: 0.87,  // half-life ~5 hops
-  minWeight: 0.01,     // effective range ~30 hops
+  weightPerHop: 0.87, // half-life ~5 hops
+  minWeight: 0.01, // effective range ~30 hops
 };
 
 // Forward: Simple linear (dies@30)
 export const FORWARD_HOP_DECAY: HopDecayConfig = {
   type: 'linear',
-  decayPerHop: 0.033,  // dies at ~30 hops
+  decayPerHop: 0.033, // dies at ~30 hops
   minWeight: 0.01,
 };
 ```
@@ -161,13 +163,13 @@ export const FORWARD_HOP_DECAY: HopDecayConfig = {
 ### Backward: Exponential rationale
 
 | Hops | Weight | Empirical Ref Rate |
-|------|--------|--------------------|
-| 1 | 0.87 | 1.150 (100%) |
-| 3 | 0.66 | 0.136 (12%) |
-| 5 | 0.50 | 0.126 (11%) |
-| 10 | 0.25 | 0.102 (9%) |
-| 20 | 0.06 | 0.093 (8%) |
-| 30 | 0.015 | 0.031 (3%) |
+| ---- | ------ | ------------------ |
+| 1    | 0.87   | 1.150 (100%)       |
+| 3    | 0.66   | 0.136 (12%)        |
+| 5    | 0.50   | 0.126 (11%)        |
+| 10   | 0.25   | 0.102 (9%)         |
+| 20   | 0.06   | 0.093 (8%)         |
+| 30   | 0.015  | 0.031 (3%)         |
 
 - Steep initial drop matches the 88% reference rate decline at hop 2
 - Long asymptotic tail preserves signal at 20-30 hops where 3-9% of references occur

@@ -38,29 +38,29 @@ Developers using Claude Code who want their AI assistant to **remember across se
 
 ## Why Causantic?
 
-Most AI memory systems use vector embeddings for similarity search. Causantic does too — but adds a **causal graph** that tracks *relationships* between memory chunks, **BM25 keyword search** for exact matches, and **HDBSCAN clustering** for topic expansion. The result:
+Most AI memory systems use vector embeddings for similarity search. Causantic does too — but adds a **causal graph** that tracks _relationships_ between memory chunks, **BM25 keyword search** for exact matches, and **HDBSCAN clustering** for topic expansion. The result:
 
-| | Vector Search Only | Causantic |
-|---|---|---|
-| **Finds similar content** | Yes | Yes |
-| **Finds lexically relevant content** | No | Yes (BM25 keyword search) |
-| **Finds related context** | No | Yes (causal edges) |
-| **Finds topically related context** | No | Yes (cluster expansion) |
-| **Temporal awareness** | Wall-clock decay | Episodic chain walking |
-| **Context augmentation** | 1× | **2.46×** (chain walking adds episodic narrative) |
-| **Handles project switches** | Breaks continuity | Preserves causality |
-| **Bidirectional queries** | Forward only | Backward + Forward |
+|                                      | Vector Search Only | Causantic                                         |
+| ------------------------------------ | ------------------ | ------------------------------------------------- |
+| **Finds similar content**            | Yes                | Yes                                               |
+| **Finds lexically relevant content** | No                 | Yes (BM25 keyword search)                         |
+| **Finds related context**            | No                 | Yes (causal edges)                                |
+| **Finds topically related context**  | No                 | Yes (cluster expansion)                           |
+| **Temporal awareness**               | Wall-clock decay   | Episodic chain walking                            |
+| **Context augmentation**             | 1×                 | **2.46×** (chain walking adds episodic narrative) |
+| **Handles project switches**         | Breaks continuity  | Preserves causality                               |
+| **Bidirectional queries**            | Forward only       | Backward + Forward                                |
 
 ### How It Compares
 
-| System | Local-First | Temporal Decay | Graph Structure | Self-Benchmarking |
-|--------|:-----------:|:--------------:|:--------------:|:-----------------:|
-| **Causantic** | **Yes** | **Chain walking** | **Causal graph** | **Yes** |
-| Mem0 | No (Cloud) | None | Paid add-on | No |
-| Cognee | Self-hostable | None | Triplet extraction | No |
-| Letta/MemGPT | Self-hostable | Summarization | None | No |
-| Zep | Enterprise | Bi-temporal | Temporal KG | No |
-| GraphRAG | Self-hostable | Static corpus | Hierarchical | No |
+| System        |  Local-First  |  Temporal Decay   |  Graph Structure   | Self-Benchmarking |
+| ------------- | :-----------: | :---------------: | :----------------: | :---------------: |
+| **Causantic** |    **Yes**    | **Chain walking** |  **Causal graph**  |      **Yes**      |
+| Mem0          |  No (Cloud)   |       None        |    Paid add-on     |        No         |
+| Cognee        | Self-hostable |       None        | Triplet extraction |        No         |
+| Letta/MemGPT  | Self-hostable |   Summarization   |        None        |        No         |
+| Zep           |  Enterprise   |    Bi-temporal    |    Temporal KG     |        No         |
+| GraphRAG      | Self-hostable |   Static corpus   |    Hierarchical    |        No         |
 
 See [Landscape Analysis](docs/research/approach/landscape-analysis.md) for detailed per-system analysis.
 
@@ -70,7 +70,7 @@ See [Landscape Analysis](docs/research/approach/landscape-analysis.md) for detai
 All data stays on your machine. Optional per-chunk encryption (ChaCha20-Poly1305) with keys stored in your system keychain. No cloud dependency.
 
 **2. Hybrid BM25 + Vector Search**
-Vector search finds chunks that *look similar*. BM25 keyword search finds chunks with *exact lexical matches* — function names, error codes, CLI flags. Both run in parallel and fuse via Reciprocal Rank Fusion (RRF).
+Vector search finds chunks that _look similar_. BM25 keyword search finds chunks with _exact lexical matches_ — function names, error codes, CLI flags. Both run in parallel and fuse via Reciprocal Rank Fusion (RRF).
 
 **3. Sequential Causal Graph with Episodic Chain Walking**
 Chunks are connected in a sequential linked list — intra-turn chunks chained sequentially, inter-turn edges linking last→first, cross-session edges bridging sessions. The `recall` tool walks this graph backward to reconstruct episodic narratives; `predict` walks forward. Chains are scored by cosine similarity per token, producing ordered narratives where each chunk adds new information.
@@ -158,17 +158,17 @@ Measure how well your memory system is working with built-in benchmarks. Health,
 
 The MCP server exposes nine tools:
 
-| Tool | Description |
-|------|-------------|
-| `search` | Semantic discovery — "what do I know about X?" Vector + keyword + RRF + cluster expansion. |
-| `recall` | Episodic memory — "how did we solve X?" Seeds → backward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
-| `predict` | Forward episodic — "what's likely next?" Seeds → forward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
-| `list-projects` | Discover available projects with chunk counts and date ranges. |
-| `list-sessions` | Browse sessions for a project with time filtering. |
-| `reconstruct` | Rebuild session context chronologically — "what did I work on yesterday?" |
-| `hook-status` | Check when hooks last ran and whether they succeeded. |
-| `stats` | Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns. |
-| `forget` | Delete chunks by project, time range, session, or semantic query. Defaults to dry-run preview. |
+| Tool            | Description                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `search`        | Semantic discovery — "what do I know about X?" Vector + keyword + RRF + cluster expansion.                                            |
+| `recall`        | Episodic memory — "how did we solve X?" Seeds → backward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
+| `predict`       | Forward episodic — "what's likely next?" Seeds → forward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
+| `list-projects` | Discover available projects with chunk counts and date ranges.                                                                        |
+| `list-sessions` | Browse sessions for a project with time filtering.                                                                                    |
+| `reconstruct`   | Rebuild session context chronologically — "what did I work on yesterday?"                                                             |
+| `hook-status`   | Check when hooks last ran and whether they succeeded.                                                                                 |
+| `stats`         | Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns.                                                       |
+| `forget`        | Delete chunks by project, time range, session, or semantic query. Defaults to dry-run preview.                                        |
 
 ### Claude Code Integration
 
@@ -191,22 +191,22 @@ Or run `npx causantic init` to configure automatically.
 
 Causantic installs 14 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
 
-| Skill | Description |
-|-------|-------------|
-| `/causantic-recall [query]` | Reconstruct how something happened — walks backward through causal chains (how did we solve X?) |
-| `/causantic-search [query]` | Broad discovery — find everything memory knows about a topic (what do I know about X?) |
-| `/causantic-predict <context>` | Surface what came after similar past situations — walks forward through causal chains (what's likely relevant next?) |
-| `/causantic-explain [question]` | Answer "why" questions using memory + codebase (why does X work this way?) |
-| `/causantic-debug [error]` | Search for prior encounters with an error (auto-extracts from conversation if no argument) |
-| `/causantic-resume` | Resume interrupted work — start-of-session briefing |
-| `/causantic-reconstruct [time]` | Replay a past session chronologically by time range |
-| `/causantic-summary [time]` | Factual recap of what was done across recent sessions |
-| `/causantic-list-projects` | Discover available projects in memory |
-| `/causantic-status` | Check system health and memory statistics |
-| `/causantic-crossref [pattern]` | Search across all projects for reusable patterns |
-| `/causantic-retro [scope]` | Surface recurring patterns, problems, and decisions across sessions |
-| `/causantic-cleanup` | Memory-informed codebase review and cleanup plan |
-| `/causantic-forget [query]` | Delete memory by topic, time range, or session (always previews first) |
+| Skill                           | Description                                                                                                          |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `/causantic-recall [query]`     | Reconstruct how something happened — walks backward through causal chains (how did we solve X?)                      |
+| `/causantic-search [query]`     | Broad discovery — find everything memory knows about a topic (what do I know about X?)                               |
+| `/causantic-predict <context>`  | Surface what came after similar past situations — walks forward through causal chains (what's likely relevant next?) |
+| `/causantic-explain [question]` | Answer "why" questions using memory + codebase (why does X work this way?)                                           |
+| `/causantic-debug [error]`      | Search for prior encounters with an error (auto-extracts from conversation if no argument)                           |
+| `/causantic-resume`             | Resume interrupted work — start-of-session briefing                                                                  |
+| `/causantic-reconstruct [time]` | Replay a past session chronologically by time range                                                                  |
+| `/causantic-summary [time]`     | Factual recap of what was done across recent sessions                                                                |
+| `/causantic-list-projects`      | Discover available projects in memory                                                                                |
+| `/causantic-status`             | Check system health and memory statistics                                                                            |
+| `/causantic-crossref [pattern]` | Search across all projects for reusable patterns                                                                     |
+| `/causantic-retro [scope]`      | Surface recurring patterns, problems, and decisions across sessions                                                  |
+| `/causantic-cleanup`            | Memory-informed codebase review and cleanup plan                                                                     |
+| `/causantic-forget [query]`     | Delete memory by topic, time range, or session (always previews first)                                               |
 
 Skills are installed to `~/.claude/skills/causantic-*/` and work as slash commands in Claude Code. They orchestrate the MCP tools above with structured prompts tailored to each use case.
 
@@ -249,7 +249,7 @@ Create `causantic.config.json` in your project root:
 {
   "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json",
   "clustering": {
-    "threshold": 0.10,
+    "threshold": 0.1,
     "minClusterSize": 4
   },
   "vectors": {
@@ -283,13 +283,13 @@ See [Security Guide](docs/guides/security.md).
 
 Built on rigorous experimentation across 75 sessions and 297+ queries:
 
-| Experiment | Result | Notes |
-|------------|--------|-------|
-| Chain Walking (v0.3) | **2.46×** context | vs vector-only, 297 queries, 15 projects |
-| Topic Detection | 0.998 AUC | near-perfect accuracy |
-| Clustering | F1=0.940 | 100% precision |
-| Thinking Block Removal | +0.063 AUC | embedding quality improvement |
-| Collection Benchmark | **64/100** | health, retrieval, chain quality, latency |
+| Experiment             | Result            | Notes                                     |
+| ---------------------- | ----------------- | ----------------------------------------- |
+| Chain Walking (v0.3)   | **2.46×** context | vs vector-only, 297 queries, 15 projects  |
+| Topic Detection        | 0.998 AUC         | near-perfect accuracy                     |
+| Clustering             | F1=0.940          | 100% precision                            |
+| Thinking Block Removal | +0.063 AUC        | embedding quality improvement             |
+| Collection Benchmark   | **64/100**        | health, retrieval, chain quality, latency |
 
 > **Note**: An earlier version (v0.2) reported 4.65× augmentation using sum-product graph traversal with m×n all-pairs edges (492 queries, 25 projects). That architecture was replaced in v0.3 after collection benchmarks showed graph traversal contributing only ~2% of results. See [lessons learned](docs/research/experiments/lessons-learned.md) for the full story.
 

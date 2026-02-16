@@ -11,11 +11,13 @@ Causantic uses Claude Code hooks to capture context at key moments:
 Fires when a new Claude Code session begins.
 
 **Actions:**
+
 1. Query memory for relevant context
 2. Generate a memory summary
 3. Update CLAUDE.md with relevant memories
 
 **Configuration:**
+
 ```json
 {
   "hooks": {
@@ -31,12 +33,14 @@ Fires when a new Claude Code session begins.
 Fires before Claude Code compacts the conversation history.
 
 **Actions:**
+
 1. Ingest current session content
 2. Create chunks and edges
 3. Generate embeddings
 4. Preserve context that would be lost
 
 **Configuration:**
+
 ```json
 {
   "hooks": {
@@ -77,11 +81,11 @@ Add to your Claude Code MCP config:
 
 ### Available Tools
 
-| Tool | Purpose |
-|------|---------|
-| `recall` | Semantic search with graph traversal |
-| `explain` | Long-range historical context |
-| `predict` | Proactive suggestions |
+| Tool      | Purpose                              |
+| --------- | ------------------------------------ |
+| `recall`  | Semantic search with graph traversal |
+| `explain` | Long-range historical context        |
+| `predict` | Proactive suggestions                |
 
 See [MCP Tools Reference](../reference/mcp-tools.md) for details.
 
@@ -95,6 +99,7 @@ Causantic can automatically update your project's CLAUDE.md with a memory sectio
 Recent topics: authentication flow, error handling, user settings
 
 Related sessions:
+
 - Fixed login timeout issue (2 days ago)
 - Implemented OAuth integration (1 week ago)
 ```

@@ -8,16 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.2] - 2026-02-16
 
 ### Changed
+
 - **Claude Code 5.1+ minimum**: Documented Claude Code 5.1+ as a prerequisite. The async hook support added in v0.5.1 requires it.
 - **Removed `prepublishOnly` script**: Build and test are handled by CI, not by npm lifecycle hooks.
 
 ## [0.5.1] - 2026-02-16
 
 ### Changed
+
 - **Async hooks**: `PreCompact` and both `SessionEnd` hooks now run with `async: true` (fire-and-forget), so they no longer block Claude Code sessions. `SessionStart` remains synchronous since its stdout delivers memory context.
 - **Hook dedup logic**: `causantic init` now compares full hook objects (not just command strings), so existing installs pick up the async flag on re-init.
 
 ### Fixed
+
 - **N+1 cluster query in SessionStart**: Replaced per-cluster loop (`getClusterChunkIds` + `getChunksByIds` × N clusters) with a single batch SQL query (`getClusterProjectRelevance`). 50 clusters now costs 1 query instead of 100+.
 - **SessionStart loads all chunks to slice last N**: New `getRecentChunksBySessionSlug()` uses SQL `ORDER BY ... DESC LIMIT` instead of loading every chunk then slicing in JS.
 - **SessionStart loads all clusters then filters**: New `getClustersWithDescriptions()` uses SQL `WHERE description IS NOT NULL` instead of loading all clusters then filtering in JS.
@@ -25,35 +28,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-02-16
 
 ### Fixed
+
 - **MCP config written to wrong file**: `causantic init` was writing MCP server configuration to `~/.claude/settings.json`, but Claude Code reads MCP servers from `~/.claude.json`. MCP config now writes to `~/.claude.json`; hooks remain in `settings.json`. Includes automatic migration of existing entries from `settings.json` to `~/.claude.json` on re-init.
 - **Uninstall cleanup**: `causantic uninstall` now removes MCP entries from both `~/.claude.json` (current) and `~/.claude/settings.json` (legacy).
 
 ## [0.4.3] - 2026-02-15
 
 ### Fixed
+
 - **MCP server notification handling**: Server now silently ignores JSON-RPC notifications (e.g. `notifications/initialized`) instead of returning METHOD_NOT_FOUND errors, which caused Claude Code to fail loading the MCP server
 
 ### Changed
+
 - **Reference docs**: Synced `docs/reference/skills.md` descriptions with README and updated version in `docs/reference/mcp-tools.md`
 
 ## [0.4.2] - 2026-02-15
 
 ### Changed
+
 - **README**: Clarified that Anthropic API key is optional (only used for cluster topic labeling via Haiku); all core retrieval works without it
 - **Skill descriptions**: Sharpened all skill descriptions in README and CLAUDE.md block to clearly differentiate each tool — recall (backward chain walk), predict (forward chain walk), reconstruct (replay), summary (recap), retro (patterns)
 
 ## [0.4.1] - 2026-02-15
 
 ### Added
+
 - **CLI commands reference in CLAUDE.md block**: Claude Code now knows all 16 CLI commands without needing to run `causantic --help`. Eliminates repeated help lookups during sessions.
 
 ### Fixed
+
 - README Key Differentiators numbering (duplicate "5." corrected to "4." and "5.")
 - SECURITY.md supported versions updated to v0.4.x only
 
 ## [0.4.0] - 2026-02-15
 
 ### Changed
+
 - **Episodic Retrieval Pipeline**: Redesigned recall/predict from graph traversal to chain walking. Seeds found by semantic search; the causal graph unfolds them into ordered narrative chains; chains ranked by aggregate semantic relevance per token.
 - **Sequential edge structure**: Replaced m×n all-pairs edges with sequential linked-list (intra-turn C1→C2→C3, inter-turn last→first, cross-session last→first). All edges stored as single `forward` rows with uniform weight.
 - **MCP tools**: Replaced `explain` with `search` (semantic discovery). `recall` and `predict` now return episodic chain narratives with search-style fallback. Added `hook-status`, `stats`, and `forget` tools. MCP server now exposes 9 tools.
@@ -64,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SessionStart error context**: Fallback message now includes a classified error hint (database busy, database not found, embedder unavailable, internal error) instead of a generic static string.
 
 ### Added
+
 - **`/causantic-forget` skill**: Guided memory deletion by topic, time range, or session with dry-run preview and confirmation workflow.
 - **Skills reference documentation** (`docs/reference/skills.md`): Reference page for all 14 skills with parameters, usage examples, and decision guide.
 - **Semantic deletion for `forget` tool**: Added `query` and `threshold` parameters for topic-based deletion (e.g., "forget everything about authentication"). Uses vector-only search for precision. Dry-run shows top matches with similarity scores and score distribution. Combinable with time/session filters via AND logic.
@@ -86,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Removed skill cleanup**: `causantic init` now deletes directories for removed skills (e.g., `causantic-context`) on re-init.
 
 ### Removed
+
 - **`explain` MCP tool**: Subsumed by `recall` (both walk backward).
 - **`/causantic-context` skill**: Merged into `/causantic-explain`, which now handles both "why" questions and area briefings.
 - **Sum-product traverser**: Replaced by chain walker. Deleted `src/retrieval/traverser.ts`.
@@ -99,13 +111,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.6] - 2026-02-15
 
 ### Fixed
+
 - **MCP error messages**: Tool failure responses now include the actual error message instead of generic "Tool execution failed", making transient errors diagnosable without opt-in stderr logging.
 
 ### Changed
+
 - **CI formatting enforcement**: Added `format:check` step to CI workflow so formatting drift is caught before merge.
 - **Circular dependencies resolved**: Extracted shared types into `src/maintenance/types.ts` and `src/dashboard/client/src/lib/constants.ts` to break 5 circular dependency cycles.
 
 ### Housekeeping
+
 - Fixed 5 ESLint warnings (consistent-type-imports, unused imports).
 - Bumped typedoc 0.28.16 → 0.28.17 (fixes moderate ReDoS in markdown-it).
 - Synced package-lock.json.
@@ -115,14 +130,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2026-02-12
 
 ### Changed
+
 - **Time-based edge decay**: Replaced vector-clock hop counting with intrinsic time-based edge decay. Each edge's weight decays based on its age (milliseconds since creation), not logical hops. Backward edges use delayed-linear (60-minute hold), forward edges use exponential (10-minute half-life).
 - **Broadened vector TTL**: `cleanupExpired()` now applies to ALL vectors, not just orphaned ones. Vectors older than the TTL (default 90 days) are cleaned up regardless of edge status.
 - **Simplified traversal**: `traverse()` and `traverseMultiple()` use time-based decay configs directly. Sum-product rules unchanged.
 
 ### Added
+
 - **FIFO vector cap**: New `vectors.maxCount` config option evicts oldest vectors when the collection exceeds the limit. Default: 0 (unlimited).
 
 ### Removed
+
 - **Vector clocks**: Clock store, clock compactor, and vector-clock module deleted. Vector clock columns dropped from SQLite schema (v7 migration).
 - **Graph pruner**: `prune-graph` maintenance task removed. Edge cleanup happens via FK CASCADE when chunks are deleted by TTL/FIFO. Maintenance tasks reduced from 5 to 4.
 - **Orphan lifecycle**: Chunks no longer transition through an "orphaned" state. They go directly from active to expired when TTL elapses.
@@ -130,6 +148,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2026-02-11
 
 ### Added
+
 - **SessionEnd hook**: Triggers session ingestion on `/clear`, logout, and exit — closes the gap where chunks were lost between compaction events
 - Shared `ingestCurrentSession()` helper extracted from PreCompact, used by both PreCompact and SessionEnd hooks
 - Dynamic hook name logging in `causantic init`
@@ -137,6 +156,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2026-02-11
 
 ### Added
+
 - **Schema v6: Session Reconstruction**: Pure chronological SQLite queries for "what did I work on?" — composite index on `(session_slug, start_time)`, MCP tools `list-sessions` and `reconstruct`
 - **Project-Filtered Retrieval**: Federated approach with `projectFilter` on retrieval requests, cross-project graph traversal preserved
 - **Collection Benchmark Suite**: Self-service benchmarks for health, retrieval quality, graph value, and latency with scoring, tuning recommendations, and history tracking
@@ -159,20 +179,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Per-chunk encryption (ChaCha20-Poly1305, key stored in system keychain)
 
 ### Changed
+
 - **HDBSCAN rewrite**: Pure TypeScript implementation replacing hdbscan-ts — 130× speedup (65 min → 30 sec for 6,000 points)
 - **Direction-specific decay**: Backward and forward edges use different decay curves (empirically tuned)
 - **MCP tools**: Expanded from 3 to 6 tools (added list-projects, list-sessions, reconstruct)
 - **Clustering threshold**: Tuned default from 0.09 → 0.10
 
 ### Fixed
+
 - README config example: corrected stale `clustering.threshold` default value
 
 ### Infrastructure
+
 - Utility deduplication and standardized logging
 - ESLint no-console rule for consistent log handling
 - Test coverage: 1,684 tests passing in vitest
 
 ### Research Findings
+
 - Topic continuity detection: 0.998 AUC
 - Clustering threshold optimization: F1=0.940 at 0.09
 - Graph traversal experiment: 4.65× context augmentation (v0.2 sum-product; replaced by chain walking in v0.4.0)
@@ -182,6 +206,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-02-08
 
 ### Added
+
 - Initial release
 - Session parsing and chunking
 - Embedding generation with jina-small

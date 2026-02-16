@@ -39,7 +39,7 @@ Hop-based distance (traversal depth / turn count difference) instead of wall-clo
 Same decay function for backward and forward edges:
 
 ```typescript
-weight = 1 - (hops / 15);  // Linear, same for both directions
+weight = 1 - hops / 15; // Linear, same for both directions
 ```
 
 ### What Happened
@@ -60,6 +60,7 @@ Backward and forward edges have different semantics:
 ### The Fix
 
 Direction-specific decay:
+
 - Backward: Linear, dies at 10 hops
 - Forward: Delayed linear, 5-hop hold, dies at 20 hops
 
@@ -86,7 +87,8 @@ O(n² × k) complexity due to `Array.includes()`:
 // Problematic code in hdbscan-ts
 for (const point of points) {
   for (const cluster of clusters) {
-    if (cluster.includes(point)) {  // O(n) lookup
+    if (cluster.includes(point)) {
+      // O(n) lookup
       // ...
     }
   }
@@ -147,7 +149,7 @@ Assign each chunk to nearest cluster centroid:
 ```typescript
 function assignCluster(chunk: Chunk): Cluster {
   return clusters.reduce((best, cluster) =>
-    distance(chunk, cluster) < distance(chunk, best) ? cluster : best
+    distance(chunk, cluster) < distance(chunk, best) ? cluster : best,
   );
 }
 ```
@@ -181,16 +183,16 @@ Chunks beyond threshold remain unclustered (noise).
 
 These questions were identified as open before implementation and resolved through experiments:
 
-| Question | Answer | Evidence |
-|----------|--------|----------|
-| Topic continuity detection | Lexical features (0.998 AUC), 30-min time gap threshold | Topic continuity experiment |
-| Embedding model selection | jina-small (0.715 AUC, 0.384 silhouette) | Embedding benchmark |
-| Decay curve type | Delayed linear for retrieval, exponential for prediction | Edge decay experiments |
-| Directional asymmetry | Yes — +0.64 MRR delta for delayed linear | Forward prediction experiment |
-| Thinking block handling | Remove before embedding (+0.063 AUC) | Ablation study |
-| Chunk strategy | Turn-based, code-block aware | Parser implementation |
-| Cold start problem | Not real — full context until compaction | Design analysis |
-| Parallelism detection | Via parentToolUseID + timestamps | Session data inspection |
+| Question                   | Answer                                                   | Evidence                      |
+| -------------------------- | -------------------------------------------------------- | ----------------------------- |
+| Topic continuity detection | Lexical features (0.998 AUC), 30-min time gap threshold  | Topic continuity experiment   |
+| Embedding model selection  | jina-small (0.715 AUC, 0.384 silhouette)                 | Embedding benchmark           |
+| Decay curve type           | Delayed linear for retrieval, exponential for prediction | Edge decay experiments        |
+| Directional asymmetry      | Yes — +0.64 MRR delta for delayed linear                 | Forward prediction experiment |
+| Thinking block handling    | Remove before embedding (+0.063 AUC)                     | Ablation study                |
+| Chunk strategy             | Turn-based, code-block aware                             | Parser implementation         |
+| Cold start problem         | Not real — full context until compaction                 | Design analysis               |
+| Parallelism detection      | Via parentToolUseID + timestamps                         | Session data inspection       |
 
 ## Sum-Product Graph Traversal at Scale (v0.3.0)
 
@@ -235,6 +237,7 @@ Sequential 1-to-1 edges. Each chunk links to the next chunk in its session, pres
 The graph's value is **structural ordering** — what came before and after — not **semantic ranking**. Vector search and BM25 are better at "what's relevant to this query." The graph is better at "given something relevant, what's the surrounding narrative?"
 
 This separation of concerns led to the current architecture:
+
 - **Semantic discovery**: Hybrid BM25 + vector search (fast, accurate, query-driven)
 - **Structural context**: Chain walking along sequential edges (episodic, narrative, seed-driven)
 - **Topic grouping**: HDBSCAN clustering (browsing, organization)

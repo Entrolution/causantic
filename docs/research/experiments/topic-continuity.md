@@ -18,13 +18,13 @@ Topic transitions in conversation sessions can be detected using lexical and str
 
 We evaluated multiple feature types for boundary detection:
 
-| Feature Type | Description |
-|--------------|-------------|
-| Lexical overlap | Jaccard similarity of tokens |
-| Reference continuity | Shared file paths mentioned |
-| Turn length delta | Change in message length |
-| Tool usage pattern | Same/different tools used |
-| Time gap | Seconds between turns |
+| Feature Type         | Description                  |
+| -------------------- | ---------------------------- |
+| Lexical overlap      | Jaccard similarity of tokens |
+| Reference continuity | Shared file paths mentioned  |
+| Turn length delta    | Change in message length     |
+| Tool usage pattern   | Same/different tools used    |
+| Time gap             | Seconds between turns        |
 
 ### Metrics
 
@@ -37,12 +37,12 @@ We evaluated multiple feature types for boundary detection:
 
 ### Feature Comparison
 
-| Feature Set | AUC | Precision | Recall | F1 |
-|-------------|-----|-----------|--------|-----|
-| Lexical only | **0.998** | 0.95 | 0.94 | 0.945 |
-| Reference only | 0.923 | 0.89 | 0.85 | 0.869 |
-| Time gap only | 0.712 | 0.68 | 0.71 | 0.695 |
-| Combined (all) | 0.997 | 0.96 | 0.93 | 0.945 |
+| Feature Set    | AUC       | Precision | Recall | F1    |
+| -------------- | --------- | --------- | ------ | ----- |
+| Lexical only   | **0.998** | 0.95      | 0.94   | 0.945 |
+| Reference only | 0.923     | 0.89      | 0.85   | 0.869 |
+| Time gap only  | 0.712     | 0.68      | 0.71   | 0.695 |
+| Combined (all) | 0.997     | 0.96      | 0.93   | 0.945 |
 
 **Winner**: Lexical features alone achieve near-perfect AUC (0.998).
 
@@ -50,13 +50,13 @@ We evaluated multiple feature types for boundary detection:
 
 Optimal Jaccard similarity threshold for boundary detection:
 
-| Threshold | Precision | Recall | F1 |
-|-----------|-----------|--------|-----|
-| 0.1 | 0.78 | 0.98 | 0.869 |
-| 0.2 | 0.89 | 0.95 | 0.919 |
-| 0.3 | 0.95 | 0.94 | **0.945** |
-| 0.4 | 0.97 | 0.89 | 0.928 |
-| 0.5 | 0.98 | 0.82 | 0.893 |
+| Threshold | Precision | Recall | F1        |
+| --------- | --------- | ------ | --------- |
+| 0.1       | 0.78      | 0.98   | 0.869     |
+| 0.2       | 0.89      | 0.95   | 0.919     |
+| 0.3       | 0.95      | 0.94   | **0.945** |
+| 0.4       | 0.97      | 0.89   | 0.928     |
+| 0.5       | 0.98      | 0.82   | 0.893     |
 
 **Optimal threshold**: 0.3 (F1=0.945)
 
@@ -87,11 +87,13 @@ Boundary (high boundary score):
 ### Edge Cases
 
 **False positives** (predicted boundary, actually continuation):
+
 - Long explanations with new vocabulary
 - Copy-pasted code blocks with different content
 - Multi-step debugging with different error messages
 
 **False negatives** (missed boundary):
+
 - Quick topic switches within same file
 - Related topics (e.g., auth → session management)
 
@@ -104,7 +106,7 @@ function shouldChunk(prevTurn: Turn, currTurn: Turn): boolean {
   const prevTokens = new Set(tokenize(prevTurn.content));
   const currTokens = new Set(tokenize(currTurn.content));
 
-  const intersection = [...currTokens].filter(t => prevTokens.has(t));
+  const intersection = [...currTokens].filter((t) => prevTokens.has(t));
   const union = new Set([...prevTokens, ...currTokens]);
 
   const jaccard = intersection.length / union.size;
@@ -140,14 +142,14 @@ Results are saved to `benchmark-results/topic-continuity/`.
 
 The comprehensive 75-session run revealed where topic labels come from:
 
-| Source | Count | Label | Confidence |
-|--------|-------|-------|------------|
-| Same-session adjacent | 1,470 | continuation | medium |
-| Tool/file references | 772 | continuation | high |
-| Explicit continuation markers | 710 | continuation | high |
-| Time gap (>30 min) | 155 | new_topic | medium |
-| Session boundaries | 45 | new_topic | high |
-| Explicit shift markers | 27 | new_topic | high |
+| Source                        | Count | Label        | Confidence |
+| ----------------------------- | ----- | ------------ | ---------- |
+| Same-session adjacent         | 1,470 | continuation | medium     |
+| Tool/file references          | 772   | continuation | high       |
+| Explicit continuation markers | 710   | continuation | high       |
+| Time gap (>30 min)            | 155   | new_topic    | medium     |
+| Session boundaries            | 45    | new_topic    | high       |
+| Explicit shift markers        | 27    | new_topic    | high       |
 
 The dataset is imbalanced (93% continuations), reflecting the reality that most adjacent turns in coding sessions continue the same topic.
 

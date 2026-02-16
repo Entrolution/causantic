@@ -14,10 +14,10 @@ Skills are installed by `causantic init` to `~/.claude/skills/causantic-<name>/S
 
 Reconstruct how something happened — walks backward through causal chains ("how did we solve X?")
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `query` | Yes | Natural language question about past work |
-| `project` | No | Filter to a specific project slug |
+| Parameter | Required | Description                               |
+| --------- | -------- | ----------------------------------------- |
+| `query`   | Yes      | Natural language question about past work |
+| `project` | No       | Filter to a specific project slug         |
 
 **When to use**: User asks about past work, previous decisions, errors solved before, or context from prior sessions. Before saying "I don't have context from previous sessions" -- always try recall first.
 
@@ -29,10 +29,10 @@ Reconstruct how something happened — walks backward through causal chains ("ho
 
 Broad discovery — find everything memory knows about a topic ("what do I know about X?")
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `query` | Yes | What to search for in memory |
-| `project` | No | Filter to a specific project slug |
+| Parameter | Required | Description                       |
+| --------- | -------- | --------------------------------- |
+| `query`   | Yes      | What to search for in memory      |
+| `project` | No       | Filter to a specific project slug |
 
 **When to use**: Broad discovery, finding past context on a topic, as a starting point before using `recall` for deeper narrative.
 
@@ -44,10 +44,10 @@ Broad discovery — find everything memory knows about a topic ("what do I know 
 
 Surface what came after similar past situations — walks forward through causal chains ("what's likely relevant next?")
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `context` | Yes | Concise summary of the current task or topic |
-| `project` | No | Filter to a specific project slug |
+| Parameter | Required | Description                                  |
+| --------- | -------- | -------------------------------------------- |
+| `context` | Yes      | Concise summary of the current task or topic |
+| `project` | No       | Filter to a specific project slug            |
 
 **When to use**: At the start of complex tasks to check for relevant prior work, when encountering patterns that might have been solved before.
 
@@ -61,12 +61,13 @@ Surface what came after similar past situations — walks forward through causal
 
 Answer "why" questions using memory + codebase ("why does X work this way?")
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `query` | Yes | A "why" question or area/module name |
-| `project` | No | Filter to a specific project slug |
+| Parameter | Required | Description                          |
+| --------- | -------- | ------------------------------------ |
+| `query`   | Yes      | A "why" question or area/module name |
+| `project` | No       | Filter to a specific project slug    |
 
 **Modes**:
+
 - **Focused decision**: "Why does X..." / "What led to..." -- returns decision narrative (context, alternatives, rationale, trade-offs)
 - **Area briefing**: "Tell me about X" / area name / file path -- returns comprehensive briefing (purpose, key decisions, evolution, constraints)
 
@@ -78,9 +79,9 @@ Answer "why" questions using memory + codebase ("why does X work this way?")
 
 Search past sessions for prior encounters with the current error, bug pattern, or issue.
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `error` | No | Error text. If omitted, auto-extracts from the current conversation |
+| Parameter | Required | Description                                                         |
+| --------- | -------- | ------------------------------------------------------------------- |
+| `error`   | No       | Error text. If omitted, auto-extracts from the current conversation |
 
 **When to use**: When stuck on an error after 2 failed attempts, debugging a recurring problem, or encountering a familiar-looking issue.
 
@@ -94,9 +95,9 @@ Search past sessions for prior encounters with the current error, bug pattern, o
 
 Resume interrupted work -- start-of-session briefing.
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `topic` | No | Topic to focus on, or time reference ("yesterday", "last week") |
+| Parameter | Required | Description                                                     |
+| --------- | -------- | --------------------------------------------------------------- |
+| `topic`   | No       | Topic to focus on, or time reference ("yesterday", "last week") |
 
 **When to use**: Start of a session, user asks "where did I leave off?"
 
@@ -108,9 +109,9 @@ Resume interrupted work -- start-of-session briefing.
 
 Replay a past session chronologically by time range.
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `time range` | No | Natural language time reference ("yesterday", "past 3 days", "session abc123") |
+| Parameter    | Required | Description                                                                    |
+| ------------ | -------- | ------------------------------------------------------------------------------ |
+| `time range` | No       | Natural language time reference ("yesterday", "past 3 days", "session abc123") |
 
 **When to use**: "What did I work on yesterday?", "Show me the last session", rebuilding context from a specific time period.
 
@@ -122,9 +123,9 @@ Replay a past session chronologically by time range.
 
 Factual recap of what was done across recent sessions.
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `time range` | No | Natural language time reference. Defaults to past 3 days |
+| Parameter    | Required | Description                                              |
+| ------------ | -------- | -------------------------------------------------------- |
+| `time range` | No       | Natural language time reference. Defaults to past 3 days |
 
 **When to use**: Sprint reviews, daily standups, tracking accomplishments and in-progress work.
 
@@ -162,9 +163,9 @@ Check system health and memory statistics.
 
 Search across all projects for reusable patterns and solutions.
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `pattern` | Yes | Pattern or topic to search for across projects |
+| Parameter | Required | Description                                    |
+| --------- | -------- | ---------------------------------------------- |
+| `pattern` | Yes      | Pattern or topic to search for across projects |
 
 **When to use**: Looking for how something was solved in other projects, cross-project knowledge transfer, finding reusable patterns.
 
@@ -176,9 +177,9 @@ Search across all projects for reusable patterns and solutions.
 
 Surface recurring patterns, problems, and decisions across sessions.
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `scope` | No | Time range or topic. Defaults to past 30 days |
+| Parameter | Required | Description                                   |
+| --------- | -------- | --------------------------------------------- |
+| `scope`   | No       | Time range or topic. Defaults to past 30 days |
 
 **When to use**: Sprint retrospectives, identifying recurring themes, reviewing work patterns.
 
@@ -206,20 +207,21 @@ Memory-informed codebase review and cleanup plan.
 
 Delete memory by topic, time range, or session. Always previews before deleting.
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `query` | No | Semantic query for topic-based deletion |
-| `threshold` | No | Similarity threshold (0--1, default 0.6). Higher = more selective |
-| `before` | No | Delete chunks before this ISO 8601 date |
-| `after` | No | Delete chunks on or after this ISO 8601 date |
-| `session_id` | No | Delete chunks from a specific session |
-| `project` | Yes | Project slug (derived from cwd or asked) |
+| Parameter    | Required | Description                                                       |
+| ------------ | -------- | ----------------------------------------------------------------- |
+| `query`      | No       | Semantic query for topic-based deletion                           |
+| `threshold`  | No       | Similarity threshold (0--1, default 0.6). Higher = more selective |
+| `before`     | No       | Delete chunks before this ISO 8601 date                           |
+| `after`      | No       | Delete chunks on or after this ISO 8601 date                      |
+| `session_id` | No       | Delete chunks from a specific session                             |
+| `project`    | Yes      | Project slug (derived from cwd or asked)                          |
 
 **Workflow**: Always previews first (dry-run), shows what would be deleted, waits for explicit user confirmation before deleting.
 
 **When to use**: User asks to forget, remove, or clean up specific memory. Memory contains incorrect or outdated information.
 
 **Examples**:
+
 - `/causantic-forget authentication flow` -- delete memory about authentication
 - `/causantic-forget everything before January` -- time-based deletion
 - `/causantic-forget session abc12345` -- delete a specific session
@@ -228,19 +230,19 @@ Delete memory by topic, time range, or session. Always previews before deleting.
 
 ## Quick Decision Guide
 
-| User intent | Skill |
-|-------------|-------|
-| "What do I know about X?" | `search` |
-| "How did we solve X?" | `recall` |
-| "Why does X work this way?" | `explain` |
-| "What might be relevant?" | `predict` |
-| "Where did I leave off?" | `resume` |
-| "What did I work on yesterday?" | `reconstruct` |
-| "Summarize this week" | `summary` |
-| "How did other projects handle X?" | `crossref` |
-| "What patterns do I see?" | `retro` |
-| "Review and clean up this codebase" | `cleanup` |
-| "Forget/delete memory about X" | `forget` |
+| User intent                         | Skill         |
+| ----------------------------------- | ------------- |
+| "What do I know about X?"           | `search`      |
+| "How did we solve X?"               | `recall`      |
+| "Why does X work this way?"         | `explain`     |
+| "What might be relevant?"           | `predict`     |
+| "Where did I leave off?"            | `resume`      |
+| "What did I work on yesterday?"     | `reconstruct` |
+| "Summarize this week"               | `summary`     |
+| "How did other projects handle X?"  | `crossref`    |
+| "What patterns do I see?"           | `retro`       |
+| "Review and clean up this codebase" | `cleanup`     |
+| "Forget/delete memory about X"      | `forget`      |
 
 ## Skill vs MCP Tool
 

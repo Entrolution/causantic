@@ -40,6 +40,7 @@ npx causantic init
 ```
 
 The interactive setup wizard will:
+
 1. Create the `~/.causantic/` directory structure
 2. Offer to enable database encryption (recommended)
 3. Initialize the database
@@ -73,6 +74,7 @@ During setup, Causantic will detect existing Claude Code sessions in `~/.claude/
 For large session histories, the initial import may take a few minutes.
 
 After importing sessions, Causantic automatically:
+
 - **Builds clusters**: Groups related chunks by topic using HDBSCAN
 
 ### Cluster Labeling (Optional)
@@ -82,6 +84,7 @@ Causantic can use Claude Haiku to generate human-readable descriptions for topic
 During setup, you'll be prompted to add your API key. The key is stored securely in your system keychain (macOS Keychain / Linux libsecret).
 
 You can add or update the API key later:
+
 ```bash
 npx causantic config set-key anthropic-api-key
 npx causantic maintenance run refresh-labels

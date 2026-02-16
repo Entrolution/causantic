@@ -28,14 +28,14 @@ Angular distance threshold affects clustering quality. There exists an optimal t
 
 ## Results
 
-| Threshold | Precision | Recall | F1 |
-|-----------|-----------|--------|-----|
-| 0.05 | 1.000 | 0.712 | 0.832 |
-| 0.07 | 1.000 | 0.823 | 0.903 |
-| 0.09 | **1.000** | **0.887** | **0.940** |
-| 0.11 | 0.982 | 0.901 | 0.940 |
-| 0.13 | 0.954 | 0.923 | 0.938 |
-| 0.15 | 0.921 | 0.945 | 0.933 |
+| Threshold | Precision | Recall    | F1        |
+| --------- | --------- | --------- | --------- |
+| 0.05      | 1.000     | 0.712     | 0.832     |
+| 0.07      | 1.000     | 0.823     | 0.903     |
+| 0.09      | **1.000** | **0.887** | **0.940** |
+| 0.11      | 0.982     | 0.901     | 0.940     |
+| 0.13      | 0.954     | 0.923     | 0.938     |
+| 0.15      | 0.921     | 0.945     | 0.933     |
 
 **Winner**: Threshold 0.09 (F1=0.940, 100% precision, 88.7% recall)
 
@@ -103,7 +103,7 @@ Chunks are assigned to clusters based on centroid distance:
 ```typescript
 function assignToCluster(chunk: Chunk, clusters: Cluster[]): Cluster | null {
   let bestCluster = null;
-  let bestDistance = threshold;  // 0.09
+  let bestDistance = threshold; // 0.09
 
   for (const cluster of clusters) {
     const distance = angularDistance(chunk.embedding, cluster.centroid);
@@ -113,7 +113,7 @@ function assignToCluster(chunk: Chunk, clusters: Cluster[]): Cluster | null {
     }
   }
 
-  return bestCluster;  // null if no cluster within threshold
+  return bestCluster; // null if no cluster within threshold
 }
 ```
 

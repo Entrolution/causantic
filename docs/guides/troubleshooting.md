@@ -9,6 +9,7 @@ Common issues and solutions for Causantic.
 Causantic requires Node.js 20+.
 
 **Solution**:
+
 ```bash
 # Using nvm
 nvm install 20
@@ -23,17 +24,20 @@ node --version
 ### "MCP server not responding"
 
 **Check 1**: Verify the server starts:
+
 ```bash
 npx causantic serve
 # Should output: "MCP server started on stdio"
 ```
 
 **Check 2**: Test health endpoint:
+
 ```bash
 npx causantic health
 ```
 
 **Check 3**: Check Claude Code config:
+
 ```json
 {
   "mcpServers": {
@@ -50,6 +54,7 @@ npx causantic health
 **Cause**: No data ingested yet.
 
 **Solution**:
+
 ```bash
 # Ingest existing sessions
 npx causantic batch-ingest ~/.claude/projects
@@ -63,6 +68,7 @@ npx causantic stats
 ### "Queries are slow"
 
 **Cause 1**: Large database needs optimization.
+
 ```bash
 npx causantic maintenance run vacuum
 ```
@@ -70,16 +76,19 @@ npx causantic maintenance run vacuum
 ### "Expected context not recalled"
 
 **Check 1**: Verify the session was ingested:
+
 ```bash
 npx causantic list-sessions
 ```
 
 **Check 2**: Search for specific content:
+
 ```bash
 npx causantic search "your expected content"
 ```
 
 **Check 3**: Check clustering:
+
 ```bash
 npx causantic clusters list
 ```
@@ -93,6 +102,7 @@ If content is in a different cluster than expected, adjust `clustering.threshold
 **Cause**: Multiple processes accessing the database.
 
 **Solution**: Ensure only one Causantic process runs at a time:
+
 ```bash
 # Kill any running Causantic processes
 pkill -f "causantic serve"
@@ -104,6 +114,7 @@ npx causantic serve
 ### "Disk space running low"
 
 **Check storage**:
+
 ```bash
 du -sh ~/.causantic/
 du -sh ~/.causantic/memory.db
@@ -111,6 +122,7 @@ du -sh ~/.causantic/vectors/
 ```
 
 **Solutions**:
+
 1. Run vacuum: `npx causantic maintenance run vacuum`
 2. Configure `vectors.maxCount` to cap collection size
 3. Lower `vectors.ttlDays` to expire old vectors sooner
@@ -120,12 +132,14 @@ du -sh ~/.causantic/vectors/
 ### "No API key found"
 
 **macOS**:
+
 ```bash
 # Set key in Keychain
 npx causantic config set-key anthropic
 ```
 
 **Linux**:
+
 ```bash
 # Using secret-tool (GNOME)
 sudo apt install libsecret-tools
@@ -144,11 +158,13 @@ export CAUSANTIC_ANTHROPIC_KEY="sk-ant-..."
 ### "Hook not firing"
 
 **Check Claude Code configuration**:
+
 ```bash
 cat ~/.claude/settings.json
 ```
 
 Verify hooks are configured:
+
 ```json
 {
   "hooks": {
@@ -162,6 +178,7 @@ Verify hooks are configured:
 ### "Hook fails silently"
 
 **Enable debug logging**:
+
 ```bash
 export CAUSANTIC_DEBUG=1
 npx causantic hook session-start

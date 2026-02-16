@@ -25,6 +25,7 @@ These items were previously listed as future work and have since been implemente
 **Current State**: Chain walker follows sequential edges with cosine-similarity scoring. Depth limit of 50.
 
 **Potential Improvements**:
+
 1. Adaptive depth — stop walking when cosine similarity drops below threshold for N consecutive hops
 2. Bidirectional walk merging — combine backward and forward walks more intelligently
 3. Branch-aware walking — follow brief/debrief edges into sub-agent chains when relevant
@@ -34,6 +35,7 @@ These items were previously listed as future work and have since been implemente
 **Goal**: Learn from user interactions to improve retrieval quality.
 
 **Approach**:
+
 - Track which retrieved chunks the user actually references in conversation
 - Use implicit feedback (chunks that appear in subsequent tool calls) as positive signal
 - Adjust chain walking scoring or seed selection based on feedback patterns
@@ -43,11 +45,13 @@ These items were previously listed as future work and have since been implemente
 **Goal**: Demonstrate cost savings from smarter context retrieval.
 
 **Approach**:
+
 - Track context window usage before/after memory augmentation
 - Measure compression ratio (raw session tokens vs retrieved context)
 - Dashboard showing memory efficiency metrics
 
 **Implementation Ideas**:
+
 - Hook into Claude Code's token reporting
 - Log baseline vs augmented queries
 - Calculate effective compression ratio
@@ -61,6 +65,7 @@ These items were previously listed as future work and have since been implemente
 **Challenge**: HDBSCAN is not inherently incremental.
 
 **Potential Approaches**:
+
 1. Approximate nearest cluster assignment for new points
 2. Periodic full re-clustering with incremental updates between
 3. Explore online clustering algorithms (DBSTREAM, DenStream)
@@ -72,11 +77,13 @@ These items were previously listed as future work and have since been implemente
 **Goal**: Make embedding model configurable.
 
 **Options**:
+
 - jina-small (current default)
 - jina-base (higher quality)
 - Custom fine-tuned model
 
 **Considerations**:
+
 - Changing models requires re-embedding all chunks
 - Model-specific clustering thresholds
 - Storage for multiple embedding versions
@@ -86,6 +93,7 @@ These items were previously listed as future work and have since been implemente
 **Goal**: Direct integration without MCP.
 
 **Features**:
+
 - Inline memory suggestions
 - Memory explorer panel
 - Query interface in editor
@@ -97,6 +105,7 @@ These items were previously listed as future work and have since been implemente
 **Goal**: Share memory across team members.
 
 **Considerations**:
+
 - Privacy (redact sensitive content)
 - Encryption (secure transport)
 - Conflict resolution (merge strategies)
@@ -107,6 +116,7 @@ These items were previously listed as future work and have since been implemente
 **Goal**: Handle images, diagrams, and other media.
 
 **Challenges**:
+
 - Embedding non-text content
 - Storage format
 - Retrieval across modalities
@@ -120,6 +130,7 @@ These items were previously listed as future work and have since been implemente
 **Current**: Code-aware chunking based on structure.
 
 **To Explore**:
+
 - Fixed token counts
 - Semantic boundaries
 - Adaptive sizing based on content
@@ -131,6 +142,7 @@ These items were previously listed as future work and have since been implemente
 **Current**: Based on structural cross-session edges. The [collection benchmark suite](../guides/benchmarking.md) can now measure cross-session bridging quality — run `npx causantic benchmark-collection --full` to evaluate.
 
 **To Measure**:
+
 - Precision of cross-session edges
 - User validation of suggested links
 - A/B testing of linking strategies
@@ -142,6 +154,7 @@ These items were previously listed as future work and have since been implemente
 **Current**: Fixed curves based on aggregate data.
 
 **To Explore**:
+
 - User-specific curve fitting
 - Project-type differences (frontend vs backend)
 - Adaptive decay based on retrieval feedback

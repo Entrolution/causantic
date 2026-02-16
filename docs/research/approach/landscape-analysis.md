@@ -4,16 +4,16 @@ How Causantic compares to existing AI memory systems, and why it takes a differe
 
 ## Competitor Feature Matrix
 
-| System | Local-First | Temporal Decay | Graph Structure | Self-Benchmarking | Hop-Based Distance |
-|--------|:-----------:|:--------------:|:--------------:|:-----------------:|:------------------:|
-| **Causantic** | **Yes** | **Hop-based** | **Causal graph** | **Yes** | **Yes** |
-| Mem0 | No (Cloud) | None | Paid add-on | No | No |
-| Cognee | Self-hostable | None | Triplet extraction | No | No |
-| Letta/MemGPT | Self-hostable | Summarization | None | No | No |
-| Zep | Enterprise | Bi-temporal | Temporal KG | No | No |
-| Supermemory | Cloudflare | Dual timestamps | Secondary | No | No |
-| A-MEM | Research only | None | Zettelkasten | No | No |
-| GraphRAG | Self-hostable | Static corpus | Hierarchical | No | No |
+| System        |  Local-First  | Temporal Decay  |  Graph Structure   | Self-Benchmarking | Hop-Based Distance |
+| ------------- | :-----------: | :-------------: | :----------------: | :---------------: | :----------------: |
+| **Causantic** |    **Yes**    |  **Hop-based**  |  **Causal graph**  |      **Yes**      |      **Yes**       |
+| Mem0          |  No (Cloud)   |      None       |    Paid add-on     |        No         |         No         |
+| Cognee        | Self-hostable |      None       | Triplet extraction |        No         |         No         |
+| Letta/MemGPT  | Self-hostable |  Summarization  |        None        |        No         |         No         |
+| Zep           |  Enterprise   |   Bi-temporal   |    Temporal KG     |        No         |         No         |
+| Supermemory   |  Cloudflare   | Dual timestamps |     Secondary      |        No         |         No         |
+| A-MEM         | Research only |      None       |    Zettelkasten    |        No         |         No         |
+| GraphRAG      | Self-hostable |  Static corpus  |    Hierarchical    |        No         |         No         |
 
 ## System Summaries
 
@@ -39,16 +39,16 @@ Zettelkasten-inspired agentic memory with bidirectional linking. Only system wit
 
 ## Gap Analysis
 
-| Gap | Current Landscape | Causantic's Approach |
-|-----|-------------------|---------------------|
-| **Local-first + sophisticated** | Cloud systems are sophisticated; local systems are simplistic | Full causal graph + clustering + hybrid search, all on your machine |
-| **Hop-based decay** | Wall-clock time or none | Logical D-T-D hops preserve cross-session continuity |
-| **Direction-specific retrieval** | Symmetric or none | Backward (dies@10 hops) vs forward (delayed, dies@20 hops) |
-| **Self-benchmarking** | No system measures its own retrieval quality | Built-in benchmark suite with tuning recommendations |
-| **Claude Code native** | General-purpose or platform-agnostic | Purpose-built hooks, MCP tools, and CLAUDE.md generation |
+| Gap                              | Current Landscape                                             | Causantic's Approach                                                |
+| -------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Local-first + sophisticated**  | Cloud systems are sophisticated; local systems are simplistic | Full causal graph + clustering + hybrid search, all on your machine |
+| **Hop-based decay**              | Wall-clock time or none                                       | Logical D-T-D hops preserve cross-session continuity                |
+| **Direction-specific retrieval** | Symmetric or none                                             | Backward (dies@10 hops) vs forward (delayed, dies@20 hops)          |
+| **Self-benchmarking**            | No system measures its own retrieval quality                  | Built-in benchmark suite with tuning recommendations                |
+| **Claude Code native**           | General-purpose or platform-agnostic                          | Purpose-built hooks, MCP tools, and CLAUDE.md generation            |
 
 ## Key Differentiator
 
-Most memory systems optimize for *storing* memories. Causantic optimizes for *retrieving the right context at the right time* — using hybrid BM25+vector search with causal chain walking for episodic narrative context. (The 4.65× augmentation figure was a v0.2 research result using sum-product traversal, since replaced by chain walking — see [experiments/graph-traversal.md](../experiments/graph-traversal.md).)
+Most memory systems optimize for _storing_ memories. Causantic optimizes for _retrieving the right context at the right time_ — using hybrid BM25+vector search with causal chain walking for episodic narrative context. (The 4.65× augmentation figure was a v0.2 research result using sum-product traversal, since replaced by chain walking — see [experiments/graph-traversal.md](../experiments/graph-traversal.md).)
 
-*Condensed from the [full feasibility study](../archive/feasibility-study.md). See the archive for detailed per-system analysis including architecture diagrams and benchmark methodology.*
+_Condensed from the [full feasibility study](../archive/feasibility-study.md). See the archive for detailed per-system analysis including architecture diagrams and benchmark methodology._

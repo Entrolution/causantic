@@ -18,6 +18,7 @@ Hooks fire automatically at key moments:
 **Trigger**: New Claude Code session begins
 
 **Actions**:
+
 - Query recent relevant context
 - Generate memory summary
 - Update CLAUDE.md
@@ -29,6 +30,7 @@ Hooks fire automatically at key moments:
 **Trigger**: Before conversation history is compressed
 
 **Actions**:
+
 - Ingest current session content
 - Create chunks and edges
 - Generate embeddings
@@ -59,14 +61,14 @@ Claude identifies relevant historical context without being asked.
 
 ## Why Both?
 
-| Capability | Hooks | MCP |
-|------------|-------|-----|
-| Automatic capture | Yes | No |
-| On-demand queries | No | Yes |
-| Background operation | Yes | No |
-| Interactive | No | Yes |
-| Context priming | Yes | Partial |
-| User-initiated recall | No | Yes |
+| Capability            | Hooks | MCP     |
+| --------------------- | ----- | ------- |
+| Automatic capture     | Yes   | No      |
+| On-demand queries     | No    | Yes     |
+| Background operation  | Yes   | No      |
+| Interactive           | No    | Yes     |
+| Context priming       | Yes   | Partial |
+| User-initiated recall | No    | Yes     |
 
 ### Hooks Excel At
 

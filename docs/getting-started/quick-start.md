@@ -19,6 +19,7 @@ npx causantic batch-ingest ~/.claude/projects
 ```
 
 This creates:
+
 - A SQLite database at `~/.causantic/memory.db`
 - A vector store at `~/.causantic/vectors/`
 

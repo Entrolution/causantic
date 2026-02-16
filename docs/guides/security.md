@@ -6,13 +6,13 @@ Causantic stores sensitive data about your work patterns and conversation histor
 
 ### What Causantic Stores
 
-| Data Type | Location | Risk if Exposed |
-|-----------|----------|-----------------|
-| Conversation text | `chunks` table | Direct content exposure |
-| Embedding vectors | `vectors` table | Semantic reconstruction, topic inference |
-| Causal relationships | `edges` table | Work patterns, debugging history |
-| Topic clusters | `clusters` table | Project/feature groupings |
-| Temporal ordering | `edges.created_at` timestamps | Activity timeline |
+| Data Type            | Location                      | Risk if Exposed                          |
+| -------------------- | ----------------------------- | ---------------------------------------- |
+| Conversation text    | `chunks` table                | Direct content exposure                  |
+| Embedding vectors    | `vectors` table               | Semantic reconstruction, topic inference |
+| Causal relationships | `edges` table                 | Work patterns, debugging history         |
+| Topic clusters       | `clusters` table              | Project/feature groupings                |
+| Temporal ordering    | `edges.created_at` timestamps | Activity timeline                        |
 
 ### Why Encrypt Vectors?
 
@@ -39,12 +39,14 @@ Causantic supports full database encryption using SQLCipher-compatible ciphers.
 ### Enable Encryption
 
 During initial setup:
+
 ```bash
 npx causantic init
 # "Enable database encryption? [Y/n]" → y
 ```
 
 For existing installations:
+
 ```bash
 npx causantic encryption setup
 ```
@@ -78,13 +80,14 @@ hexdump -C ~/.causantic/memory.db | head -5
 
 Causantic can retrieve the encryption key from multiple sources:
 
-| Source | Best For | Configuration |
-|--------|----------|---------------|
-| `keychain` | Desktop use | Default on macOS/Linux with secret-tool |
-| `env` | CI/CD, containers | Set `CAUSANTIC_DB_KEY` environment variable |
-| `prompt` | Manual operations | CLI prompts for password |
+| Source     | Best For          | Configuration                               |
+| ---------- | ----------------- | ------------------------------------------- |
+| `keychain` | Desktop use       | Default on macOS/Linux with secret-tool     |
+| `env`      | CI/CD, containers | Set `CAUSANTIC_DB_KEY` environment variable |
+| `prompt`   | Manual operations | CLI prompts for password                    |
 
 Configure in `causantic.config.json`:
+
 ```json
 {
   "encryption": {
@@ -125,12 +128,13 @@ This re-encrypts the entire database with a new key.
 
 Causantic supports two ciphers:
 
-| Cipher | Speed | Best For |
-|--------|-------|----------|
-| `chacha20` | 2-3x faster on ARM | Apple Silicon, Raspberry Pi |
-| `sqlcipher` | Standard | Intel/AMD, compatibility |
+| Cipher      | Speed              | Best For                    |
+| ----------- | ------------------ | --------------------------- |
+| `chacha20`  | 2-3x faster on ARM | Apple Silicon, Raspberry Pi |
+| `sqlcipher` | Standard           | Intel/AMD, compatibility    |
 
 Configure in `causantic.config.json`:
+
 ```json
 {
   "encryption": {
@@ -152,6 +156,7 @@ Enable audit logging to track database access:
 ```
 
 View audit log:
+
 ```bash
 npx causantic encryption audit
 # 2024-01-15T10:30:00Z open    Database opened successfully
@@ -166,6 +171,7 @@ Audit logs are stored at `~/.causantic/audit.log`.
 ### Encrypted Exports
 
 Always use encrypted exports for backups:
+
 ```bash
 npx causantic export --output backup.causantic
 # Prompts for password
@@ -176,19 +182,21 @@ See [Backup & Restore](./backup-restore.md) for details.
 ### Transport Security
 
 When transferring backups:
+
 - Use encrypted export files (`.causantic`)
 - Transfer over secure channels (SSH, HTTPS)
 - Delete temporary copies after import
 
 ## Environment Variables
 
-| Variable | Purpose |
-|----------|---------|
-| `CAUSANTIC_DB_KEY` | Database encryption key (when keySource=env) |
-| `CAUSANTIC_EXPORT_PASSWORD` | Export/import encryption password |
-| `CAUSANTIC_SECRET_PASSWORD` | Fallback encrypted file store password |
+| Variable                    | Purpose                                      |
+| --------------------------- | -------------------------------------------- |
+| `CAUSANTIC_DB_KEY`          | Database encryption key (when keySource=env) |
+| `CAUSANTIC_EXPORT_PASSWORD` | Export/import encryption password            |
+| `CAUSANTIC_SECRET_PASSWORD` | Fallback encrypted file store password       |
 
 For production/CI environments, use secrets management:
+
 ```bash
 # GitHub Actions
 CAUSANTIC_DB_KEY="${{ secrets.CAUSANTIC_DB_KEY }}" npx causantic serve
@@ -200,16 +208,19 @@ docker run -e CAUSANTIC_DB_KEY="$CAUSANTIC_DB_KEY" causantic-server
 ## Security Checklist
 
 ### Initial Setup
+
 - [ ] Run `causantic init` with encryption enabled
 - [ ] Verify encryption with `causantic encryption status`
 - [ ] Back up encryption key with `causantic encryption backup-key`
 
 ### Ongoing
+
 - [ ] Use encrypted exports for backups
 - [ ] Don't commit `.causantic/` directory to version control
 - [ ] Add `~/.causantic/` to backup encryption (Time Machine, etc.)
 
 ### Sharing/Migration
+
 - [ ] Use `--redact-paths --redact-code` for shared exports
 - [ ] Transfer files over encrypted channels
 - [ ] Delete temporary decrypted copies
@@ -227,6 +238,7 @@ docker run -e CAUSANTIC_DB_KEY="$CAUSANTIC_DB_KEY" causantic-server
 **Lost encryption key = lost data**. There is no recovery without the key.
 
 Mitigations:
+
 - Back up key with `causantic encryption backup-key`
 - Store backup password in password manager
 - Keep unencrypted backup in secure location (optional)

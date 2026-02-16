@@ -40,11 +40,13 @@ w(t) = w₀ * exp(-k * t)
 ```
 
 **Pros**:
+
 - Matches Ebbinghaus forgetting curve (cognitive science basis)
 - Smooth, continuous decay
 - Single parameter `k` controls decay rate
 
 **Cons**:
+
 - Asymptotic approach to zero — never actually reaches zero
 - Requires arbitrary threshold for pruning (`w < ε → prune`)
 - Threshold is a tuning burden and feels ad-hoc
@@ -57,12 +59,14 @@ w(t) = max(0, w₀ - k * t)  // with floor
 ```
 
 **Pros**:
+
 - Deterministic zero-crossing: `t_death = w₀ / k`
 - Natural topology pruning — edge dies when `w ≤ 0`
 - Computationally trivial
 - Predictable memory pressure
 
 **Cons**:
+
 - Doesn't model the "long tail" of memory
 - Single linear decay may be too simple
 - Decay rate is constant regardless of edge age
@@ -76,11 +80,13 @@ w(t) = Σᵢ max(0, wᵢ - kᵢ * t)
 ```
 
 Where each component represents a different "memory tier":
+
 - **Short-term**: High initial weight, fast decay
 - **Medium-term**: Moderate weight, moderate decay
 - **Long-term**: Lower weight, slow decay
 
 **Pros**:
+
 - Approximates smooth curves via superposition
 - Natural zero-crossing for topology management
 - Explicit control over multiple timescales
@@ -88,6 +94,7 @@ Where each component represents a different "memory tier":
 - Computationally simple (sum of linear terms)
 
 **Cons**:
+
 - More parameters to tune than single exponential
 - Need to determine tier weights and rates empirically
 
@@ -99,11 +106,13 @@ w(t) = w₀ - k * (t - τ_hold)    if t ≥ τ_hold
 ```
 
 **Pros**:
+
 - Models "working memory" — full relevance for holding period
 - Recent context is fully available, not just mostly available
 - Single additional parameter `τ_hold`
 
 **Cons**:
+
 - Discontinuity in derivative at `t = τ_hold`
 - Still single decay rate after hold period
 
@@ -114,11 +123,13 @@ w(t) = w₀ * (1 + t)^(-α)
 ```
 
 **Pros**:
+
 - Evidence from ACT-R cognitive architecture that memory retrieval follows power law
 - Long tail — decays faster initially, then slower
 - May better match empirical relevance patterns
 
 **Cons**:
+
 - Asymptotic like exponential (needs threshold)
 - More complex computation than linear
 
@@ -153,13 +164,14 @@ function totalEdgeWeight(tiers: DecayTier[], ageMs: number): number {
 
 ### Default Tier Configuration
 
-| Tier | Initial Weight | Hold Period | Decay Rate | Death Time |
-|------|---------------|-------------|------------|------------|
-| Short-term | 1.0 | 5 min | 0.001/ms | ~22 min |
-| Medium-term | 0.5 | 1 hour | 0.0001/ms | ~2.4 hours |
-| Long-term | 0.3 | 24 hours | 0.00001/ms | ~32 hours |
+| Tier        | Initial Weight | Hold Period | Decay Rate | Death Time |
+| ----------- | -------------- | ----------- | ---------- | ---------- |
+| Short-term  | 1.0            | 5 min       | 0.001/ms   | ~22 min    |
+| Medium-term | 0.5            | 1 hour      | 0.0001/ms  | ~2.4 hours |
+| Long-term   | 0.3            | 24 hours    | 0.00001/ms | ~32 hours  |
 
 **Combined characteristics**:
+
 - Peak weight at creation: 1.8
 - After 5 min: ~1.78 (short-term starts decaying)
 - After 1 hour: ~1.0 (medium-term starts decaying)
@@ -179,18 +191,20 @@ function totalEdgeWeight(tiers: DecayTier[], ageMs: number): number {
 ## Edge Lifecycle
 
 ### Creation
+
 When a causal edge is created (e.g., user turn references previous assistant output):
 
 ```typescript
 interface Edge {
-  sourceId: string;      // Source chunk/turn
-  targetId: string;      // Target chunk/turn
-  createdAt: number;     // Unix timestamp ms
-  tiers: DecayTier[];    // Decay configuration
+  sourceId: string; // Source chunk/turn
+  targetId: string; // Target chunk/turn
+  createdAt: number; // Unix timestamp ms
+  tiers: DecayTier[]; // Decay configuration
 }
 ```
 
 ### Query-Time Weight Calculation
+
 At query time `t_query`:
 
 ```typescript
@@ -201,6 +215,7 @@ function getEdgeWeight(edge: Edge, queryTime: number): number {
 ```
 
 ### Pruning
+
 Edge is pruned when total weight ≤ 0:
 
 ```typescript
@@ -210,11 +225,13 @@ function shouldPrune(edge: Edge, queryTime: number): boolean {
 ```
 
 Pruning can happen:
+
 - **Lazily**: During traversal, skip edges with zero weight
 - **Eagerly**: Background process periodically removes dead edges
 - **In-situ**: At query time, remove edge if weight is zero
 
 ### Node Orphan Detection
+
 When an edge is pruned, check if connected nodes are orphaned:
 
 ```typescript
@@ -243,6 +260,7 @@ The current proposal does **not** include reinforcement on access. This is inten
 3. **Unclear semantics**: What does "access" mean for an edge?
 
 If reinforcement is needed later, options include:
+
 - Reset hold period on access (extend plateau)
 - Boost weight by fixed amount (accumulation)
 - Create new short-term tier contribution
@@ -253,13 +271,13 @@ If reinforcement is needed later, options include:
 
 ### Multi-Linear Advantages
 
-| Aspect | Multi-Linear | Exponential |
-|--------|--------------|-------------|
-| Zero-crossing | Deterministic | Asymptotic (needs threshold) |
-| Topology management | Natural | Requires threshold tuning |
-| Computation | Sum of linear | Requires exp() |
-| Timescales | Explicit tiers | Single decay constant |
-| Tunability | 2N params (N tiers) | 1-2 params |
+| Aspect              | Multi-Linear        | Exponential                  |
+| ------------------- | ------------------- | ---------------------------- |
+| Zero-crossing       | Deterministic       | Asymptotic (needs threshold) |
+| Topology management | Natural             | Requires threshold tuning    |
+| Computation         | Sum of linear       | Requires exp()               |
+| Timescales          | Explicit tiers      | Single decay constant        |
+| Tunability          | 2N params (N tiers) | 1-2 params                   |
 
 ### When Exponential Might Be Better
 
@@ -272,26 +290,34 @@ If reinforcement is needed later, options include:
 ## Open Questions
 
 ### 1. Tier Configuration
+
 Should tier parameters be:
+
 - Global constants?
 - Per-edge-type (e.g., different for code vs. discussion)?
 - Learned from data?
 
 ### 2. Directionality ✓ Answered
+
 Does relevance decay differ for:
+
 - **Forward queries**: "What context led to this turn?"
 - **Backward queries**: "What turns were informed by this context?"
 
 **Answer**: Yes, significantly. Models with hold periods (Delayed Linear, Multi-Linear) show +0.27 to +0.64 MRR improvement on forward queries vs backward. Exponential decay is symmetric but suboptimal for long-range. Recommendation: Use separate decay profiles for retrieval (backward) vs prediction (forward) edges.
 
 ### 3. Edge Type Weighting
+
 Should initial weights vary by edge type?
+
 - Tool result → higher initial weight?
 - Topic continuation → moderate weight?
 - Explicit reference → highest weight?
 
 ### 4. Empirical Validation
+
 How do we measure whether a decay curve "works"?
+
 - Retrieval precision/recall at different time offsets
 - User satisfaction with retrieved context
 - Comparison of retrieved vs. actually-referenced content
@@ -319,20 +345,21 @@ Determine which decay curve best predicts whether older context is actually rele
 
 From session data, identify when a turn explicitly or implicitly references earlier context:
 
-| Signal | Detection Method | Relevance Label |
-|--------|------------------|-----------------|
-| **Explicit file reference** | User mentions same file as earlier assistant output | Strong relevance |
-| **Tool result reference** | User refers to error/output from previous tool use | Strong relevance |
-| **Continuation markers** | "yes", "the error", "that works" | Moderate relevance |
-| **Topic continuity** | Same semantic topic (embedding similarity) | Moderate relevance |
-| **Time adjacency** | Within same session, no topic shift | Weak relevance |
-| **Topic shift** | Explicit "new question" or large time gap | No relevance |
+| Signal                      | Detection Method                                    | Relevance Label    |
+| --------------------------- | --------------------------------------------------- | ------------------ |
+| **Explicit file reference** | User mentions same file as earlier assistant output | Strong relevance   |
+| **Tool result reference**   | User refers to error/output from previous tool use  | Strong relevance   |
+| **Continuation markers**    | "yes", "the error", "that works"                    | Moderate relevance |
+| **Topic continuity**        | Same semantic topic (embedding similarity)          | Moderate relevance |
+| **Time adjacency**          | Within same session, no topic shift                 | Weak relevance     |
+| **Topic shift**             | Explicit "new question" or large time gap           | No relevance       |
 
 ### Experiment 1: Decay-Weighted Retrieval Ranking
 
 **Hypothesis**: A good decay model should rank actually-referenced turns higher than non-referenced turns at query time.
 
 **Method**:
+
 1. For each user turn at time `t_user`, identify which previous assistant turns it references
 2. Compute decay weight for all candidate turns: `w(t_user - t_assistant)`
 3. Rank candidates by decay weight
@@ -349,6 +376,7 @@ MRR = (1/N) * Σ (1 / rank_of_first_relevant)
 **Hypothesis**: Decay weight should correlate with actual reference probability at different time offsets.
 
 **Method**:
+
 1. Bin turn pairs by time offset: 0-5min, 5-30min, 30min-1h, 1-4h, 4-24h, 1-7d
 2. For each bin, compute:
    - Actual reference rate (% of pairs where later turn references earlier)
@@ -365,6 +393,7 @@ MRR = (1/N) * Σ (1 / rank_of_first_relevant)
 **Backward query**: "What turns were informed by this context?" (looking forward in time)
 
 **Method**:
+
 1. For forward queries: Given turn T, which earlier turns influenced it?
 2. For backward queries: Given turn T, which later turns reference it?
 3. Evaluate decay models separately for each direction
@@ -375,11 +404,13 @@ MRR = (1/N) * Σ (1 / rank_of_first_relevant)
 **Hypothesis**: Decay patterns may differ between coding sessions and non-coding sessions.
 
 **Method**:
+
 1. Segment sessions into types: coding (high tool use), discussion (low tool use), mixed
 2. Run Experiments 1-3 separately for each type
 3. Compare optimal decay parameters across types
 
 **Session types available**:
+
 - Coding: Ultan, apolitical-assistant, cdx-core, etc.
 - Non-coding: pde-book, Personal-advice, analytic-methods-in-pde
 
@@ -388,12 +419,14 @@ MRR = (1/N) * Σ (1 / rank_of_first_relevant)
 **Hypothesis**: We can find optimal tier parameters by maximizing retrieval quality.
 
 **Method**:
+
 1. Define parameter search space for multi-linear tiers
 2. For each parameter configuration, run Experiment 1
 3. Find configuration that maximizes MRR
 4. Compare to preset configurations
 
 **Search space**:
+
 ```
 Short-term hold: [1, 5, 15, 30] minutes
 Short-term decay rate: [5, 15, 30, 60] minutes to death
@@ -412,24 +445,24 @@ Long-term decay rate: [1, 3, 7, 14] days to death
 
 ### Expected Outcomes
 
-| Outcome | Implication |
-|---------|-------------|
+| Outcome                     | Implication                                                               |
+| --------------------------- | ------------------------------------------------------------------------- |
 | Multi-linear >> exponential | Multi-linear's explicit timescales better match actual relevance patterns |
-| Multi-linear ≈ exponential | Simpler exponential may suffice |
-| Forward ≠ backward | Need separate decay profiles for query direction |
-| Coding ≠ non-coding | Need session-type-specific parameters |
-| Optimal params ≠ presets | Current presets need tuning |
+| Multi-linear ≈ exponential  | Simpler exponential may suffice                                           |
+| Forward ≠ backward          | Need separate decay profiles for query direction                          |
+| Coding ≠ non-coding         | Need session-type-specific parameters                                     |
+| Optimal params ≠ presets    | Current presets need tuning                                               |
 
 ### Simulation Results (Preliminary)
 
 From `npm run edge-decay-sim`:
 
-| Model | Peak | @ 1h | @ 24h | @ 7d | Death |
-|-------|------|------|-------|------|-------|
-| Multi-Linear (Default) | 1.8 | 0.8 | 0.3 | 0 | 3d |
-| Multi-Linear (Slow) | 1.5 | 1.3 | 0.5 | 0.14 | 17d |
-| Exponential (1h half-life) | 1.8 | 0.9 | ~0 | ~0 | never |
-| Power Law (α=1) | 1.8 | 0.9 | 0.07 | 0.01 | never |
+| Model                      | Peak | @ 1h | @ 24h | @ 7d | Death |
+| -------------------------- | ---- | ---- | ----- | ---- | ----- |
+| Multi-Linear (Default)     | 1.8  | 0.8  | 0.3   | 0    | 3d    |
+| Multi-Linear (Slow)        | 1.5  | 1.3  | 0.5   | 0.14 | 17d   |
+| Exponential (1h half-life) | 1.8  | 0.9  | ~0    | ~0   | never |
+| Power Law (α=1)            | 1.8  | 0.9  | 0.07  | 0.01 | never |
 
 The Multi-Linear (Slow) model maintains the most "memory" over time (highest AUC), which may be appropriate for knowledge-building sessions but excessive for ephemeral task execution.
 
@@ -445,23 +478,23 @@ The critical finding is that **optimal decay model depends on what context Claud
 
 ### Stratified Analysis by Context Distance
 
-| Context Boundary | Best Model | MRR | Rank@1 |
-|------------------|------------|-----|--------|
-| All references (baseline) | Exponential | 0.961 | 95% |
-| **Beyond immediate (>1 turn)** | **Delayed Linear** | **0.680** | 55% |
-| **Beyond recent (>3 turns)** | **Delayed Linear** | **0.549** | 42% |
-| **Beyond session (>30 min)** | **Multi-Linear (Default)** | **0.397** | 18% |
-| **Long-range (>5 turns, high conf)** | **Delayed Linear** | **0.420** | 29% |
+| Context Boundary                     | Best Model                 | MRR       | Rank@1 |
+| ------------------------------------ | -------------------------- | --------- | ------ |
+| All references (baseline)            | Exponential                | 0.961     | 95%    |
+| **Beyond immediate (>1 turn)**       | **Delayed Linear**         | **0.680** | 55%    |
+| **Beyond recent (>3 turns)**         | **Delayed Linear**         | **0.549** | 42%    |
+| **Beyond session (>30 min)**         | **Multi-Linear (Default)** | **0.397** | 18%    |
+| **Long-range (>5 turns, high conf)** | **Delayed Linear**         | **0.420** | 29%    |
 
 ### Model Comparison for Long-Range Retrieval (>3 turns)
 
-| Model | MRR | vs Exponential |
-|-------|-----|----------------|
-| **Delayed Linear** | **0.549** | **+45%** |
-| Multi-Linear (Slow) | 0.538 | +42% |
-| Multi-Linear (Default) | 0.412 | +9% |
-| Simple Linear | 0.382 | +1% |
-| Exponential | 0.378 | baseline |
+| Model                  | MRR       | vs Exponential |
+| ---------------------- | --------- | -------------- |
+| **Delayed Linear**     | **0.549** | **+45%**       |
+| Multi-Linear (Slow)    | 0.538     | +42%           |
+| Multi-Linear (Default) | 0.412     | +9%            |
+| Simple Linear          | 0.382     | +1%            |
+| Exponential            | 0.378     | baseline       |
 
 ### Why Hold Periods Matter
 
@@ -480,7 +513,7 @@ For the memory system's primary use case (retrieving context beyond Claude's imm
 const MEMORY_RETRIEVAL_CONFIG: DecayModelConfig = {
   type: 'delayed-linear',
   initialWeight: 1.0,
-  holdPeriodMs: 30 * MS_PER_MINUTE,  // Full weight for 30 min
+  holdPeriodMs: 30 * MS_PER_MINUTE, // Full weight for 30 min
   decayRate: 1.0 / (4 * MS_PER_HOUR), // Then decay over 4 hours
 };
 
@@ -488,21 +521,31 @@ const MEMORY_RETRIEVAL_CONFIG: DecayModelConfig = {
 const TOPOLOGY_CONFIG: DecayModelConfig = {
   type: 'multi-linear',
   tiers: [
-    { name: 'session', initialWeight: 0.6, holdPeriodMs: 30 * MS_PER_MINUTE, decayRatePerMs: 0.6 / (2 * MS_PER_HOUR) },
-    { name: 'project', initialWeight: 0.4, holdPeriodMs: 4 * MS_PER_HOUR, decayRatePerMs: 0.4 / (24 * MS_PER_HOUR) },
+    {
+      name: 'session',
+      initialWeight: 0.6,
+      holdPeriodMs: 30 * MS_PER_MINUTE,
+      decayRatePerMs: 0.6 / (2 * MS_PER_HOUR),
+    },
+    {
+      name: 'project',
+      initialWeight: 0.4,
+      holdPeriodMs: 4 * MS_PER_HOUR,
+      decayRatePerMs: 0.4 / (24 * MS_PER_HOUR),
+    },
   ],
 };
 ```
 
 ### Reference Type Distribution
 
-| Type | Count | % |
-|------|-------|---|
-| file-path | 4,172 | 44.6% |
-| adjacent (weak) | 2,263 | 24.2% |
-| code-entity | 2,118 | 22.6% |
-| explicit-backref | 601 | 6.4% |
-| error-fragment | 207 | 2.2% |
+| Type             | Count | %     |
+| ---------------- | ----- | ----- |
+| file-path        | 4,172 | 44.6% |
+| adjacent (weak)  | 2,263 | 24.2% |
+| code-entity      | 2,118 | 22.6% |
+| explicit-backref | 601   | 6.4%  |
+| error-fragment   | 207   | 2.2%  |
 
 ### Directional Analysis: Backward vs Forward Queries
 
@@ -510,12 +553,12 @@ A critical insight: Claude knows the past but cannot predict the future. This te
 
 #### Directional Comparison Results
 
-| Model | Backward MRR | Forward MRR | Δ | Better For |
-|-------|-------------|-------------|---|------------|
-| Simple Linear | 0.952 | 0.960 | +0.008 | Similar |
-| **Delayed Linear** | **0.329** | **0.969** | **+0.641** | **Forward** |
-| Multi-Linear (Default) | 0.698 | 0.969 | +0.271 | Forward |
-| Exponential | 0.955 | 0.960 | +0.005 | Similar |
+| Model                  | Backward MRR | Forward MRR | Δ          | Better For  |
+| ---------------------- | ------------ | ----------- | ---------- | ----------- |
+| Simple Linear          | 0.952        | 0.960       | +0.008     | Similar     |
+| **Delayed Linear**     | **0.329**    | **0.969**   | **+0.641** | **Forward** |
+| Multi-Linear (Default) | 0.698        | 0.969       | +0.271     | Forward     |
+| Exponential            | 0.955        | 0.960       | +0.005     | Similar     |
 
 #### Key Findings
 

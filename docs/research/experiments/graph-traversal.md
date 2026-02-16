@@ -31,34 +31,34 @@ Graph traversal from vector search results can find additional relevant context 
 
 ### Cross-Project Experiment (492 queries, 25 sessions)
 
-| Metric | Value |
-|--------|-------|
-| Weighted Average Augmentation | **4.65×** |
-| Median | 4.54× |
-| Range | 3.60× - 5.87× |
-| Total Chunks | 6,243 |
-| Total Queries | 492 |
+| Metric                        | Value         |
+| ----------------------------- | ------------- |
+| Weighted Average Augmentation | **4.65×**     |
+| Median                        | 4.54×         |
+| Range                         | 3.60× - 5.87× |
+| Total Chunks                  | 6,243         |
+| Total Queries                 | 492           |
 
 **Key Finding**: Graph-augmented retrieval consistently provides 4-6× the context vs vector search alone, with even the worst-performing session achieving 3.60× augmentation.
 
 ### Single-Project Baseline (10 queries)
 
-| Metric | Vector-Only | Graph-Augmented | Improvement |
-|--------|-------------|-----------------|-------------|
-| Augmentation | 1.0× | 3.88× | 3.88× |
-| Avg Chunks Added | 10 | 28.8 | 2.88× |
-| Paths Explored | — | 239 | — |
+| Metric           | Vector-Only | Graph-Augmented | Improvement |
+| ---------------- | ----------- | --------------- | ----------- |
+| Augmentation     | 1.0×        | 3.88×           | 3.88×       |
+| Avg Chunks Added | 10          | 28.8            | 2.88×       |
+| Paths Explored   | —           | 239             | —           |
 
 ### Depth Sweep Results
 
 | maxDepth | Chunks Added | Augmentation | Efficiency |
-|----------|--------------|--------------|------------|
-| 3 | 13.8 | 2.38x | 0.279 |
-| 5 | 20.5 | 3.05x | 0.166 |
-| 7 | 23.9 | 3.39x | 0.138 |
-| 10 | 25.7 | 3.57x | 0.122 |
-| 15 | 28.7 | 3.87x | 0.120 |
-| 20 | 28.8 | 3.88x | 0.121 |
+| -------- | ------------ | ------------ | ---------- |
+| 3        | 13.8         | 2.38x        | 0.279      |
+| 5        | 20.5         | 3.05x        | 0.166      |
+| 7        | 23.9         | 3.39x        | 0.138      |
+| 10       | 25.7         | 3.57x        | 0.122      |
+| 15       | 28.7         | 3.87x        | 0.120      |
+| 20       | 28.8         | 3.88x        | 0.121      |
 
 - **Diminishing returns** start at depth=15 (< 1% gain per depth unit after)
 - **Recommended**: maxDepth=20 matches forward decay (dies at 20 hops)
@@ -66,6 +66,7 @@ Graph traversal from vector search results can find additional relevant context 
 ## Traversal Algorithm
 
 The traverser uses **sum-product rules** inspired by Feynman diagrams:
+
 - **Product rule**: Weights multiply along paths (w₁ × w₂ × ... × wₙ)
 - **Sum rule**: Multiple paths to a node contribute additively
 
@@ -104,12 +105,12 @@ See [The Role of Entropy](/docs/research/approach/role-of-entropy.md) for the th
 
 > This data was collected with the original 9 semantic edge types. Since v0.3, edges use 2 structural roles (within-chain, cross-session) with sequential 1-to-1 topology.
 
-| Edge Type | Augmentation Contribution |
-|-----------|--------------------------|
-| file-path | 48% |
-| adjacent | 31% |
-| topic | 15% |
-| cross-session | 6% |
+| Edge Type     | Augmentation Contribution |
+| ------------- | ------------------------- |
+| file-path     | 48%                       |
+| adjacent      | 31%                       |
+| topic         | 15%                       |
+| cross-session | 6%                        |
 
 File-path edges were the most valuable for finding related context under the semantic model. The v0.3 structural model replaces all edge types with sequential within-chain edges — the graph provides structural ordering (what came before/after), while vector+keyword search handles relevance ranking.
 
@@ -118,21 +119,21 @@ File-path edges were the most valuable for finding related context under the sem
 ### minWeight Sweep (fixed depth=20)
 
 | minWeight | Chunks Added | Augmentation |
-|-----------|--------------|--------------|
-| 0.1 | 8.9 | 1.89x |
-| 0.05 | 19.9 | 2.99x |
-| 0.01 | 28.8 | 3.88x |
-| 0.005 | 28.8 | 3.88x |
-| 0.001 | 28.8 | 3.88x |
+| --------- | ------------ | ------------ |
+| 0.1       | 8.9          | 1.89x        |
+| 0.05      | 19.9         | 2.99x        |
+| 0.01      | 28.8         | 3.88x        |
+| 0.005     | 28.8         | 3.88x        |
+| 0.001     | 28.8         | 3.88x        |
 
 **Finding**: minWeight=0.01 captures all reachable context. Lower thresholds add computational cost without benefit.
 
 ### Default Configuration
 
-| Parameter | Value | Rationale |
-|-----------|-------|-----------|
-| maxDepth | 20 | Matches forward decay (dies at 20 hops) |
-| minWeight | 0.01 | Captures full context without noise |
+| Parameter | Value | Rationale                               |
+| --------- | ----- | --------------------------------------- |
+| maxDepth  | 20    | Matches forward decay (dies at 20 hops) |
+| minWeight | 0.01  | Captures full context without noise     |
 
 ## v0.3 Results: Chain Walking Augmentation
 
@@ -140,19 +141,20 @@ v0.3.0 replaced sum-product graph traversal with **chain walking** — following
 
 ### Cross-Project Chain Walking (297 queries, 15 projects)
 
-| Metric | v0.2 (sum-product) | v0.3 (chain walking) |
-|--------|-------------------|---------------------|
-| Weighted Average Augmentation | 4.65× | **2.46×** |
-| Queries | 492 | 297 |
-| Projects | 25 | 15 |
-| Queries producing chains | N/A | 100% |
-| Mean chain length | N/A | 3.8 chunks |
+| Metric                        | v0.2 (sum-product) | v0.3 (chain walking) |
+| ----------------------------- | ------------------ | -------------------- |
+| Weighted Average Augmentation | 4.65×              | **2.46×**            |
+| Queries                       | 492                | 297                  |
+| Projects                      | 25                 | 15                   |
+| Queries producing chains      | N/A                | 100%                 |
+| Mean chain length             | N/A                | 3.8 chunks           |
 
 ### Why the Number Dropped
 
 The v0.2 4.65× figure counted all chunks reachable through m×n edges via sum-product traversal — including chunks only distantly related to the query. The v0.3 2.46× counts additional unique chunks found by walking sequential chains from the same vector seeds.
 
 Key differences:
+
 1. **Fewer edges**: Sequential linked-list (7,631 edges) vs m×n all-pairs (19,338 edges)
 2. **Ordered output**: Chain walking produces chronologically ordered narratives, not ranked scores
 3. **Quality over quantity**: Chain chunks are sequentially connected to seeds, not just reachable through any path
@@ -161,13 +163,13 @@ Key differences:
 
 The 2.46× number understates the value because it measures the same thing as v0.2 (additional chunks found). Chain walking's real contribution is **episodic ordering** — turning a bag of ranked results into a coherent narrative. The collection benchmark captures this better:
 
-| Metric | Value |
-|--------|-------|
-| Chain coverage | 97% of queries produce episodic chains |
-| Mean chain length | 4.3 chunks per narrative |
-| Token efficiency | 127% (returned context is relevant) |
-| p95 recall latency | 3,314ms (down from 16,952ms) |
-| Fallback rate | 3% (fall back to search-style results) |
+| Metric             | Value                                  |
+| ------------------ | -------------------------------------- |
+| Chain coverage     | 97% of queries produce episodic chains |
+| Mean chain length  | 4.3 chunks per narrative               |
+| Token efficiency   | 127% (returned context is relevant)    |
+| p95 recall latency | 3,314ms (down from 16,952ms)           |
+| Fallback rate      | 3% (fall back to search-style results) |
 
 ### Conclusion
 

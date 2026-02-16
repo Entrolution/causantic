@@ -138,11 +138,11 @@ Forward (predictive):
 
 ## Comparison
 
-| Approach | Monday 9am -> Tuesday 9am |
-|----------|---------------------------|
-| Wall-clock | 24 hours (seems old) |
+| Approach      | Monday 9am -> Tuesday 9am         |
+| ------------- | --------------------------------- |
+| Wall-clock    | 24 hours (seems old)              |
 | Session-based | 2 sessions (ignores relationship) |
-| Vector clock | 1 hop (recognizes continuation) |
+| Vector clock  | 1 hop (recognizes continuation)   |
 
 ## Results
 
