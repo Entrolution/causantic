@@ -20,6 +20,12 @@ export async function runRetrievalBenchmarks(
 ): Promise<{ result: RetrievalResult; skipped: SkippedBenchmark[] }> {
   const skipped: SkippedBenchmark[] = [];
 
+  // Source tracking (counted in adjacent recall loop only to avoid double-counting)
+  let sourceVectorCount = 0;
+  let sourceKeywordCount = 0;
+  let sourceClusterCount = 0;
+  let sourceTotalChunks = 0;
+
   // Adjacent recall
   let adjacentRecallAt5 = 0;
   let adjacentRecallAt10 = 0;
@@ -43,6 +49,15 @@ export async function runRetrievalBenchmarks(
       });
 
       const resultIds = response.chunks.map((c) => c.id);
+
+      // Count source attribution
+      for (const chunk of response.chunks) {
+        sourceTotalChunks++;
+        if (chunk.source === 'vector') sourceVectorCount++;
+        else if (chunk.source === 'keyword') sourceKeywordCount++;
+        else if (chunk.source === 'cluster') sourceClusterCount++;
+      }
+
       const foundInTop5 = resultIds.slice(0, 5).includes(pair.adjacentChunkId);
       const foundInTop10 = resultIds.slice(0, topK).includes(pair.adjacentChunkId);
 
@@ -237,6 +252,16 @@ export async function runRetrievalBenchmarks(
     precisionAt10: precisionCount > 0 ? precisionAt10 / precisionCount : 0,
     tokenEfficiency: tokenEfficiencyCount > 0 ? tokenEfficiencySum / tokenEfficiencyCount : 0,
     meanUsefulTokensPerQuery: tokenEfficiencyCount > 0 ? usefulTokenSum / tokenEfficiencyCount : 0,
+    ...(sourceTotalChunks > 0
+      ? {
+          sourceMix: {
+            vector: sourceVectorCount / sourceTotalChunks,
+            keyword: sourceKeywordCount / sourceTotalChunks,
+            cluster: sourceClusterCount / sourceTotalChunks,
+            total: sourceTotalChunks,
+          },
+        }
+      : {}),
   };
 
   return { result, skipped };

@@ -69,6 +69,12 @@ export interface RetrievalResult {
   precisionAt10: number;
   tokenEfficiency: number;
   meanUsefulTokensPerQuery: number;
+  sourceMix?: {
+    vector: number;
+    keyword: number;
+    cluster: number;
+    total: number;
+  };
 }
 
 // ─── Chain Quality Results ───────────────────────────────────────────────────

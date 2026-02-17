@@ -118,6 +118,11 @@ export function generateMarkdownReport(result: CollectionBenchmarkResult): strin
     lines.push(`| Precision@5 | ${r.precisionAt5.toFixed(2)} |`);
     lines.push(`| Precision@10 | ${r.precisionAt10.toFixed(2)} |`);
     lines.push(`| Token Efficiency | ${(r.tokenEfficiency * 100).toFixed(0)}% |`);
+    if (r.sourceMix) {
+      lines.push(
+        `| Source Mix | ${(r.sourceMix.vector * 100).toFixed(0)}% vector / ${(r.sourceMix.keyword * 100).toFixed(0)}% keyword / ${(r.sourceMix.cluster * 100).toFixed(0)}% cluster (${r.sourceMix.total} chunks sampled) |`,
+      );
+    }
     lines.push('');
   }
 

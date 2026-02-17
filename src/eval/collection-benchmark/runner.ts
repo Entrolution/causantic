@@ -156,6 +156,11 @@ export function generateHighlights(
         `Token efficiency: ${(retrieval.tokenEfficiency * 100).toFixed(0)}% of returned context is relevant`,
       );
     }
+    if (retrieval.sourceMix) {
+      highlights.push(
+        `Source mix: ${(retrieval.sourceMix.vector * 100).toFixed(0)}% vector, ${(retrieval.sourceMix.keyword * 100).toFixed(0)}% keyword, ${(retrieval.sourceMix.cluster * 100).toFixed(0)}% cluster-expanded`,
+      );
+    }
   }
 
   // Chain quality highlights
