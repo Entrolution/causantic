@@ -210,6 +210,25 @@ export function generateTuningRecommendations(
     });
   }
 
+  // MMR diversity — cluster sources absent despite healthy cluster coverage
+  if (
+    retrieval?.sourceMix &&
+    retrieval.sourceMix.cluster === 0 &&
+    health.clusterCoverage >= 0.5 &&
+    retrieval.sourceMix.total >= 10
+  ) {
+    const currentLambda = config.retrieval?.mmrLambda ?? 0.7;
+    recommendations.push({
+      metric: 'Source diversity (no cluster sources)',
+      currentValue: `retrieval.mmrLambda: ${currentLambda}`,
+      suggestedValue: 'retrieval.mmrLambda: 0.5',
+      configPath: 'retrieval.mmrLambda',
+      impact:
+        'Cluster coverage is healthy but no cluster-expanded chunks appear in results. Lowering MMR lambda increases diversity, giving cluster siblings a chance to compete with near-duplicate vector hits.',
+      priority: 'medium',
+    });
+  }
+
   // Cluster expansion — if clusters exist but coverage is low, reclustering may help
   if (health.clusterCount > 0 && health.clusterCoverage < 0.5) {
     recommendations.push({

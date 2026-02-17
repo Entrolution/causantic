@@ -14,22 +14,19 @@ export interface ClusterExpansionConfig {
   maxClusters: number;
   /** Max sibling chunks per cluster (default: 5) */
   maxSiblings: number;
-  /** Score multiplier for siblings (default: 0.3) */
-  boostFactor: number;
 }
 
 export const DEFAULT_CLUSTER_EXPANSION: ClusterExpansionConfig = {
   maxClusters: 3,
   maxSiblings: 5,
-  boostFactor: 0.3,
 };
 
 /**
  * Expand hits with cluster siblings.
  *
  * For each hit, looks up its cluster assignments, then fetches sibling chunks
- * from the top clusters. Siblings get scored based on the hit's score,
- * the boost factor, and their distance to the cluster centroid.
+ * from the top clusters. Siblings get scored based on the hit's score
+ * and their distance to the cluster centroid.
  *
  * @param hits - Ranked items from RRF fusion
  * @param config - Expansion parameters
@@ -90,8 +87,9 @@ export function expandViaClusters(
         );
         const distance = siblingAssignment?.distance ?? 0.5;
 
-        // Score: best hit score * boost * (1 - distance)
-        const score = hit.score * config.boostFactor * (1 - distance);
+        // Score: best hit score * (1 - distance)
+        // MMR reranking (downstream) handles diversity — no boost penalty needed here.
+        const score = hit.score * (1 - distance);
 
         if (score > 0) {
           siblingItems.push({

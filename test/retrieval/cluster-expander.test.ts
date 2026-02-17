@@ -69,7 +69,6 @@ describe('cluster-expander', () => {
   const defaultConfig: ClusterExpansionConfig = {
     maxClusters: 3,
     maxSiblings: 5,
-    boostFactor: 0.3,
   };
 
   it('expands hits with cluster siblings', () => {
@@ -119,21 +118,21 @@ describe('cluster-expander', () => {
     expect(clusterSiblings.length).toBeLessThanOrEqual(1);
   });
 
-  it('boostFactor scales sibling scores', () => {
+  it('closer siblings get higher scores than distant ones', () => {
     setupChunksAndClusters();
+    // c2 has distance 0.2, c3 has distance 0.3 in cluster-auth
 
     const hits: RankedItem[] = [{ chunkId: 'c1', score: 0.8, source: 'vector' }];
 
-    const result1 = expandViaClusters(hits, { ...defaultConfig, boostFactor: 0.3 });
-    const result2 = expandViaClusters(hits, { ...defaultConfig, boostFactor: 0.6 });
+    const result = expandViaClusters(hits, defaultConfig);
 
-    const sib1 = result1.find((r) => r.chunkId === 'c2');
-    const sib2 = result2.find((r) => r.chunkId === 'c2');
+    const sib2 = result.find((r) => r.chunkId === 'c2');
+    const sib3 = result.find((r) => r.chunkId === 'c3');
 
-    expect(sib1).toBeDefined();
     expect(sib2).toBeDefined();
-    // Higher boost factor → higher sibling score
-    expect(sib2!.score).toBeGreaterThan(sib1!.score);
+    expect(sib3).toBeDefined();
+    // Closer sibling (lower distance) → higher score
+    expect(sib2!.score).toBeGreaterThan(sib3!.score);
   });
 
   it('no duplicates between hits and siblings', () => {

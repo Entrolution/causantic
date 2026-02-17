@@ -78,7 +78,7 @@ Control output sizes:
 
 The settings above are the most commonly tuned. Additional config sections include:
 
-- **Decay** — hop-based decay curves for backward and forward edges (`diesAtHops`, `holdHops`)
+- **Retrieval** — MMR diversity lambda for search result reranking
 - **Traversal** — graph traversal depth and weight thresholds
 - **Encryption** — database encryption at rest (ChaCha20 or SQLCipher)
 - **Embedding** — device selection for local embedding inference

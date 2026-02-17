@@ -176,6 +176,65 @@ describe('generateTuningRecommendations', () => {
     }
   });
 
+  it('should recommend lowering MMR lambda when cluster sources are absent despite healthy coverage', () => {
+    const result = makeResult({
+      retrieval: {
+        adjacentRecallAt5: 0.5,
+        adjacentRecallAt10: 0.6,
+        mrr: 0.4,
+        bridgingRecallAt10: 0.5,
+        bridgingVsRandom: 3,
+        precisionAt5: 0.8,
+        precisionAt10: 0.75,
+        tokenEfficiency: 0.7,
+        meanUsefulTokensPerQuery: 1000,
+        sourceMix: {
+          vector: 0.85,
+          keyword: 0.15,
+          cluster: 0,
+          total: 50,
+        },
+      },
+    });
+    // Healthy cluster coverage
+    result.collectionStats.clusterCoverage = 0.8;
+
+    const recs = generateTuningRecommendations(result);
+
+    const mmrRec = recs.find((r) => r.configPath === 'retrieval.mmrLambda');
+    expect(mmrRec).toBeDefined();
+    expect(mmrRec!.suggestedValue).toContain('0.5');
+    expect(mmrRec!.priority).toBe('medium');
+  });
+
+  it('should not recommend lowering MMR lambda when cluster sources are present', () => {
+    const result = makeResult({
+      retrieval: {
+        adjacentRecallAt5: 0.5,
+        adjacentRecallAt10: 0.6,
+        mrr: 0.4,
+        bridgingRecallAt10: 0.5,
+        bridgingVsRandom: 3,
+        precisionAt5: 0.8,
+        precisionAt10: 0.75,
+        tokenEfficiency: 0.7,
+        meanUsefulTokensPerQuery: 1000,
+        sourceMix: {
+          vector: 0.7,
+          keyword: 0.15,
+          cluster: 0.15,
+          total: 50,
+        },
+      },
+    });
+    result.collectionStats.clusterCoverage = 0.8;
+
+    const recs = generateTuningRecommendations(result);
+
+    const mmrRec = recs.find((r) => r.configPath === 'retrieval.mmrLambda');
+    expect(mmrRec).toBeUndefined();
+  });
+
   it('should flag missing within-chain edges', () => {
     const result = makeResult();
     result.collectionStats.edgeTypeDistribution = [

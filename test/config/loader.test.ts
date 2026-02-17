@@ -61,6 +61,7 @@ describe('loadConfig', () => {
       expect(config.encryption.auditLog).toBe(false);
       expect(config.vectors.ttlDays).toBe(90);
       expect(config.embedding.device).toBe('auto');
+      expect(config.retrieval.mmrLambda).toBe(0.7);
     });
 
     it('EXTERNAL_DEFAULTS has all required fields', () => {
@@ -72,6 +73,7 @@ describe('loadConfig', () => {
       expect(EXTERNAL_DEFAULTS.encryption).toBeDefined();
       expect(EXTERNAL_DEFAULTS.vectors).toBeDefined();
       expect(EXTERNAL_DEFAULTS.embedding).toBeDefined();
+      expect(EXTERNAL_DEFAULTS.retrieval).toBeDefined();
     });
   });
 
@@ -176,6 +178,17 @@ describe('loadConfig', () => {
       });
 
       expect(config.embedding.device).toBe('cpu');
+    });
+
+    it('overrides retrieval MMR lambda from env', () => {
+      process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA = '0.5';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.retrieval.mmrLambda).toBe(0.5);
     });
 
     it('skips env vars when skipEnv is true', () => {
@@ -304,6 +317,26 @@ describe('validateExternalConfig', () => {
     expect(errors).toContain('tokens.mcpMaxResponse should be at least 500');
   });
 
+  it('reports retrieval.mmrLambda out of range (too low)', () => {
+    const errors = validateExternalConfig({
+      retrieval: { mmrLambda: -0.1 },
+    });
+    expect(errors).toContain('retrieval.mmrLambda must be between 0 and 1 (inclusive)');
+  });
+
+  it('reports retrieval.mmrLambda out of range (too high)', () => {
+    const errors = validateExternalConfig({
+      retrieval: { mmrLambda: 1.5 },
+    });
+    expect(errors).toContain('retrieval.mmrLambda must be between 0 and 1 (inclusive)');
+  });
+
+  it('accepts valid retrieval.mmrLambda boundary values', () => {
+    expect(validateExternalConfig({ retrieval: { mmrLambda: 0 } })).toEqual([]);
+    expect(validateExternalConfig({ retrieval: { mmrLambda: 1 } })).toEqual([]);
+    expect(validateExternalConfig({ retrieval: { mmrLambda: 0.7 } })).toEqual([]);
+  });
+
   it('reports multiple errors at once', () => {
     const errors = validateExternalConfig({
       clustering: { threshold: 0, minClusterSize: 1 },
@@ -407,6 +440,33 @@ describe('toRuntimeConfig', () => {
     // Non-overridden values preserved
     expect(runtime.minClusterSize).toBe(DEFAULT_CONFIG.minClusterSize);
     expect(runtime.mcpMaxResponseTokens).toBe(DEFAULT_CONFIG.mcpMaxResponseTokens);
+  });
+
+  it('maps retrieval.mmrLambda to mmrReranking.lambda', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        retrieval: { mmrLambda: 0.5 },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.mmrReranking.lambda).toBe(0.5);
+  });
+
+  it('defaults mmrReranking.lambda to 0.7', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.mmrReranking.lambda).toBe(0.7);
   });
 
   it('preserves hybridSearch and clusterExpansion from DEFAULT_CONFIG', () => {

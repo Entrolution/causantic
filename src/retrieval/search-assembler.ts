@@ -16,6 +16,7 @@ import { approximateTokens } from '../utils/token-counter.js';
 import { KeywordStore } from '../storage/keyword-store.js';
 import { fuseRRF, type RankedItem } from './rrf.js';
 import { expandViaClusters } from './cluster-expander.js';
+import { reorderWithMMR } from './mmr.js';
 import { createLogger } from '../utils/logger.js';
 import type { StoredChunk } from '../storage/types.js';
 
@@ -107,7 +108,7 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     skipClusters = false,
   } = request;
 
-  const { hybridSearch, clusterExpansion } = config;
+  const { hybridSearch, clusterExpansion, mmrReranking } = config;
 
   // 1. Embed query
   const embedder = await getEmbedder();
@@ -203,8 +204,11 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     deduped.sort((a, b) => b.score - a.score);
   }
 
+  // 7.5. MMR reranking (diversity-aware ordering)
+  const reordered = await reorderWithMMR(deduped, queryResult.embedding, mmrReranking);
+
   // 8. Assemble within budget
-  const assembled = assembleWithinBudget(deduped, maxTokens, sourceMap);
+  const assembled = assembleWithinBudget(reordered, maxTokens, sourceMap);
 
   return {
     text: assembled.text,

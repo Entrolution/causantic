@@ -98,6 +98,12 @@ Using the same `--seed` ensures comparable results.
 - Check edge count — if edges are missing, re-ingest with the latest parser
 - Ensure cross-session edges exist by checking edge type distribution
 
+**Low source diversity (0% cluster sources despite good cluster coverage)**
+
+- Lower `retrieval.mmrLambda` (default: 0.7, try 0.5)
+- This increases MMR's diversity bias, allowing cluster-expanded chunks to compete with near-duplicate vector hits
+- If cluster coverage itself is low (<50%), fix clustering first — MMR can't diversify sources that don't exist
+
 **High latency (p95 >5s)**
 
 - Reduce `traversal.maxDepth` (default: 50, try 30)

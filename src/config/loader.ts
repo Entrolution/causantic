@@ -57,6 +57,10 @@ export interface ExternalConfig {
     /** Hour of day (0-23) to run reclustering. Default: 2. */
     clusterHour?: number;
   };
+  retrieval?: {
+    /** MMR lambda: 0 = pure diversity, 1 = pure relevance. Default: 0.7 */
+    mmrLambda?: number;
+  };
 }
 
 /** Default external config values */
@@ -95,6 +99,9 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   },
   maintenance: {
     clusterHour: 2,
+  },
+  retrieval: {
+    mmrLambda: 0.7,
   },
 };
 
@@ -219,6 +226,12 @@ function loadEnvConfig(): ExternalConfig {
     config.embedding.device = process.env.CAUSANTIC_EMBEDDING_DEVICE;
   }
 
+  // Retrieval
+  if (process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA) {
+    config.retrieval = config.retrieval ?? {};
+    config.retrieval.mmrLambda = parseFloat(process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA);
+  }
+
   return config;
 }
 
@@ -297,6 +310,13 @@ export function validateExternalConfig(config: ExternalConfig): string[] {
   if (config.vectors?.maxCount !== undefined) {
     if (config.vectors.maxCount < 0) {
       errors.push('vectors.maxCount must be >= 0 (0 = unlimited)');
+    }
+  }
+
+  // Retrieval validation
+  if (config.retrieval?.mmrLambda !== undefined) {
+    if (config.retrieval.mmrLambda < 0 || config.retrieval.mmrLambda > 1) {
+      errors.push('retrieval.mmrLambda must be between 0 and 1 (inclusive)');
     }
   }
 
@@ -411,6 +431,11 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
     clusterRefreshModel: external.llm.clusterRefreshModel ?? DEFAULT_CONFIG.clusterRefreshModel,
     refreshRateLimitPerMin:
       external.llm.refreshRateLimitPerMin ?? DEFAULT_CONFIG.refreshRateLimitPerMin,
+
+    // Retrieval
+    mmrReranking: {
+      lambda: external.retrieval?.mmrLambda ?? DEFAULT_CONFIG.mmrReranking.lambda,
+    },
   };
 }
 

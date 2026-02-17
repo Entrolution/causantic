@@ -173,6 +173,20 @@
         }
       },
       "additionalProperties": false
+    },
+    "retrieval": {
+      "type": "object",
+      "description": "Search retrieval pipeline settings",
+      "properties": {
+        "mmrLambda": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.7,
+          "description": "MMR lambda: 0 = pure diversity, 1 = pure relevance"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

@@ -16,7 +16,7 @@ All tools return plain text responses via the MCP `content` array with `type: "t
 
 ### search
 
-Search memory semantically to discover relevant past context. Returns ranked results by relevance using hybrid BM25 + vector search with RRF fusion and cluster expansion.
+Search memory semantically to discover relevant past context. Returns ranked results using hybrid BM25 + vector search with RRF fusion, cluster expansion, and MMR diversity reranking.
 
 **Parameters**:
 

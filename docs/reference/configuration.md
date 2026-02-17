@@ -69,7 +69,24 @@ Controls cluster-guided expansion during retrieval. These settings are internal 
 | ------------- | --------- | ------- | ------------------------------------------- |
 | `maxClusters` | `integer` | `3`     | Maximum clusters to expand from per query   |
 | `maxSiblings` | `integer` | `5`     | Maximum sibling chunks added per cluster    |
-| `boostFactor` | `number`  | `0.3`   | Score multiplier for cluster siblings (0-1) |
+
+## Retrieval Settings
+
+### `retrieval`
+
+Controls the search retrieval pipeline.
+
+| Property    | Type     | Default | Description                                                        |
+| ----------- | -------- | ------- | ------------------------------------------------------------------ |
+| `mmrLambda` | `number` | `0.7`   | MMR (Maximal Marginal Relevance) lambda parameter (0-1)            |
+
+MMR reranks search results to balance relevance with diversity. After RRF fusion and cluster expansion, candidates are reordered so that semantically redundant chunks yield to novel ones.
+
+- `1.0` = pure relevance (no diversity, same as pre-MMR behaviour)
+- `0.7` = default balance (first pick is always top relevance; subsequent picks trade off diminishing relevance for novelty)
+- `0.0` = pure diversity (maximally spread results across topics)
+
+MMR applies to both the `search` tool and the seed-finding stage of `recall`/`predict`. It only activates when there are 10+ candidates (below that, diversity is moot).
 
 ## Storage Settings
 
@@ -164,6 +181,7 @@ All settings can be overridden via environment variables:
 | `encryption.auditLog`        | `CAUSANTIC_ENCRYPTION_AUDIT_LOG`        |
 | `embedding.device`           | `CAUSANTIC_EMBEDDING_DEVICE`            |
 | `maintenance.clusterHour`    | `CAUSANTIC_MAINTENANCE_CLUSTER_HOUR`    |
+| `retrieval.mmrLambda`        | `CAUSANTIC_RETRIEVAL_MMR_LAMBDA`        |
 
 ## Example Configurations
 
@@ -203,6 +221,19 @@ Increases the chain walking depth limit for collections with very long session h
 ```
 
 Increases token budgets for richer context.
+
+### More Diverse Search Results
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/Entrolution/causantic/main/config.schema.json",
+  "retrieval": {
+    "mmrLambda": 0.5
+  }
+}
+```
+
+Lowers the MMR lambda to favour diversity over relevance. Useful when search results are dominated by near-duplicate hits from the same session.
 
 ### Encrypted Database
 

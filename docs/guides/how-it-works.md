@@ -58,7 +58,8 @@ The `search` tool finds semantically similar context:
 3. **RRF fusion**: Merge both ranked lists using Reciprocal Rank Fusion (k=60)
 4. **Cluster expansion**: Expand results through HDBSCAN cluster siblings
 5. **Rank and deduplicate**: Recency boost, deduplication
-6. **Token budgeting**: Fit within response limits
+6. **MMR reranking**: Reorder candidates using Maximal Marginal Relevance to balance relevance with diversity
+7. **Token budgeting**: Fit within response limits
 
 ### Recall/Predict (episodic)
 
@@ -81,7 +82,19 @@ Results are fused using Reciprocal Rank Fusion, which combines ranked lists with
 
 ### Cluster-Guided Expansion
 
-After fusion, Causantic expands results through cluster siblings. If a search hit belongs to a topic cluster, other chunks in that cluster are added as candidates with a reduced score. This surfaces topically related context that neither search found independently.
+After fusion, Causantic expands results through cluster siblings. If a search hit belongs to a topic cluster, other chunks in that cluster are added as candidates, scored by their proximity to the cluster centroid. This surfaces topically related context that neither search found independently. MMR reranking (below) then decides whether these siblings add enough novelty to justify inclusion.
+
+### MMR Reranking
+
+After fusion and cluster expansion, candidates are reordered using Maximal Marginal Relevance (MMR). MMR scores each candidate as:
+
+```
+MMR(c) = λ × relevance − (1−λ) × max_similarity(c, already_selected)
+```
+
+The first pick is always the top relevance hit. As selected items saturate a semantic neighbourhood, candidates from different topics become competitive — including cluster siblings that cover the same topic from a different angle. This benefits all search results, not just cluster expansion: even without clusters, MMR prevents near-duplicate vector hits from monopolising the token budget.
+
+Controlled by `retrieval.mmrLambda` (default: 0.7). See [Configuration Reference](../reference/configuration.md#retrieval).
 
 ### Graceful Degradation
 
