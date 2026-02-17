@@ -119,8 +119,7 @@ async function main() {
       adjacentRecallTotal > 0
         ? ((adjacentRecallHits / adjacentRecallTotal) * 100).toFixed(0)
         : 'N/A';
-    const avgChunks =
-      sample.length > 0 ? (totalChunksReturned / sample.length).toFixed(1) : '0';
+    const avgChunks = sample.length > 0 ? (totalChunksReturned / sample.length).toFixed(1) : '0';
 
     console.log(
       `| ${lambda.toFixed(1).padStart(4)}   | ${vectorPct.padStart(5)}%  | ${keywordPct.padStart(6)}%  | ${clusterPct.padStart(6)}%  | ${adjRecall.padStart(11)}%  | ${avgChunks.padStart(10)}   | ${String(sourceTotal).padStart(10)}   |`,
