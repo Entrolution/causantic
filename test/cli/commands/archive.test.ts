@@ -108,9 +108,7 @@ describe('exportCommand', () => {
 
     await exportCommand.handler(['--no-encrypt', '--no-vectors']);
 
-    expect(mockExportArchive).toHaveBeenCalledWith(
-      expect.objectContaining({ noVectors: true }),
-    );
+    expect(mockExportArchive).toHaveBeenCalledWith(expect.objectContaining({ noVectors: true }));
   });
 
   it('uses password from environment variable', async () => {
