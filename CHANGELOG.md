@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2026-02-17
+
+### Changed
+
+- **Expanded Prettier formatting scope**: Formatted 79 previously unformatted files (dashboard client, scripts, config, docs). Expanded `format:check` to cover dashboard `.tsx`/`.css`, scripts, and config files.
+- **Bumped @typescript-eslint** from 8.55.0 to 8.56.0 (patch release).
+
+### Fixed
+
+- **Stale MCP tool references in docs**: `quick-start.md` referenced non-existent `explain` tool — corrected to `search, recall, and predict`. `integration.md` had a 3-tool stub table — replaced with complete 9-tool table.
+
+### Removed
+
+- **Unused `filterAlreadyIngested()` export**: No-op function in `batch-ingest.ts`, never called outside its barrel export.
+
+### Added
+
+- **CLI command handler tests**: 35 new tests for `hook`, `ingest`/`batch-ingest`, and `export`/`import` command handlers (1742 total tests).
+
 ## [0.5.2] - 2026-02-16
 
 ### Changed
