@@ -195,3 +195,35 @@ A chronological narrative of every major design decision in Causantic's developm
 **Why**: `explain` depended on graph traversal to "explain the history behind X" by walking causal paths. Without traversal, it was just vector search with different prompting. The new `search` tool is honest about what it does: pure semantic discovery via hybrid BM25 + vector search, with optional chain walking for episodic context.
 
 **Evidence**: MCP tools implementation (`src/mcp/tools.ts`).
+
+## MMR Reranking for Search Diversity (v0.5.4)
+
+**Decision**: Add Maximal Marginal Relevance (MMR) reranking to the search pipeline, controlled by a single `retrieval.mmrLambda` parameter (default 0.7).
+
+**What was considered**: Pure score ordering (status quo), MMR reranking, diversity-aware chain traversal.
+
+**Why**: Source attribution visualization (v0.5.3) revealed that cluster-expanded chunks never appeared in search results under realistic token budgets. The root cause was twofold: cluster siblings were scored at `parent_score × boostFactor(0.3) × (1 - distance)`, putting them at ~27% of the parent's score, and `assembleWithinBudget` iterated by score, so cluster siblings were always budget-cut first. MMR reranks candidates as `λ × relevance − (1−λ) × max_similarity(c, selected)`, so as direct hits saturate a semantic neighbourhood, novel candidates (including cluster siblings) gain a natural advantage.
+
+**Evidence**: Lambda × boostFactor sweep on 8.5k-chunk corpus (`scripts/experiments/sweep-mmr-lambda.ts`). Key results at lambda=0.7: boostFactor=0.3 → 0% cluster sources; boostFactor=1.0 → 20% cluster, 17% adjacent recall.
+
+## Removal of Cluster boostFactor (v0.5.4)
+
+**Decision**: Remove the `boostFactor` score multiplier from cluster expansion. Siblings now scored as `parent_score × (1 - cluster_distance)`.
+
+**What was superseded**: `boostFactor=0.3` — a fixed penalty applied to all cluster siblings before ranking.
+
+**Why**: boostFactor was a bespoke heuristic that pre-emptively penalized cluster siblings because they *might* be redundant. MMR actually *measures* redundancy via cosine similarity against already-selected chunks. With MMR in place, boostFactor was doing MMR's job badly — and blocking MMR from doing it well. The sweep confirmed that boostFactor was the real bottleneck: at boost=0.3, cluster sources never appeared at any lambda value. Raising boostFactor to 0.7 gave 9% cluster sources with zero adjacent recall cost; removing it entirely (boost=1.0) gave 20% cluster sources with a 3pp recall tradeoff.
+
+**Design principle**: One knob is better than two. MMR lambda is a principled, well-studied reranking mechanism. boostFactor was a redundant heuristic that added complexity without adding signal.
+
+**Evidence**: Same sweep experiment. Post-removal benchmark: source mix shifted from 82/18/0 (vector/keyword/cluster) to 68/16/16.
+
+## Rejected: Diversity-Aware Chain Traversal (v0.5.4)
+
+**Decision**: Do NOT add MMR or diversity reranking to chain walking (recall/predict).
+
+**What was considered**: Filtering semantically similar chunks during chain walking, with cluster backfill for removed chunks — essentially applying MMR to the narrative reconstruction path.
+
+**Why rejected**: Search and chain walking serve fundamentally different purposes. Search is for *discovery* — finding the best chunks across the entire corpus — where diversity prevents redundancy. Chain walking is for *episodic narrative* — reconstructing what happened in order — where every step in the causal chain matters, even if adjacent chunks are semantically similar. Injecting diversity into chain walking would break narrative coherence (skipping steps) and blur the API distinction between search (ranked set) and recall/predict (ordered sequence). The "topic continuity" signal that motivated the idea belongs at ingestion-time turn boundary detection, not retrieval-time reranking.
+
+**Evidence**: Discussion during MMR implementation session. Topic continuity detection already uses lexical features (time gap + markers + file overlap) at ingestion time — see "Topic Continuity Detection" above.
