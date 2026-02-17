@@ -15,6 +15,7 @@ These items were previously listed as future work and have since been implemente
 - **Session Reconstruction** (New): Pure chronological context rebuilding via `reconstruct` MCP tool — "what did I work on yesterday?"
 - **Native HDBSCAN** (New): Pure TypeScript rewrite — 130× speedup over hdbscan-ts.
 - **Hybrid BM25 + Vector Search** (New): FTS5 keyword search fused with vector search via RRF.
+- **MMR Reranking** (v0.5.4): Maximal Marginal Relevance reranking in the search pipeline. Single `retrieval.mmrLambda` knob (default 0.7) controls relevance vs diversity. Cluster `boostFactor` removed — redundant with MMR.
 
 ## High Priority
 

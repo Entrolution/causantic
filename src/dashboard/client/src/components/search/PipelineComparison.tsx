@@ -143,7 +143,7 @@ export function PipelineComparison({
       <ResultColumn title="Keyword (BM25)" results={data.keyword} color="#06b6d4" allIds={allIds} />
       <ResultColumn title="Fused (RRF)" results={data.fused} color="#10b981" allIds={allIds} />
       <ResultColumn
-        title="Full Pipeline"
+        title="Full Pipeline (MMR)"
         results={fullPipeline}
         color="#f59e0b"
         allIds={allIds}
