@@ -66,7 +66,8 @@ export function SearchPage() {
     <div className="space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold">Hybrid Search Pipeline</h1>
       <p className="text-muted-foreground">
-        Compare vector, keyword (BM25), fused (RRF), and full pipeline (clusters + MMR) search results side by side.
+        Compare vector, keyword (BM25), fused (RRF), and full pipeline (clusters + MMR) search
+        results side by side.
       </p>
 
       <div className="flex items-center gap-4">
