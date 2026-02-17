@@ -185,6 +185,15 @@ export function computeTrend(
       current.retrieval.tokenEfficiency,
       true,
     );
+    if (previous.retrieval.sourceMix && current.retrieval.sourceMix) {
+      addDelta(
+        metricDeltas,
+        'Cluster Source %',
+        previous.retrieval.sourceMix.cluster,
+        current.retrieval.sourceMix.cluster,
+        true,
+      );
+    }
   }
 
   // Chain quality metrics
