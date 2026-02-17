@@ -138,9 +138,7 @@ router.get(
         };
       });
 
-    const enrichPipeline = (
-      pipelineChunks: typeof fullResponse.chunks,
-    ) =>
+    const enrichPipeline = (pipelineChunks: typeof fullResponse.chunks) =>
       pipelineChunks.slice(0, limit).map((c) => {
         const chunk = chunkMap.get(c.id);
         return {
