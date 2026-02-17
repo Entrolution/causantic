@@ -138,7 +138,6 @@ describe('hybrid-integration', () => {
     const expanded = expandViaClusters(fused, {
       maxClusters: 3,
       maxSiblings: 5,
-      boostFactor: 0.3,
     });
 
     // Expanded should include cluster siblings
@@ -217,7 +216,6 @@ describe('hybrid-integration', () => {
     const expanded = expandViaClusters(searchHits, {
       maxClusters: 3,
       maxSiblings: 5,
-      boostFactor: 0.3,
     });
 
     const ids = expanded.map((r) => r.chunkId);

@@ -47,8 +47,12 @@ export interface MemoryConfig {
     maxClusters: number;
     /** Max siblings per cluster */
     maxSiblings: number;
-    /** Score multiplier for cluster siblings */
-    boostFactor: number;
+  };
+
+  /** MMR (Maximal Marginal Relevance) reranking configuration */
+  mmrReranking: {
+    /** 0 = pure diversity, 1 = pure relevance. Default: 0.7 */
+    lambda: number;
   };
 
   // Storage
@@ -90,7 +94,9 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   clusterExpansion: {
     maxClusters: 3,
     maxSiblings: 5,
-    boostFactor: 0.3,
+  },
+  mmrReranking: {
+    lambda: 0.7,
   },
 
   // Storage - defaults to ~/.causantic/

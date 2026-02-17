@@ -22,6 +22,7 @@ vi.mock('../../src/storage/vector-store.js', () => ({
   vectorStore: {
     search: async () => mockVectorResults,
     searchByProject: async () => mockVectorResults,
+    get: async () => null,
   },
 }));
 
@@ -68,6 +69,9 @@ vi.mock('../../src/config/loader.js', () => ({
       enabled: false,
       maxSiblings: 3,
       minClusterSize: 2,
+    },
+    mmrReranking: {
+      lambda: 0.7,
     },
   }),
 }));
