@@ -245,14 +245,27 @@ async function configureMcp(mcpConfigPath: string): Promise<void> {
   }
 
   if (mcpServers[CAUSANTIC_SERVER_KEY]) {
-    if (mcpServers[CAUSANTIC_SERVER_KEY].command === 'npx') {
+    const existing = mcpServers[CAUSANTIC_SERVER_KEY];
+    const expectedArgs = [getCliEntryPath(), 'serve'];
+    const currentArgs = Array.isArray(existing.args) ? existing.args : [];
+    const cliPathStale =
+      currentArgs.length >= 1 &&
+      currentArgs[0] !== expectedArgs[0] &&
+      !fs.existsSync(currentArgs[0] as string);
+    const usesNpx = existing.command === 'npx';
+
+    if (usesNpx || cliPathStale) {
       mcpServers[CAUSANTIC_SERVER_KEY] = {
         command: process.execPath,
-        args: [getCliEntryPath(), 'serve'],
+        args: expectedArgs,
       };
       config.mcpServers = mcpServers;
       fs.writeFileSync(mcpConfigPath, JSON.stringify(config, null, 2));
-      console.log('\u2713 Updated Causantic config to use absolute paths');
+      if (cliPathStale) {
+        console.log('\u2713 Updated Causantic config (CLI path was stale)');
+      } else {
+        console.log('\u2713 Updated Causantic config to use absolute paths');
+      }
     } else {
       console.log('\u2713 Causantic already configured in Claude Code');
     }
