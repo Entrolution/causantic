@@ -308,7 +308,7 @@ export const listSessionsTool: ToolDefinition = {
 export const reconstructTool: ToolDefinition = {
   name: 'reconstruct',
   description:
-    'Rebuild session context for a project by time range. Returns chronological chunks with session boundary markers. Use for "what did I work on yesterday?", "show me the last session", etc.',
+    'Rebuild session context for a project. Call with just project to get the most recent history up to the token budget. Optionally specify a time range with from/to, days_back, session_id, or previous_session.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -326,7 +326,8 @@ export const reconstructTool: ToolDefinition = {
       },
       to: {
         type: 'string',
-        description: 'End date (ISO 8601).',
+        description:
+          'End date (ISO 8601). When used without from/days_back/session_id, acts as the anchor for timeline mode — returns the most recent chunks before this date.',
       },
       days_back: {
         type: 'number',

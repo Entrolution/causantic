@@ -313,6 +313,7 @@ Present a concise briefing:
 - Keep the summary actionable, not exhaustive
 - Highlight unfinished work prominently — that's what the user needs most
 - If the last session ended mid-task, flag that clearly
+- For broader context beyond the last session, use timeline mode: call \`reconstruct\` with just \`project\` (no \`previous_session\`)
 `,
   },
   {
@@ -330,6 +331,7 @@ Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`causantic\` to re
 ## Usage
 
 \`\`\`
+/causantic-reconstruct
 /causantic-reconstruct what did I work on yesterday?
 /causantic-reconstruct last session
 /causantic-reconstruct past 3 days
@@ -339,8 +341,8 @@ Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`causantic\` to re
 ## Workflow
 
 1. **Identify the project**: Use \`list-projects\` if the user hasn't specified one
-2. **Browse sessions**: Use \`list-sessions\` to see available sessions and their time ranges
-3. **Reconstruct**: Use \`reconstruct\` with appropriate parameters
+2. **For simple recent history** (no args or "recently"): Call \`reconstruct\` with just \`project\` — timeline mode fills backwards from now until the token budget is full
+3. **For specific sessions or time ranges**: Use \`list-sessions\` to browse, then \`reconstruct\` with appropriate parameters
 
 ## Parameters for \`list-sessions\`
 
@@ -363,6 +365,7 @@ Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`causantic\` to re
 
 | User says | Parameters |
 |-----------|-----------|
+| (nothing) / "recently" | just \`project\` (timeline mode — fills backwards from now) |
 | "yesterday" | \`days_back: 1\` |
 | "past 3 days" | \`days_back: 3\` |
 | "last session" | \`previous_session: true\` + current session ID |
@@ -372,7 +375,8 @@ Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`causantic\` to re
 
 ## Guidelines
 
-- Always start with \`list-sessions\` to give the user an overview before reconstructing
+- For simple recent history (no args), call \`reconstruct\` with just \`project\` — no need to browse sessions first
+- For specific time ranges or session exploration, start with \`list-sessions\` to give the user an overview
 - When the user says "last session", use \`previous_session: true\` — this finds the session before the current one
 - Token budget is applied automatically — newest chunks are kept by default
 - Results include session boundary markers for easy navigation
@@ -1350,7 +1354,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 
 **Session & project navigation:**
 - \`/causantic-resume\` — Resume interrupted work — start-of-session briefing
-- \`/causantic-reconstruct [time range]\` — Replay a past session chronologically by time range
+- \`/causantic-reconstruct [time range]\` — Replay a past session chronologically, or get recent history
 - \`/causantic-summary [time range]\` — Factual recap of what was done across recent sessions
 - \`/causantic-list-projects\` — Discover available projects
 - \`/causantic-status\` — Check system health and memory statistics
@@ -1371,6 +1375,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 | "How did we solve X?" | \`recall\` |
 | "Why does X work this way?" | \`explain\` |
 | "What might be relevant?" | \`predict\` |
+| "What happened recently?" / "Show me recent work" | \`reconstruct\` |
 | "Forget/delete memory about X" | \`forget\` |
 
 ### Proactive Memory Usage
@@ -1382,6 +1387,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 - User asks "why" about existing code or architecture — use \`explain\` before guessing
 - Starting work in an unfamiliar area — use \`search\` for broad discovery
 - Before making significant architectural decisions — use \`recall\` to check for prior discussions
+- When the user asks about recent work or session history — use \`reconstruct\` with just \`project\` for timeline mode
 
 **Skip memory (avoid latency) when:**
 - The full context is already in the conversation

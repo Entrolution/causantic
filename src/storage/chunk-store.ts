@@ -5,6 +5,9 @@
 import { getDb, generateId } from './db.js';
 import type { StoredChunk, ChunkInput } from './types.js';
 
+/** Conservative estimate of average tokens per chunk, used to convert a token budget into a SQL LIMIT. */
+export const ESTIMATED_AVG_TOKENS_PER_CHUNK = 200;
+
 /**
  * Insert a single chunk.
  */
@@ -150,6 +153,24 @@ export function getRecentChunksBySessionSlug(sessionSlug: string, limit: number)
        ORDER BY start_time DESC LIMIT ?`,
     )
     .all(sessionSlug, limit) as DbChunkRow[];
+
+  // Reverse to chronological order
+  return rows.reverse().map(rowToChunk);
+}
+
+/**
+ * Get the most recent chunks for a project before a given timestamp.
+ * Uses SQL-level LIMIT to avoid loading all chunks into memory.
+ * Returns results in chronological order (oldest first).
+ */
+export function getChunksBefore(project: string, before: string, limit: number): StoredChunk[] {
+  const db = getDb();
+  const rows = db
+    .prepare(
+      `SELECT * FROM chunks WHERE session_slug = ? AND start_time < ?
+       ORDER BY start_time DESC LIMIT ?`,
+    )
+    .all(project, before, limit) as DbChunkRow[];
 
   // Reverse to chronological order
   return rows.reverse().map(rowToChunk);
