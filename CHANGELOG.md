@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-02-19
+
+### Fixed
+
+- **Chunk ID collisions during incremental ingestion**: Chunk IDs used a module-level counter that reset to zero on every process start. When a session was re-ingested after a restart (e.g., via the `session-end` hook), new chunks for the same session would collide with existing IDs, causing `UNIQUE constraint failed: chunks.id` errors and silently blocking ingestion. Replaced counter-based IDs with content-addressed SHA-256 hashes (`<sessionId>-<hash>`) that are deterministic and unique per chunk content. Also changed `INSERT` to `INSERT OR IGNORE` in chunk storage as a safety net for idempotent re-ingestion.
+
+### Changed
+
+- **Skill routing for temporal queries**: Updated `causantic-recall` skill description to explicitly exclude temporal queries ("what did we do last?", "show me recent work"). Added "When NOT to Use" section directing these to `reconstruct` or `resume`. Previously, recall's description claimed "recent or past work" as a use case, causing Claude to route temporal queries to semantic search (which has no recency bias) instead of time-ordered reconstruction.
+- **CLAUDE.md quick decision guide**: Added entries for "What were we looking at last?" and "Where did I leave off?" with a bolded note distinguishing semantic tools (`recall`) from time-ordered tools (`reconstruct`/`resume`).
+
 ## [0.5.6] - 2026-02-19
 
 ### Added

@@ -8,6 +8,7 @@
  * 4. Text rendering with structure markers for embedding
  */
 
+import { createHash } from 'crypto';
 import type {
   Chunk,
   ChunkMetadata,
@@ -254,18 +255,17 @@ export function chunkTurns(turns: Turn[], options: ChunkerOptions): Chunk[] {
   return chunks;
 }
 
-let chunkCounter = 0;
-
 function makeChunk(text: string, metadata: ChunkMetadata): Chunk {
-  chunkCounter++;
+  const hash = createHash('sha256')
+    .update(`${metadata.sessionId}:${metadata.turnIndices.join(',')}:${text}`)
+    .digest('hex')
+    .slice(0, 16);
   return {
-    id: `${metadata.sessionId}-chunk-${chunkCounter}`,
+    id: `${metadata.sessionId}-${hash}`,
     text,
     metadata,
   };
 }
 
-/** Reset chunk counter (for testing). */
-export function resetChunkCounter(): void {
-  chunkCounter = 0;
-}
+/** @deprecated No-op, kept for backwards compatibility. */
+export function resetChunkCounter(): void {}

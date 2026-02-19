@@ -80,7 +80,7 @@ async function main(): Promise<void> {
   let maxSessions = 20;
   let outputPath = 'benchmark-results/noncoding-validation.json';
   let compareWithCoding = true;
-  const codingProjectFilter = 'semansiation'; // A coding project for comparison
+  const codingProjectFilter = 'causantic'; // A coding project for comparison
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--sessions-dir' && args[i + 1]) {
