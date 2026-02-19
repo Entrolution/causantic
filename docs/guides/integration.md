@@ -88,7 +88,7 @@ Add to your Claude Code MCP config:
 | `predict`        | Walk forward through causal chains for proactive suggestions |
 | `list-projects`  | List projects with chunk counts and date ranges              |
 | `list-sessions`  | Browse sessions for a project with time filtering            |
-| `reconstruct`    | Rebuild session context chronologically with token budgeting |
+| `reconstruct`    | Rebuild session context chronologically, or get recent history (timeline mode) |
 | `hook-status`    | Check when hooks last ran and whether they succeeded         |
 | `stats`          | Memory statistics: chunks, edges, clusters, per-project      |
 | `forget`         | Delete memory by project, time range, session, or topic      |

@@ -165,7 +165,7 @@ The MCP server exposes nine tools:
 | `predict`       | Forward episodic — "what's likely next?" Seeds → forward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
 | `list-projects` | Discover available projects with chunk counts and date ranges.                                                                        |
 | `list-sessions` | Browse sessions for a project with time filtering.                                                                                    |
-| `reconstruct`   | Rebuild session context chronologically — "what did I work on yesterday?"                                                             |
+| `reconstruct`   | Rebuild session context chronologically — "what did I work on yesterday?" Call with just `project` for recent history.                 |
 | `hook-status`   | Check when hooks last ran and whether they succeeded.                                                                                 |
 | `stats`         | Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns.                                                       |
 | `forget`        | Delete chunks by project, time range, session, or semantic query. Defaults to dry-run preview.                                        |
@@ -199,7 +199,7 @@ Causantic installs 14 Claude Code slash commands (via `npx causantic init`) for 
 | `/causantic-explain [question]` | Answer "why" questions using memory + codebase (why does X work this way?)                                           |
 | `/causantic-debug [error]`      | Search for prior encounters with an error (auto-extracts from conversation if no argument)                           |
 | `/causantic-resume`             | Resume interrupted work — start-of-session briefing                                                                  |
-| `/causantic-reconstruct [time]` | Replay a past session chronologically by time range                                                                  |
+| `/causantic-reconstruct [time]` | Replay a past session chronologically, or get recent history (no args = timeline mode)                               |
 | `/causantic-summary [time]`     | Factual recap of what was done across recent sessions                                                                |
 | `/causantic-list-projects`      | Discover available projects in memory                                                                                |
 | `/causantic-status`             | Check system health and memory statistics                                                                            |

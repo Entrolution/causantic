@@ -125,20 +125,25 @@ Returns `"No sessions found for project "[name]"."` if none match.
 
 ### reconstruct
 
-Rebuild session context for a project by time range. Returns chronological chunks with session boundary markers. Use for questions like "what did I work on yesterday?" or "show me the last session".
+Rebuild session context for a project. Call with just `project` to get the most recent history up to the token budget (timeline mode). Optionally specify a time range with `from`/`to`, `days_back`, `session_id`, or `previous_session`.
 
 **Parameters**:
 
-| Name                 | Type      | Required | Description                                                              |
-| -------------------- | --------- | -------- | ------------------------------------------------------------------------ |
-| `project`            | `string`  | Yes      | Project slug. Use `list-projects` to discover available projects.        |
-| `session_id`         | `string`  | No       | Specific session ID to reconstruct.                                      |
-| `from`               | `string`  | No       | Start date (ISO 8601).                                                   |
-| `to`                 | `string`  | No       | End date (ISO 8601).                                                     |
-| `days_back`          | `number`  | No       | Look back N days from now.                                               |
-| `previous_session`   | `boolean` | No       | Get the session before the current one.                                  |
-| `current_session_id` | `string`  | No       | Current session ID (required when `previous_session` is true).           |
-| `keep_newest`        | `boolean` | No       | Keep newest chunks when truncating to fit token budget. Default: `true`. |
+| Name                 | Type      | Required | Description                                                                                                                                            |
+| -------------------- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `project`            | `string`  | Yes      | Project slug. Use `list-projects` to discover available projects.                                                                                      |
+| `session_id`         | `string`  | No       | Specific session ID to reconstruct.                                                                                                                    |
+| `from`               | `string`  | No       | Start date (ISO 8601).                                                                                                                                 |
+| `to`                 | `string`  | No       | End date (ISO 8601). When used without `from`/`days_back`/`session_id`, acts as the anchor for timeline mode — returns the most recent chunks before this date. |
+| `days_back`          | `number`  | No       | Look back N days from now.                                                                                                                             |
+| `previous_session`   | `boolean` | No       | Get the session before the current one.                                                                                                                |
+| `current_session_id` | `string`  | No       | Current session ID (required when `previous_session` is true).                                                                                         |
+| `keep_newest`        | `boolean` | No       | Keep newest chunks when truncating to fit token budget. Default: `true`.                                                                               |
+
+**Modes**:
+
+- **Timeline mode** (just `project`, or `project` + `to`): Walks backward from the anchor (defaults to now), fetching only enough chunks to fill the token budget. Efficient for "show me recent history" queries.
+- **Time range mode** (`from`/`to`, `days_back`, `session_id`, `previous_session`): Returns chunks within the specified window, trimmed to the token budget.
 
 **Response**: Plain text with chronological session context, including session boundary markers and chunk content. Token budget controlled by `tokens.mcpMaxResponse` config.
 
@@ -231,6 +236,7 @@ Returns `"No chunks match the given filters."` if no chunks match (filter-based)
 | Discovering what projects exist in memory       | `list-projects`                                                      |
 | Browsing sessions before diving into one        | `list-sessions`                                                      |
 | "What did I work on yesterday/last session?"    | `reconstruct`                                                        |
+| "Show me recent work / what happened recently?" | `reconstruct` (timeline mode — just `project`)                       |
 | Checking system health and memory usage         | `stats`                                                              |
 | Diagnosing hook issues                          | `hook-status`                                                        |
 | Deleting old or unwanted memory by time/session | `forget` (with `before`/`after`/`session_id`) or `/causantic-forget` |

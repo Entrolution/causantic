@@ -107,15 +107,18 @@ Resume interrupted work -- start-of-session briefing.
 
 #### `/causantic-reconstruct [time range]`
 
-Replay a past session chronologically by time range.
+Replay a past session chronologically, or get recent history. Call with no arguments to get the most recent history up to the token budget.
 
 | Parameter    | Required | Description                                                                    |
 | ------------ | -------- | ------------------------------------------------------------------------------ |
-| `time range` | No       | Natural language time reference ("yesterday", "past 3 days", "session abc123") |
+| `time range` | No       | Natural language time reference ("yesterday", "past 3 days", "session abc123"). Omit for recent history. |
 
-**When to use**: "What did I work on yesterday?", "Show me the last session", rebuilding context from a specific time period.
+**When to use**: "What did I work on yesterday?", "Show me the last session", "What happened recently?", rebuilding context from a specific time period.
 
-**Example**: `/causantic-reconstruct past 3 days`
+**Examples**:
+- `/causantic-reconstruct` — recent history (timeline mode)
+- `/causantic-reconstruct past 3 days`
+- `/causantic-reconstruct yesterday`
 
 ---
 
@@ -238,6 +241,7 @@ Delete memory by topic, time range, or session. Always previews before deleting.
 | "What might be relevant?"           | `predict`     |
 | "Where did I leave off?"            | `resume`      |
 | "What did I work on yesterday?"     | `reconstruct` |
+| "What happened recently?"           | `reconstruct` |
 | "Summarize this week"               | `summary`     |
 | "How did other projects handle X?"  | `crossref`    |
 | "What patterns do I see?"           | `retro`       |
