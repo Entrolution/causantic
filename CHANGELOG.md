@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.6] - 2026-02-19
+
+### Added
+
+- **Timeline mode for `reconstruct`**: Call `reconstruct` with just `project` (no time range parameters) to get the most recent history up to the token budget. Walks backward from now (or a `to` anchor) using an efficient SQL query. No need to specify `from`, `days_back`, `session_id`, or `previous_session` for simple "show me recent work" queries.
+
+### Changed
+
+- **`reconstruct` tool description**: Updated to document timeline mode as the default behavior when called with just `project`.
+- **`causantic-reconstruct` skill**: Added no-argument usage (timeline mode) and updated intent table.
+- **CLAUDE.md block**: Updated reconstruct description and quick decision guide to include "What happened recently?" intent.
+
+## [0.5.5] - 2026-02-19
+
+### Fixed
+
+- **Init wizard skipping stale MCP server paths**: Fixed `causantic init` skipping over stale MCP server paths during setup.
+
+## [0.5.4] - 2026-02-18
+
+### Changed
+
+- **MMR reranking**: Added Maximal Marginal Relevance (MMR) diversity reranking to search results. Removed redundant cluster `boostFactor`.
+- **Dashboard search labels**: Updated dashboard search labels to reflect MMR reranking.
+
 ## [0.5.3] - 2026-02-17
 
 ### Changed
