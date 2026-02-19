@@ -17,18 +17,18 @@ export const CAUSANTIC_SKILLS: SkillTemplate[] = [
     dirName: 'causantic-recall',
     content: `---
 name: causantic-recall
-description: "Look up context from past sessions using Causantic long-term memory. Use when asked about recent or past work, previous decisions, errors solved before, or context from prior sessions."
+description: "Walk causal chains in Causantic memory to reconstruct how something happened. Use for topic-specific questions like 'how did we solve X?' or 'what led to this decision?' — NOT for 'what did we do last/recently' (use reconstruct or resume for that)."
 argument-hint: [query]
 ---
 
 # Recall Past Context
 
-Use the \`recall\` MCP tool from \`causantic\` to look up specific context from past sessions.
+Use the \`recall\` MCP tool from \`causantic\` to trace causal chains for specific topics or decisions.
 
 ## Usage
 
 \`\`\`
-/causantic-recall What did we work on recently?
+/causantic-recall how did we solve the auth bug?
 /causantic-recall authentication implementation decisions
 /causantic-recall that migration bug we fixed last week
 \`\`\`
@@ -37,23 +37,28 @@ Use the \`recall\` MCP tool from \`causantic\` to look up specific context from 
 
 Pass these to the \`recall\` MCP tool:
 
-- **query** (required): Natural language question about past work
+- **query** (required): A specific topic, decision, or problem to trace
 - **project**: Filter to a specific project slug (use \`/causantic-list-projects\` to discover names)
 
 ## When to Use
 
-- User asks about recent or past work (e.g., "What did we work on?", "What was decided about X?")
-- Starting a task in an unfamiliar area — check if past sessions covered it
+- User asks HOW something was solved or WHY a decision was made
+- Looking up a specific topic, pattern, or decision from past sessions
 - Encountering an error or pattern that might have been solved before
-- User references something from a previous session
 - Before saying "I don't have context from previous sessions" — always try recall first
+
+## When NOT to Use
+
+- **"What did we do last?"** / **"What were we working on?"** / **"Show me recent work"** → use \`reconstruct\` or \`resume\` instead (recall is semantic, not time-ordered)
+- **"Where did I leave off?"** → use \`resume\`
 
 ## Guidelines
 
 - \`recall\` walks causal chains to reconstruct narrative — use it when you need the story of how something happened
+- \`recall\` is semantic, NOT time-ordered — it returns whatever matches best regardless of recency
 - \`search\` ranks results by semantic relevance — use it for broad discovery ("what do I know about X?")
+- For temporal queries ("recently", "last session", "yesterday"), always use \`reconstruct\` or \`resume\`
 - Use the \`project\` parameter to scope results to the current project when relevant
-- Combine both: \`search\` to discover, then \`recall\` to fill in the narrative
 `,
   },
   {
@@ -1372,11 +1377,15 @@ Long-term memory is available via the \`causantic\` MCP server.
 | User intent | Skill |
 |-------------|-------|
 | "What do I know about X?" | \`search\` |
-| "How did we solve X?" | \`recall\` |
+| "How did we solve X?" / "What led to this decision?" | \`recall\` |
 | "Why does X work this way?" | \`explain\` |
 | "What might be relevant?" | \`predict\` |
 | "What happened recently?" / "Show me recent work" | \`reconstruct\` |
+| "What were we looking at last?" / "What did we do?" | \`reconstruct\` or \`resume\` |
+| "Where did I leave off?" | \`resume\` |
 | "Forget/delete memory about X" | \`forget\` |
+
+**Key distinction:** \`recall\` is semantic (finds best topic match regardless of time). \`reconstruct\`/\`resume\` are time-ordered (finds most recent work). For any question about "last", "recent", or "latest" → use \`reconstruct\` or \`resume\`, never \`recall\`.
 
 ### Proactive Memory Usage
 

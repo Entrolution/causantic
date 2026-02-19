@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-02-19
+
+### Fixed
+
+- **Skill templates not updated in package**: The `causantic-recall` skill template and CLAUDE.md quick decision guide in `skill-templates.ts` still had the old descriptions. Running `causantic init` would overwrite the corrected local files with stale templates. Now the package templates match the 0.6.0 routing fixes.
+
 ## [0.6.0] - 2026-02-19
 
 ### Fixed
