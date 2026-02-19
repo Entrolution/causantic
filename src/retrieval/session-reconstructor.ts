@@ -6,7 +6,12 @@
  */
 
 import { getConfig } from '../config/memory-config.js';
-import { getChunksByTimeRange, getPreviousSession } from '../storage/chunk-store.js';
+import {
+  getChunksByTimeRange,
+  getChunksBefore,
+  getPreviousSession,
+  ESTIMATED_AVG_TOKENS_PER_CHUNK,
+} from '../storage/chunk-store.js';
 import type { SessionInfo } from '../storage/chunk-store.js';
 import type { StoredChunk } from '../storage/types.js';
 
@@ -197,36 +202,14 @@ export function formatReconstruction(result: ReconstructResult): string {
 }
 
 /**
- * Reconstruct session context for a project.
+ * Build a ReconstructResult from a set of kept chunks.
  */
-export function reconstructSession(req: ReconstructRequest): ReconstructResult {
-  const config = getConfig();
-  const maxTokens = req.maxTokens ?? config.mcpMaxResponseTokens;
-  const keepNewest = req.keepNewest ?? true;
-
-  const window = resolveTimeWindow(req);
-
-  // Handle case where no previous session was found
-  if (!window.from && !window.to) {
-    return {
-      chunks: [],
-      sessions: [],
-      totalTokens: 0,
-      truncated: false,
-      timeRange: { from: '', to: '' },
-    };
-  }
-
-  const rawChunks = getChunksByTimeRange(
-    req.project,
-    window.from,
-    window.to,
-    window.sessionId ? { sessionId: window.sessionId } : undefined,
-  );
-
-  const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);
-
-  // Build session summaries from the kept chunks
+function buildResult(
+  kept: StoredChunk[],
+  truncated: boolean,
+  to: string,
+  from?: string,
+): ReconstructResult {
   const sessionMap = new Map<string, { chunks: StoredChunk[] }>();
   for (const chunk of kept) {
     const entry = sessionMap.get(chunk.sessionId) ?? { chunks: [] };
@@ -254,12 +237,63 @@ export function reconstructSession(req: ReconstructRequest): ReconstructResult {
   }));
 
   const totalTokens = kept.reduce((sum, c) => sum + c.approxTokens, 0);
+  const effectiveFrom = from ?? (kept.length > 0 ? kept[0].startTime : '');
 
   return {
     chunks: resultChunks,
     sessions,
     totalTokens,
     truncated,
-    timeRange: { from: window.from, to: window.to },
+    timeRange: { from: effectiveFrom, to },
   };
+}
+
+/**
+ * Reconstruct session context for a project.
+ */
+export function reconstructSession(req: ReconstructRequest): ReconstructResult {
+  const config = getConfig();
+  const maxTokens = req.maxTokens ?? config.mcpMaxResponseTokens;
+  const keepNewest = req.keepNewest ?? true;
+
+  // Timeline mode: no explicit time window specified — walk backwards from anchor
+  const isTimeline =
+    !req.sessionId &&
+    (req.daysBack === undefined || req.daysBack === null) &&
+    !req.previousSession &&
+    !req.from;
+
+  if (isTimeline) {
+    const before = req.to ?? new Date().toISOString();
+    const limit = Math.ceil(maxTokens / ESTIMATED_AVG_TOKENS_PER_CHUNK);
+    const rawChunks = getChunksBefore(req.project, before, limit);
+
+    const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);
+
+    return buildResult(kept, truncated, before);
+  }
+
+  const window = resolveTimeWindow(req);
+
+  // Handle case where no previous session was found
+  if (!window.from && !window.to) {
+    return {
+      chunks: [],
+      sessions: [],
+      totalTokens: 0,
+      truncated: false,
+      timeRange: { from: '', to: '' },
+    };
+  }
+
+  const rawChunks = getChunksByTimeRange(
+    req.project,
+    window.from,
+    window.to,
+    window.sessionId ? { sessionId: window.sessionId } : undefined,
+  );
+
+  const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);
+
+  return buildResult(kept, truncated, window.to, window.from);
 }

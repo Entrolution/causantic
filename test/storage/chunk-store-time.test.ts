@@ -9,6 +9,7 @@ import {
 } from './test-utils.js';
 import {
   getChunksByTimeRange,
+  getChunksBefore,
   getSessionsForProject,
   getPreviousSession,
 } from '../../src/storage/chunk-store.js';
@@ -196,6 +197,113 @@ describe('getChunksByTimeRange', () => {
 
     const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z');
     expect(chunks).toHaveLength(0);
+  });
+});
+
+describe('getChunksBefore', () => {
+  it('returns chunks before timestamp in chronological order', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T11:00:00Z',
+        endTime: '2024-01-15T11:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c3',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T12:00:00Z',
+        endTime: '2024-01-15T12:05:00Z',
+      }),
+    );
+
+    const chunks = getChunksBefore('proj', '2024-01-15T12:30:00Z', 10);
+    expect(chunks).toHaveLength(3);
+    // Chronological order (oldest first)
+    expect(chunks[0].id).toBe('c1');
+    expect(chunks[1].id).toBe('c2');
+    expect(chunks[2].id).toBe('c3');
+  });
+
+  it('respects limit parameter', () => {
+    for (let i = 0; i < 5; i++) {
+      insertTestChunk(
+        db,
+        createSampleChunk({
+          id: `c${i}`,
+          sessionId: 's1',
+          sessionSlug: 'proj',
+          startTime: `2024-01-15T${String(10 + i).padStart(2, '0')}:00:00Z`,
+          endTime: `2024-01-15T${String(10 + i).padStart(2, '0')}:05:00Z`,
+        }),
+      );
+    }
+
+    const chunks = getChunksBefore('proj', '2024-01-16T00:00:00Z', 3);
+    expect(chunks).toHaveLength(3);
+    // Should be the 3 most recent, in chronological order
+    expect(chunks[0].id).toBe('c2');
+    expect(chunks[1].id).toBe('c3');
+    expect(chunks[2].id).toBe('c4');
+  });
+
+  it('returns empty array when no chunks before timestamp', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+
+    const chunks = getChunksBefore('proj', '2024-01-15T09:00:00Z', 10);
+    expect(chunks).toHaveLength(0);
+  });
+
+  it('scoped to project (session_slug)', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj-a',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's2',
+        sessionSlug: 'proj-b',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+      }),
+    );
+
+    const chunks = getChunksBefore('proj-a', '2024-01-16T00:00:00Z', 10);
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].id).toBe('c1');
   });
 });
 

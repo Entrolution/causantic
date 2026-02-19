@@ -346,6 +346,132 @@ describe('formatReconstruction', () => {
   });
 });
 
+describe('reconstructSession timeline mode (integration)', () => {
+  it('returns newest chunks within token budget when called with just project', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Old chunk',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'New chunk',
+        startTime: '2024-01-15T11:00:00Z',
+        endTime: '2024-01-15T11:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+
+    const result = reconstructSession({
+      project: 'proj',
+      maxTokens: 10000,
+    });
+
+    expect(result.chunks).toHaveLength(2);
+    expect(result.chunks[0].content).toBe('Old chunk');
+    expect(result.chunks[1].content).toBe('New chunk');
+    expect(result.truncated).toBe(false);
+  });
+
+  it('anchors at to when project + to specified', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Before anchor',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'After anchor',
+        startTime: '2024-01-16T10:00:00Z',
+        endTime: '2024-01-16T10:05:00Z',
+        approxTokens: 100,
+      }),
+    );
+
+    const result = reconstructSession({
+      project: 'proj',
+      to: '2024-01-16T00:00:00Z',
+      maxTokens: 10000,
+    });
+
+    expect(result.chunks).toHaveLength(1);
+    expect(result.chunks[0].content).toBe('Before anchor');
+    expect(result.timeRange.to).toBe('2024-01-16T00:00:00Z');
+  });
+
+  it('returns empty result when no chunks exist', () => {
+    const result = reconstructSession({
+      project: 'nonexistent',
+      maxTokens: 10000,
+    });
+
+    expect(result.chunks).toHaveLength(0);
+    expect(result.sessions).toHaveLength(0);
+    expect(result.totalTokens).toBe(0);
+    expect(result.truncated).toBe(false);
+  });
+
+  it('applies token budget in timeline mode', () => {
+    // Use 200-token chunks so SQL limit (ceil(300/200)=2) fetches both,
+    // but only one fits the 200-token budget
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Old chunk',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 200,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c2',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'New chunk',
+        startTime: '2024-01-15T11:00:00Z',
+        endTime: '2024-01-15T11:05:00Z',
+        approxTokens: 200,
+      }),
+    );
+
+    const result = reconstructSession({
+      project: 'proj',
+      maxTokens: 300,
+    });
+
+    expect(result.chunks).toHaveLength(1);
+    expect(result.chunks[0].content).toBe('New chunk');
+    expect(result.truncated).toBe(true);
+  });
+});
+
 describe('reconstructSession (integration)', () => {
   it('reconstructs by from/to time range', () => {
     insertTestChunk(
