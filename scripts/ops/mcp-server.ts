@@ -25,7 +25,7 @@ Settings example (.claude/settings.json):
     "memory": {
       "command": "npm",
       "args": ["run", "mcp-server"],
-      "cwd": "/path/to/semansiation"
+      "cwd": "/path/to/causantic"
     }
   }
 }

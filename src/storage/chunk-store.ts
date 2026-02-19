@@ -16,7 +16,7 @@ export function insertChunk(chunk: ChunkInput): string {
   const id = chunk.id || generateId();
 
   const stmt = db.prepare(`
-    INSERT INTO chunks (
+    INSERT OR IGNORE INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
       agent_id, spawn_depth, project_path
@@ -52,7 +52,7 @@ export function insertChunks(chunks: ChunkInput[]): string[] {
   const ids: string[] = [];
 
   const stmt = db.prepare(`
-    INSERT INTO chunks (
+    INSERT OR IGNORE INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
       agent_id, spawn_depth, project_path
