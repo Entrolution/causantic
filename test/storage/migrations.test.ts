@@ -129,26 +129,26 @@ describe('runMigrations', () => {
   });
 
   describe('fresh database (version 0)', () => {
-    it('runs all migrations and reaches v7 when schema is provided', () => {
+    it('runs all migrations and reaches v9 when schema is provided', () => {
       // A fresh database starts with core tables from schema.sql
       // then migrations add versioned columns/tables
       const db = createV1Database();
       // Reset version to 0 to simulate a completely fresh database
       db.exec('DELETE FROM schema_version');
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(8);
+      expect(getSchemaVersion(db)).toBe(9);
       db.close();
     });
   });
 
-  describe('v1 → v7', () => {
+  describe('v1 → v9', () => {
     it('upgrades through all versions', () => {
       const db = createV1Database();
       expect(getSchemaVersion(db)).toBe(1);
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(8);
+      expect(getSchemaVersion(db)).toBe(9);
       db.close();
     });
 
@@ -255,11 +255,11 @@ describe('runMigrations', () => {
     it('can run migrations multiple times without error', () => {
       const db = createV1Database();
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(8);
+      expect(getSchemaVersion(db)).toBe(9);
 
       // Run again — should be a no-op
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(8);
+      expect(getSchemaVersion(db)).toBe(9);
       db.close();
     });
 
@@ -288,7 +288,7 @@ describe('runMigrations', () => {
   });
 
   describe('partial upgrades', () => {
-    it('v3 database only runs v4, v5, v6, v7', () => {
+    it('v3 database only runs v4, v5, v6, v7, v8, v9', () => {
       const db = createV1Database();
 
       // Manually run through v3
@@ -333,17 +333,19 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(8);
+      expect(getSchemaVersion(db)).toBe(9);
       expect(getColumnNames(db, 'chunks')).toContain('project_path');
+      expect(getColumnNames(db, 'chunks')).toContain('team_name');
       expect(getColumnNames(db, 'chunks')).not.toContain('vector_clock');
       expect(getColumnNames(db, 'edges')).not.toContain('vector_clock');
       expect(getColumnNames(db, 'ingestion_checkpoints')).not.toContain('vector_clock');
       expect(tableExists(db, 'vector_clocks')).toBe(false);
       expect(indexExists(db, 'idx_chunks_slug_start_time')).toBe(true);
+      expect(indexExists(db, 'idx_chunks_agent_id')).toBe(true);
       db.close();
     });
 
-    it('v5 database only runs v6, v7', () => {
+    it('v5 database only runs v6, v7, v8, v9', () => {
       const db = createV1Database();
 
       // Fast-forward to v5
@@ -368,8 +370,10 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(8);
+      expect(getSchemaVersion(db)).toBe(9);
       expect(indexExists(db, 'idx_chunks_slug_start_time')).toBe(true);
+      expect(indexExists(db, 'idx_chunks_agent_id')).toBe(true);
+      expect(getColumnNames(db, 'chunks')).toContain('team_name');
       expect(getColumnNames(db, 'chunks')).not.toContain('vector_clock');
       expect(getColumnNames(db, 'edges')).not.toContain('vector_clock');
       expect(getColumnNames(db, 'ingestion_checkpoints')).not.toContain('vector_clock');

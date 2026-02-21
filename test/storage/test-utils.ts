@@ -56,13 +56,15 @@ export function createTestDb(): Database.Database {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       agent_id TEXT,
       spawn_depth INTEGER DEFAULT 0,
-      project_path TEXT
+      project_path TEXT,
+      team_name TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_chunks_session ON chunks(session_id);
     CREATE INDEX IF NOT EXISTS idx_chunks_slug ON chunks(session_slug);
     CREATE INDEX IF NOT EXISTS idx_chunks_time ON chunks(start_time);
     CREATE INDEX IF NOT EXISTS idx_chunks_slug_start_time ON chunks(session_slug, start_time);
+    CREATE INDEX IF NOT EXISTS idx_chunks_agent_id ON chunks(agent_id);
 
     -- Edges table
     CREATE TABLE IF NOT EXISTS edges (
@@ -105,7 +107,7 @@ export function createTestDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_chunk_clusters_cluster ON chunk_clusters(cluster_id);
 
     -- Set schema version
-    INSERT OR REPLACE INTO schema_version (version) VALUES (8);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (9);
   `);
 
   // Create FTS5 table and sync triggers (separate exec for virtual table)
@@ -162,6 +164,7 @@ export function createSampleChunk(
     agentId: string | null;
     spawnDepth: number;
     projectPath: string | null;
+    teamName: string | null;
   }> = {},
 ) {
   return {
@@ -178,6 +181,7 @@ export function createSampleChunk(
     agentId: overrides.agentId ?? null,
     spawnDepth: overrides.spawnDepth ?? 0,
     projectPath: overrides.projectPath ?? null,
+    teamName: overrides.teamName ?? null,
   };
 }
 
@@ -192,8 +196,8 @@ export function insertTestChunk(
     INSERT INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, spawn_depth, project_path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, spawn_depth, project_path, team_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -210,6 +214,7 @@ export function insertTestChunk(
     chunk.agentId,
     chunk.spawnDepth,
     chunk.projectPath,
+    chunk.teamName,
   );
 
   return chunk.id;

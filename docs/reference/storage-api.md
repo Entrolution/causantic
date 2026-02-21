@@ -37,6 +37,8 @@ interface StoredChunk {
   createdAt: string; // ISO timestamp when stored
   agentId: string | null; // 'ui' for main, agent ID for sub-agents
   spawnDepth: number; // 0=main, 1=sub-agent, 2=nested
+  projectPath: string | null; // Full cwd path for disambiguation
+  teamName: string | null; // Team name for agent team sessions
 }
 ```
 
@@ -66,6 +68,9 @@ Edge reference types are purely structural roles that determine initial weight:
 | `within-chain`  | 1.0    | D-T-D causal edge within one thinking entity (m×n all-pairs at turn boundaries) |
 | `brief`         | 0.9    | Parent agent spawning a sub-agent (m×n all-pairs, with 0.9^depth penalty)       |
 | `debrief`       | 0.9    | Sub-agent returning results to parent (m×n all-pairs, with 0.9^depth penalty)   |
+| `team-spawn`    | 0.9    | Lead agent spawning a team member via Task with team_name                        |
+| `team-report`   | 0.9    | Team member reporting results back to lead via SendMessage                       |
+| `peer-message`  | 0.85   | Teammate-to-teammate communication via SendMessage                              |
 | `cross-session` | 0.7    | Session continuation (previous final chunks ↔ new first chunks, m×n)            |
 
 ### Weighted Edges

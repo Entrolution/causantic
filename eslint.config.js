@@ -18,7 +18,7 @@ export default [
     rules: {
       // TypeScript-aware rules
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/consistent-type-imports': ['warn', { prefer: 'type-imports' }],
 
       // General rules
@@ -44,6 +44,8 @@ export default [
     files: ['scripts/**/*.ts', 'test/**/*.ts'],
     rules: {
       'no-console': 'off',
+      // Tests commonly need `any` for mocks/stubs — only enforce in src/
+      '@typescript-eslint/no-explicit-any': 'off',
     },
   },
   {

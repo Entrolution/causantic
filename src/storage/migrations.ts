@@ -63,6 +63,9 @@ export function runMigrations(database: Database.Database): void {
   if (currentVersion < 8) {
     migrateToV8(database);
   }
+  if (currentVersion < 9) {
+    migrateToV9(database);
+  }
 }
 
 /**
@@ -405,6 +408,26 @@ function migrateToV8(database: Database.Database): void {
   `);
 
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (8)');
+}
+
+/**
+ * Migrate from v8 to v9 (add team_name column and agent_id index for agent teams).
+ */
+function migrateToV9(database: Database.Database): void {
+  try {
+    database.exec('ALTER TABLE chunks ADD COLUMN team_name TEXT');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes('duplicate column')) {
+      throw error;
+    }
+  }
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chunks_agent_id ON chunks(agent_id)
+  `);
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (9)');
 }
 
 /**

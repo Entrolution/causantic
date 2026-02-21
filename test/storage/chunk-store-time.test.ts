@@ -183,6 +183,95 @@ describe('getChunksByTimeRange', () => {
     expect(chunks[1].id).toBe('c2');
   });
 
+  it('filters by agentId when provided', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-main',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        agentId: null,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-agent-a',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+        agentId: 'agent-a',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-agent-b',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:20:00Z',
+        endTime: '2024-01-15T10:25:00Z',
+        agentId: 'agent-b',
+      }),
+    );
+
+    const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z', {
+      agentId: 'agent-a',
+    });
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].id).toBe('c-agent-a');
+  });
+
+  it('returns no chunks when agentId filter matches nothing', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        agentId: 'agent-a',
+      }),
+    );
+
+    const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z', {
+      agentId: 'nonexistent',
+    });
+    expect(chunks).toHaveLength(0);
+  });
+
+  it('returns all chunks when no agentId filter provided', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-main',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        agentId: null,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-agent',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+        agentId: 'agent-a',
+      }),
+    );
+
+    const chunks = getChunksByTimeRange('proj', '2024-01-15T00:00:00Z', '2024-01-16T00:00:00Z');
+    expect(chunks).toHaveLength(2);
+  });
+
   it('uses exclusive upper bound (start_time < to)', () => {
     insertTestChunk(
       db,

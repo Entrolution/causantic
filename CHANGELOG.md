@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-02-21
+
+### Added
+
+- **Agent team support**: Full ingestion, retrieval, and output support for Claude Code's multi-agent team sessions (TeamCreate, Task with team_name, SendMessage).
+- **Team edge types**: Three new causal edge types — `team-spawn` (lead spawns teammate, weight 0.9), `team-report` (teammate reports back to lead, weight 0.9), `peer-message` (teammate-to-teammate via SendMessage, weight 0.85).
+- **Team topology detection** (`src/ingest/team-detector.ts`): Scans main session for TeamCreate/Task/SendMessage signals. Resolves hex agent IDs to human-readable teammate names using a priority chain: Task `name` param > Task result parsing > SendMessage routing metadata > `<teammate-message>` XML fallback.
+- **Team edge detection** (`src/ingest/team-edge-detector.ts`): Matches send/receive events across agent files using `<teammate-message>` XML tag matching with 30-second timestamp proximity fallback.
+- **Multi-file teammate grouping**: A single teammate can produce multiple subagent files (one per incoming message context). Files are grouped by resolved human name; all chunks receive the same canonical `agentId`.
+- **Dead-end file detection**: Filters out race-condition stub files created when multiple messages arrive simultaneously at a teammate. Detection uses absence of assistant messages (primary) and ≤2 line count (secondary).
+- **Agent attribution in output**: Search, recall, and reconstruct results now show `| Agent: <name>` in chunk headers when chunks come from a named agent. Reconstruction shows `--- Agent: <name> ---` boundary markers.
+- **`agent` parameter on MCP tools**: `search`, `recall`, `predict`, and `reconstruct` tools accept an optional `agent` filter. Filters seed/chunk selection; chain walking still crosses agent boundaries freely.
+- **Agent team stats**: `stats` tool now reports agent chunk count, distinct agent count, and team edge counts (team-spawn, team-report, peer-message) when present.
+- **Schema v9 migration**: Adds `team_name TEXT` column to chunks table and `idx_chunks_agent_id` index.
+
+### Changed
+
+- **Ingestion pipeline partitioning**: Sub-agents are now partitioned into team members (processed through the new team pipeline) and regular sub-agents (existing brief/debrief pipeline). Mixed sessions are handled correctly.
+- **`IngestResult` extended**: Now includes `teamEdges`, `deadEndFilesSkipped`, and `isTeamSession` fields.
+- **Skill templates updated**: `recall`, `search`, `predict`, `reconstruct` document the `agent` parameter. `resume` and `summary` include team session guidance.
+- **CLAUDE.md block**: Quick decision guide includes agent filtering note.
+- **Eslint upgraded to 10.0.1**: Resolves 3 minimatch high-severity audit vulnerabilities in eslint's dependency tree. Enabled `@typescript-eslint/no-explicit-any` as `warn` for src/ to prevent future `any` regressions.
+- **SECURITY.md**: Updated supported versions to `>= 0.7`.
+
+### Fixed
+
+- **EventEmitter MaxListenersExceeded warning**: Fixed listener accumulation in hook command tests by raising `process.stdin.setMaxListeners` for the test suite scope.
+
+### Tests
+
+- **Team detector tests** (`test/ingest/team-detector.test.ts`): 21 tests covering `detectTeamTopology()` (TeamCreate, Task with team_name, SendMessage, progress message resolution, XML fallback) and `groupTeammateFiles()` (grouping, dead-end filtering, fallback names).
+- **Team edge detector tests** (`test/ingest/team-edge-detector.test.ts`): 14 tests covering `detectTeamEdges()` for all three edge types (team-spawn, team-report, peer-message), timestamp proximity fallback, and edge cases.
+- **Agent filter tests**: Added `agentId` filter tests to `chunk-store-time.test.ts` (3 tests) and `agentFilter`/agent boundary marker tests to `session-reconstructor.test.ts` (4 tests).
+
 ## [0.6.1] - 2026-02-19
 
 ### Fixed

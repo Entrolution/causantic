@@ -38,6 +38,8 @@ export interface SearchRequest {
   vectorSearchLimit?: number;
   /** Skip cluster expansion (for benchmarking) */
   skipClusters?: boolean;
+  /** Filter results to a specific agent */
+  agentFilter?: string;
 }
 
 /**
@@ -106,6 +108,7 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     maxTokens = config.mcpMaxResponseTokens,
     vectorSearchLimit = 20,
     skipClusters = false,
+    agentFilter,
   } = request;
 
   const { hybridSearch, clusterExpansion, mmrReranking } = config;
@@ -116,14 +119,24 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
 
   // 2. Vector + keyword search in parallel
   const vectorSearchPromise = projectFilter
-    ? vectorStore.searchByProject(queryResult.embedding, projectFilter, vectorSearchLimit)
+    ? vectorStore.searchByProject(
+        queryResult.embedding,
+        projectFilter,
+        vectorSearchLimit,
+        agentFilter,
+      )
     : vectorStore.search(queryResult.embedding, vectorSearchLimit);
 
   let keywordResults: Array<{ id: string; score: number }> = [];
   try {
     const keywordStore = getKeywordStore();
     keywordResults = projectFilter
-      ? keywordStore.searchByProject(query, projectFilter, hybridSearch.keywordSearchLimit)
+      ? keywordStore.searchByProject(
+          query,
+          projectFilter,
+          hybridSearch.keywordSearchLimit,
+          agentFilter,
+        )
       : keywordStore.search(query, hybridSearch.keywordSearchLimit);
   } catch (error) {
     log.warn('Keyword search unavailable, falling back to vector-only', {
@@ -131,7 +144,19 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     });
   }
 
-  const similar = await vectorSearchPromise;
+  let similar = await vectorSearchPromise;
+
+  // Post-filter by agent when no project filter was used (search() doesn't support agentId)
+  if (agentFilter && !projectFilter) {
+    similar = similar.filter((s) => {
+      const chunk = getChunkById(s.id);
+      return chunk?.agentId === agentFilter;
+    });
+    keywordResults = keywordResults.filter((r) => {
+      const chunk = getChunkById(r.id);
+      return chunk?.agentId === agentFilter;
+    });
+  }
 
   if (similar.length === 0 && keywordResults.length === 0) {
     return {
@@ -293,7 +318,8 @@ function assembleWithinBudget(
 function formatChunkForOutput(chunk: StoredChunk, content: string, weight: number): string {
   const date = new Date(chunk.startTime).toLocaleDateString();
   const relevance = (weight * 100).toFixed(0);
-  return `[Session: ${chunk.sessionSlug} | Date: ${date} | Relevance: ${relevance}%]\n${content}`;
+  const agentPart = chunk.agentId && chunk.agentId !== 'ui' ? ` | Agent: ${chunk.agentId}` : '';
+  return `[Session: ${chunk.sessionSlug}${agentPart} | Date: ${date} | Relevance: ${relevance}%]\n${content}`;
 }
 
 function truncateChunk(content: string, maxTokens: number): string {

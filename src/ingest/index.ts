@@ -21,9 +21,18 @@ export {
   createCrossSessionEdges,
   createBriefEdge,
   createDebriefEdge,
+  createTeamEdges,
 } from './edge-creator.js';
 export type { EdgeCreationResult } from './edge-creator.js';
 
 // Cross-session linking
 export { linkCrossSession, linkAllSessions, isContinuedSession } from './cross-session-linker.js';
 export type { CrossSessionLinkResult } from './cross-session-linker.js';
+
+// Team detection
+export { detectTeamTopology, groupTeammateFiles } from './team-detector.js';
+export type { TeamTopology, TeammateFileGroup } from './team-detector.js';
+
+// Team edge detection
+export { detectTeamEdges } from './team-edge-detector.js';
+export type { TeamEdgePoint } from './team-edge-detector.js';

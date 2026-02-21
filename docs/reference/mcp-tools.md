@@ -24,6 +24,7 @@ Search memory semantically to discover relevant past context. Returns ranked res
 | --------- | -------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `query`   | `string` | Yes      | What to search for in memory. Be specific about what context you need.                           |
 | `project` | `string` | No       | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
+| `agent`   | `string` | No       | Filter to a specific agent (e.g., `"researcher"`). Omit to include all agents.                   |
 
 **Response**: Plain text. Returns a header with chunk count and token count, followed by the assembled context text. Returns `"No relevant memory found."` if no matches.
 
@@ -45,6 +46,7 @@ Recall episodic memory by walking backward through causal chains to reconstruct 
 | --------- | -------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `query`   | `string` | Yes      | What to recall from memory. Be specific about what context you need.                             |
 | `project` | `string` | No       | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
+| `agent`   | `string` | No       | Filter to a specific agent (e.g., `"researcher"`). Applies to seed selection; chain walking crosses agent boundaries. |
 
 **Response**: Plain text. Returns an ordered narrative (problem → solution). When the chain walker falls back to search, a diagnostic bracket is appended with details about what was attempted.
 
@@ -76,6 +78,7 @@ Predict what context or topics might be relevant based on current discussion. Wa
 | --------- | -------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `context` | `string` | Yes      | Current context or topic being discussed.                                                        |
 | `project` | `string` | No       | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
+| `agent`   | `string` | No       | Filter to a specific agent (e.g., `"researcher"`). Applies to seed selection; chain walking crosses agent boundaries. |
 
 **Response**: Plain text. Returns `"Potentially relevant context (N items):"` followed by assembled text, or `"No predictions available based on current context."` if no matches. Uses half the token budget of recall/search. Includes chain walk diagnostics when falling back to search.
 
@@ -139,6 +142,7 @@ Rebuild session context for a project. Call with just `project` to get the most 
 | `previous_session`   | `boolean` | No       | Get the session before the current one.                                                                                                                |
 | `current_session_id` | `string`  | No       | Current session ID (required when `previous_session` is true).                                                                                         |
 | `keep_newest`        | `boolean` | No       | Keep newest chunks when truncating to fit token budget. Default: `true`.                                                                               |
+| `agent`              | `string`  | No       | Filter to a specific agent (e.g., `"researcher"`). Omit to include all agents.                                                                         |
 
 **Modes**:
 
@@ -161,12 +165,12 @@ Show memory statistics including version, chunk/edge/cluster counts, and per-pro
 
 **Parameters**: None.
 
-**Response**: Formatted text with version, aggregate counts, and per-project details.
+**Response**: Formatted text with version, aggregate counts, per-project details, and agent team statistics (when present).
 
 **Example**:
 
 ```
-Causantic v0.4.2
+Causantic v0.7.0
 
 Memory Statistics:
 - Chunks: 1234
@@ -176,6 +180,13 @@ Memory Statistics:
 Projects:
 - my-app: 800 chunks (Jan 2025 – Feb 2025)
 - api-server: 434 chunks (Dec 2024 – Feb 2025)
+
+Agent Teams:
+- Agent chunks: 156
+- Distinct agents: 4
+- team-spawn edges: 3
+- team-report edges: 8
+- peer-message edges: 12
 ```
 
 ### forget
@@ -241,6 +252,7 @@ Returns `"No chunks match the given filters."` if no chunks match (filter-based)
 | Diagnosing hook issues                          | `hook-status`                                                        |
 | Deleting old or unwanted memory by time/session | `forget` (with `before`/`after`/`session_id`) or `/causantic-forget` |
 | Deleting memory about a topic                   | `forget` (with `query`) or `/causantic-forget`                       |
+| Filtering results to a specific agent           | Any retrieval tool with `agent` parameter (e.g., `agent: "researcher"`) |
 
 ## Chain Walk Diagnostics
 

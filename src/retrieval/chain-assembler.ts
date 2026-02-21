@@ -30,6 +30,8 @@ export interface EpisodicRequest {
   maxTokens?: number;
   /** Number of vector search results */
   vectorSearchLimit?: number;
+  /** Filter results to a specific agent (applies to seed selection only) */
+  agentFilter?: string;
 }
 
 /**
@@ -86,15 +88,23 @@ async function runEpisodicPipeline(
 ): Promise<EpisodicResponse> {
   const startTime = Date.now();
 
-  const { query, currentSessionId, projectFilter, maxTokens = 20000, vectorSearchLimit } = request;
+  const {
+    query,
+    currentSessionId,
+    projectFilter,
+    maxTokens = 20000,
+    vectorSearchLimit,
+    agentFilter,
+  } = request;
 
-  // 1. Search for seeds
+  // 1. Search for seeds (agent filter applies to seed selection only)
   const searchRequest: SearchRequest = {
     query,
     currentSessionId,
     projectFilter,
     maxTokens,
     vectorSearchLimit,
+    agentFilter,
   };
 
   const searchResult = await searchContext(searchRequest);
@@ -249,5 +259,6 @@ function formatChunkForOutput(
   total: number,
 ): string {
   const date = new Date(chunk.startTime).toLocaleDateString();
-  return `[${position}/${total} | Session: ${chunk.sessionSlug} | Date: ${date}]\n${content}`;
+  const agentPart = chunk.agentId && chunk.agentId !== 'ui' ? ` | Agent: ${chunk.agentId}` : '';
+  return `[${position}/${total} | Session: ${chunk.sessionSlug}${agentPart} | Date: ${date}]\n${content}`;
 }

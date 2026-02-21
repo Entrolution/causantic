@@ -14,10 +14,11 @@ Skills are installed by `causantic init` to `~/.claude/skills/causantic-<name>/S
 
 Reconstruct how something happened — walks backward through causal chains ("how did we solve X?")
 
-| Parameter | Required | Description                               |
-| --------- | -------- | ----------------------------------------- |
-| `query`   | Yes      | Natural language question about past work |
-| `project` | No       | Filter to a specific project slug         |
+| Parameter | Required | Description                                                                        |
+| --------- | -------- | ---------------------------------------------------------------------------------- |
+| `query`   | Yes      | Natural language question about past work                                          |
+| `project` | No       | Filter to a specific project slug                                                  |
+| `agent`   | No       | Filter to a specific agent (e.g., `"researcher"`). Seeds only; chains cross agents |
 
 **When to use**: User asks about past work, previous decisions, errors solved before, or context from prior sessions. Before saying "I don't have context from previous sessions" -- always try recall first.
 
@@ -29,10 +30,11 @@ Reconstruct how something happened — walks backward through causal chains ("ho
 
 Broad discovery — find everything memory knows about a topic ("what do I know about X?")
 
-| Parameter | Required | Description                       |
-| --------- | -------- | --------------------------------- |
-| `query`   | Yes      | What to search for in memory      |
-| `project` | No       | Filter to a specific project slug |
+| Parameter | Required | Description                                                          |
+| --------- | -------- | -------------------------------------------------------------------- |
+| `query`   | Yes      | What to search for in memory                                         |
+| `project` | No       | Filter to a specific project slug                                    |
+| `agent`   | No       | Filter to a specific agent (e.g., `"researcher"`)                    |
 
 **When to use**: Broad discovery, finding past context on a topic, as a starting point before using `recall` for deeper narrative.
 
@@ -44,10 +46,11 @@ Broad discovery — find everything memory knows about a topic ("what do I know 
 
 Surface what came after similar past situations — walks forward through causal chains ("what's likely relevant next?")
 
-| Parameter | Required | Description                                  |
-| --------- | -------- | -------------------------------------------- |
-| `context` | Yes      | Concise summary of the current task or topic |
-| `project` | No       | Filter to a specific project slug            |
+| Parameter | Required | Description                                                                        |
+| --------- | -------- | ---------------------------------------------------------------------------------- |
+| `context` | Yes      | Concise summary of the current task or topic                                       |
+| `project` | No       | Filter to a specific project slug                                                  |
+| `agent`   | No       | Filter to a specific agent (e.g., `"researcher"`). Seeds only; chains cross agents |
 
 **When to use**: At the start of complex tasks to check for relevant prior work, when encountering patterns that might have been solved before.
 

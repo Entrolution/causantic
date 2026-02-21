@@ -82,6 +82,8 @@ export class VectorStore {
   private loaded = false;
   /** chunkId → projectSlug index for project-filtered search */
   private chunkProjectIndex: Map<string, string> = new Map();
+  /** chunkId → agentId index for agent-filtered search */
+  private chunkAgentIndex: Map<string, string> = new Map();
 
   /**
    * Load vectors from database into memory.
@@ -137,6 +139,19 @@ export class VectorStore {
       // chunks table may not exist yet (e.g., during migrations)
     }
 
+    // Populate chunk→agent index
+    try {
+      const agentRows = db
+        .prepare('SELECT id, agent_id FROM chunks WHERE agent_id IS NOT NULL')
+        .all() as Array<{ id: string; agent_id: string }>;
+
+      for (const row of agentRows) {
+        this.chunkAgentIndex.set(row.id, row.agent_id);
+      }
+    } catch {
+      // chunks table may not exist yet
+    }
+
     this.loaded = true;
   }
 
@@ -155,13 +170,16 @@ export class VectorStore {
 
     this.vectors.set(id, embedding);
 
-    // Update project index
+    // Update project and agent indexes
     try {
-      const row = db.prepare('SELECT session_slug FROM chunks WHERE id = ?').get(id) as
-        | { session_slug: string }
+      const row = db.prepare('SELECT session_slug, agent_id FROM chunks WHERE id = ?').get(id) as
+        | { session_slug: string; agent_id: string | null }
         | undefined;
       if (row?.session_slug) {
         this.chunkProjectIndex.set(id, row.session_slug);
+      }
+      if (row?.agent_id) {
+        this.chunkAgentIndex.set(id, row.agent_id);
       }
     } catch {
       // chunks table may not exist
@@ -189,18 +207,21 @@ export class VectorStore {
 
     insertMany(items);
 
-    // Update project index for batch
+    // Update project and agent indexes for batch
     try {
       const ids = items.map((i) => i.id);
       if (ids.length > 0) {
         const placeholders = ids.map(() => '?').join(',');
         const rows = db
           .prepare(
-            `SELECT id, session_slug FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`,
+            `SELECT id, session_slug, agent_id FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`,
           )
-          .all(...ids) as Array<{ id: string; session_slug: string }>;
+          .all(...ids) as Array<{ id: string; session_slug: string; agent_id: string | null }>;
         for (const row of rows) {
           this.chunkProjectIndex.set(row.id, row.session_slug);
+          if (row.agent_id) {
+            this.chunkAgentIndex.set(row.id, row.agent_id);
+          }
         }
       }
     } catch {
@@ -306,6 +327,7 @@ export class VectorStore {
     query: number[],
     projects: string | string[],
     limit: number,
+    agentId?: string,
   ): Promise<VectorSearchResult[]> {
     await this.load();
 
@@ -315,6 +337,11 @@ export class VectorStore {
     for (const [id, embedding] of this.vectors) {
       const project = this.chunkProjectIndex.get(id);
       if (!project || !projectSet.has(project)) continue;
+
+      if (agentId) {
+        const chunkAgent = this.chunkAgentIndex.get(id);
+        if (chunkAgent !== agentId) continue;
+      }
 
       const distance = angularDistance(query, embedding);
       results.push({ id, distance });
@@ -420,6 +447,7 @@ export class VectorStore {
   reset(): void {
     this.vectors.clear();
     this.chunkProjectIndex.clear();
+    this.chunkAgentIndex.clear();
     this.loaded = false;
   }
 

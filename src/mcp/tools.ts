@@ -18,6 +18,7 @@ import {
   deleteChunks,
   invalidateProjectsCache,
 } from '../storage/chunk-store.js';
+import { getDb } from '../storage/db.js';
 import { vectorStore } from '../storage/vector-store.js';
 import { getEdgeCount } from '../storage/edge-store.js';
 import { getClusterCount } from '../storage/cluster-store.js';
@@ -99,18 +100,24 @@ export const searchTool: ToolDefinition = {
         description:
           'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
       },
+      agent: {
+        type: 'string',
+        description: 'Filter to a specific agent (e.g., "researcher"). Omit to include all agents.',
+      },
     },
     required: ['query'],
   },
   handler: async (args) => {
     const query = args.query as string;
     const project = args.project as string | undefined;
+    const agent = args.agent as string | undefined;
     const config = getConfig();
 
     const response = await searchContext({
       query,
       maxTokens: config.mcpMaxResponseTokens,
       projectFilter: project,
+      agentFilter: agent,
     });
 
     return formatSearchResponse(response);
@@ -136,17 +143,23 @@ export const recallTool: ToolDefinition = {
         description:
           'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
       },
+      agent: {
+        type: 'string',
+        description: 'Filter to a specific agent (e.g., "researcher"). Omit to include all agents.',
+      },
     },
     required: ['query'],
   },
   handler: async (args) => {
     const query = args.query as string;
     const project = args.project as string | undefined;
+    const agent = args.agent as string | undefined;
     const config = getConfig();
 
     const response = await recall(query, {
       maxTokens: config.mcpMaxResponseTokens,
       projectFilter: project,
+      agentFilter: agent,
     });
 
     return formatResponse(response);
@@ -172,17 +185,23 @@ export const predictTool: ToolDefinition = {
         description:
           'Filter to a specific project. Omit to search all. Use list-projects to see available projects.',
       },
+      agent: {
+        type: 'string',
+        description: 'Filter to a specific agent (e.g., "researcher"). Omit to include all agents.',
+      },
     },
     required: ['context'],
   },
   handler: async (args) => {
     const context = args.context as string;
     const project = args.project as string | undefined;
+    const agent = args.agent as string | undefined;
     const config = getConfig();
 
     const response = await predict(context, {
       maxTokens: config.mcpMaxResponseTokens,
       projectFilter: project,
+      agentFilter: agent,
     });
 
     if (response.chunks.length === 0) {
@@ -345,11 +364,16 @@ export const reconstructTool: ToolDefinition = {
         type: 'boolean',
         description: 'Keep newest chunks when truncating to fit token budget (default: true).',
       },
+      agent: {
+        type: 'string',
+        description: 'Filter to a specific agent (e.g., "researcher"). Omit to include all agents.',
+      },
     },
     required: ['project'],
   },
   handler: async (args) => {
     const project = args.project as string;
+    const agent = args.agent as string | undefined;
     const config = getConfig();
 
     try {
@@ -363,6 +387,7 @@ export const reconstructTool: ToolDefinition = {
         currentSessionId: args.current_session_id as string | undefined,
         maxTokens: config.mcpMaxResponseTokens,
         keepNewest: (args.keep_newest as boolean | undefined) ?? true,
+        agentFilter: agent,
       });
 
       return formatReconstruction(result);
@@ -431,6 +456,38 @@ export const statsTool: ToolDefinition = {
         const range = first === last ? first : `${first} – ${last}`;
         lines.push(`- ${p.slug}: ${p.chunkCount} chunks (${range})`);
       }
+    }
+
+    // Agent team stats
+    try {
+      const db = getDb();
+      const agentChunks = db
+        .prepare(
+          "SELECT COUNT(*) as count FROM chunks WHERE agent_id IS NOT NULL AND agent_id != 'ui'",
+        )
+        .get() as { count: number };
+      const distinctAgents = db
+        .prepare(
+          "SELECT COUNT(DISTINCT agent_id) as count FROM chunks WHERE agent_id IS NOT NULL AND agent_id != 'ui'",
+        )
+        .get() as { count: number };
+
+      if (agentChunks.count > 0) {
+        lines.push('', 'Agent Teams:');
+        lines.push(`- Agent chunks: ${agentChunks.count}`);
+        lines.push(`- Distinct agents: ${distinctAgents.count}`);
+
+        const teamEdgeRows = db
+          .prepare(
+            "SELECT reference_type, COUNT(*) as count FROM edges WHERE reference_type IN ('team-spawn', 'team-report', 'peer-message') GROUP BY reference_type",
+          )
+          .all() as Array<{ reference_type: string; count: number }>;
+        for (const row of teamEdgeRows) {
+          lines.push(`- ${row.reference_type} edges: ${row.count}`);
+        }
+      }
+    } catch {
+      // Agent stats unavailable (table may not have agent columns yet)
     }
 
     return lines.join('\n');
