@@ -84,6 +84,8 @@ export class VectorStore {
   private chunkProjectIndex: Map<string, string> = new Map();
   /** chunkId → agentId index for agent-filtered search */
   private chunkAgentIndex: Map<string, string> = new Map();
+  /** chunkId → teamName index for team-filtered queries */
+  private chunkTeamIndex: Map<string, string> = new Map();
 
   /**
    * Load vectors from database into memory.
@@ -152,6 +154,19 @@ export class VectorStore {
       // chunks table may not exist yet
     }
 
+    // Populate chunk→team index
+    try {
+      const teamRows = db
+        .prepare('SELECT id, team_name FROM chunks WHERE team_name IS NOT NULL')
+        .all() as Array<{ id: string; team_name: string }>;
+
+      for (const row of teamRows) {
+        this.chunkTeamIndex.set(row.id, row.team_name);
+      }
+    } catch {
+      // chunks table may not exist yet
+    }
+
     this.loaded = true;
   }
 
@@ -170,16 +185,21 @@ export class VectorStore {
 
     this.vectors.set(id, embedding);
 
-    // Update project and agent indexes
+    // Update project, agent, and team indexes
     try {
-      const row = db.prepare('SELECT session_slug, agent_id FROM chunks WHERE id = ?').get(id) as
-        | { session_slug: string; agent_id: string | null }
+      const row = db
+        .prepare('SELECT session_slug, agent_id, team_name FROM chunks WHERE id = ?')
+        .get(id) as
+        | { session_slug: string; agent_id: string | null; team_name: string | null }
         | undefined;
       if (row?.session_slug) {
         this.chunkProjectIndex.set(id, row.session_slug);
       }
       if (row?.agent_id) {
         this.chunkAgentIndex.set(id, row.agent_id);
+      }
+      if (row?.team_name) {
+        this.chunkTeamIndex.set(id, row.team_name);
       }
     } catch {
       // chunks table may not exist
@@ -207,20 +227,28 @@ export class VectorStore {
 
     insertMany(items);
 
-    // Update project and agent indexes for batch
+    // Update project, agent, and team indexes for batch
     try {
       const ids = items.map((i) => i.id);
       if (ids.length > 0) {
         const placeholders = ids.map(() => '?').join(',');
         const rows = db
           .prepare(
-            `SELECT id, session_slug, agent_id FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`,
+            `SELECT id, session_slug, agent_id, team_name FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`,
           )
-          .all(...ids) as Array<{ id: string; session_slug: string; agent_id: string | null }>;
+          .all(...ids) as Array<{
+          id: string;
+          session_slug: string;
+          agent_id: string | null;
+          team_name: string | null;
+        }>;
         for (const row of rows) {
           this.chunkProjectIndex.set(row.id, row.session_slug);
           if (row.agent_id) {
             this.chunkAgentIndex.set(row.id, row.agent_id);
+          }
+          if (row.team_name) {
+            this.chunkTeamIndex.set(row.id, row.team_name);
           }
         }
       }
@@ -365,6 +393,20 @@ export class VectorStore {
   }
 
   /**
+   * Get the agent ID for a chunk ID.
+   */
+  getChunkAgent(id: string): string | undefined {
+    return this.chunkAgentIndex.get(id);
+  }
+
+  /**
+   * Get the team name for a chunk ID.
+   */
+  getChunkTeam(id: string): string | undefined {
+    return this.chunkTeamIndex.get(id);
+  }
+
+  /**
    * Delete a vector.
    */
   async delete(id: string): Promise<boolean> {
@@ -448,6 +490,7 @@ export class VectorStore {
     this.vectors.clear();
     this.chunkProjectIndex.clear();
     this.chunkAgentIndex.clear();
+    this.chunkTeamIndex.clear();
     this.loaded = false;
   }
 

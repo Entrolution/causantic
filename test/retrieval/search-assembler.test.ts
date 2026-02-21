@@ -73,6 +73,10 @@ vi.mock('../../src/config/loader.js', () => ({
     mmrReranking: {
       lambda: 0.7,
     },
+    recency: {
+      decayFactor: 0.3,
+      halfLifeHours: 48,
+    },
   }),
 }));
 
@@ -283,6 +287,98 @@ describe('search-assembler', () => {
 
       expect(result.text).toContain('Session: my-project');
       expect(result.text).toContain('Relevance:');
+    });
+
+    it('time-decay boosts recent over old', async () => {
+      const now = new Date();
+      const recentTime = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(); // 2h ago
+      const oldTime = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(); // 30d ago
+
+      mockChunks.set('recent', makeChunk('recent', { startTime: recentTime, approxTokens: 50 }));
+      mockChunks.set('old', makeChunk('old', { startTime: oldTime, approxTokens: 50 }));
+
+      // Give them equal base scores
+      mockVectorResults = [
+        { id: 'old', distance: 0.2 },
+        { id: 'recent', distance: 0.2 },
+      ];
+
+      const result = await searchContext({ query: 'test' });
+
+      // Recent should rank higher due to time-decay boost
+      expect(result.chunks.length).toBe(2);
+      expect(result.chunks[0].id).toBe('recent');
+    });
+
+    it('session boost stacks with time decay', async () => {
+      const now = new Date();
+      const recentTime = new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(); // 1h ago
+
+      mockChunks.set(
+        'current-session',
+        makeChunk('current-session', {
+          sessionId: 'active',
+          startTime: recentTime,
+          approxTokens: 50,
+        }),
+      );
+      mockChunks.set(
+        'other-session',
+        makeChunk('other-session', {
+          sessionId: 'other',
+          startTime: recentTime,
+          approxTokens: 50,
+        }),
+      );
+
+      // Equal base scores
+      mockVectorResults = [
+        { id: 'other-session', distance: 0.2 },
+        { id: 'current-session', distance: 0.2 },
+      ];
+
+      const result = await searchContext({
+        query: 'test',
+        currentSessionId: 'active',
+      });
+
+      // Current session should rank first (time boost * 1.2 session boost)
+      const currentChunk = result.chunks.find((c) => c.id === 'current-session');
+      const otherChunk = result.chunks.find((c) => c.id === 'other-session');
+      expect(currentChunk).toBeDefined();
+      expect(otherChunk).toBeDefined();
+      expect(currentChunk!.weight).toBeGreaterThan(otherChunk!.weight);
+    });
+
+    it('boost approaches 1.0 for old chunks', async () => {
+      const now = new Date();
+      const recentTime = new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString(); // 1h ago
+      const veryOldTime = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString(); // 60d ago
+
+      mockChunks.set(
+        'recent-chunk',
+        makeChunk('recent-chunk', { startTime: recentTime, approxTokens: 50 }),
+      );
+      mockChunks.set(
+        'ancient-chunk',
+        makeChunk('ancient-chunk', { startTime: veryOldTime, approxTokens: 50 }),
+      );
+
+      // Both at same distance so RRF base scores differ only by rank
+      mockVectorResults = [
+        { id: 'recent-chunk', distance: 0.2 },
+        { id: 'ancient-chunk', distance: 0.2 },
+      ];
+
+      const result = await searchContext({ query: 'test' });
+
+      const recent = result.chunks.find((c) => c.id === 'recent-chunk');
+      const ancient = result.chunks.find((c) => c.id === 'ancient-chunk');
+      expect(recent).toBeDefined();
+      expect(ancient).toBeDefined();
+      // Recent chunk gets meaningful time-decay boost; ancient chunk gets ~1.0x
+      // So recent should have higher weight
+      expect(recent!.weight).toBeGreaterThan(ancient!.weight);
     });
 
     it('gracefully handles keyword search failure', async () => {

@@ -284,11 +284,7 @@ export function reconstructSession(req: ReconstructRequest): ReconstructResult {
   if (isTimeline) {
     const before = req.to ?? new Date().toISOString();
     const limit = Math.ceil(maxTokens / ESTIMATED_AVG_TOKENS_PER_CHUNK);
-    let rawChunks = getChunksBefore(req.project, before, limit);
-
-    if (req.agentFilter) {
-      rawChunks = rawChunks.filter((c) => c.agentId === req.agentFilter);
-    }
+    const rawChunks = getChunksBefore(req.project, before, limit, req.agentFilter);
 
     const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);
 
@@ -308,7 +304,7 @@ export function reconstructSession(req: ReconstructRequest): ReconstructResult {
     };
   }
 
-  let rawChunks = getChunksByTimeRange(
+  const rawChunks = getChunksByTimeRange(
     req.project,
     window.from,
     window.to,
@@ -318,10 +314,6 @@ export function reconstructSession(req: ReconstructRequest): ReconstructResult {
         ? { agentId: req.agentFilter }
         : undefined,
   );
-
-  if (req.agentFilter) {
-    rawChunks = rawChunks.filter((c) => c.agentId === req.agentFilter);
-  }
 
   const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);
 

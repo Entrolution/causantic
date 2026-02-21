@@ -368,6 +368,74 @@ describe('getChunksBefore', () => {
     expect(chunks).toHaveLength(0);
   });
 
+  it('filters by agentId at SQL level', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-main',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        agentId: null,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-researcher',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T11:00:00Z',
+        endTime: '2024-01-15T11:05:00Z',
+        agentId: 'researcher',
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-lead',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T12:00:00Z',
+        endTime: '2024-01-15T12:05:00Z',
+        agentId: 'lead',
+      }),
+    );
+
+    const chunks = getChunksBefore('proj', '2024-01-16T00:00:00Z', 10, 'researcher');
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0].id).toBe('c-researcher');
+  });
+
+  it('without agentId returns all agents', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-main',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        agentId: null,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-agent',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        startTime: '2024-01-15T11:00:00Z',
+        endTime: '2024-01-15T11:05:00Z',
+        agentId: 'researcher',
+      }),
+    );
+
+    const chunks = getChunksBefore('proj', '2024-01-16T00:00:00Z', 10);
+    expect(chunks).toHaveLength(2);
+  });
+
   it('scoped to project (session_slug)', () => {
     insertTestChunk(
       db,

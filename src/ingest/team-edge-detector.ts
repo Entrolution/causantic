@@ -16,8 +16,8 @@ import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('team-edge-detector');
 
-/** Timestamp proximity window for fallback matching (30 seconds). */
-const TIMESTAMP_PROXIMITY_MS = 30_000;
+/** Timestamp proximity window for fallback matching (10 seconds). */
+const TIMESTAMP_PROXIMITY_MS = 10_000;
 
 /**
  * A detected edge point between team members.
@@ -55,16 +55,29 @@ function findChunkNearTimestamp(
   const targetMs = new Date(timestamp).getTime();
   let bestChunk: ChunkInput | undefined;
   let bestDist = Infinity;
+  let matchCount = 0;
 
   for (const chunk of chunks) {
     const startMs = new Date(chunk.startTime).getTime();
     const endMs = new Date(chunk.endTime).getTime();
     const dist = Math.min(Math.abs(startMs - targetMs), Math.abs(endMs - targetMs));
 
-    if (dist < bestDist && dist <= windowMs) {
-      bestDist = dist;
-      bestChunk = chunk;
+    if (dist <= windowMs) {
+      matchCount++;
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestChunk = chunk;
+      }
     }
+  }
+
+  if (matchCount > 1) {
+    log.warn('Multiple chunks matched within timestamp proximity window', {
+      timestamp,
+      matchCount,
+      windowMs,
+      selectedChunkId: bestChunk?.id,
+    });
   }
 
   return bestChunk;
@@ -251,6 +264,14 @@ function findReceiveChunkInMain(
   }
 
   // Fallback: timestamp proximity
+  log.warn(
+    'No XML match for teammate message in main session, falling back to timestamp proximity',
+    {
+      sender: senderName,
+      summary,
+      sendTimestamp,
+    },
+  );
   return findChunkNearTimestamp(mainChunks, sendTimestamp, TIMESTAMP_PROXIMITY_MS);
 }
 
@@ -276,6 +297,14 @@ function findReceiveChunkInAgent(
   }
 
   // Fallback: timestamp proximity
+  log.warn(
+    'No XML match for teammate message in agent session, falling back to timestamp proximity',
+    {
+      sender: senderName,
+      summary,
+      sendTimestamp,
+    },
+  );
   return findChunkNearTimestamp(chunks, sendTimestamp, TIMESTAMP_PROXIMITY_MS);
 }
 

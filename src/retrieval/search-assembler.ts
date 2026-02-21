@@ -196,7 +196,7 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
   // 4. Cluster expansion
   const expandedResults = skipClusters
     ? fusedResults
-    : expandViaClusters(fusedResults, clusterExpansion, projectFilter);
+    : expandViaClusters(fusedResults, clusterExpansion, projectFilter, agentFilter);
 
   // Track sources
   type ChunkSource = 'vector' | 'keyword' | 'cluster';
@@ -218,16 +218,26 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     return true;
   });
 
-  // 7. Recency boost
-  if (currentSessionId) {
-    for (const item of deduped) {
-      const chunk = getChunkById(item.chunkId);
-      if (chunk && chunk.sessionId === currentSessionId) {
-        item.score *= 1.2;
-      }
-    }
-    deduped.sort((a, b) => b.score - a.score);
+  // 7. Recency boost (time-decay + session boost)
+  const { recency } = config;
+  const now = Date.now();
+  const ln2 = Math.LN2;
+
+  for (const item of deduped) {
+    const chunk = getChunkById(item.chunkId);
+    if (!chunk) continue;
+
+    // Time-decay boost: 1 + decayFactor * exp(-ageHours * ln2 / halfLifeHours)
+    const ageMs = now - new Date(chunk.startTime).getTime();
+    const ageHours = Math.max(0, ageMs / (1000 * 60 * 60));
+    const timeBoost = 1 + recency.decayFactor * Math.exp((-ageHours * ln2) / recency.halfLifeHours);
+
+    // Session boost: current session gets additional 1.2x
+    const sessionBoost = currentSessionId && chunk.sessionId === currentSessionId ? 1.2 : 1.0;
+
+    item.score *= timeBoost * sessionBoost;
   }
+  deduped.sort((a, b) => b.score - a.score);
 
   // 7.5. MMR reranking (diversity-aware ordering)
   const reordered = await reorderWithMMR(deduped, queryResult.embedding, mmrReranking);

@@ -432,4 +432,119 @@ describe('chain-walker', () => {
       expect(selectBestChain([])).toBeNull();
     });
   });
+
+  describe('agentFilter', () => {
+    it('filters chunks by agentFilter but walks through non-matching', async () => {
+      // Chain: A(researcher) → B(lead) → C(researcher)
+      mockChunks.set('A', makeChunk('A', { agentId: 'researcher' }));
+      mockChunks.set('B', makeChunk('B', { agentId: 'lead' }));
+      mockChunks.set('C', makeChunk('C', { agentId: 'researcher' }));
+
+      mockForwardEdges.set('A', [makeEdge('A', 'B')]);
+      mockForwardEdges.set('B', [makeEdge('B', 'C')]);
+
+      const qEmb = unitVec(1, 0, 0);
+      mockEmbeddings.set('A', unitVec(0.9, 0.1, 0));
+      mockEmbeddings.set('B', unitVec(0.8, 0.2, 0));
+      mockEmbeddings.set('C', unitVec(0.7, 0.3, 0));
+
+      const chains = await walkChains(['A'], {
+        direction: 'forward',
+        tokenBudget: 10000,
+        queryEmbedding: qEmb,
+        agentFilter: 'researcher',
+      });
+
+      expect(chains.length).toBe(1);
+      // B (lead) should be skipped, A and C (researcher) should be included
+      expect(chains[0].chunkIds).toEqual(['A', 'C']);
+      expect(chains[0].chunks.length).toBe(2);
+    });
+
+    it('abandons branch after maxSkippedConsecutive non-matching chunks', async () => {
+      // Chain: A(researcher) → B(lead) → C(lead) → D(lead) → E(researcher)
+      // With maxSkippedConsecutive=2, should abandon after B,C (2 consecutive non-matching)
+      mockChunks.set('A', makeChunk('A', { agentId: 'researcher' }));
+      mockChunks.set('B', makeChunk('B', { agentId: 'lead' }));
+      mockChunks.set('C', makeChunk('C', { agentId: 'lead' }));
+      mockChunks.set('D', makeChunk('D', { agentId: 'lead' }));
+      mockChunks.set('E', makeChunk('E', { agentId: 'researcher' }));
+
+      mockForwardEdges.set('A', [makeEdge('A', 'B')]);
+      mockForwardEdges.set('B', [makeEdge('B', 'C')]);
+      mockForwardEdges.set('C', [makeEdge('C', 'D')]);
+      mockForwardEdges.set('D', [makeEdge('D', 'E')]);
+
+      const qEmb = unitVec(1, 0, 0);
+      for (const id of ['A', 'B', 'C', 'D', 'E']) {
+        mockEmbeddings.set(id, unitVec(0.9, 0.1, 0));
+      }
+
+      const chains = await walkChains(['A'], {
+        direction: 'forward',
+        tokenBudget: 10000,
+        queryEmbedding: qEmb,
+        agentFilter: 'researcher',
+        maxSkippedConsecutive: 2,
+      });
+
+      expect(chains.length).toBe(1);
+      // Only A should be included — B,C skipped, then D exceeds maxSkippedConsecutive (3 > 2)
+      expect(chains[0].chunkIds).toEqual(['A']);
+    });
+
+    it('agentFilter=undefined includes all agents', async () => {
+      mockChunks.set('A', makeChunk('A', { agentId: 'researcher' }));
+      mockChunks.set('B', makeChunk('B', { agentId: 'lead' }));
+      mockChunks.set('C', makeChunk('C', { agentId: 'researcher' }));
+
+      mockForwardEdges.set('A', [makeEdge('A', 'B')]);
+      mockForwardEdges.set('B', [makeEdge('B', 'C')]);
+
+      const qEmb = unitVec(1, 0, 0);
+      for (const id of ['A', 'B', 'C']) {
+        mockEmbeddings.set(id, unitVec(0.9, 0.1, 0));
+      }
+
+      const chains = await walkChains(['A'], {
+        direction: 'forward',
+        tokenBudget: 10000,
+        queryEmbedding: qEmb,
+        // agentFilter not set
+      });
+
+      expect(chains.length).toBe(1);
+      expect(chains[0].chunkIds).toEqual(['A', 'B', 'C']);
+    });
+  });
+
+  describe('weight-based edge selection', () => {
+    it('prefers higher-weight edges', async () => {
+      // A has two edges: A→B (weight 0.7) and A→C (weight 1.0)
+      // Walker should pick C (higher weight)
+      mockChunks.set('A', makeChunk('A'));
+      mockChunks.set('B', makeChunk('B'));
+      mockChunks.set('C', makeChunk('C'));
+
+      mockForwardEdges.set('A', [
+        { ...makeEdge('A', 'B'), initialWeight: 0.7 },
+        { ...makeEdge('A', 'C', 'edge-A-C'), initialWeight: 1.0 },
+      ]);
+
+      const qEmb = unitVec(1, 0, 0);
+      for (const id of ['A', 'B', 'C']) {
+        mockEmbeddings.set(id, unitVec(0.9, 0.1, 0));
+      }
+
+      const chains = await walkChains(['A'], {
+        direction: 'forward',
+        tokenBudget: 10000,
+        queryEmbedding: qEmb,
+      });
+
+      expect(chains.length).toBe(1);
+      // Should pick C (weight 1.0) over B (weight 0.7)
+      expect(chains[0].chunkIds).toEqual(['A', 'C']);
+    });
+  });
 });

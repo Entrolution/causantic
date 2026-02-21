@@ -145,6 +145,7 @@ async function runEpisodicPipeline(
     direction,
     tokenBudget: maxTokens,
     queryEmbedding: searchResult.queryEmbedding,
+    agentFilter,
   });
 
   // 3. Select best chain

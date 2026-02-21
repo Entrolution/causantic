@@ -337,4 +337,59 @@ describe('vector-store', () => {
       expect(filtered).toEqual([]);
     });
   });
+
+  describe('chunk team index', () => {
+    it('team_name is queryable for team chunks', () => {
+      // Simulate the team index behavior at the DB level
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS chunks (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          session_slug TEXT NOT NULL,
+          turn_indices TEXT NOT NULL,
+          start_time TEXT NOT NULL,
+          end_time TEXT NOT NULL,
+          content TEXT NOT NULL,
+          approx_tokens INTEGER DEFAULT 0,
+          team_name TEXT
+        )
+      `);
+
+      db.prepare(
+        `INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content, approx_tokens, team_name)
+         VALUES ('team-chunk', 'sess-1', 'proj', '[0]', '2024-01-01T00:00:00Z', '2024-01-01T00:01:00Z', 'content', 100, 'my-team')`,
+      ).run();
+
+      const row = db.prepare('SELECT team_name FROM chunks WHERE id = ?').get('team-chunk') as {
+        team_name: string | null;
+      };
+      expect(row.team_name).toBe('my-team');
+    });
+
+    it('team_name is null for non-team chunks', () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS chunks (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          session_slug TEXT NOT NULL,
+          turn_indices TEXT NOT NULL,
+          start_time TEXT NOT NULL,
+          end_time TEXT NOT NULL,
+          content TEXT NOT NULL,
+          approx_tokens INTEGER DEFAULT 0,
+          team_name TEXT
+        )
+      `);
+
+      db.prepare(
+        `INSERT INTO chunks (id, session_id, session_slug, turn_indices, start_time, end_time, content, approx_tokens)
+         VALUES ('solo-chunk', 'sess-1', 'proj', '[0]', '2024-01-01T00:00:00Z', '2024-01-01T00:01:00Z', 'content', 100)`,
+      ).run();
+
+      const row = db.prepare('SELECT team_name FROM chunks WHERE id = ?').get('solo-chunk') as {
+        team_name: string | null;
+      };
+      expect(row.team_name).toBeNull();
+    });
+  });
 });

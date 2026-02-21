@@ -103,4 +103,41 @@ describe('pre-compact', () => {
       expect(result.degraded).toBe(true);
     });
   });
+
+  describe('preCompactCli exit codes', () => {
+    it('degraded mode exits with code 0', async () => {
+      // Import dynamically to test CLI behavior
+      const { preCompactCli } = await import('../../src/hooks/pre-compact.js');
+
+      mockHandleIngestionHook.mockResolvedValue({
+        sessionId: 'degraded-session',
+        chunkCount: 3,
+        edgeCount: 1,
+        clustersAssigned: 0,
+        durationMs: 50,
+        skipped: false,
+        degraded: true,
+      });
+
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+      await preCompactCli('/path/to/session.jsonl');
+
+      expect(exitSpy).toHaveBeenCalledWith(0);
+      exitSpy.mockRestore();
+    });
+
+    it('total failure exits with code 1', async () => {
+      const { preCompactCli } = await import('../../src/hooks/pre-compact.js');
+
+      mockHandleIngestionHook.mockRejectedValue(new Error('Database corrupt'));
+
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+
+      await preCompactCli('/path/to/session.jsonl');
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      exitSpy.mockRestore();
+    });
+  });
 });

@@ -1387,11 +1387,20 @@ Long-term memory is available via the \`causantic\` MCP server.
 | "Why does X work this way?" | \`explain\` |
 | "What might be relevant?" | \`predict\` |
 | "What happened recently?" / "Show me recent work" | \`reconstruct\` |
-| "What were we looking at last?" / "What did we do?" | \`reconstruct\` or \`resume\` |
-| "Where did I leave off?" | \`resume\` |
+| "Show me exactly what happened" / "Replay the session" | \`reconstruct\` |
+| "Where did I leave off?" / "Briefing to continue" | \`resume\` |
+| "I keep hitting this error" | \`debug\` |
+| "What did we accomplish this week?" | \`summary\` |
+| "Is there a pattern across projects?" | \`crossref\` |
+| "What patterns keep coming up?" | \`retro\` |
+| "Review the codebase" | \`cleanup\` |
+| "What projects are in memory?" | \`list-projects\` |
 | "Forget/delete memory about X" | \`forget\` |
 
-**Key distinction:** \`recall\` is semantic (finds best topic match regardless of time). \`reconstruct\`/\`resume\` are time-ordered (finds most recent work). For any question about "last", "recent", or "latest" → use \`reconstruct\` or \`resume\`, never \`recall\`.
+**Key distinctions:**
+- \`recall\` = narrative (how/why X happened) — walks causal chains to reconstruct a story
+- \`search\` = discovery (what do I know about X) — broad semantic search without chain walking
+- \`reconstruct\`/\`resume\` are time-ordered (finds most recent work). For any question about "last", "recent", or "latest" → use \`reconstruct\` or \`resume\`, never \`recall\`.
 
 **Agent filtering:** For team sessions (multiple agents), all retrieval tools accept an optional \`agent\` parameter to scope results to a specific agent (e.g., "researcher"). Agent boundaries are shown automatically in output when multiple agents contributed.
 
@@ -1400,10 +1409,12 @@ Long-term memory is available via the \`causantic\` MCP server.
 **Check memory automatically (no skill needed) when:**
 - Before saying "I don't have context from previous sessions" — always try \`recall\` first
 - User references past work ("remember when...", "like we did before", "that bug from last week")
-- When stuck on an error after 2 failed attempts — use \`recall\` with the error text before trying a 3rd approach
+- When stuck on an error after 2 failed attempts — use \`debug\` with the error text before trying a 3rd approach
 - User asks "why" about existing code or architecture — use \`explain\` before guessing
 - Starting work in an unfamiliar area — use \`search\` for broad discovery
 - Before making significant architectural decisions — use \`recall\` to check for prior discussions
+- Sprint summary or retrospective — use \`summary\` or \`retro\`
+- Patterns across projects — use \`crossref\`
 - When the user asks about recent work or session history — use \`reconstruct\` with just \`project\` for timeline mode
 
 **Skip memory (avoid latency) when:**

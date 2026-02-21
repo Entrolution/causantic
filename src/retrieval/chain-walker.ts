@@ -23,6 +23,10 @@ export interface ChainWalkerOptions {
   queryEmbedding: number[];
   /** Maximum depth (hops) per chain. Default: 50. */
   maxDepth?: number;
+  /** Filter chunks by agent ID. Non-matching chunks are skipped but edges are still followed. */
+  agentFilter?: string;
+  /** Max consecutive non-matching agent chunks before abandoning a branch. Default: 5. */
+  maxSkippedConsecutive?: number;
 }
 
 /**
@@ -56,7 +60,14 @@ export interface Chain {
  * @returns Array of chains (one per seed that yielded results)
  */
 export async function walkChains(seedIds: string[], options: ChainWalkerOptions): Promise<Chain[]> {
-  const { direction, tokenBudget, queryEmbedding, maxDepth = 50 } = options;
+  const {
+    direction,
+    tokenBudget,
+    queryEmbedding,
+    maxDepth = 50,
+    agentFilter,
+    maxSkippedConsecutive = 5,
+  } = options;
 
   const visited = new Set<string>();
   let globalTokens = 0;
@@ -72,6 +83,8 @@ export async function walkChains(seedIds: string[], options: ChainWalkerOptions)
       tokenBudget - globalTokens,
       maxDepth,
       visited,
+      agentFilter,
+      maxSkippedConsecutive,
     );
 
     if (chain && chain.chunkIds.length > 0) {
@@ -85,6 +98,10 @@ export async function walkChains(seedIds: string[], options: ChainWalkerOptions)
 
 /**
  * Walk a single chain from a seed, following edges in one direction.
+ *
+ * When agentFilter is set, non-matching chunks are skipped (not added to chain
+ * output) but their edges are still followed. The branch is abandoned after
+ * maxSkippedConsecutive non-matching chunks in a row.
  */
 async function walkSingleChain(
   seedId: string,
@@ -93,6 +110,8 @@ async function walkSingleChain(
   remainingBudget: number,
   maxDepth: number,
   visited: Set<string>,
+  agentFilter?: string,
+  maxSkippedConsecutive: number = 5,
 ): Promise<Chain | null> {
   const chunkIds: string[] = [];
   const chunks: StoredChunk[] = [];
@@ -102,6 +121,7 @@ async function walkSingleChain(
 
   let currentId: string | null = seedId;
   let depth = 0;
+  let consecutiveSkips = 0;
 
   while (currentId && depth < maxDepth && tokenCount < remainingBudget) {
     if (visited.has(currentId)) break;
@@ -109,6 +129,17 @@ async function walkSingleChain(
 
     const chunk = getChunkById(currentId);
     if (!chunk) break;
+
+    // Agent filter: skip non-matching chunks but still follow their edges
+    if (agentFilter && chunk.agentId !== agentFilter) {
+      consecutiveSkips++;
+      if (consecutiveSkips > maxSkippedConsecutive) break;
+
+      depth++;
+      currentId = pickBestEdge(currentId, direction, visited);
+      continue;
+    }
+    consecutiveSkips = 0;
 
     // Score this node
     const nodeScore = await scoreNode(currentId, queryEmbedding);
@@ -123,19 +154,8 @@ async function walkSingleChain(
     tokenCount += chunkTokens;
     depth++;
 
-    // Follow edges in the given direction
-    const edges: StoredEdge[] =
-      direction === 'forward' ? getForwardEdges(currentId) : getBackwardEdges(currentId);
-
-    // Pick the first unvisited neighbor
-    currentId = null;
-    for (const edge of edges) {
-      const nextId: string = direction === 'forward' ? edge.targetChunkId : edge.sourceChunkId;
-      if (!visited.has(nextId)) {
-        currentId = nextId;
-        break;
-      }
-    }
+    // Follow highest-weight edge
+    currentId = pickBestEdge(currentId, direction, visited);
   }
 
   if (chunkIds.length === 0) return null;
@@ -148,6 +168,31 @@ async function walkSingleChain(
     tokenCount,
     medianScore: median(nodeScores),
   };
+}
+
+/**
+ * Pick the unvisited neighbor with the highest initial_weight edge.
+ */
+function pickBestEdge(
+  currentId: string,
+  direction: 'forward' | 'backward',
+  visited: Set<string>,
+): string | null {
+  const edges: StoredEdge[] =
+    direction === 'forward' ? getForwardEdges(currentId) : getBackwardEdges(currentId);
+
+  let bestId: string | null = null;
+  let bestWeight = -Infinity;
+
+  for (const edge of edges) {
+    const nextId = direction === 'forward' ? edge.targetChunkId : edge.sourceChunkId;
+    if (!visited.has(nextId) && edge.initialWeight > bestWeight) {
+      bestWeight = edge.initialWeight;
+      bestId = nextId;
+    }
+  }
+
+  return bestId;
 }
 
 /**

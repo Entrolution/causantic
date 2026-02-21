@@ -66,6 +66,9 @@ export function runMigrations(database: Database.Database): void {
   if (currentVersion < 9) {
     migrateToV9(database);
   }
+  if (currentVersion < 10) {
+    migrateToV10(database);
+  }
 }
 
 /**
@@ -428,6 +431,25 @@ function migrateToV9(database: Database.Database): void {
   `);
 
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (9)');
+}
+
+/**
+ * Migrate from v9 to v10 (add composite indexes for multi-agent queries).
+ */
+function migrateToV10(database: Database.Database): void {
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chunks_team_name ON chunks(team_name)
+  `);
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chunks_agent_start ON chunks(agent_id, start_time)
+  `);
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_chunks_team_start ON chunks(team_name, start_time)
+  `);
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (10)');
 }
 
 /**

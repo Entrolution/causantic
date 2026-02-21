@@ -136,7 +136,7 @@ describe('runMigrations', () => {
       // Reset version to 0 to simulate a completely fresh database
       db.exec('DELETE FROM schema_version');
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(9);
+      expect(getSchemaVersion(db)).toBe(10);
       db.close();
     });
   });
@@ -148,7 +148,7 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(9);
+      expect(getSchemaVersion(db)).toBe(10);
       db.close();
     });
 
@@ -249,17 +249,27 @@ describe('runMigrations', () => {
       expect(indexExists(db, 'idx_edges_target_type')).toBe(true);
       db.close();
     });
+
+    it('creates composite indexes for multi-agent queries (v10)', () => {
+      const db = createV1Database();
+      runMigrations(db);
+
+      expect(indexExists(db, 'idx_chunks_team_name')).toBe(true);
+      expect(indexExists(db, 'idx_chunks_agent_start')).toBe(true);
+      expect(indexExists(db, 'idx_chunks_team_start')).toBe(true);
+      db.close();
+    });
   });
 
   describe('idempotency', () => {
     it('can run migrations multiple times without error', () => {
       const db = createV1Database();
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(9);
+      expect(getSchemaVersion(db)).toBe(10);
 
       // Run again — should be a no-op
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(9);
+      expect(getSchemaVersion(db)).toBe(10);
       db.close();
     });
 
@@ -333,7 +343,7 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(9);
+      expect(getSchemaVersion(db)).toBe(10);
       expect(getColumnNames(db, 'chunks')).toContain('project_path');
       expect(getColumnNames(db, 'chunks')).toContain('team_name');
       expect(getColumnNames(db, 'chunks')).not.toContain('vector_clock');
@@ -370,7 +380,7 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(9);
+      expect(getSchemaVersion(db)).toBe(10);
       expect(indexExists(db, 'idx_chunks_slug_start_time')).toBe(true);
       expect(indexExists(db, 'idx_chunks_agent_id')).toBe(true);
       expect(getColumnNames(db, 'chunks')).toContain('team_name');
