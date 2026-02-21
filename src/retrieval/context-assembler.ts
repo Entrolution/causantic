@@ -30,6 +30,8 @@ export interface RetrievalRequest {
   mode: 'recall' | 'predict' | 'search';
   /** Number of vector search results to start from */
   vectorSearchLimit?: number;
+  /** Filter results to a specific agent */
+  agentFilter?: string;
 }
 
 /**
@@ -73,6 +75,7 @@ export async function assembleContext(request: RetrievalRequest): Promise<Retrie
     projectFilter: request.projectFilter,
     maxTokens: request.maxTokens,
     vectorSearchLimit: request.vectorSearchLimit,
+    agentFilter: request.agentFilter,
   });
 
   return searchResponseToRetrievalResponse(searchResponse);
@@ -91,6 +94,7 @@ export async function recall(
     projectFilter: options.projectFilter,
     maxTokens: options.maxTokens,
     vectorSearchLimit: options.vectorSearchLimit,
+    agentFilter: options.agentFilter,
   });
 
   return episodicResponseToRetrievalResponse(response);
@@ -109,6 +113,7 @@ export async function predict(
     projectFilter: options.projectFilter,
     maxTokens: options.maxTokens,
     vectorSearchLimit: options.vectorSearchLimit,
+    agentFilter: options.agentFilter,
   });
 
   return episodicResponseToRetrievalResponse(response);

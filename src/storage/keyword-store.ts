@@ -90,6 +90,7 @@ export class KeywordStore {
     query: string,
     projects: string | string[],
     limit: number,
+    agentId?: string,
   ): KeywordSearchResult[] {
     const sanitized = sanitizeQuery(query);
     if (!sanitized) return [];
@@ -100,20 +101,26 @@ export class KeywordStore {
 
     const placeholders = projectList.map(() => '?').join(',');
 
-    try {
-      const rows = db
-        .prepare(
-          `
+    let sql = `
         SELECT chunks.id, bm25(chunks_fts) as score
         FROM chunks_fts
         JOIN chunks ON chunks.rowid = chunks_fts.rowid
         WHERE chunks_fts MATCH ?
-          AND chunks.session_slug IN (${placeholders})
+          AND chunks.session_slug IN (${placeholders})`;
+    const params: unknown[] = [sanitized, ...projectList];
+
+    if (agentId) {
+      sql += '\n          AND chunks.agent_id = ?';
+      params.push(agentId);
+    }
+
+    sql += `
         ORDER BY bm25(chunks_fts)
-        LIMIT ?
-      `,
-        )
-        .all(sanitized, ...projectList, limit) as Array<{ id: string; score: number }>;
+        LIMIT ?`;
+    params.push(limit);
+
+    try {
+      const rows = db.prepare(sql).all(...params) as Array<{ id: string; score: number }>;
 
       return rows.map((r) => ({
         id: r.id,

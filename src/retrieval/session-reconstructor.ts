@@ -37,6 +37,8 @@ export interface ReconstructRequest {
   maxTokens?: number;
   /** When truncating, keep newest chunks (default: true) */
   keepNewest?: boolean;
+  /** Filter to a specific agent */
+  agentFilter?: string;
 }
 
 /**
@@ -48,6 +50,7 @@ export interface ReconstructChunk {
   content: string;
   startTime: string;
   approxTokens: number;
+  agentId: string | null;
 }
 
 /**
@@ -169,13 +172,18 @@ export function formatReconstruction(result: ReconstructResult): string {
     return 'No session data found for the specified time range.';
   }
 
+  // Detect if any session has multiple agents
+  const hasAgents = result.chunks.some((c) => c.agentId && c.agentId !== 'ui');
+
   const lines: string[] = [];
   let currentSessionId = '';
+  let currentAgentId: string | null | undefined = undefined;
 
   // Group chunks by session and add headers
   for (const chunk of result.chunks) {
     if (chunk.sessionId !== currentSessionId) {
       currentSessionId = chunk.sessionId;
+      currentAgentId = undefined; // Reset agent tracking on session change
       const session = result.sessions.find((s) => s.sessionId === currentSessionId);
       if (session) {
         const startStr = formatDate(session.firstChunkTime);
@@ -183,6 +191,15 @@ export function formatReconstruction(result: ReconstructResult): string {
         lines.push(`=== Session ${session.sessionId.slice(0, 8)} (${startStr} – ${endStr}) ===`);
       }
     }
+
+    // Show agent boundaries when session has agents
+    if (hasAgents && chunk.agentId !== currentAgentId) {
+      currentAgentId = chunk.agentId;
+      if (currentAgentId && currentAgentId !== 'ui') {
+        lines.push(`--- Agent: ${currentAgentId} ---`);
+      }
+    }
+
     lines.push(chunk.content);
     lines.push('---');
   }
@@ -234,6 +251,7 @@ function buildResult(
     content: c.content,
     startTime: c.startTime,
     approxTokens: c.approxTokens,
+    agentId: c.agentId,
   }));
 
   const totalTokens = kept.reduce((sum, c) => sum + c.approxTokens, 0);
@@ -266,7 +284,11 @@ export function reconstructSession(req: ReconstructRequest): ReconstructResult {
   if (isTimeline) {
     const before = req.to ?? new Date().toISOString();
     const limit = Math.ceil(maxTokens / ESTIMATED_AVG_TOKENS_PER_CHUNK);
-    const rawChunks = getChunksBefore(req.project, before, limit);
+    let rawChunks = getChunksBefore(req.project, before, limit);
+
+    if (req.agentFilter) {
+      rawChunks = rawChunks.filter((c) => c.agentId === req.agentFilter);
+    }
 
     const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);
 
@@ -286,12 +308,20 @@ export function reconstructSession(req: ReconstructRequest): ReconstructResult {
     };
   }
 
-  const rawChunks = getChunksByTimeRange(
+  let rawChunks = getChunksByTimeRange(
     req.project,
     window.from,
     window.to,
-    window.sessionId ? { sessionId: window.sessionId } : undefined,
+    window.sessionId
+      ? { sessionId: window.sessionId, agentId: req.agentFilter }
+      : req.agentFilter
+        ? { agentId: req.agentFilter }
+        : undefined,
   );
+
+  if (req.agentFilter) {
+    rawChunks = rawChunks.filter((c) => c.agentId === req.agentFilter);
+  }
 
   const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);
 

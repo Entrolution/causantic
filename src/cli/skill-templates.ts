@@ -39,6 +39,7 @@ Pass these to the \`recall\` MCP tool:
 
 - **query** (required): A specific topic, decision, or problem to trace
 - **project**: Filter to a specific project slug (use \`/causantic-list-projects\` to discover names)
+- **agent**: Filter to a specific agent (e.g., "researcher"). Use for team sessions to scope recall to a single agent's work. The filter applies to seed selection only — chain walking crosses agent boundaries freely.
 
 ## When to Use
 
@@ -87,6 +88,7 @@ Pass these to the \`search\` MCP tool:
 
 - **query** (required): What to search for in memory
 - **project**: Filter to a specific project slug (use \`/causantic-list-projects\` to discover names)
+- **agent**: Filter to a specific agent (e.g., "researcher"). Use for team sessions to scope search to a single agent's contributions.
 
 ## When to Use
 
@@ -127,6 +129,7 @@ Pass these to the \`predict\` MCP tool:
 
 - **context** (required): A concise summary of the current task, topic, or question
 - **project**: Filter to a specific project slug
+- **agent**: Filter to a specific agent (e.g., "researcher"). Use for team sessions to scope predictions to a single agent's context.
 
 ## When to Use
 
@@ -319,6 +322,7 @@ Present a concise briefing:
 - Highlight unfinished work prominently — that's what the user needs most
 - If the last session ended mid-task, flag that clearly
 - For broader context beyond the last session, use timeline mode: call \`reconstruct\` with just \`project\` (no \`previous_session\`)
+- For team sessions: note the team composition (which agents were involved), what each agent worked on, and any inter-agent coordination that occurred
 `,
   },
   {
@@ -365,6 +369,7 @@ Use the \`list-sessions\` and \`reconstruct\` MCP tools from \`causantic\` to re
 - **previous_session**: Get the session before the current one (set to \`true\`)
 - **current_session_id**: Required when \`previous_session\` is true
 - **keep_newest**: Keep newest chunks when truncating (default: true)
+- **agent**: Filter to a specific agent (e.g., "researcher"). For team sessions, reconstructs only that agent's chunks. Agent boundaries are shown automatically when multiple agents are present.
 
 ## Interpreting User Intent
 
@@ -520,6 +525,7 @@ Summarize recent work across sessions by combining session browsing with context
 - Highlight work that was started but not completed — this is the most actionable info
 - If the time range has many sessions, prioritize breadth over depth
 - If no sessions found for the time range, suggest widening the range
+- For team sessions: attribute work to specific agents (e.g., "researcher explored X, tester validated Y") when agent boundaries are visible in the reconstructed context
 `,
   },
   {
@@ -1386,6 +1392,8 @@ Long-term memory is available via the \`causantic\` MCP server.
 | "Forget/delete memory about X" | \`forget\` |
 
 **Key distinction:** \`recall\` is semantic (finds best topic match regardless of time). \`reconstruct\`/\`resume\` are time-ordered (finds most recent work). For any question about "last", "recent", or "latest" → use \`reconstruct\` or \`resume\`, never \`recall\`.
+
+**Agent filtering:** For team sessions (multiple agents), all retrieval tools accept an optional \`agent\` parameter to scope results to a specific agent (e.g., "researcher"). Agent boundaries are shown automatically in output when multiple agents contributed.
 
 ### Proactive Memory Usage
 

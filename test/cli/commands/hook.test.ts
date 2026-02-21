@@ -5,7 +5,7 @@
  * We test hook dispatch via args instead of stdin input.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock all hook handlers before importing the command
 vi.mock('../../../src/hooks/session-start.js', () => ({
@@ -35,11 +35,21 @@ const mockHandlePreCompact = vi.mocked(handlePreCompact);
 const mockHandleSessionEnd = vi.mocked(handleSessionEnd);
 const mockUpdateClaudeMd = vi.mocked(updateClaudeMd);
 
+// readStdin() adds data/end/error listeners to process.stdin on each call.
+// Since process.stdin is a singleton, listeners accumulate across tests.
+// Raise the limit to avoid MaxListenersExceeded warnings (12 tests × 3 listeners).
+const originalMaxListeners = process.stdin.getMaxListeners();
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+  process.stdin.setMaxListeners(50);
+});
+
+afterEach(() => {
+  process.stdin.setMaxListeners(originalMaxListeners);
 });
 
 describe('hookCommand', () => {

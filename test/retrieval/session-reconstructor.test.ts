@@ -46,6 +46,7 @@ function makeChunk(overrides: Partial<StoredChunk> = {}): StoredChunk {
     agentId: overrides.agentId ?? null,
     spawnDepth: overrides.spawnDepth ?? 0,
     projectPath: overrides.projectPath ?? null,
+    teamName: overrides.teamName ?? null,
   };
 }
 
@@ -730,5 +731,151 @@ describe('reconstructSession (integration)', () => {
     expect(result.chunks).toHaveLength(0);
     expect(result.sessions).toHaveLength(0);
     expect(result.totalTokens).toBe(0);
+  });
+
+  it('filters chunks by agentFilter', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-main',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Main session content',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+        agentId: null,
+      }),
+    );
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c-agent',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Agent content',
+        startTime: '2024-01-15T10:10:00Z',
+        endTime: '2024-01-15T10:15:00Z',
+        approxTokens: 100,
+        agentId: 'researcher',
+      }),
+    );
+
+    const result = reconstructSession({
+      project: 'proj',
+      from: '2024-01-15T00:00:00Z',
+      to: '2024-01-16T00:00:00Z',
+      maxTokens: 10000,
+      agentFilter: 'researcher',
+    });
+
+    expect(result.chunks).toHaveLength(1);
+    expect(result.chunks[0].content).toBe('Agent content');
+    expect(result.chunks[0].agentId).toBe('researcher');
+  });
+
+  it('returns empty result when agentFilter matches no chunks', () => {
+    insertTestChunk(
+      db,
+      createSampleChunk({
+        id: 'c1',
+        sessionId: 's1',
+        sessionSlug: 'proj',
+        content: 'Main content',
+        startTime: '2024-01-15T10:00:00Z',
+        endTime: '2024-01-15T10:05:00Z',
+        approxTokens: 100,
+        agentId: null,
+      }),
+    );
+
+    const result = reconstructSession({
+      project: 'proj',
+      from: '2024-01-15T00:00:00Z',
+      to: '2024-01-16T00:00:00Z',
+      maxTokens: 10000,
+      agentFilter: 'nonexistent-agent',
+    });
+
+    expect(result.chunks).toHaveLength(0);
+  });
+});
+
+describe('formatReconstruction agent boundary markers', () => {
+  it('shows agent boundary markers when chunks have different agents', () => {
+    const result: ReconstructResult = {
+      chunks: [
+        {
+          id: 'c1',
+          sessionId: 's1',
+          content: 'main content',
+          startTime: '2024-01-15T10:00:00Z',
+          approxTokens: 100,
+          agentId: null,
+        },
+        {
+          id: 'c2',
+          sessionId: 's1',
+          content: 'agent content',
+          startTime: '2024-01-15T10:10:00Z',
+          approxTokens: 100,
+          agentId: 'researcher',
+        },
+      ],
+      sessions: [
+        {
+          sessionId: 's1',
+          firstChunkTime: '2024-01-15T10:00:00Z',
+          lastChunkTime: '2024-01-15T10:10:00Z',
+          chunkCount: 2,
+          totalTokens: 200,
+        },
+      ],
+      totalTokens: 200,
+      truncated: false,
+      timeRange: { from: '2024-01-15T00:00:00Z', to: '2024-01-16T00:00:00Z' },
+    };
+
+    const text = formatReconstruction(result);
+    expect(text).toContain('--- Agent: researcher ---');
+    expect(text).toContain('agent content');
+  });
+
+  it('does not show agent markers when all chunks are from main session', () => {
+    const result: ReconstructResult = {
+      chunks: [
+        {
+          id: 'c1',
+          sessionId: 's1',
+          content: 'main content 1',
+          startTime: '2024-01-15T10:00:00Z',
+          approxTokens: 100,
+          agentId: null,
+        },
+        {
+          id: 'c2',
+          sessionId: 's1',
+          content: 'main content 2',
+          startTime: '2024-01-15T10:10:00Z',
+          approxTokens: 100,
+          agentId: null,
+        },
+      ],
+      sessions: [
+        {
+          sessionId: 's1',
+          firstChunkTime: '2024-01-15T10:00:00Z',
+          lastChunkTime: '2024-01-15T10:10:00Z',
+          chunkCount: 2,
+          totalTokens: 200,
+        },
+      ],
+      totalTokens: 200,
+      truncated: false,
+      timeRange: { from: '2024-01-15T00:00:00Z', to: '2024-01-16T00:00:00Z' },
+    };
+
+    const text = formatReconstruction(result);
+    expect(text).not.toContain('--- Agent:');
   });
 });

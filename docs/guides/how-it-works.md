@@ -19,6 +19,7 @@ Chunks are connected in a **sequential causal graph** — a linked list with bra
 - **Intra-turn**: Chunks within the same turn are linked sequentially (C1→C2→C3)
 - **Inter-turn**: Last chunk of turn A → first chunk of turn B
 - **Brief/Debrief**: Parent ↔ sub-agent spawn/return edges
+- **Team edges**: Lead ↔ teammate spawn/report edges, plus peer-to-peer messaging edges between teammates
 - **Cross-session**: Last chunk of previous session → first chunk of new session
 
 All edges are stored as single `forward` rows — direction is inferred at query time (backward = follow edges where the chunk is the target).
@@ -99,6 +100,28 @@ Controlled by `retrieval.mmrLambda` (default: 0.7). See [Configuration Reference
 ### Graceful Degradation
 
 If FTS5 keyword search is unavailable (e.g., SQLite built without FTS5 support), the pipeline falls back to vector-only search without error.
+
+## Agent Teams
+
+Causantic supports Claude Code's multi-agent team sessions, where a lead agent coordinates multiple teammates via `TeamCreate`, `Task` (with `team_name`), and `SendMessage`.
+
+### Ingestion
+
+During ingestion, Causantic detects team sessions by scanning for team-related tool calls in the main session. It then:
+
+1. **Partitions sub-agents**: Separates team members (identified by `team_name` in Task calls) from regular sub-agents
+2. **Filters dead-end files**: Race conditions create stub files when multiple messages arrive simultaneously; these are detected (no assistant messages + ≤2 lines) and skipped
+3. **Groups teammate files**: A single teammate may produce multiple files (one per incoming message); these are grouped by resolved human name
+4. **Resolves names**: Hex agent IDs are mapped to human-readable names using Task `name` param > Task result > SendMessage metadata > `<teammate-message>` XML
+5. **Creates team edges**: `team-spawn` (lead→teammate), `team-report` (teammate→lead), `peer-message` (teammate→teammate)
+
+Regular sub-agents continue through the existing brief/debrief pipeline.
+
+### Retrieval
+
+The optional `agent` parameter on `search`, `recall`, `predict`, and `reconstruct` filters results to a specific agent (e.g., `agent: "researcher"`). For chain-walking tools (`recall`/`predict`), the filter applies to seed selection only — once a chain starts, it follows edges freely across agent boundaries.
+
+Output includes agent attribution: `| Agent: researcher` in chunk headers, and `--- Agent: researcher ---` boundary markers in reconstruction.
 
 ## Clustering
 

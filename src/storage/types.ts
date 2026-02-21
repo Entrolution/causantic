@@ -37,7 +37,14 @@ export type EdgeType = 'backward' | 'forward';
  * All within-chain edges use m×n all-pairs creation at D-T-D boundaries,
  * with topic-shift gating to omit edges across topic changes.
  */
-export type ReferenceType = 'within-chain' | 'cross-session' | 'brief' | 'debrief';
+export type ReferenceType =
+  | 'within-chain'
+  | 'cross-session'
+  | 'brief'
+  | 'debrief'
+  | 'team-spawn'
+  | 'team-report'
+  | 'peer-message';
 
 /**
  * A chunk stored in the database.
@@ -74,6 +81,8 @@ export interface StoredChunk {
   spawnDepth: number;
   /** Full cwd path for project disambiguation (optional) */
   projectPath: string | null;
+  /** Team name for agent team sessions (null for non-team sessions) */
+  teamName: string | null;
 }
 
 /**
@@ -109,6 +118,8 @@ export interface ChunkInput {
   spawnDepth?: number;
   /** Full cwd path for project disambiguation */
   projectPath?: string;
+  /** Team name for agent team sessions */
+  teamName?: string;
 }
 
 /**

@@ -6,6 +6,7 @@
 import { createEdges } from '../storage/edge-store.js';
 import type { EdgeInput } from '../storage/types.js';
 import type { TransitionResult } from './edge-detector.js';
+import type { TeamEdgePoint } from './team-edge-detector.js';
 
 /**
  * Result of edge creation.
@@ -123,4 +124,44 @@ export async function createDebriefEdge(
       initialWeight: 1.0,
     },
   ]);
+}
+
+/**
+ * Create team edges from detected team edge points.
+ *
+ * Weights by edge type:
+ * - team-spawn: 0.9 (lead dispatching work)
+ * - team-report: 0.9 (teammate reporting results)
+ * - peer-message: 0.85 (lateral communication)
+ *
+ * @param points - Detected team edge points
+ * @returns Number of edges created
+ */
+export async function createTeamEdges(points: TeamEdgePoint[]): Promise<number> {
+  const edges: EdgeInput[] = [];
+  const weights: Record<string, number> = {
+    'team-spawn': 0.9,
+    'team-report': 0.9,
+    'peer-message': 0.85,
+  };
+
+  for (const point of points) {
+    for (const sourceId of point.sourceChunkIds) {
+      for (const targetId of point.targetChunkIds) {
+        edges.push({
+          sourceChunkId: sourceId,
+          targetChunkId: targetId,
+          edgeType: 'forward',
+          referenceType: point.edgeType,
+          initialWeight: weights[point.edgeType],
+        });
+      }
+    }
+  }
+
+  if (edges.length > 0) {
+    createEdges(edges);
+  }
+
+  return edges.length;
 }

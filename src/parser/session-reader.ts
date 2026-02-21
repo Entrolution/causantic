@@ -4,7 +4,7 @@
  * Filters out noise types (progress, file-history-snapshot) early.
  */
 
-import { createReadStream, existsSync, readdirSync } from 'node:fs';
+import { createReadStream, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import { basename, dirname, join } from 'node:path';
@@ -122,6 +122,10 @@ export interface SubAgentInfo {
   agentId: string;
   /** Path to the sub-agent's JSONL file */
   filePath: string;
+  /** Whether this file is a dead end (no assistant content, very few lines) */
+  isDeadEnd: boolean;
+  /** Number of non-empty lines in the file */
+  lineCount: number;
 }
 
 /**
@@ -164,9 +168,14 @@ export async function discoverSubAgents(sessionPath: string): Promise<SubAgentIn
         agentId = file.slice(0, -6); // Remove '.jsonl' suffix
       }
 
+      const filePath = join(subagentsDir, file);
+      const { isDeadEnd, lineCount } = classifySubAgentFile(filePath);
+
       subAgents.push({
         agentId,
-        filePath: join(subagentsDir, file),
+        filePath,
+        isDeadEnd,
+        lineCount,
       });
     }
   } catch {
@@ -175,6 +184,47 @@ export async function discoverSubAgents(sessionPath: string): Promise<SubAgentIn
   }
 
   return subAgents;
+}
+
+/**
+ * Classify a sub-agent file as active or dead-end.
+ *
+ * Dead-end detection uses two signals:
+ * 1. No assistant messages in the first ~10 lines (primary)
+ * 2. File has ≤2 non-empty lines (secondary)
+ *
+ * A file must fail BOTH checks (no assistant content AND ≤2 lines) to be dead-end.
+ */
+function classifySubAgentFile(filePath: string): { isDeadEnd: boolean; lineCount: number } {
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    const allLines = content.split('\n');
+    const nonEmptyLines = allLines.filter((l) => l.trim().length > 0);
+    const lineCount = nonEmptyLines.length;
+
+    // Check first ~10 lines for assistant messages
+    let hasAssistant = false;
+    const linesToCheck = Math.min(nonEmptyLines.length, 10);
+    for (let i = 0; i < linesToCheck; i++) {
+      try {
+        const parsed = JSON.parse(nonEmptyLines[i]);
+        if (parsed.message?.role === 'assistant') {
+          hasAssistant = true;
+          break;
+        }
+      } catch {
+        // Skip malformed lines
+      }
+    }
+
+    // Dead end only if BOTH: no assistant content AND ≤2 lines
+    const isDeadEnd = !hasAssistant && lineCount <= 2;
+
+    return { isDeadEnd, lineCount };
+  } catch {
+    // If we can't read the file, treat as dead end
+    return { isDeadEnd: true, lineCount: 0 };
+  }
 }
 
 /**

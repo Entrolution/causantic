@@ -19,8 +19,8 @@ export function insertChunk(chunk: ChunkInput): string {
     INSERT OR IGNORE INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, spawn_depth, project_path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, spawn_depth, project_path, team_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -37,6 +37,7 @@ export function insertChunk(chunk: ChunkInput): string {
     chunk.agentId ?? null,
     chunk.spawnDepth ?? 0,
     chunk.projectPath ?? null,
+    chunk.teamName ?? null,
   );
 
   invalidateProjectsCache();
@@ -55,8 +56,8 @@ export function insertChunks(chunks: ChunkInput[]): string[] {
     INSERT OR IGNORE INTO chunks (
       id, session_id, session_slug, turn_indices, start_time, end_time,
       content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, spawn_depth, project_path
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      agent_id, spawn_depth, project_path, team_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const insertMany = db.transaction((chunks: ChunkInput[]) => {
@@ -76,6 +77,7 @@ export function insertChunks(chunks: ChunkInput[]): string[] {
         chunk.agentId ?? null,
         chunk.spawnDepth ?? 0,
         chunk.projectPath ?? null,
+        chunk.teamName ?? null,
       );
       ids.push(id);
     }
@@ -341,6 +343,7 @@ export interface SessionInfo {
 export interface TimeRangeOptions {
   sessionId?: string;
   limit?: number;
+  agentId?: string;
 }
 
 /**
@@ -361,6 +364,11 @@ export function getChunksByTimeRange(
   if (opts?.sessionId) {
     sql += ' AND session_id = ?';
     params.push(opts.sessionId);
+  }
+
+  if (opts?.agentId) {
+    sql += ' AND agent_id = ?';
+    params.push(opts.agentId);
   }
 
   sql += ' ORDER BY start_time ASC';
@@ -501,6 +509,7 @@ interface DbChunkRow {
   agent_id: string | null;
   spawn_depth: number | null;
   project_path: string | null;
+  team_name: string | null;
 }
 
 function rowToChunk(row: DbChunkRow): StoredChunk {
@@ -519,5 +528,6 @@ function rowToChunk(row: DbChunkRow): StoredChunk {
     agentId: row.agent_id,
     spawnDepth: row.spawn_depth ?? 0,
     projectPath: row.project_path,
+    teamName: row.team_name,
   };
 }

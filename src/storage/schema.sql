@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS chunks (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   agent_id TEXT,               -- Agent that created this chunk (null = main UI agent)
   spawn_depth INTEGER DEFAULT 0, -- Nesting level: 0=main, 1=sub-agent, 2=sub-sub-agent
-  project_path TEXT              -- Full cwd path for disambiguation
+  project_path TEXT,             -- Full cwd path for disambiguation
+  team_name TEXT                 -- Team name for agent team sessions (null for non-team)
 );
 
 -- Clusters for topic grouping
@@ -60,6 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_chunks_session ON chunks(session_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_session_slug ON chunks(session_slug);
 CREATE INDEX IF NOT EXISTS idx_chunks_start_time ON chunks(start_time);
 CREATE INDEX IF NOT EXISTS idx_chunks_slug_start_time ON chunks(session_slug, start_time);
+CREATE INDEX IF NOT EXISTS idx_chunks_agent_id ON chunks(agent_id);
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_chunk_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_chunk_id);
 CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(edge_type);
@@ -117,5 +119,5 @@ CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks
   INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
 
--- Insert initial version if not exists (v8 adds chain-walking indices, simplifies edges)
-INSERT OR IGNORE INTO schema_version (version) VALUES (8);
+-- Insert initial version if not exists (v9 adds team_name column and agent_id index)
+INSERT OR IGNORE INTO schema_version (version) VALUES (9);
