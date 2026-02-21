@@ -37,6 +37,7 @@ export function expandViaClusters(
   hits: RankedItem[],
   config: ClusterExpansionConfig = DEFAULT_CLUSTER_EXPANSION,
   projectFilter?: string | string[],
+  agentFilter?: string,
 ): RankedItem[] {
   if (hits.length === 0) return [];
 
@@ -78,6 +79,12 @@ export function expandViaClusters(
         if (projectSet) {
           const project = vectorStore.getChunkProject(siblingId);
           if (!project || !projectSet.has(project)) continue;
+        }
+
+        // Filter by agent if needed
+        if (agentFilter) {
+          const agent = vectorStore.getChunkAgent(siblingId);
+          if (agent !== agentFilter) continue;
         }
 
         // Look up this sibling's distance in the cluster for scoring

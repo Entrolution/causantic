@@ -55,6 +55,14 @@ export interface MemoryConfig {
     lambda: number;
   };
 
+  /** Recency boost configuration for time-decay scoring */
+  recency: {
+    /** Amplitude of the time-decay boost. Default: 0.3 */
+    decayFactor: number;
+    /** Half-life in hours for the decay function. Default: 48 */
+    halfLifeHours: number;
+  };
+
   // Storage
   /** Path to SQLite database file */
   dbPath: string;
@@ -97,6 +105,10 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   },
   mmrReranking: {
     lambda: 0.7,
+  },
+  recency: {
+    decayFactor: 0.3,
+    halfLifeHours: 48,
   },
 
   // Storage - defaults to ~/.causantic/

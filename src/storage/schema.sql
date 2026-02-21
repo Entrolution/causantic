@@ -62,6 +62,9 @@ CREATE INDEX IF NOT EXISTS idx_chunks_session_slug ON chunks(session_slug);
 CREATE INDEX IF NOT EXISTS idx_chunks_start_time ON chunks(start_time);
 CREATE INDEX IF NOT EXISTS idx_chunks_slug_start_time ON chunks(session_slug, start_time);
 CREATE INDEX IF NOT EXISTS idx_chunks_agent_id ON chunks(agent_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_team_name ON chunks(team_name);
+CREATE INDEX IF NOT EXISTS idx_chunks_agent_start ON chunks(agent_id, start_time);
+CREATE INDEX IF NOT EXISTS idx_chunks_team_start ON chunks(team_name, start_time);
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source_chunk_id);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target_chunk_id);
 CREATE INDEX IF NOT EXISTS idx_edges_type ON edges(edge_type);
@@ -119,5 +122,5 @@ CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks
   INSERT INTO chunks_fts(rowid, content) VALUES (new.rowid, new.content);
 END;
 
--- Insert initial version if not exists (v9 adds team_name column and agent_id index)
-INSERT OR IGNORE INTO schema_version (version) VALUES (9);
+-- Insert initial version if not exists (v10 adds composite indexes for multi-agent queries)
+INSERT OR IGNORE INTO schema_version (version) VALUES (10);

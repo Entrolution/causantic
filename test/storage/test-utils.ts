@@ -65,6 +65,9 @@ export function createTestDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_chunks_time ON chunks(start_time);
     CREATE INDEX IF NOT EXISTS idx_chunks_slug_start_time ON chunks(session_slug, start_time);
     CREATE INDEX IF NOT EXISTS idx_chunks_agent_id ON chunks(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_chunks_team_name ON chunks(team_name);
+    CREATE INDEX IF NOT EXISTS idx_chunks_agent_start ON chunks(agent_id, start_time);
+    CREATE INDEX IF NOT EXISTS idx_chunks_team_start ON chunks(team_name, start_time);
 
     -- Edges table
     CREATE TABLE IF NOT EXISTS edges (
@@ -107,7 +110,7 @@ export function createTestDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_chunk_clusters_cluster ON chunk_clusters(cluster_id);
 
     -- Set schema version
-    INSERT OR REPLACE INTO schema_version (version) VALUES (9);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (10);
   `);
 
   // Create FTS5 table and sync triggers (separate exec for virtual table)

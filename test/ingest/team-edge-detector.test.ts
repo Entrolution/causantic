@@ -253,7 +253,7 @@ describe('detectTeamEdges', () => {
       const mainChunk = makeChunk({
         id: 'main-chunk',
         turnIndices: [0],
-        // Within 30s of send time for timestamp proximity fallback
+        // Within 10s of send time for timestamp proximity fallback
         startTime: '2024-01-15T10:04:10Z',
         endTime: '2024-01-15T10:04:30Z',
       });
@@ -378,6 +378,109 @@ describe('detectTeamEdges', () => {
     });
   });
 
+  describe('timestamp proximity window', () => {
+    it('uses 10-second window', () => {
+      const sendId = 'send-10s';
+      const agentChunk = makeChunk({ id: 'agent-chunk', turnIndices: [0] });
+      // Exactly 11 seconds away — should NOT match with 10s window
+      const mainChunk = makeChunk({
+        id: 'main-chunk',
+        turnIndices: [0],
+        startTime: '2024-01-15T10:00:11Z',
+        endTime: '2024-01-15T10:00:20Z',
+      });
+
+      const agentTurn = makeTurn({
+        index: 0,
+        startTime: '2024-01-15T10:00:00Z',
+        assistantBlocks: [
+          makeToolUse('SendMessage', { recipient: 'team-lead', summary: 'Update' }, sendId),
+        ],
+        toolExchanges: [
+          {
+            toolName: 'SendMessage',
+            toolUseId: sendId,
+            input: {},
+            result: '{"ok":true}',
+            isError: false,
+          },
+        ],
+      });
+
+      // No XML match
+      const mainTurn = makeTurn({
+        index: 0,
+        startTime: '2024-01-15T10:00:11Z',
+        rawMessages: [],
+      });
+
+      const agentData = new Map([['worker', { turns: [agentTurn], chunks: [agentChunk] }]]);
+
+      const edges = detectTeamEdges([mainTurn], [mainChunk], agentData, makeTopology());
+
+      // 11s > 10s window — should not match
+      expect(edges).toHaveLength(0);
+    });
+
+    it('closest chunk wins when multiple in window', () => {
+      const sendId = 'send-multi';
+      const agentChunk = makeChunk({ id: 'agent-chunk', turnIndices: [0] });
+      const nearChunk = makeChunk({
+        id: 'near-chunk',
+        turnIndices: [0],
+        startTime: '2024-01-15T10:00:02Z',
+        endTime: '2024-01-15T10:00:05Z',
+      });
+      const farChunk = makeChunk({
+        id: 'far-chunk',
+        turnIndices: [1],
+        startTime: '2024-01-15T10:00:08Z',
+        endTime: '2024-01-15T10:00:10Z',
+      });
+
+      const agentTurn = makeTurn({
+        index: 0,
+        startTime: '2024-01-15T10:00:00Z',
+        assistantBlocks: [
+          makeToolUse('SendMessage', { recipient: 'team-lead', summary: 'Update' }, sendId),
+        ],
+        toolExchanges: [
+          {
+            toolName: 'SendMessage',
+            toolUseId: sendId,
+            input: {},
+            result: '{"ok":true}',
+            isError: false,
+          },
+        ],
+      });
+
+      const mainTurn0 = makeTurn({
+        index: 0,
+        startTime: '2024-01-15T10:00:02Z',
+        rawMessages: [],
+      });
+      const mainTurn1 = makeTurn({
+        index: 1,
+        startTime: '2024-01-15T10:00:08Z',
+        rawMessages: [],
+      });
+
+      const agentData = new Map([['worker', { turns: [agentTurn], chunks: [agentChunk] }]]);
+
+      const edges = detectTeamEdges(
+        [mainTurn0, mainTurn1],
+        [nearChunk, farChunk],
+        agentData,
+        makeTopology(),
+      );
+
+      expect(edges).toHaveLength(1);
+      // nearChunk is 2s away, farChunk is 8s away — nearChunk wins
+      expect(edges[0].targetChunkIds).toEqual(['near-chunk']);
+    });
+  });
+
   describe('timestamp proximity fallback', () => {
     it('falls back to timestamp proximity when no XML match', () => {
       const sendId = 'send-fallback';
@@ -388,7 +491,7 @@ describe('detectTeamEdges', () => {
       const mainChunk = makeChunk({
         id: 'main-chunk',
         turnIndices: [0],
-        // Within 30s of send time
+        // Within 10s of send time
         startTime: '2024-01-15T10:00:10Z',
         endTime: '2024-01-15T10:00:20Z',
       });
@@ -431,13 +534,13 @@ describe('detectTeamEdges', () => {
       expect(edges[0].targetChunkIds).toEqual(['main-chunk']);
     });
 
-    it('does not match when timestamp is outside 30s window', () => {
+    it('does not match when timestamp is outside 10s window', () => {
       const sendId = 'send-far';
       const agentChunk = makeChunk({ id: 'agent-chunk', turnIndices: [0] });
       const mainChunk = makeChunk({
         id: 'main-chunk',
         turnIndices: [0],
-        // More than 30s away from send time
+        // More than 10s away from send time
         startTime: '2024-01-15T10:01:00Z',
         endTime: '2024-01-15T10:02:00Z',
       });

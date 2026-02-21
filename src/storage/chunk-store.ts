@@ -165,8 +165,24 @@ export function getRecentChunksBySessionSlug(sessionSlug: string, limit: number)
  * Uses SQL-level LIMIT to avoid loading all chunks into memory.
  * Returns results in chronological order (oldest first).
  */
-export function getChunksBefore(project: string, before: string, limit: number): StoredChunk[] {
+export function getChunksBefore(
+  project: string,
+  before: string,
+  limit: number,
+  agentId?: string,
+): StoredChunk[] {
   const db = getDb();
+
+  if (agentId) {
+    const rows = db
+      .prepare(
+        `SELECT * FROM chunks WHERE session_slug = ? AND start_time < ? AND agent_id = ?
+         ORDER BY start_time DESC LIMIT ?`,
+      )
+      .all(project, before, agentId, limit) as DbChunkRow[];
+    return rows.reverse().map(rowToChunk);
+  }
+
   const rows = db
     .prepare(
       `SELECT * FROM chunks WHERE session_slug = ? AND start_time < ?

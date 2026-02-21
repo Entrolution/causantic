@@ -61,6 +61,12 @@ export interface ExternalConfig {
     /** MMR lambda: 0 = pure diversity, 1 = pure relevance. Default: 0.7 */
     mmrLambda?: number;
   };
+  recency?: {
+    /** Amplitude of the time-decay boost (multiplied by exp decay). Default: 0.3 */
+    decayFactor?: number;
+    /** Half-life in hours for the decay function. Default: 48 */
+    halfLifeHours?: number;
+  };
 }
 
 /** Default external config values */
@@ -102,6 +108,10 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   },
   retrieval: {
     mmrLambda: 0.7,
+  },
+  recency: {
+    decayFactor: 0.3,
+    halfLifeHours: 48,
   },
 };
 
@@ -230,6 +240,16 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA) {
     config.retrieval = config.retrieval ?? {};
     config.retrieval.mmrLambda = parseFloat(process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA);
+  }
+
+  // Recency
+  if (process.env.CAUSANTIC_RECENCY_DECAY_FACTOR) {
+    config.recency = config.recency ?? {};
+    config.recency.decayFactor = parseFloat(process.env.CAUSANTIC_RECENCY_DECAY_FACTOR);
+  }
+  if (process.env.CAUSANTIC_RECENCY_HALF_LIFE_HOURS) {
+    config.recency = config.recency ?? {};
+    config.recency.halfLifeHours = parseFloat(process.env.CAUSANTIC_RECENCY_HALF_LIFE_HOURS);
   }
 
   return config;
@@ -435,6 +455,12 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
     // Retrieval
     mmrReranking: {
       lambda: external.retrieval?.mmrLambda ?? DEFAULT_CONFIG.mmrReranking.lambda,
+    },
+
+    // Recency
+    recency: {
+      decayFactor: external.recency?.decayFactor ?? DEFAULT_CONFIG.recency.decayFactor,
+      halfLifeHours: external.recency?.halfLifeHours ?? DEFAULT_CONFIG.recency.halfLifeHours,
     },
   };
 }

@@ -44,8 +44,8 @@ export async function preCompactCli(sessionPath: string): Promise<void> {
     const result = await handlePreCompact(sessionPath);
 
     if (result.degraded) {
-      log.error('Pre-compact hook ran in degraded mode due to errors.');
-      process.exit(1);
+      log.warn('Pre-compact hook ran in degraded mode due to errors.');
+      process.exit(0);
     }
 
     if (result.skipped) {
