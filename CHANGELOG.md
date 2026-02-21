@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-02-21
+
+### Fixed
+
+- **Agent filter not propagated to chain walking**: `agentFilter` was only applied to seed selection — chain walking followed all edges regardless of agent, causing cross-agent contamination in scoped queries. Now propagated through `walkChains()` with a `maxSkippedConsecutive` bound (default 5) to prevent unbounded traversal through non-matching agents.
+- **Agent filter not propagated to cluster expansion**: `expandViaClusters()` checked project filter but not agent filter. Cluster siblings from other agents leaked into results. Now filters via `vectorStore.getChunkAgent()`.
+- **Insertion-order edge selection in chain walker**: Chain walker picked the first unvisited edge (insertion order) instead of the highest-weight edge. Now uses weight-based selection (`initialWeight`), improving chain quality.
+- **Binary recency boost only worked within current session**: Chunks from previous sessions received no recency signal at all. Replaced with time-decay boost (`1 + decayFactor * exp(-ageHours * ln2 / halfLifeHours)`) stacked multiplicatively with 1.2x session boost. Defaults: `decayFactor=0.3`, `halfLifeHours=48`. Configurable via `recency` config section or `CAUSANTIC_RECENCY_DECAY_FACTOR` / `CAUSANTIC_RECENCY_HALF_LIFE_HOURS` env vars.
+- **`getChunksBefore` returned all agents then post-filtered**: SQL query had no `agentId` parameter, wasting the `LIMIT` clause. Now filters at SQL level; removed redundant post-filter in session reconstructor.
+- **Pre-compact exit code for degraded mode**: Exited with code 1 (failure) on partial success, signaling hook failure to Claude Code. Now exits with code 0; exit 1 reserved for total failure only.
+
+### Added
+
+- **Schema v10 migration**: Three composite indexes for multi-agent queries — `idx_chunks_team_name`, `idx_chunks_agent_start(agent_id, start_time)`, `idx_chunks_team_start(team_name, start_time)`.
+- **VectorStore team index**: In-memory `chunkTeamIndex` with `getChunkTeam()` accessor, populated during `load()`, `insert()`, and `insertBatch()`.
+
+### Changed
+
+- **Team edge timestamp proximity**: Tightened from 30 seconds to 10 seconds. Added `log.warn` when falling back to timestamp proximity and when multiple chunks match within the window.
+- **Skill templates**: Expanded quick decision guide with 6 missing skills (debug, summary, crossref, retro, cleanup, list-projects). Sharpened recall vs search distinction. Disambiguated reconstruct vs resume entries. Updated proactive memory section (error patterns → `debug`, added sprint summary and cross-project patterns).
+- **SECURITY.md**: Updated supported versions to `>= 0.7.1`.
+
+### Tests
+
+- 18 new tests (1828 total): chain walker agent filter (4), cluster expander agent filter (2), search assembler time-decay (3), chunk store agentId filter (2), v10 migration indexes (1), vector store team index (2), team edge detector 10s window (2), pre-compact exit codes (2).
+
 ## [0.7.0] - 2026-02-21
 
 ### Added
@@ -12,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Agent team support**: Full ingestion, retrieval, and output support for Claude Code's multi-agent team sessions (TeamCreate, Task with team_name, SendMessage).
 - **Team edge types**: Three new causal edge types — `team-spawn` (lead spawns teammate, weight 0.9), `team-report` (teammate reports back to lead, weight 0.9), `peer-message` (teammate-to-teammate via SendMessage, weight 0.85).
 - **Team topology detection** (`src/ingest/team-detector.ts`): Scans main session for TeamCreate/Task/SendMessage signals. Resolves hex agent IDs to human-readable teammate names using a priority chain: Task `name` param > Task result parsing > SendMessage routing metadata > `<teammate-message>` XML fallback.
-- **Team edge detection** (`src/ingest/team-edge-detector.ts`): Matches send/receive events across agent files using `<teammate-message>` XML tag matching with 30-second timestamp proximity fallback.
+- **Team edge detection** (`src/ingest/team-edge-detector.ts`): Matches send/receive events across agent files using `<teammate-message>` XML tag matching with timestamp proximity fallback (30s in v0.7.0, tightened to 10s in v0.7.1).
 - **Multi-file teammate grouping**: A single teammate can produce multiple subagent files (one per incoming message context). Files are grouped by resolved human name; all chunks receive the same canonical `agentId`.
 - **Dead-end file detection**: Filters out race-condition stub files created when multiple messages arrive simultaneously at a teammate. Detection uses absence of assistant messages (primary) and ≤2 line count (secondary).
 - **Agent attribution in output**: Search, recall, and reconstruct results now show `| Agent: <name>` in chunk headers when chunks come from a named agent. Reconstruction shows `--- Agent: <name> ---` boundary markers.
