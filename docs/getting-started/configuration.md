@@ -79,7 +79,7 @@ Control output sizes:
 The settings above are the most commonly tuned. Additional config sections include:
 
 - **Retrieval** — MMR diversity lambda for search result reranking
-- **Traversal** — graph traversal depth and weight thresholds
+- **Traversal** — chain walking depth safety cap
 - **Encryption** — database encryption at rest (ChaCha20 or SQLCipher)
 - **Embedding** — device selection for local embedding inference
 - **Maintenance** — reclustering schedule
@@ -97,4 +97,4 @@ npx causantic config validate
 ## See Also
 
 - [Configuration Reference](../reference/configuration.md) - Complete option list with defaults and env vars
-- [How It Works](../guides/how-it-works.md) - Understand decay and clustering
+- [How It Works](../guides/how-it-works.md) - Understand chain walking and clustering

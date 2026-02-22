@@ -155,19 +155,32 @@ export CAUSANTIC_ANTHROPIC_KEY="sk-ant-..."
 
 ### "Hook not firing"
 
-**Check Claude Code configuration**:
+**Check Claude Code hook configuration**:
+
+Hooks are configured in `~/.claude/settings.json` (global) or `.claude/settings.json` (project-level). Note: this is separate from the MCP server configuration in `~/.claude.json`.
 
 ```bash
 cat ~/.claude/settings.json
 ```
 
-Verify hooks are configured:
+Verify hooks are configured with the correct event names and `async: true`:
 
 ```json
 {
   "hooks": {
-    "session-start": {
-      "command": "npx causantic hook session-start"
+    "SessionStart": {
+      "hooks": [{
+        "type": "command",
+        "command": "npx causantic hook session-start",
+        "async": true
+      }]
+    },
+    "PreCompact": {
+      "hooks": [{
+        "type": "command",
+        "command": "npx causantic hook pre-compact $TRANSCRIPT_PATH",
+        "async": true
+      }]
     }
   }
 }

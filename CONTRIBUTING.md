@@ -69,11 +69,11 @@ npm test
 Use clear, descriptive commit messages:
 
 ```
-Add graph pruning for stale edges
+Add incremental cluster assignment for new chunks
 
-- Implement lazy pruning during traversal
-- Add startup pruning for orphaned nodes
-- Update tests for new pruning behavior
+- Assign newly ingested chunks to existing clusters
+- Skip full recluster when below incremental threshold
+- Update tests for new assignment behavior
 ```
 
 ## Testing

@@ -135,13 +135,13 @@ Query
 
 Edges are stored as single `forward` rows:
 
-| Field             | Value                                                          |
-| ----------------- | -------------------------------------------------------------- |
-| `edge_type`       | Always `'forward'`                                             |
-| `reference_type`  | `'within-chain'`, `'cross-session'`, `'brief'`, or `'debrief'` |
-| `source_chunk_id` | Earlier chunk                                                  |
-| `target_chunk_id` | Later chunk                                                    |
-| `initial_weight`  | Always `1.0`                                                   |
+| Field             | Value                                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `edge_type`       | Always `'forward'`                                                                                        |
+| `reference_type`  | `'within-chain'`, `'cross-session'`, `'brief'`, `'debrief'`, `'team-spawn'`, `'team-report'`, `'peer-message'` |
+| `source_chunk_id` | Earlier chunk                                                                                             |
+| `target_chunk_id` | Later chunk                                                                                               |
+| `initial_weight`  | Varies by type: 1.0 (`within-chain`), 0.9 (`brief`/`debrief`/`team-spawn`/`team-report`), 0.85 (`peer-message`), 0.7 (`cross-session`) |
 
 Direction is inferred at query time:
 

@@ -6,13 +6,16 @@ Reference documentation for Causantic's storage layer APIs.
 
 The storage layer provides persistence for the Causantic memory system. It consists of several stores:
 
-| Store         | Purpose                                 | Module             |
-| ------------- | --------------------------------------- | ------------------ |
-| Chunk Store   | Conversation segments                   | `chunk-store.ts`   |
-| Edge Store    | Sequential causal connections           | `edge-store.ts`    |
-| Vector Store  | Embedding vectors for similarity search | `vector-store.ts`  |
-| Keyword Store | FTS5 full-text search with BM25 ranking | `keyword-store.ts` |
-| Cluster Store | Topic groupings                         | `cluster-store.ts` |
+| Store           | Purpose                                 | Module                |
+| --------------- | --------------------------------------- | --------------------- |
+| Chunk Store     | Conversation segments                   | `chunk-store.ts`      |
+| Edge Store      | Sequential causal connections           | `edge-store.ts`       |
+| Vector Store    | Embedding vectors for similarity search | `vector-store.ts`     |
+| Keyword Store   | FTS5 full-text search with BM25 ranking | `keyword-store.ts`    |
+| Cluster Store   | Topic groupings                         | `cluster-store.ts`    |
+| Feedback Store  | Retrieval feedback signals              | `feedback-store.ts`   |
+| Checkpoint Store| Ingestion deduplication                 | `checkpoint-store.ts` |
+| Embedding Cache | Cached embedding vectors                | `embedding-cache.ts`  |
 
 All stores use SQLite for persistence via `better-sqlite3-multiple-ciphers`.
 
@@ -63,25 +66,17 @@ interface StoredEdge {
 
 Edge reference types are purely structural roles that determine initial weight:
 
-| Type            | Weight | Description                                                                     |
-| --------------- | ------ | ------------------------------------------------------------------------------- |
-| `within-chain`  | 1.0    | D-T-D causal edge within one thinking entity (m×n all-pairs at turn boundaries) |
-| `brief`         | 0.9    | Parent agent spawning a sub-agent (m×n all-pairs, with 0.9^depth penalty)       |
-| `debrief`       | 0.9    | Sub-agent returning results to parent (m×n all-pairs, with 0.9^depth penalty)   |
-| `team-spawn`    | 0.9    | Lead agent spawning a team member via Task with team_name                        |
-| `team-report`   | 0.9    | Team member reporting results back to lead via SendMessage                       |
-| `peer-message`  | 0.85   | Teammate-to-teammate communication via SendMessage                              |
-| `cross-session` | 0.7    | Session continuation (previous final chunks ↔ new first chunks, m×n)            |
+| Type            | Weight | Description                                                                |
+| --------------- | ------ | -------------------------------------------------------------------------- |
+| `within-chain`  | 1.0    | Sequential D-T-D causal edge within one thinking entity (1-to-1)           |
+| `brief`         | 0.9    | Parent agent spawning a sub-agent (with 0.9^depth penalty)                 |
+| `debrief`       | 0.9    | Sub-agent returning results to parent (with 0.9^depth penalty)             |
+| `team-spawn`    | 0.9    | Lead agent spawning a team member via Task with team_name                  |
+| `team-report`   | 0.9    | Team member reporting results back to lead via SendMessage                 |
+| `peer-message`  | 0.85   | Teammate-to-teammate communication via SendMessage                         |
+| `cross-session` | 0.7    | Session continuation (previous final chunks to new first chunks)           |
 
-### Weighted Edges
-
-During traversal, edges include computed weight after decay:
-
-```typescript
-interface WeightedEdge extends StoredEdge {
-  weight: number; // Computed: initialWeight × hopDecay(depth) × linkBoost
-}
-```
+Edge topology is sequential 1-to-1 for `within-chain` edges. Agent and team edges (`brief`, `debrief`, `team-spawn`, `team-report`, `peer-message`) may link multiple chunks at transition boundaries.
 
 ## Chunk Store API
 
@@ -317,4 +312,3 @@ vectorStore.insertBatch([...]);
 
 - [Types Reference](../../src/storage/types.ts) - Full type definitions
 - [Traversal Algorithm](./traversal-algorithm.md) - How edges are traversed
-- [Decay Models](../research/archive/decay-models.md) - Decay curve details (historical, pre-v0.3)

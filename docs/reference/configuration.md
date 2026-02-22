@@ -18,10 +18,11 @@ Causantic uses JSON configuration files. Create `causantic.config.json`:
 
 Controls HDBSCAN clustering behavior.
 
-| Property         | Type      | Default | Description                                        |
-| ---------------- | --------- | ------- | -------------------------------------------------- |
-| `threshold`      | `number`  | `0.10`  | Angular distance for cluster assignment (0.01-0.5) |
-| `minClusterSize` | `integer` | `4`     | Minimum points to form a cluster (2-100)           |
+| Property                 | Type      | Default | Description                                                                    |
+| ------------------------ | --------- | ------- | ------------------------------------------------------------------------------ |
+| `threshold`              | `number`  | `0.10`  | Angular distance for cluster assignment (0.01-0.5)                             |
+| `minClusterSize`         | `integer` | `4`     | Minimum points to form a cluster (2-100)                                       |
+| `incrementalThreshold`   | `number`  | `0.3`   | Ratio of new chunks (vs total at last full recluster) that triggers full recluster (0.01-1) |
 
 **Research finding**: Threshold 0.10 achieves F1=0.940 (100% precision, 88.7% recall) on same-cluster pair prediction.
 
@@ -84,7 +85,7 @@ Controls cluster-guided expansion during retrieval. These settings are internal 
 
 ### `recency`
 
-Controls time-decay scoring for search results. These settings are internal defaults and not currently exposed in `causantic.config.json` — they are configured programmatically via `MemoryConfig`.
+Controls time-decay scoring for search results.
 
 | Property        | Type     | Default | Description                                           |
 | --------------- | -------- | ------- | ----------------------------------------------------- |
@@ -159,9 +160,10 @@ See [Security Guide](../guides/security.md) for encryption setup instructions.
 
 Controls embedding model inference.
 
-| Property | Type                                                      | Default  | Description                                                                                                          |
-| -------- | --------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `device` | `"auto"` \| `"coreml"` \| `"cuda"` \| `"cpu"` \| `"wasm"` | `"auto"` | Device for embedding inference. `auto` detects hardware capabilities (CoreML on Apple Silicon, CUDA on NVIDIA GPUs). |
+| Property | Type                                                                     | Default        | Description                                                                                                          |
+| -------- | ------------------------------------------------------------------------ | -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `device` | `"auto"` \| `"coreml"` \| `"cuda"` \| `"cpu"` \| `"wasm"`              | `"auto"`       | Device for embedding inference. `auto` detects hardware capabilities (CoreML on Apple Silicon, CUDA on NVIDIA GPUs). |
+| `model`  | `"jina-small"` \| `"nomic-v1.5"` \| `"jina-code"` \| `"bge-small"`     | `"jina-small"` | Embedding model. Changing model requires running `npx causantic reindex` to re-embed all chunks.                     |
 
 ## Maintenance Settings
 
@@ -179,10 +181,11 @@ Controls the maintenance schedule.
 
 Controls optional LLM features.
 
-| Property                 | Type      | Default                     | Description                       |
-| ------------------------ | --------- | --------------------------- | --------------------------------- |
-| `clusterRefreshModel`    | `string`  | `"claude-3-haiku-20240307"` | Model for cluster descriptions    |
-| `refreshRateLimitPerMin` | `integer` | `30`                        | Rate limit for LLM calls (1-1000) |
+| Property                 | Type      | Default                     | Description                                                                                      |
+| ------------------------ | --------- | --------------------------- | ------------------------------------------------------------------------------------------------ |
+| `clusterRefreshModel`    | `string`  | `"claude-3-haiku-20240307"` | Model for cluster descriptions                                                                   |
+| `refreshRateLimitPerMin` | `integer` | `30`                        | Rate limit for LLM calls (1-1000)                                                                |
+| `enableLabelling`        | `boolean` | `true`                      | Enable LLM-based cluster labelling. Requires Anthropic API key. Set to `false` for fully local usage. |
 
 **Note**: LLM features are optional. Causantic works without an Anthropic API key.
 
@@ -190,26 +193,30 @@ Controls optional LLM features.
 
 All settings can be overridden via environment variables:
 
-| Setting                      | Environment Variable                    |
-| ---------------------------- | --------------------------------------- |
-| `clustering.threshold`       | `CAUSANTIC_CLUSTERING_THRESHOLD`        |
-| `clustering.minClusterSize`  | `CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE` |
-| `traversal.maxDepth`         | `CAUSANTIC_TRAVERSAL_MAX_DEPTH`         |
-| `tokens.claudeMdBudget`      | `CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET`     |
-| `tokens.mcpMaxResponse`      | `CAUSANTIC_TOKENS_MCP_MAX_RESPONSE`     |
-| `storage.dbPath`             | `CAUSANTIC_STORAGE_DB_PATH`             |
-| `storage.vectorPath`         | `CAUSANTIC_STORAGE_VECTOR_PATH`         |
-| `vectors.ttlDays`            | `CAUSANTIC_VECTORS_TTL_DAYS`            |
-| `vectors.maxCount`           | `CAUSANTIC_VECTORS_MAX_COUNT`           |
-| `llm.clusterRefreshModel`    | `CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL`   |
-| `llm.refreshRateLimitPerMin` | `CAUSANTIC_LLM_REFRESH_RATE_LIMIT`      |
-| `encryption.enabled`         | `CAUSANTIC_ENCRYPTION_ENABLED`          |
-| `encryption.cipher`          | `CAUSANTIC_ENCRYPTION_CIPHER`           |
-| `encryption.keySource`       | `CAUSANTIC_ENCRYPTION_KEY_SOURCE`       |
-| `encryption.auditLog`        | `CAUSANTIC_ENCRYPTION_AUDIT_LOG`        |
-| `embedding.device`           | `CAUSANTIC_EMBEDDING_DEVICE`            |
-| `maintenance.clusterHour`    | `CAUSANTIC_MAINTENANCE_CLUSTER_HOUR`    |
-| `retrieval.mmrLambda`        | `CAUSANTIC_RETRIEVAL_MMR_LAMBDA`        |
+| Setting                              | Environment Variable                              |
+| ------------------------------------ | ------------------------------------------------- |
+| `clustering.threshold`               | `CAUSANTIC_CLUSTERING_THRESHOLD`                  |
+| `clustering.minClusterSize`          | `CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE`            |
+| `clustering.incrementalThreshold`    | `CAUSANTIC_CLUSTERING_INCREMENTAL_THRESHOLD`       |
+| `traversal.maxDepth`                 | `CAUSANTIC_TRAVERSAL_MAX_DEPTH`                   |
+| `tokens.claudeMdBudget`              | `CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET`               |
+| `tokens.mcpMaxResponse`              | `CAUSANTIC_TOKENS_MCP_MAX_RESPONSE`               |
+| `storage.dbPath`                     | `CAUSANTIC_STORAGE_DB_PATH`                       |
+| `storage.vectorPath`                 | `CAUSANTIC_STORAGE_VECTOR_PATH`                   |
+| `vectors.ttlDays`                    | `CAUSANTIC_VECTORS_TTL_DAYS`                      |
+| `vectors.maxCount`                   | `CAUSANTIC_VECTORS_MAX_COUNT`                     |
+| `llm.clusterRefreshModel`            | `CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL`             |
+| `llm.refreshRateLimitPerMin`         | `CAUSANTIC_LLM_REFRESH_RATE_LIMIT`                |
+| `llm.enableLabelling`                | `CAUSANTIC_LLM_ENABLE_LABELLING`                  |
+| `encryption.enabled`                 | `CAUSANTIC_ENCRYPTION_ENABLED`                    |
+| `encryption.cipher`                  | `CAUSANTIC_ENCRYPTION_CIPHER`                     |
+| `encryption.keySource`               | `CAUSANTIC_ENCRYPTION_KEY_SOURCE`                 |
+| `encryption.auditLog`                | `CAUSANTIC_ENCRYPTION_AUDIT_LOG`                  |
+| `embedding.device`                   | `CAUSANTIC_EMBEDDING_DEVICE`                      |
+| `embedding.model`                    | `CAUSANTIC_EMBEDDING_MODEL`                       |
+| `maintenance.clusterHour`            | `CAUSANTIC_MAINTENANCE_CLUSTER_HOUR`              |
+| `retrieval.mmrLambda`                | `CAUSANTIC_RETRIEVAL_MMR_LAMBDA`                  |
+| `retrieval.feedbackWeight`           | `CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT`             |
 
 ## Example Configurations
 
