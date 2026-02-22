@@ -321,6 +321,34 @@ npx causantic stats
 npx causantic stats --json
 ```
 
+### reindex
+
+Re-embed all chunks with the current embedding model. Required after changing `embedding.model` in configuration.
+
+```bash
+npx causantic reindex [options]
+```
+
+**Options**:
+
+| Option              | Description                              |
+| ------------------- | ---------------------------------------- |
+| `--batch-size <n>`  | Number of chunks per batch (default: 50) |
+| `--dry-run`         | Show what would be re-embedded           |
+
+**Example**:
+
+```bash
+# Re-embed all chunks
+npx causantic reindex
+
+# Dry run to see scope
+npx causantic reindex --dry-run
+
+# Re-embed in larger batches
+npx causantic reindex --batch-size 100
+```
+
 ### health
 
 Check system health.
@@ -402,7 +430,7 @@ npx causantic benchmark-collection [options]
 | `--quick`             | Health only (~1 second)                            |
 | `--standard`          | Health + retrieval (~30 seconds, default)          |
 | `--full`              | All categories (~2-5 minutes)                      |
-| `--categories <list>` | Comma-separated: health,retrieval,graph,latency    |
+| `--categories <list>` | Comma-separated: health,retrieval,chain,latency    |
 | `--sample-size <n>`   | Number of sample queries (default: 50)             |
 | `--seed <n>`          | Random seed for reproducibility                    |
 | `--project <slug>`    | Limit to one project                               |

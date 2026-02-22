@@ -64,18 +64,22 @@ Per-project views:
 
 The dashboard exposes a REST API that powers the UI. These routes can also be used programmatically:
 
-| Route                                   | Description                                     |
-| --------------------------------------- | ----------------------------------------------- |
-| `GET /api/stats`                        | Collection statistics (chunks, edges, clusters) |
-| `GET /api/chunks`                       | List chunks with pagination                     |
-| `GET /api/edges`                        | List edges with filtering                       |
-| `GET /api/clusters`                     | List clusters with member counts                |
-| `GET /api/projects`                     | List projects with chunk counts                 |
-| `GET /api/graph`                        | Graph data for visualization (nodes + edges)    |
-| `GET /api/search?q=<query>`             | Search memory with retrieval pipeline           |
-| `GET /api/sessions?project=<slug>`      | List sessions for a project                     |
-| `GET /api/benchmark-collection`         | Run benchmark and return results                |
-| `GET /api/benchmark-collection/history` | Historical benchmark results                    |
+| Route                                   | Description                                        |
+| --------------------------------------- | -------------------------------------------------- |
+| `GET /api/stats`                        | Collection statistics (chunks, edges, clusters)    |
+| `GET /api/chunks`                       | List chunks with pagination                        |
+| `GET /api/edges`                        | List edges with filtering                          |
+| `GET /api/clusters`                     | List clusters with member counts                   |
+| `GET /api/projects`                     | List projects with chunk counts                    |
+| `GET /api/graph`                        | Graph data for visualization (nodes + edges)       |
+| `GET /api/graph/neighborhood`           | Neighborhood subgraph around a specific chunk      |
+| `GET /api/search?q=<query>`             | Search memory with retrieval pipeline              |
+| `GET /api/search/suggestions`           | Search query suggestions                           |
+| `GET /api/sessions?project=<slug>`      | List sessions for a project                        |
+| `GET /api/timeline`                     | Timeline data for swimlane visualization           |
+| `GET /api/chain/walk`                   | Walk a chain from a given chunk                    |
+| `GET /api/benchmark-collection`         | Run benchmark and return results                   |
+| `GET /api/benchmark-collection/history` | Historical benchmark results                       |
 
 ## Architecture
 

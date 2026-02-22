@@ -24,14 +24,14 @@ The D-T-D (Data-Transformation-Data) boundary detection achieves near-perfect ac
 
 HDBSCAN clustering with angular distance achieves 100% precision and 88.7% recall. See [experiments/cluster-threshold.md](experiments/cluster-threshold.md).
 
-### Temporal Decay
+### Temporal Decay (Historical — removed in v0.4.0)
+
+> **Historical context**: Temporal decay was removed in v0.4.0. The chain walker uses direct cosine similarity to the query rather than hop-based decay curves. These findings are preserved for reference only.
 
 **Result**: Direction-specific decay curves outperform uniform exponential
 
 - Backward (historical): Linear decay achieves MRR=0.688 (1.35× vs exponential)
 - Forward (predictive): Delayed linear achieves MRR=0.849 (3.71× vs exponential)
-
-> In v0.3.0, decay switched from vector-clock hops to hop-based traversal depth (turn count difference). The relative curve rankings remain valid.
 
 See [archive/decay-curves.md](archive/decay-curves.md).
 

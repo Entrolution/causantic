@@ -16,20 +16,10 @@ These items were previously listed as future work and have since been implemente
 - **Native HDBSCAN** (New): Pure TypeScript rewrite — 130× speedup over hdbscan-ts.
 - **Hybrid BM25 + Vector Search** (New): FTS5 keyword search fused with vector search via RRF.
 - **MMR Reranking** (v0.5.4): Maximal Marginal Relevance reranking in the search pipeline. Single `retrieval.mmrLambda` knob (default 0.7) controls relevance vs diversity. Cluster `boostFactor` removed — redundant with MMR.
+- **Multiple Embedding Models** (v0.7.0): Configurable via `embedding.model` (jina-small, nomic-v1.5, jina-code, bge-small). Changing model requires `npx causantic reindex` to re-embed all chunks. Model-specific clustering thresholds handled via calibration.
+- **Multi-Path Chain Walking** (v0.8.0): DFS with backtracking explores all paths from seed chunks, emitting each as a candidate chain. `selectBestChain()` picks the winner by highest median per-node cosine similarity. Bounded by `maxExpansionsPerSeed` (200) and `maxCandidatesPerSeed` (10). For linear chains, behavior identical to previous greedy single-path.
 
 ## High Priority
-
-### Chain Walk Optimization
-
-**Goal**: Improve chain walking performance and quality.
-
-**Current State**: Chain walker follows sequential edges with cosine-similarity scoring. Depth limit of 50.
-
-**Potential Improvements**:
-
-1. Adaptive depth — stop walking when cosine similarity drops below threshold for N consecutive hops
-2. Bidirectional walk merging — combine backward and forward walks more intelligently
-3. Branch-aware walking — follow brief/debrief edges into sub-agent chains when relevant
 
 ### Relevance Feedback
 
@@ -72,22 +62,6 @@ These items were previously listed as future work and have since been implemente
 3. Explore online clustering algorithms (DBSTREAM, DenStream)
 
 ## Medium Priority
-
-### Multiple Embedding Models
-
-**Goal**: Make embedding model configurable.
-
-**Options**:
-
-- jina-small (current default)
-- jina-base (higher quality)
-- Custom fine-tuned model
-
-**Considerations**:
-
-- Changing models requires re-embedding all chunks
-- Model-specific clustering thresholds
-- Storage for multiple embedding versions
 
 ### VSCode Extension
 
@@ -147,18 +121,6 @@ These items were previously listed as future work and have since been implemente
 - Precision of cross-session edges
 - User validation of suggested links
 - A/B testing of linking strategies
-
-### Decay Curve Generalization
-
-**Question**: Do optimal decay curves vary by user/project?
-
-**Current**: Fixed curves based on aggregate data.
-
-**To Explore**:
-
-- User-specific curve fitting
-- Project-type differences (frontend vs backend)
-- Adaptive decay based on retrieval feedback
 
 ## Community Contributions Welcome
 

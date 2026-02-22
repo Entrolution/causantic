@@ -21,8 +21,38 @@ Fires when a new Claude Code session begins.
 ```json
 {
   "hooks": {
-    "session-start": {
-      "command": "npx causantic hook session-start"
+    "SessionStart": {
+      "hooks": [{
+        "type": "command",
+        "command": "npx causantic hook session-start",
+        "async": true
+      }]
+    }
+  }
+}
+```
+
+### session-end
+
+Fires when a Claude Code session ends (clear, logout, exit).
+
+**Actions:**
+
+1. Ingest current session content
+2. Create chunks and edges
+3. Generate embeddings
+
+**Configuration:**
+
+```json
+{
+  "hooks": {
+    "Stop": {
+      "hooks": [{
+        "type": "command",
+        "command": "npx causantic hook session-end $TRANSCRIPT_PATH",
+        "async": true
+      }]
     }
   }
 }
@@ -44,8 +74,12 @@ Fires before Claude Code compacts the conversation history.
 ```json
 {
   "hooks": {
-    "pre-compact": {
-      "command": "npx causantic hook pre-compact"
+    "PreCompact": {
+      "hooks": [{
+        "type": "command",
+        "command": "npx causantic hook pre-compact $TRANSCRIPT_PATH",
+        "async": true
+      }]
     }
   }
 }
@@ -112,13 +146,24 @@ Related sessions:
 
 ### Enabling Auto-Update
 
-The `claudemd-generator` hook updates CLAUDE.md on session start:
+The `claudemd-generator` hook updates CLAUDE.md on session start. It is typically configured alongside the `session-start` hook:
 
 ```json
 {
   "hooks": {
-    "session-start": {
-      "command": "npx causantic hook claudemd-generator"
+    "SessionStart": {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "npx causantic hook session-start",
+          "async": true
+        },
+        {
+          "type": "command",
+          "command": "npx causantic hook claudemd-generator",
+          "async": true
+        }
+      ]
     }
   }
 }
@@ -141,7 +186,7 @@ Control the memory section size:
 1. **Initial ingestion**: Run `batch-ingest` on existing sessions first
 2. **Regular maintenance**: Schedule maintenance tasks (see [Maintenance](maintenance.md))
 3. **Monitor storage**: Check `~/.causantic/` size periodically
-4. **Tune thresholds**: Adjust decay and clustering based on your workflow
+4. **Tune thresholds**: Adjust clustering and retrieval settings based on your workflow
 
 ## Troubleshooting
 
