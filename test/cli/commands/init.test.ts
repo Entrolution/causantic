@@ -57,7 +57,7 @@ vi.mock('../../../src/cli/skill-templates.js', () => ({
 
 // ── Imports (after mocks) ───────────────────────────────────────────────────
 
-import { initCommand } from '../../../src/cli/commands/init.js';
+import { initCommand } from '../../../src/cli/commands/init/index.js';
 import { getDb } from '../../../src/storage/db.js';
 import { promptYesNo } from '../../../src/cli/utils.js';
 

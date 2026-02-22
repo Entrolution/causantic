@@ -51,8 +51,10 @@ import {
   MAINTENANCE_TASKS,
   getTask,
   runTask,
+  runAllTasks,
   getStatus,
   runDaemon,
+  runStaleMaintenanceTasks,
 } from '../../src/maintenance/scheduler.js';
 
 describe('MAINTENANCE_TASKS', () => {
@@ -249,5 +251,80 @@ describe('runDaemon', () => {
     controller.abort();
 
     await daemonPromise;
+  });
+});
+
+describe('runAllTasks', () => {
+  it('runs all 4 tasks and returns results map', async () => {
+    // Replace all handlers with simple stubs
+    const originals = MAINTENANCE_TASKS.map((t) => t.handler);
+    for (const task of MAINTENANCE_TASKS) {
+      task.handler = async () => ({
+        success: true,
+        duration: 1,
+        message: `${task.name} done`,
+      });
+    }
+
+    try {
+      const results = await runAllTasks();
+
+      expect(results.size).toBe(4);
+      for (const task of MAINTENANCE_TASKS) {
+        const result = results.get(task.name);
+        expect(result).toBeDefined();
+        expect(result!.success).toBe(true);
+        expect(result!.message).toBe(`${task.name} done`);
+      }
+    } finally {
+      MAINTENANCE_TASKS.forEach((t, i) => {
+        t.handler = originals[i];
+      });
+    }
+  });
+
+  it('continues running remaining tasks when one fails', async () => {
+    const originals = MAINTENANCE_TASKS.map((t) => t.handler);
+    const callOrder: string[] = [];
+
+    for (const task of MAINTENANCE_TASKS) {
+      const name = task.name;
+      if (name === 'update-clusters') {
+        task.handler = async () => {
+          callOrder.push(name);
+          throw new Error('cluster failure');
+        };
+      } else {
+        task.handler = async () => {
+          callOrder.push(name);
+          return { success: true, duration: 1, message: `${name} ok` };
+        };
+      }
+    }
+
+    try {
+      const results = await runAllTasks();
+
+      expect(results.size).toBe(4);
+      expect(results.get('update-clusters')!.success).toBe(false);
+      expect(results.get('scan-projects')!.success).toBe(true);
+      expect(results.get('vacuum')!.success).toBe(true);
+      expect(callOrder).toHaveLength(4);
+    } finally {
+      MAINTENANCE_TASKS.forEach((t, i) => {
+        t.handler = originals[i];
+      });
+    }
+  });
+});
+
+describe('runStaleMaintenanceTasks', () => {
+  it('is a synchronous fire-and-forget function (returns void)', () => {
+    const result = runStaleMaintenanceTasks();
+    expect(result).toBeUndefined();
+  });
+
+  it('does not throw when no tasks are stale', () => {
+    expect(() => runStaleMaintenanceTasks()).not.toThrow();
   });
 });

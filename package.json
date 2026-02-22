@@ -22,7 +22,7 @@
   ],
   "author": "Entrolution",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
   },
   "bin": {
     "causantic": "dist/cli/index.js"
@@ -48,12 +48,12 @@
     "src/dashboard/client/package-lock.json"
   ],
   "scripts": {
-    "build": "tsc && cp src/storage/schema.sql dist/storage/ && cd src/dashboard/client && npm install --ignore-scripts && npm run build",
+    "build": "tsc && cp src/storage/schema.sql dist/storage/ && npm run build:client",
     "build:server": "tsc && cp src/storage/schema.sql dist/storage/",
-    "build:client": "cd src/dashboard/client && npm install --ignore-scripts && npm run build",
+    "build:client": "cd src/dashboard/client && npm install --package-lock=false && npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint src/ test/",
+    "lint": "eslint src/ test/ --max-warnings 0",
     "lint:fix": "eslint src/ test/ --fix",
     "format": "prettier --write 'src/**/*.{ts,tsx,css}' 'test/**/*.ts' 'scripts/**/*.ts' config.schema.json docker-compose.yml",
     "format:check": "prettier --check 'src/**/*.{ts,tsx,css}' 'test/**/*.ts' 'scripts/**/*.ts' config.schema.json docker-compose.yml",

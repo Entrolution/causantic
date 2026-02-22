@@ -55,6 +55,7 @@ describe('loadConfig', () => {
       expect(config.storage.vectorPath).toBe('~/.causantic/vectors');
       expect(config.llm.clusterRefreshModel).toBe('claude-3-haiku-20240307');
       expect(config.llm.refreshRateLimitPerMin).toBe(30);
+      expect(config.llm.enableLabelling).toBe(true);
       expect(config.encryption.enabled).toBe(false);
       expect(config.encryption.cipher).toBe('chacha20');
       expect(config.encryption.keySource).toBe('keychain');
@@ -139,6 +140,17 @@ describe('loadConfig', () => {
 
       expect(config.llm.clusterRefreshModel).toBe('claude-3-opus');
       expect(config.llm.refreshRateLimitPerMin).toBe(10);
+    });
+
+    it('overrides enableLabelling from env', () => {
+      process.env.CAUSANTIC_LLM_ENABLE_LABELLING = 'false';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.llm.enableLabelling).toBe(false);
     });
 
     it('overrides encryption settings from env', () => {

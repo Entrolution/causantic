@@ -176,12 +176,24 @@ async function createScanProjectsHandler(): Promise<MaintenanceResult> {
 }
 
 async function createUpdateClustersHandler(): Promise<MaintenanceResult> {
+  const config = loadConfig();
   const { clusterManager } = await import('../clusters/cluster-manager.js');
-  const { clusterRefresher } = await import('../clusters/cluster-refresh.js');
-  return updateClusters({
+
+  const deps: {
+    recluster: () => ReturnType<typeof clusterManager.recluster>;
+    refreshLabels?: () => Promise<unknown[]>;
+  } = {
     recluster: () => clusterManager.recluster(),
-    refreshLabels: () => clusterRefresher.refreshAllClusters({}),
-  });
+  };
+
+  if (config.llm.enableLabelling !== false) {
+    const { clusterRefresher } = await import('../clusters/cluster-refresh.js');
+    deps.refreshLabels = () => clusterRefresher.refreshAllClusters({});
+  } else {
+    log.info('Cluster labelling disabled (llm.enableLabelling=false), skipping label refresh');
+  }
+
+  return updateClusters(deps);
 }
 
 async function createVacuumHandler(): Promise<MaintenanceResult> {
@@ -403,7 +415,7 @@ export function runStaleMaintenanceTasks(): void {
 
   log.info('Stale maintenance tasks detected, running in background', { tasks: staleTasks });
 
-  (async () => {
+  void (async () => {
     for (const name of staleTasks) {
       try {
         await runTask(name);
@@ -413,5 +425,9 @@ export function runStaleMaintenanceTasks(): void {
         });
       }
     }
-  })();
+  })().catch((err) => {
+    log.error('Background maintenance failed unexpectedly', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  });
 }

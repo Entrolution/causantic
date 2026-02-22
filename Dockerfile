@@ -6,43 +6,31 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install native module build dependencies (better-sqlite3)
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-dev \
     build-essential \
+    python3 \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Python dependencies
-RUN pip3 install --break-system-packages hdbscan numpy
 
 # Copy package files
 COPY package*.json ./
+COPY src/dashboard/client/package*.json ./src/dashboard/client/
 
 # Install Node dependencies
 RUN npm ci
 
 # Copy source code
 COPY tsconfig.json ./
+COPY config.schema.json ./
 COPY src ./src
 
-# Build TypeScript
+# Build TypeScript + dashboard client
 RUN npm run build
 
 # Stage 2: Production
 FROM node:20-slim
 
 WORKDIR /app
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python HDBSCAN (minimal install)
-RUN pip3 install --break-system-packages hdbscan numpy
 
 # Copy built files
 COPY --from=builder /app/dist ./dist
@@ -58,14 +46,15 @@ RUN mkdir -p /data/causantic
 # Set environment variables
 ENV CAUSANTIC_STORAGE_DB_PATH=/data/causantic/memory.db
 ENV CAUSANTIC_STORAGE_VECTOR_PATH=/data/causantic/vectors
+ENV CAUSANTIC_LLM_ENABLE_LABELLING=false
 ENV NODE_ENV=production
 
-# Expose MCP server port (if using HTTP mode)
-EXPOSE 3000
+# Expose ports: MCP stdio (default), dashboard HTTP
+EXPOSE 3000 3333
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "require('./dist/storage/db.js').getDatabase().prepare('SELECT 1').get()" || exit 1
+    CMD node -e "import('./dist/storage/db.js').then(m => m.getDb().prepare('SELECT 1').get())" || exit 1
 
 # Default command: start MCP server
 CMD ["node", "dist/cli/index.js", "serve"]

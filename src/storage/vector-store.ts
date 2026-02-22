@@ -297,16 +297,7 @@ export class VectorStore {
       results.push({ id, distance });
     }
 
-    // Sort by distance and take top k
-    results.sort((a, b) => a.distance - b.distance);
-    const topResults = results.slice(0, limit);
-
-    // Touch last_accessed for returned vectors (async, non-blocking)
-    if (topResults.length > 0) {
-      this.touchLastAccessed(topResults.map((r) => r.id));
-    }
-
-    return topResults;
+    return this.rankAndTouch(results, limit);
   }
 
   /**
@@ -329,15 +320,7 @@ export class VectorStore {
       results.push({ id, distance });
     }
 
-    results.sort((a, b) => a.distance - b.distance);
-    const topResults = results.slice(0, limit);
-
-    // Touch last_accessed for returned vectors
-    if (topResults.length > 0) {
-      this.touchLastAccessed(topResults.map((r) => r.id));
-    }
-
-    return topResults;
+    return this.rankAndTouch(results, limit);
   }
 
   /**
@@ -375,14 +358,7 @@ export class VectorStore {
       results.push({ id, distance });
     }
 
-    results.sort((a, b) => a.distance - b.distance);
-    const topResults = results.slice(0, limit);
-
-    if (topResults.length > 0) {
-      this.touchLastAccessed(topResults.map((r) => r.id));
-    }
-
-    return topResults;
+    return this.rankAndTouch(results, limit);
   }
 
   /**
@@ -500,6 +476,21 @@ export class VectorStore {
    * Update last_accessed timestamp for vectors.
    * Called when vectors are returned from search to keep them alive.
    */
+  /**
+   * Sort results by distance, take top-k, and touch last_accessed timestamps.
+   * Shared post-processing for all search methods.
+   */
+  private rankAndTouch(results: VectorSearchResult[], limit: number): VectorSearchResult[] {
+    results.sort((a, b) => a.distance - b.distance);
+    const topResults = results.slice(0, limit);
+
+    if (topResults.length > 0) {
+      this.touchLastAccessed(topResults.map((r) => r.id));
+    }
+
+    return topResults;
+  }
+
   private touchLastAccessed(ids: string[]): void {
     if (ids.length === 0) return;
 
