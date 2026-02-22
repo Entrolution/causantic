@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-02-22
+
+### Changed
+
+- **`causantic-cleanup` skill**: Replaced single-agent sequential approach with multi-agent orchestration. Spawns 4 parallel specialist agents (Infrastructure, Design, Documentation, Memory), each with a fresh context window, then synthesizes findings into a prioritised CLEANUP_PLAN.md. Prevents context exhaustion on non-trivial codebases. Includes graceful degradation (falls back to single-agent if specialists fail) and contradiction resolution (when memory contradicts a specialist, both perspectives are preserved with a "Requires human decision" flag).
+- **CLAUDE.md block**: Added `/causantic-roadmap` to skill listings and Quick Decision Guide.
+
+### Added
+
+- **`causantic-roadmap` skill**: New skill that gathers candidate work items from multiple sources (CLEANUP_PLAN.md backlog, Causantic memory, codebase TODOs, user-provided goals), deduplicates and classifies them, then organizes into a phased ROADMAP.md (Phase 0-5: Foundation through Aspirational). Designed as a draft for human shaping, not a final plan. Memory-optional — proceeds with available sources if causantic MCP tools are unavailable.
+
 ## [0.7.1] - 2026-02-21
 
 ### Fixed

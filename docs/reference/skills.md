@@ -197,13 +197,35 @@ Surface recurring patterns, problems, and decisions across sessions.
 
 #### `/causantic-cleanup`
 
-Memory-informed codebase review and cleanup plan.
+Multi-agent codebase review and cleanup plan.
 
-**When to use**: Comprehensive codebase review combining code analysis with historical context from memory. Produces a plan (enters planning mode), not immediate changes.
+**When to use**: Comprehensive codebase review combining code analysis with historical context from memory. Produces a plan (enters planning mode), not immediate changes. Spawns parallel specialist agents for thorough coverage without context exhaustion.
 
-**Phases**: Discovery, memory context gathering, documentation review, pattern analysis, testability analysis, cleanup plan creation.
+**Specialists**: Infrastructure (dependencies, security, linting, dead code), Design (architecture, code quality, duplication, testability), Documentation (inventory, accuracy, coverage, structure), Memory (decision history, tech debt, past attempts).
+
+**Phases**: Reconnaissance (lead agent scans project), spawn specialists (4 agents in parallel), synthesis (cross-reference, deduplicate, resolve contradictions), write CLEANUP_PLAN.md.
 
 **Example**: `/causantic-cleanup`
+
+---
+
+#### `/causantic-roadmap [goal]`
+
+Gather deferred work, cleanup findings, and user goals into a phased roadmap.
+
+| Parameter | Required | Description                                    |
+| --------- | -------- | ---------------------------------------------- |
+| `goal`    | No       | User-provided goals or feature descriptions    |
+
+**When to use**: After cleanup to organize next steps, when planning a release, when wanting to consolidate TODOs/tech debt/feature requests into a single prioritised document.
+
+**Sources**: CLEANUP_PLAN.md backlog, existing ROADMAP.md, Causantic memory, codebase TODOs/FIXMEs, user-provided goals.
+
+**Phases**: Gather candidates, deduplicate and classify, dependency analysis and ordering, present draft for human review.
+
+**Output**: `ROADMAP.md` with items organized into Phase 0 (Foundation) through Phase 5 (Aspirational), plus a Deferred/Won't Do section.
+
+**Example**: `/causantic-roadmap add user authentication and improve test coverage`
 
 ---
 
@@ -249,6 +271,8 @@ Delete memory by topic, time range, or session. Always previews before deleting.
 | "How did other projects handle X?"  | `crossref`    |
 | "What patterns do I see?"           | `retro`       |
 | "Review and clean up this codebase" | `cleanup`     |
+| "What should we work on next?"      | `roadmap`     |
+| "Build a roadmap"                   | `roadmap`     |
 | "Forget/delete memory about X"      | `forget`      |
 
 ## Skill vs MCP Tool

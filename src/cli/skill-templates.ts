@@ -633,12 +633,16 @@ Analyze patterns across past sessions to surface recurring themes, problems, and
     dirName: 'causantic-cleanup',
     content: `---
 name: causantic-cleanup
-description: "Memory-informed codebase review and cleanup plan. Combines comprehensive code analysis with historical context from Causantic memory to create an actionable cleanup plan."
+description: "Multi-agent codebase review and cleanup plan. Spawns specialist agents for infrastructure, design, documentation, and memory analysis, then synthesizes findings into a prioritised CLEANUP_PLAN.md."
 ---
 
-# Codebase Cleanup & Architecture Review
+# Multi-Agent Codebase Cleanup & Architecture Review
 
-Perform a comprehensive review of the codebase and create a cleanup plan aligned to clean code and clean architecture principles, enriched with historical context from Causantic memory. Primary goals: audit dependency health (security vulnerabilities, deprecations, unmaintained projects), resolve linting errors and warnings, remove duplication, improve readability, eliminate dead code and artifacts, consolidate documentation, and enable high test coverage (70%+ target, ideally near 100%).
+Perform a comprehensive, multi-agent review of the codebase and create a cleanup plan aligned to clean code and clean architecture principles, enriched with historical context from Causantic memory.
+
+The work is split across parallel domain-specialist agents, each with a fresh context window, then findings are synthesized into the final CLEANUP_PLAN.md.
+
+Primary goals: audit dependency health (security vulnerabilities, deprecations, unmaintained projects), resolve linting errors and warnings, remove duplication, improve readability, eliminate dead code and artifacts, consolidate documentation, and enable high test coverage (70%+ target, ideally near 100%).
 
 ## Invoke Planning Mode
 
@@ -646,212 +650,291 @@ Perform a comprehensive review of the codebase and create a cleanup plan aligned
 
 ---
 
-## Phase 1: Codebase Discovery
+## Phase 1: Reconnaissance (Lead Agent)
 
-### 1.1 Project Structure Analysis
+Quick scan to gather enough context to brief the specialist agents. Duration: ~2 minutes of globbing/reading.
+
+### 1.1 Tech Stack & Project Structure
 - Map the directory structure and identify architectural layers
-- Identify entry points, core domain, and infrastructure boundaries
-- Note the tech stack, frameworks, and key dependencies
-- Find existing tests and assess current coverage
+- Identify the tech stack, frameworks, and package manager
+- Locate test framework, linter config, formatter config, CI config
+- Find the main entry points and key files
 
-### 1.2 Internal Dependency Analysis
-- Map internal dependencies between modules/packages
-- Identify circular dependencies
-- Check for dependency direction violations (dependencies should point inward)
-- Note coupling between modules
+### 1.2 Key File Inventory
+- Package manifest (package.json, Cargo.toml, pyproject.toml, go.mod, etc.)
+- Linter/formatter configuration files
+- CI/CD pipeline configuration
+- Test configuration
+- Documentation files (README, docs/, CHANGELOG, etc.)
 
-### 1.3 External Dependency Health Audit
+### 1.3 Build Reconnaissance Context Object
 
-**Version Currency & Updates:**
+Assemble a context object to pass to each specialist:
+
+\`\`\`
+Project: [name]
+Root: [absolute path]
+Tech Stack: [language, framework, package manager]
+Test Framework: [framework, config location]
+Linter: [tool, config location]
+Formatter: [tool, config location]
+CI: [tool, config location]
+Key Files: [list of paths]
+LOC Estimate: [approximate lines of code]
+\`\`\`
+
+**For small codebases (<5,000 LOC):** Note that a single-agent approach may be more efficient. Proceed with multi-agent if the user invoked this skill, but mention the option.
+
+\`\`\`
+✓ CHECKPOINT: Phase 1 complete - Reconnaissance
+\`\`\`
+
+---
+
+## Phase 2: Spawn Specialist Agents
+
+Spawn 4 specialist agents **in parallel** using the Task tool. Each agent is \`subagent_type: "general-purpose"\` (full tool access). Task subagents inherit the session's MCP connections, so the Memory specialist will have access to causantic MCP tools.
+
+Pass each agent:
+1. The reconnaissance context from Phase 1
+2. Their domain-specific prompt (copied from the Specialist Prompts section below)
+
+\`\`\`
+✓ CHECKPOINT: Phase 2 complete - Specialists Spawned
+\`\`\`
+
+---
+
+## Phase 3: Synthesis (Lead Agent)
+
+Collect the 4 specialist reports and synthesize into the final plan.
+
+### 3.1 Map Specialist Outputs
+Map each specialist's output sections into the CLEANUP_PLAN.md template structure.
+
+### 3.2 Memory Cross-Referencing
+For each infrastructure/design/docs finding, check if the memory report provides historical context that modifies the recommendation:
+- Dependency pinned for a compatibility reason → note in Version Bumps table
+- Suppression added deliberately for an edge case → mark as "valid" in Suppression Audit
+- Architecture chosen for a specific reason → note in Architecture Assessment
+
+### 3.3 Contradiction Resolution
+When memory contradicts a specialist finding:
+- Include both perspectives
+- Add a "⚠️ Requires human decision" flag
+- Default to the safer option (e.g., keep the pin, keep the suppression)
+
+### 3.4 Deduplication
+- Dead code findings from Infrastructure + unused code from Design → merge into single Dead Code section
+- When the same item appears from multiple specialists with different severity assessments, take the highest severity and annotate with the contributing perspectives
+- Lint findings from Infrastructure + complexity findings from Design → merge categories
+
+### 3.5 Prioritised Backlog
+Merge all findings into 13-tier priority ordering:
+1. **Security vulnerability fixes** — patch or bump dependencies with known CVEs (critical/high first)
+2. **Lint errors & correctness warnings** — fix compiler/linter errors and correctness-category warnings (likely bugs)
+3. **At-risk dependency mitigation** — replace, embed, or fork unmaintained/deprecated dependencies
+4. **Dead code removal** — quick wins that reduce noise
+5. **Formatter & style lint fixes** — run formatter, fix style warnings (standalone PR, no logic changes)
+6. **Dependency version bumps** — bring dependencies up to date (group minor/patch bumps)
+7. **Suppression audit** — remove stale lint suppressions
+8. **Unlocks testing** — refactors that enable high-value tests
+9. **Documentation consolidation** — reduce confusion and maintenance burden
+10. **High duplication** — consolidation opportunities
+11. **High complexity** — simplification targets
+12. **Architectural violations** — dependency direction fixes
+13. **Technical debt hotspots** — frequently changed problem areas
+
+\`\`\`
+✓ CHECKPOINT: Phase 3 complete - Synthesis
+\`\`\`
+
+---
+
+## Phase 4: Write CLEANUP_PLAN.md
+
+Write the synthesized plan to \`CLEANUP_PLAN.md\` in the project root using the Output Format below.
+
+Present a brief summary to the user and prompt for review.
+
+\`\`\`
+✓ CHECKPOINT: Phase 4 complete - CLEANUP_PLAN.md Written
+\`\`\`
+
+---
+
+## Specialist Prompts
+
+Each prompt below is a complete, self-contained block. Copy the entire section content (everything under the heading) into the Task tool's \`prompt\` parameter when spawning the specialist. Replace \`[INSERT RECONNAISSANCE CONTEXT HERE]\` with the actual reconnaissance context from Phase 1.
+
+### Specialist: Infrastructure
+
+You are the Infrastructure Specialist for a codebase cleanup review. Your job is to perform mechanical, tool-heavy analysis of the project's external dependencies, security posture, linting health, and dead artifacts.
+
+**Project Context:**
+[INSERT RECONNAISSANCE CONTEXT HERE]
+
+**Your Scope:**
+You are responsible for the following analyses. Be thorough and report everything you find.
+
+#### 1. External Dependency Health Audit
+
+**1.1 Version Currency & Updates**
 - List all direct dependencies with current pinned version vs latest available
 - Identify dependencies more than one major version behind
-- Flag any dependencies with pending breaking changes in the next major version
-- Check for deprecated dependencies (marked deprecated by maintainers)
+- Flag deprecated dependencies (marked deprecated by maintainers)
+- Check for pending breaking changes in the next major version
 
-**Security Vulnerabilities:**
-- Run ecosystem security audit tools (\`cargo audit\`, \`npm audit\`, \`pip-audit\`, \`govulncheck\`, etc.)
-- Cross-reference dependencies against known vulnerability databases (RustSec, GitHub Advisory, NIST NVD)
+**1.2 Security Vulnerabilities**
+- Run ecosystem security audit tools (\`npm audit\`, \`cargo audit\`, \`pip-audit\`, \`govulncheck\`, etc.)
 - Classify findings by severity: critical, high, medium, low
 - For each vulnerability, note whether a patched version exists
-- Check transitive (indirect) dependencies for vulnerabilities — not just direct ones
+- Check transitive (indirect) dependencies for vulnerabilities
 
-**Project Health & Sustainability:**
+**1.3 Project Health & Sustainability**
 For each dependency, assess maintenance health signals:
 - **Last release date** — flag if >12 months since last publish
-- **Last commit date** — flag if >6 months since last commit to default branch
+- **Last commit date** — flag if >6 months since last commit
 - **Open issues / PRs** — flag accumulating unanswered issues
 - **Bus factor** — flag single-maintainer projects for critical dependencies
-- **Download trends** — flag declining adoption (ecosystem-specific: crates.io, npm, PyPI)
-- **Funding / backing** — note whether the project has organisational support or is volunteer-only
-- **Ecosystem signals** — check for "looking for maintainer" notices, archived repos, or successor projects
+- **Ecosystem signals** — archived repos, "looking for maintainer" notices, successor projects
 
-**Risk Classification:**
-Classify each dependency into:
+**1.4 Risk Classification**
+Classify each flagged dependency:
+
 | Risk Level | Criteria |
 |-----------|----------|
-| **Low** | Actively maintained, multiple contributors, backed by org, no known CVEs |
-| **Medium** | Maintained but single maintainer, or infrequent releases, or minor CVEs patched |
-| **High** | Unmaintained (>12 months), single maintainer gone, unpatched CVEs, or deprecated |
-| **Critical** | Known exploited vulnerabilities, abandoned with no successor, or archived |
+| **Low** | Actively maintained, multiple contributors, no known CVEs |
+| **Medium** | Maintained but single maintainer, infrequent releases, or minor CVEs patched |
+| **High** | Unmaintained (>12 months), single maintainer gone, unpatched CVEs, deprecated |
+| **Critical** | Known exploited vulnerabilities, abandoned with no successor, archived |
 
-**Mitigation Strategies for High/Critical Risk:**
-For each high/critical risk dependency, recommend one of:
+**1.5 Mitigation Strategies (for High/Critical only)**
+For each, recommend one of:
 1. **Bump** — newer version resolves the issue
-2. **Replace** — suggest well-maintained alternative with migration path
-3. **Fork** — if no alternative exists, consider maintaining a fork
-4. **Embed** — for small or thin dependencies, inline the relevant code to eliminate the external dependency entirely (reduces supply chain risk)
-5. **Remove** — if the dependency is no longer needed
+2. **Replace** — suggest well-maintained alternative
+3. **Fork** — if no alternative exists
+4. **Embed** — for small deps, inline the relevant code
+5. **Remove** — if no longer needed
 
-### 1.4 Linter & Static Analysis Audit
+#### 2. Lint & Static Analysis Audit
 
-**Run all configured linters with warnings enabled:**
-Detect the project's linting tools and run them in strict/pedantic mode to surface the full picture:
+**2.1 Run Linters**
+Detect the project's linting tools and run them in strict/pedantic mode:
+- TypeScript/JS: \`eslint . --max-warnings 0\` or \`biome check .\`
+- Rust: \`cargo clippy --workspace --all-features -- -W clippy::pedantic\`
+- Python: \`ruff check .\` or \`flake8 . --statistics\`
+- Go: \`go vet ./...\` and \`staticcheck ./...\`
+- Also run any project-specific linters from CI config or pre-commit hooks
 
-| Ecosystem | Lint Command | Notes |
-|-----------|-------------|-------|
-| Rust | \`cargo clippy --workspace --all-features -- -W clippy::pedantic\` | Run both default and pedantic; separate findings by severity |
-| TypeScript/JS | \`eslint . --max-warnings 0\` or \`biome check .\` | Check for \`eslint-disable\` comments and \`@ts-ignore\` / \`@ts-expect-error\` suppressions |
-| Python | \`ruff check .\` or \`flake8 . --statistics\` | Also check \`mypy\`/\`pyright\` type errors |
-| Go | \`go vet ./...\` and \`staticcheck ./...\` | Check for \`//nolint\` directives |
-| General | Any project-specific linters in CI config or pre-commit hooks | Match what CI enforces |
+**2.2 Classify Findings**
+- **Errors** — must be fixed
+- **Warnings** — triage by category (correctness, performance, style, complexity, deprecation)
+- **Suppressions** — audit each \`eslint-disable\`, \`@ts-ignore\`, \`# noqa\`, \`#[allow(...)]\`, \`//nolint\`:
+  - Is it still necessary?
+  - Is there an explanatory comment?
+  - Can the code be refactored to eliminate the need?
 
-**Classify findings:**
-- **Errors** — code that won't compile, type errors, or lint rules configured as errors. These must be fixed.
-- **Warnings** — potential bugs, style issues, or best practice violations. Triage by category.
-- **Suppressions** — \`#[allow(...)]\`, \`// eslint-disable\`, \`@ts-ignore\`, \`# noqa\`, \`//nolint\`, etc. Audit each:
-  - Is the suppression still necessary? (The underlying issue may have been fixed)
-  - Is there a comment explaining why it's suppressed?
-  - Can the code be refactored to eliminate the need for suppression?
+**2.3 Formatter Compliance**
+- Run the project formatter in check mode (\`prettier --check\`, \`cargo fmt --check\`, \`black --check\`, etc.)
+- List files that don't conform
+- Note whether formatting is enforced in CI
 
-**Categorise lint findings:**
+#### 3. Dead Code & Artifact Detection
 
-| Category | Examples | Priority |
-|----------|---------|----------|
-| **Correctness** | Unused results, unchecked errors, unreachable code, type mismatches | High — likely bugs |
-| **Performance** | Unnecessary allocations, redundant clones, inefficient patterns | Medium — profile first |
-| **Style & Idiom** | Non-idiomatic patterns, naming conventions, import ordering | Low — batch fix |
-| **Complexity** | Overly complex expressions, deeply nested logic, long functions | Medium — readability |
-| **Deprecation** | Use of deprecated APIs, functions, or language features | High — will break on upgrade |
-
-**Formatter compliance:**
-- Run the project formatter (\`cargo fmt\`, \`prettier\`, \`black\`, \`gofmt\`, etc.) in check mode
-- Note any files that don't conform
-- Check if formatting is enforced in CI — if not, recommend adding it
-
-### 1.5 Code Metrics Gathering
-- Identify large files (>300 lines) and complex functions (>30 lines)
-- Find files with high cyclomatic complexity
-- Locate code with deep nesting (>3 levels)
-- Note long parameter lists (>4 parameters)
-
-\`\`\`
-✓ CHECKPOINT: Phase 1 complete - Codebase Discovery
-\`\`\`
-
----
-
-## Phase 2: Memory-Informed Context Gathering
-
-**This phase uses Causantic memory to enrich the review with historical context.**
-
-### 2.1 Decision History
-- Use \`recall\` to retrieve the episodic history behind major architectural decisions
-- Use \`search\` to find past discussions about code quality, tech debt, and refactoring
-- Document: why things are the way they are, what was tried before, what constraints exist
-
-### 2.2 Known Tech Debt
-- Use \`recall\` with queries like "tech debt", "TODO", "workaround", "hack", "temporary" scoped to the project
-- Use \`predict\` to surface areas that memory suggests are problematic
-- Cross-reference memory findings with current code state
-
-### 2.3 Past Cleanup Attempts
-- Use \`recall\` to search for previous refactoring or cleanup work
-- Note what was done before, what worked, and what was abandoned
-- Avoid recommending changes that were previously tried and rejected (unless circumstances changed)
-
-### 2.4 Dependency History
-- Use \`recall\` to search for past dependency upgrade attempts, compatibility issues, or migration discussions
-- Use \`recall\` to understand why specific dependency versions may be pinned
-- Cross-reference memory findings with current dependency state — avoid recommending upgrades that were previously tried and caused issues
-
-### 2.5 Lint & Suppression History
-- Use \`recall\` to search for past discussions about lint suppressions, intentional \`eslint-disable\` or \`@ts-ignore\` additions
-- Check if past sessions document why certain warnings were left unfixed
-- Note when memory shows a suppression was deliberately added for a specific edge case
-
-\`\`\`
-✓ CHECKPOINT: Phase 2 complete - Memory-Informed Context Gathering
-\`\`\`
-
----
-
-## Phase 3: Documentation Review
-
-### 3.1 Documentation Inventory
-- Locate all documentation files (README, docs/, wiki, inline docs)
-- Identify documentation types: API docs, architecture docs, setup guides, user guides
-- Map documentation to corresponding code/features
-- Note documentation format and tooling (markdown, JSDoc, Sphinx, etc.)
-
-### 3.2 Documentation Quality Assessment
-- Check for outdated or stale documentation (doesn't match current code)
-- Identify duplicate documentation (same info in multiple places)
-- Find conflicting documentation (contradictory information)
-- Note incomplete documentation (missing critical sections)
-- Assess documentation accessibility and discoverability
-
-### 3.3 Documentation Consolidation Plan
-- Recommend single source of truth for each topic
-- Identify documentation to merge, update, or remove
-- Suggest documentation structure aligned with project architecture
-- Propose automation for keeping docs in sync (doc generation, CI checks)
-
-\`\`\`
-✓ CHECKPOINT: Phase 3 complete - Documentation Review
-\`\`\`
-
----
-
-## Phase 4: Pattern Analysis
-
-### 4.1 Duplication Detection
-Search for:
-- Exact code duplicates (copy-paste)
-- Structural duplicates (same logic, different names)
-- Semantic duplicates (same purpose, different implementation)
-- Repeated patterns that could be abstracted
-
-### 4.2 Dead Code & Artifact Detection
-
-**Dead and Unused Code:**
-- Unreachable code paths
-- Unused functions, methods, and classes
+**3.1 Dead Code**
+- Unused exports, functions, classes, methods
 - Unused variables and imports
-- Vestigial code from removed features
+- Unreachable code paths
 - Commented-out code blocks
-- Deprecated code still present
 
-**Debugging Artifacts:**
-- Console.log, print statements, and debug output
+**3.2 Debug Artifacts**
+- Console.log, print statements, debug output
 - Hardcoded debug flags or conditions
-- Debug-only code paths
 - Temporary workarounds left in place
 
-**Testing Artifacts:**
+**3.3 Stale Artifacts**
 - Orphaned test files for deleted code
-- Test fixtures no longer used
-- Mock data files that are stale
-- Test utilities that aren't called
-
-**Outdated Artifacts:**
-- Old configuration files (for removed tools/services)
-- Legacy migration scripts that have been applied
+- Unused test fixtures and mock data
+- Old configuration files for removed tools
 - Backup files (.bak, .old, .orig)
 - Generated files that should be in .gitignore
-- Old build outputs or cache directories
-- Stale lock files or dependency snapshots
 
-### 4.3 Architecture Assessment
+#### Output Format
+
+Return your findings as a structured markdown report with these sections:
+
+**Security Fixes**
+
+| Dependency | Current | Fix Version | Vulnerability | Severity |
+|-----------|---------|-------------|---------------|----------|
+
+**At-Risk Dependencies**
+
+| Dependency | Risk Level | Issue | Recommended Action | Alternative |
+|-----------|-----------|-------|-------------------|-------------|
+
+**Version Bumps**
+
+| Dependency | Current | Latest | Breaking Changes | Notes |
+|-----------|---------|--------|------------------|-------|
+
+**Lint Findings — Errors**
+
+| File:Line | Rule | Message |
+|-----------|------|---------|
+
+**Lint Findings — Warnings by Category**
+
+| Category | Count | Examples | Suggested Approach |
+|----------|-------|---------|-------------------|
+
+**Suppression Audit**
+
+| File:Line | Suppression | Still Needed? | Has Comment? | Action |
+|-----------|------------|---------------|-------------|--------|
+
+**Formatter Compliance**
+[Files not conforming, CI enforcement status]
+
+**Dead Code**
+
+| Item | Location | Type |
+|------|----------|------|
+
+**Debug Artifacts**
+
+| Item | Location | Type |
+|------|----------|------|
+
+**Stale Artifacts**
+
+| Item | Location | Type |
+|------|----------|------|
+
+**Cap each table at 30 items.** If more exist, note the total count and say "N additional items not shown."
+
+Be specific with file paths and line references. Report facts, not opinions.
+
+### Specialist: Design
+
+You are the Design Specialist for a codebase cleanup review. Your job is to assess code quality, architecture, structure, duplication, and testability — areas that require reading comprehension and judgment rather than running tools.
+
+**Project Context:**
+[INSERT RECONNAISSANCE CONTEXT HERE]
+
+**Your Scope:**
+You are responsible for the following analyses. Read code thoroughly and provide specific, evidence-based findings.
+
+#### 1. Project Structure & Internal Dependencies
+
+**1.1 Internal Dependency Mapping**
+- Map dependencies between modules/packages
+- Identify circular dependencies
+- Check dependency direction (should point inward toward domain)
+- Note coupling between modules
+
+**1.2 Architecture Assessment**
 
 **Clean Architecture Alignment:**
 - Is domain logic independent of frameworks and infrastructure?
@@ -860,41 +943,53 @@ Search for:
 - Is the domain free of I/O and side effects?
 
 **SOLID Principles:**
-- **S**: Are there classes/modules doing too much?
+- **S**: Classes/modules doing too much? (list specific violations)
 - **O**: Can behaviour be extended without modification?
 - **L**: Are substitutions safe across inheritance?
 - **I**: Are interfaces minimal and focused?
 - **D**: Are high-level modules depending on abstractions?
 
-### 4.4 Code Quality Assessment
+#### 2. Code Quality Assessment
 
-**Readability:**
+**2.1 Readability**
 - Are names self-documenting?
 - Is the code explicit over implicit?
 - Are functions small and focused?
-- Is nesting depth reasonable?
+- Is nesting depth reasonable? (flag >3 levels)
 
-**Maintainability:**
+**2.2 Maintainability**
 - Can components be understood in isolation?
 - Are side effects contained and explicit?
 - Is state management clear?
 - Are error paths handled consistently?
 
-\`\`\`
-✓ CHECKPOINT: Phase 4 complete - Pattern Analysis
-\`\`\`
+**2.3 Code Metrics**
+- Identify large files (>300 lines) with reason they're large
+- Complex functions (>30 lines) — list each with line count
+- Functions with deep nesting (>3 levels)
+- Long parameter lists (>4 parameters)
 
----
+#### 3. Duplication Detection
 
-## Phase 5: Testability Analysis
+Search for:
+- **Exact duplicates**: copy-pasted code blocks
+- **Structural duplicates**: same logic, different names/variables
+- **Semantic duplicates**: same purpose, different implementation
+- **Repeated patterns**: patterns that could be abstracted (but only if used 3+ times)
 
-### 5.1 Current Test Assessment
-- Document existing test coverage percentage
-- Identify test types present (unit, integration, e2e)
+For each duplicate found, provide:
+- Both locations (file:line)
+- Approximate size (lines)
+- Suggested consolidation approach
+
+#### 4. Testability Analysis
+
+**4.1 Current Test Assessment**
+- Document existing test types (unit, integration, e2e)
 - Note testing frameworks and patterns in use
 - Find untested critical paths
 
-### 5.2 Testability Barriers
+**4.2 Testability Barriers**
 Identify code that is hard to test:
 - Tight coupling to infrastructure (DB, APIs, filesystem)
 - Hidden dependencies (singletons, global state)
@@ -902,164 +997,323 @@ Identify code that is hard to test:
 - Large functions doing multiple things
 - Missing dependency injection
 
-### 5.3 Coverage Gap Analysis
+**4.3 Coverage Gap Analysis**
 Prioritise untested areas by:
 1. Business criticality
 2. Change frequency
 3. Complexity/risk
 4. Ease of testing after refactor
 
-\`\`\`
-✓ CHECKPOINT: Phase 5 complete - Testability Analysis
-\`\`\`
+#### Output Format
 
----
+Return your findings as a structured markdown report with these sections:
 
-## Phase 6: Cleanup Plan Creation
+**Architecture Assessment**
+[Clean architecture alignment findings, dependency direction violations]
 
-### 6.1 Dependency Actions
+**Internal Dependencies**
+[Module dependency map, circular dependencies, coupling issues]
 
-**Immediate Security Fixes:**
-| Dependency | Current | Fix Version | Vulnerability | Severity |
-|-----------|---------|-------------|---------------|----------|
-| ... | ... | ... | CVE-... | critical/high |
+**SOLID Findings**
 
-**Version Bumps:**
-| Dependency | Current | Latest | Breaking Changes | Notes |
-|-----------|---------|--------|------------------|-------|
-| ... | ... | ... | yes/no | ... |
+| Principle | File:Line | Violation | Severity | Suggestion |
+|-----------|-----------|-----------|----------|------------|
 
-**At-Risk Dependencies:**
-| Dependency | Risk Level | Issue | Recommended Action |
-|-----------|-----------|-------|-------------------|
-| ... | high/critical | unmaintained/deprecated/... | replace with X / embed / fork / remove |
+**Code Quality**
 
-For each at-risk dependency, include:
-- Why it's flagged (specific health signals)
-- Recommended alternative (if replacing), with brief comparison
-- Migration complexity estimate (trivial / moderate / significant)
-- If recommending embed: identify the specific functions/types used and estimate the inlining effort
+Large Files:
 
-### 6.2 Lint & Static Analysis Cleanup
+| File | Lines | Reason |
+|------|-------|--------|
 
-**Errors (must fix):**
-| File | Line | Lint Rule | Message | Fix |
-|------|------|-----------|---------|-----|
-| ... | ... | ... | ... | ... |
+Complex Functions:
 
-**Warnings by category:**
-| Category | Count | Examples | Suggested Approach |
-|----------|-------|---------|-------------------|
-| Correctness | N | unused Result in \`foo.ts:42\` | Fix individually — likely bugs |
-| Deprecation | N | \`old_api()\` in \`bar.ts:15\` | Migrate to replacement API |
-| Performance | N | unnecessary clone in \`baz.ts:88\` | Batch fix, profile first |
-| Style/Idiom | N | non-idiomatic match in \`qux.ts:20\` | Batch fix in single commit |
-| Complexity | N | cognitive complexity 25 in \`parse()\` | Refactor as part of Phase 4 |
+| Function | File:Line | Lines | Nesting Depth | Issue |
+|----------|-----------|-------|---------------|-------|
 
-**Suppression audit:**
-| File | Line | Suppression | Still Needed? | Action |
-|------|------|------------|---------------|--------|
-| ... | ... | \`// eslint-disable\` | yes/no | keep with comment / remove / refactor |
+Long Parameter Lists:
 
-**Formatter fixes:**
-- List files not conforming to project formatter
-- Recommend: run formatter and commit as standalone PR (no logic changes)
+| Function | File:Line | Param Count |
+|----------|-----------|-------------|
 
-### 6.3 Dead Code & Artifact Removal
+**Duplication**
 
-**Immediate Removal** (safe to delete):
-- Commented-out code (preserved in version control)
-- Unused imports and variables
-- Debug statements and logging
-- Backup and temporary files
-- Orphaned test files
+| Location 1 | Location 2 | Size (lines) | Type | Consolidation Approach |
+|------------|------------|-------------|------|----------------------|
 
-**Careful Removal** (verify before deleting):
-- Unused functions (check for dynamic calls)
-- Vestigial feature code (confirm feature is truly removed)
-- Old configuration (ensure not referenced)
-- Deprecated code (check for external consumers)
+**Testability Report**
 
-### 6.4 Documentation Updates
+Current State:
+[Test types present, frameworks, coverage if known]
 
-**Documentation Actions:**
-| Document | Action | Reason |
-|----------|--------|--------|
-| ... | Keep/Update/Merge/Remove | ... |
+Barriers:
 
-**Consolidation Tasks:**
-- Merge duplicate docs into single source
-- Update outdated documentation
-- Remove documentation for deleted features
-- Add missing critical documentation
+| Barrier | Location | Type | Impact on Testing |
+|---------|----------|------|-------------------|
 
-### 6.5 Refactoring Opportunities
+Coverage Gaps (Prioritised):
 
-Categorise findings into:
+| Area | Priority | Reason | Prerequisite Refactor |
+|------|----------|--------|----------------------|
 
-**Quick Wins** (low effort, high impact)
-- Remove dead code, unused imports, and debug statements
-- Extract duplicated code into shared utilities
-- Rename unclear variables/functions
-- Fix obvious SOLID violations
+Testing Strategy Recommendation:
+[Recommended approach per module/layer, testing pyramid target]
 
-**Structural Improvements** (medium effort)
-- Extract classes/modules from large files
-- Introduce missing abstractions
-- Separate pure logic from side effects
-- Add dependency injection where missing
+**Cap each table at 30 items.** If more exist, note the total count and say "N additional items not shown."
 
-**Architectural Changes** (high effort)
-- Restructure to proper layers
-- Extract bounded contexts
-- Introduce proper interfaces/ports
-- Migrate to cleaner patterns
+Be specific with file paths and line references. Support findings with evidence from the code.
 
-### 6.6 Testing Strategy
+### Specialist: Documentation
 
-For each area, recommend:
-- What test types to add (unit/integration/e2e)
-- What refactoring enables testing
-- Order of test introduction
-- Target coverage per module
+You are the Documentation Specialist for a codebase cleanup review. Your job is to audit all project documentation for accuracy, coverage, and structure — then recommend a consolidation plan.
 
-**Testing Pyramid Target:**
-- Unit tests: 70-80% of tests (fast, isolated)
-- Integration tests: 15-25% (component boundaries)
-- E2E tests: 5-10% (critical paths only)
+**Project Context:**
+[INSERT RECONNAISSANCE CONTEXT HERE]
 
-### 6.7 Prioritised Backlog
+**Your Scope:**
+You are responsible for the following analyses.
 
-Create a prioritised list considering:
-1. **Security vulnerability fixes** — patch or bump dependencies with known CVEs (critical/high first)
-2. **Lint errors & correctness warnings** — fix compiler/linter errors and correctness-category warnings (likely bugs)
-3. **At-risk dependency mitigation** — replace, embed, or fork unmaintained/deprecated dependencies
-4. **Dead code removal** — quick wins that reduce noise
-5. **Formatter & style lint fixes** — run formatter, fix style warnings (standalone PR, no logic changes)
-6. **Dependency version bumps** — bring dependencies up to date (group minor/patch bumps)
-7. **Suppression audit** — remove stale \`eslint-disable\` / \`@ts-ignore\` / \`# noqa\` directives
-8. **Unlocks testing** — refactors that enable high-value tests
-9. **Documentation consolidation** — reduce confusion and maintenance burden
-10. **High duplication** — consolidation opportunities
-11. **High complexity** — simplification targets (also addresses complexity lint warnings)
-12. **Architectural violations** — dependency direction fixes
-13. **Technical debt hotspots** — frequently changed problem areas
+#### 1. Documentation Inventory & Classification
 
-\`\`\`
-✓ CHECKPOINT: Phase 6 complete - Cleanup Plan Creation
-\`\`\`
+**1.1 Find All Documentation**
+Locate all documentation files:
+- README files (root and nested)
+- docs/ directory contents
+- CHANGELOG, CONTRIBUTING, LICENSE, SECURITY, CODE_OF_CONDUCT
+- Inline documentation (JSDoc, rustdoc, docstrings, etc.)
+- Wiki or external documentation references
+- Architecture Decision Records (ADRs)
+- Configuration documentation
+- API documentation (OpenAPI specs, GraphQL schemas, etc.)
+
+**1.2 Classify Each Document**
+For each document, classify as:
+- **Active** — describes current functionality, actively maintained
+- **Historical** — describes past decisions or deprecated features, kept for reference
+- **Generated** — auto-generated (API docs, type docs, etc.)
+- **Stale** — has not been updated to match current code
+- **Orphaned** — describes features/code that no longer exists
+
+#### 2. Accuracy Audit
+
+**2.1 Cross-Reference Against Implementation**
+For each active document:
+- Do code examples compile/run?
+- Do API descriptions match actual signatures?
+- Do configuration references match actual config schemas?
+- Do architecture descriptions match actual structure?
+- Are version numbers and compatibility claims current?
+
+**2.2 Identify Inaccuracies**
+List specific inaccuracies with:
+- Document path and section
+- What the document says
+- What the code actually does
+- Suggested correction
+
+#### 3. Coverage Gaps
+
+**3.1 Enumerate Public Surface Area**
+- Public APIs, exported functions, CLI commands
+- Configuration options
+- Environment variables
+- Key architectural concepts
+
+**3.2 Identify Undocumented Items**
+For each undocumented public item, note:
+- What it is and where it lives
+- Priority (high = user-facing, low = internal utility)
+
+#### 4. Structure & Normalisation
+
+**4.1 Overlap Analysis**
+- Find topics documented in multiple places
+- Identify contradictions between documents
+- Note redundant content
+
+**4.2 Orphan Detection**
+- Documents referencing deleted files or features
+- Links to non-existent pages or sections
+- Stale cross-references
+
+**4.3 Proposed Hierarchy**
+Recommend a documentation structure:
+- What is the single source of truth for each topic?
+- Which documents should be merged?
+- Which should be removed?
+- What new documents are needed?
+
+#### Output Format
+
+Return your findings as a structured markdown report with these sections:
+
+**Inventory Summary**
+
+| Document | Path | Type | Classification | Last Updated |
+|----------|------|------|---------------|-------------|
+
+**Accuracy Findings**
+
+| Document | Section | Issue | Current Content | Correct Content |
+|----------|---------|-------|-----------------|-----------------|
+
+**Coverage Gaps**
+
+| Item | Type | Location | Priority | Notes |
+|------|------|----------|----------|-------|
+
+**Structure Recommendations**
+
+Documents to Update:
+
+| Document | Updates Required |
+|----------|-----------------|
+
+Documents to Merge:
+
+| Source | Target | Reason |
+|--------|--------|--------|
+
+Documents to Remove:
+
+| Document | Reason |
+|----------|--------|
+
+New Documents Needed:
+
+| Topic | Priority | Suggested Location |
+|-------|----------|-------------------|
+
+**Cap each table at 30 items.** If more exist, note the total count and say "N additional items not shown."
+
+### Specialist: Memory
+
+You are the Memory Specialist for a codebase cleanup review. Your job is to query Causantic long-term memory to surface historical context that informs the cleanup plan — decisions, tech debt, past attempts, and dependency history.
+
+**Project Context:**
+[INSERT RECONNAISSANCE CONTEXT HERE]
+
+**Your Scope:**
+Use the causantic MCP tools (\`recall\`, \`search\`, \`predict\`) to gather historical context. All queries should be scoped to the current project.
+
+#### 1. Decision History
+
+Query memory for architectural decisions and design choices:
+- \`recall\` query: "architectural decisions"
+- \`recall\` query: "design choices"
+- \`recall\` query: "why did we choose" (for rationale behind key choices)
+- \`search\` query: "decision" and "chose" and "alternative"
+
+For each decision found, note:
+- What was decided
+- When (approximate)
+- Why (rationale)
+- What alternatives were considered
+- Whether circumstances have changed since
+
+#### 2. Known Tech Debt
+
+Query memory for acknowledged tech debt:
+- \`recall\` query: "tech debt"
+- \`search\` query: "TODO"
+- \`search\` query: "workaround"
+- \`search\` query: "hack"
+- \`search\` query: "temporary"
+- \`search\` query: "FIXME"
+
+For each item found, note:
+- What the debt is
+- When it was introduced
+- Why (was it intentional? a time constraint?)
+- Whether it's been addressed since
+
+#### 3. Past Cleanup Attempts
+
+Query memory for previous refactoring or cleanup work:
+- \`recall\` query: "refactoring"
+- \`recall\` query: "cleanup"
+- \`recall\` query: "code review"
+- \`search\` query: "refactor"
+
+For each attempt found, note:
+- What was attempted
+- What was completed vs abandoned
+- Why it was abandoned (if applicable)
+- Lessons learned
+
+#### 4. Dependency History
+
+Query memory for past dependency-related work:
+- \`recall\` query: "dependency upgrade"
+- \`recall\` query: "dependency pinned"
+- \`recall\` query: "migration"
+- \`search\` query: "compatibility issue"
+- \`search\` query: "breaking change"
+
+For each item found, note:
+- Which dependency
+- What happened (upgrade attempt, pin, compatibility issue)
+- Outcome (success, failure, workaround)
+- Any ongoing constraints
+
+#### 5. Lint & Suppression History
+
+Query memory for deliberate lint decisions:
+- \`recall\` query: "lint suppression"
+- \`recall\` query: "eslint-disable"
+- \`recall\` query: "ts-ignore"
+- \`search\` query: "warning suppressed"
+- \`search\` query: "lint exception"
+
+For each item found, note:
+- What was suppressed and where
+- Why it was suppressed
+- Whether the underlying issue has been resolved
+
+#### Output Format
+
+Return your findings as a structured markdown report with these sections:
+
+**Decision History**
+
+| Decision | When | Rationale | Alternatives | Current Relevance |
+|----------|------|-----------|-------------|-------------------|
+
+**Known Tech Debt**
+
+| Item | Introduced | Reason | Status | Source |
+|------|-----------|--------|--------|--------|
+
+**Past Cleanup Attempts**
+
+| Attempt | Scope | Outcome | Lessons |
+|---------|-------|---------|---------|
+
+**Dependency History**
+
+| Dependency | Event | Outcome | Constraints |
+|-----------|-------|---------|-------------|
+
+**Lint/Suppression History**
+
+| Suppression | Location | Reason | Resolved? |
+|------------|----------|--------|-----------|
+
+**Cap each table at 30 items.** If more exist, note the total count and say "N additional items not shown."
+
+If memory returns no results for a category, say "No memory found for [category]" — do not fabricate results.
 
 ---
 
 ## Output Format
 
-Write the plan to \`CLEANUP_PLAN.md\` in project root with:
+Write the plan to \`CLEANUP_PLAN.md\` in the project root with:
 
 \`\`\`markdown
 # Codebase Cleanup Plan
 
 ## Executive Summary
-[2-3 paragraph overview of findings and recommended approach]
+[2-3 paragraph overview of findings and recommended approach. Note any specialist gaps (agents that failed or returned no findings).]
 
 ## Current State
 - **Architecture**: [assessment]
@@ -1081,89 +1335,70 @@ Write the plan to \`CLEANUP_PLAN.md\` in project root with:
 ### Security Fixes (Priority)
 | Dependency | Current | Fix Version | Vulnerability | Severity |
 |-----------|---------|-------------|---------------|----------|
-| ... | ... | ... | CVE-... | critical/high/medium |
 
 ### At-Risk Dependencies
 | Dependency | Risk | Issue | Action | Alternative / Notes |
 |-----------|------|-------|--------|---------------------|
-| ... | high/critical | unmaintained since YYYY | replace / embed / fork | ... |
 
 ### Version Bumps
 | Dependency | Current | Latest | Breaking | Notes |
 |-----------|---------|--------|----------|-------|
-| ... | ... | ... | yes/no | ... |
 
 ## Lint & Static Analysis
 
 ### Errors
 | File:Line | Rule | Message | Fix |
 |-----------|------|---------|-----|
-| ... | ... | ... | ... |
 
 ### Warnings (by category)
 | Category | Count | Action |
 |----------|-------|--------|
-| Correctness | N | Fix individually |
-| Deprecation | N | Migrate APIs |
-| Performance | N | Profile then fix |
-| Style | N | Batch fix |
-| Complexity | N | Refactor in Phase 4 |
 
 ### Suppression Audit
 | File:Line | Suppression | Verdict | Action |
 |-----------|------------|---------|--------|
-| ... | \`// eslint-disable\` | stale/valid | remove / keep with comment |
 
 ## Dead Code & Artifact Removal
 
 ### Immediate Removal
 | Item | Location | Type | Notes |
 |------|----------|------|-------|
-| ... | ... | dead code/debug/artifact | ... |
 
 ### Verify Before Removal
 | Item | Location | Verification Needed |
 |------|----------|---------------------|
-| ... | ... | ... |
 
 ## Documentation Consolidation
 
 ### Documents to Update
 | Document | Updates Required |
 |----------|------------------|
-| ... | ... |
 
 ### Documents to Remove/Merge
 | Document | Action | Target |
 |----------|--------|--------|
-| ... | merge into | ... |
 
 ## Refactoring Roadmap
 
 ### Phase 0: Dependency Health (Security & Supply Chain)
 | Task | Impact | Effort | Dependencies Affected |
 |------|--------|--------|----------------------|
-| ... | ... | ... | ... |
 
 ### Phase 1: Cleanup (Remove Noise)
 | Task | Impact | Effort | Files Affected |
 |------|--------|--------|----------------|
-| ... | ... | ... | ... |
 
 ### Phase 2: Foundation (Enable Testing)
 | Task | Impact | Effort | Unlocks |
 |------|--------|--------|---------|
-| ... | ... | ... | ... |
 
 ### Phase 3: Consolidation (Remove Duplication)
 | Task | Impact | Effort | Files Affected |
 |------|--------|--------|----------------|
-| ... | ... | ... | ... |
 
 ### Phase 4: Architecture (Clean Structure)
 | Task | Impact | Effort | Components |
 |------|--------|--------|------------|
-| ... | ... | ... | ... |
 
 ## Testing Strategy
 [Detailed testing approach per module/layer]
@@ -1180,6 +1415,25 @@ Write the plan to \`CLEANUP_PLAN.md\` in project root with:
 
 ---
 
+## Synthesis Rules
+
+1. Map each specialist's output sections into the CLEANUP_PLAN.md template
+2. **Memory cross-referencing**: For each infrastructure/design/docs finding, check if the memory report provides historical context that modifies the recommendation (e.g., dependency pinned for compatibility, suppression added deliberately, architecture chosen for specific reason)
+3. **Contradiction resolution**: When memory contradicts a specialist, include both perspectives with a "⚠️ Requires human decision" flag. Default to the safer option.
+4. **Deduplication**: Dead code findings from infrastructure + unused code from design — merge into single Dead Code section. When the same item appears from multiple specialists with different severity assessments, take the highest severity and annotate with the contributing perspectives.
+5. **Prioritised backlog**: Merge all findings into the 13-tier priority ordering defined in Phase 3.
+
+---
+
+## Error Handling
+
+- If a specialist returns no findings or fails: note the gap in Executive Summary, proceed with available data
+- If memory specialist fails: graceful degradation — omit Memory Context section, note gap
+- If all specialists fail: fall back to single-agent analysis of highest-priority areas (security, lint errors)
+- If the Task tool is unavailable or spawning fails: fall back to single-agent sequential analysis (Phase 1 areas first, then most critical from each specialist domain)
+
+---
+
 ## Guidelines
 
 ### Do
@@ -1193,11 +1447,9 @@ Write the plan to \`CLEANUP_PLAN.md\` in project root with:
 - Note when memory shows a decision was deliberate vs accidental
 - Prioritise changes that unlock testing
 - Run ecosystem-specific audit tools (cargo audit, npm audit, etc.) for security findings
-- Check GitHub/registry pages for dependency health signals (last release, contributors, issues)
 - Distinguish between direct and transitive dependency vulnerabilities
 - Provide concrete alternatives when flagging at-risk dependencies
-- Estimate migration effort when suggesting dependency replacements
-- Run linters in strict/pedantic mode to surface the full warning set, not just what CI enforces
+- Run linters in strict/pedantic mode to surface the full warning set
 - Audit every lint suppression — check if still needed and has an explanatory comment
 - Categorise lint findings (correctness vs style vs performance) so fixes can be batched sensibly
 - Recommend formatter-only commits as standalone PRs to keep diffs reviewable
@@ -1246,6 +1498,235 @@ Write the plan to \`CLEANUP_PLAN.md\` in project root with:
 - Consider breaking the plan into separate PRs for review
 - Dead code removal is often safest to do first as a separate PR
 - Documentation updates can be done in parallel with code changes
+`,
+  },
+  {
+    dirName: 'causantic-roadmap',
+    content: `---
+name: causantic-roadmap
+description: "Gather deferred work, cleanup findings, and user goals into a phased roadmap. Produces ROADMAP.md — designed to be shaped by human review."
+argument-hint: [goal]
+---
+
+# Project Roadmap
+
+Gather candidate work items from multiple sources — cleanup findings, memory, codebase TODOs, and user-provided goals — then deduplicate, classify, and organize them into a phased roadmap for human review.
+
+This is a synthesis task. The agent organizes; the human decides.
+
+## Invoke Planning Mode
+
+**Before any analysis, enter planning mode.** The output of this skill is a draft roadmap for user approval and shaping.
+
+---
+
+## Phase 1: Gather Candidate Items
+
+### 1.1 Read Existing CLEANUP_PLAN.md
+If \`CLEANUP_PLAN.md\` exists in the project root:
+- Extract items from the Prioritised Backlog section
+- Tag each with source: "cleanup"
+- Only import backlog items, not every individual finding
+
+### 1.2 Read Existing ROADMAP.md
+If \`ROADMAP.md\` exists in the project root (updating an existing roadmap):
+- Carry forward all existing items
+- Preserve their current phase assignments and status
+- Tag each with source: "existing-roadmap"
+
+### 1.3 Query Causantic Memory
+Use the causantic MCP tools to surface deferred and aspirational work:
+- \`search\` query: "deferred"
+- \`search\` query: "aspirational"
+- \`search\` query: "someday"
+- \`search\` query: "future work"
+- \`search\` query: "TODO"
+- \`search\` query: "roadmap"
+- \`search\` query: "milestone"
+- \`search\` query: "release plan"
+- \`recall\` query: "features we want to build"
+- \`predict\` context: "project roadmap and future work"
+- Tag each with source: "memory"
+
+If causantic MCP tools are unavailable or return nothing, note the gap and proceed with other sources.
+
+### 1.4 User-Provided Goals
+If the user passed arguments when invoking this skill:
+- Parse them as goals or feature descriptions
+- Tag each with source: "user"
+
+### 1.5 Scan Codebase for TODO/FIXME/HACK/XXX
+Search the codebase for inline markers:
+- \`TODO\`, \`FIXME\`, \`HACK\`, \`XXX\` comments
+- Tag each with source: "codebase-todo"
+- Include file path and line number
+
+\`\`\`
+✓ CHECKPOINT: Phase 1 complete - Candidates Gathered
+\`\`\`
+
+---
+
+## Phase 2: Deduplicate and Classify
+
+### 2.1 Merge and Deduplicate
+- Combine all candidate items
+- Deduplicate by semantic similarity (same work described differently across sources)
+- When merging duplicates, note all contributing sources
+
+### 2.2 Classify Each Item
+
+| Field | Values |
+|-------|--------|
+| **Type** | security, bug, tech-debt, infrastructure, quality, feature, docs, aspirational |
+| **Source** | cleanup, existing-roadmap, memory, user, codebase-todo |
+| **Effort** | trivial, small, medium, large, epic |
+| **Impact** | low, medium, high, critical |
+| **Status** | new, carried-forward, in-progress, blocked |
+
+### 2.3 Group by Theme
+Organize items into logical themes (e.g., "Authentication", "Testing", "Performance", "Developer Experience").
+
+\`\`\`
+✓ CHECKPOINT: Phase 2 complete - Items Classified
+\`\`\`
+
+---
+
+## Phase 3: Dependency Analysis and Ordering
+
+### 3.1 Identify Dependencies
+- Which items depend on other items being completed first?
+- Which items conflict with each other?
+
+### 3.2 Identify Force Multipliers
+- Items that unlock multiple other items
+- Infrastructure work that reduces effort for downstream tasks
+- Quality improvements that make future work safer
+
+### 3.3 Propose Phased Ordering
+
+| Phase | Name | Focus |
+|-------|------|-------|
+| 0 | Foundation | Security fixes, blockers, prerequisites |
+| 1 | Cleanup | Tech debt, dead code, lint fixes |
+| 2 | Infrastructure | Dependencies, CI/CD, test harness |
+| 3 | Quality | Coverage, documentation, code quality |
+| 4 | Features | New functionality |
+| 5 | Aspirational | Nice-to-haves, experiments |
+
+Assign each item to a phase based on its type, dependencies, and impact.
+
+\`\`\`
+✓ CHECKPOINT: Phase 3 complete - Items Ordered
+\`\`\`
+
+---
+
+## Phase 4: Present Draft for Human Shaping
+
+### 4.1 Write ROADMAP.md
+Write the roadmap to \`ROADMAP.md\` in the project root using the Output Format below.
+
+### 4.2 Present Summary
+Show the user:
+- Total items by phase
+- Total items by source
+- Key force multipliers
+- Items flagged as "Requires human decision"
+
+### 4.3 Prompt for Review
+Ask the user to review and adjust:
+- Are the phase assignments correct?
+- Should any items be deferred or removed?
+- Are there missing items to add?
+- Is the priority ordering right?
+
+\`\`\`
+✓ CHECKPOINT: Phase 4 complete - ROADMAP.md Written
+\`\`\`
+
+---
+
+## Output Format
+
+\`\`\`markdown
+# Project Roadmap
+
+## Executive Summary
+[Brief overview: how many items, where they came from, key themes]
+
+## Sources
+| Source | Items |
+|--------|-------|
+| Cleanup plan | N |
+| Memory | N |
+| Codebase TODOs | N |
+| User goals | N |
+| Existing roadmap | N |
+
+## Phase 0: Foundation
+| # | Item | Type | Effort | Impact | Source | Unlocks |
+|---|------|------|--------|--------|--------|---------|
+
+## Phase 1: Cleanup
+| # | Item | Type | Effort | Impact | Source | Unlocks |
+|---|------|------|--------|--------|--------|---------|
+
+## Phase 2: Infrastructure
+| # | Item | Type | Effort | Impact | Source | Unlocks |
+|---|------|------|--------|--------|--------|---------|
+
+## Phase 3: Quality
+| # | Item | Type | Effort | Impact | Source | Unlocks |
+|---|------|------|--------|--------|--------|---------|
+
+## Phase 4: Features
+| # | Item | Type | Effort | Impact | Source | Unlocks |
+|---|------|------|--------|--------|--------|---------|
+
+## Phase 5: Aspirational
+| # | Item | Type | Effort | Impact | Source | Unlocks |
+|---|------|------|--------|--------|--------|---------|
+
+## Deferred / Won't Do
+| Item | Reason |
+|------|--------|
+
+## Dependencies
+[Key dependency chains between items — which items must complete before others can start]
+
+## Notes
+[Any caveats, gaps in data sources, or items flagged for human decision]
+\`\`\`
+
+---
+
+## Error Handling
+
+- If \`CLEANUP_PLAN.md\` doesn't exist: skip that source, note it in Sources table
+- If \`ROADMAP.md\` doesn't exist: this is a new roadmap (not an update)
+- If causantic MCP tools fail or return nothing: proceed with cleanup plan + TODOs + user goals, note the gap
+- If no sources produce any items: inform the user and suggest running \`/causantic-cleanup\` first
+
+---
+
+## Guidelines
+
+### Do
+- Present this as a **draft** for human shaping, not a final plan
+- Preserve item provenance (which source each item came from)
+- Highlight force multipliers — items that unlock many others
+- Group related items to show themes
+- Note when memory provides additional context on an item
+- Be specific about what each item entails
+
+### Don't
+- Include every individual lint warning or dead code instance from cleanup — only import Prioritised Backlog items
+- Make priority decisions the human should make — flag them for review instead
+- Fabricate items that aren't grounded in sources
+- Remove items from an existing roadmap without explanation
+- Over-specify effort estimates — use t-shirt sizes, not hours
 `,
   },
   {
@@ -1374,6 +1855,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 - \`/causantic-crossref [pattern]\` — Search across all projects for reusable patterns
 - \`/causantic-retro [scope]\` — Surface recurring patterns, problems, and decisions across sessions
 - \`/causantic-cleanup\` — Memory-informed codebase review and cleanup plan
+- \`/causantic-roadmap [goal]\` — Gather deferred work and goals into a phased roadmap
 
 **Memory management:**
 - \`/causantic-forget [query or filters]\` — Delete memory by topic, time range, or session (always previews first)
@@ -1394,6 +1876,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 | "Is there a pattern across projects?" | \`crossref\` |
 | "What patterns keep coming up?" | \`retro\` |
 | "Review the codebase" | \`cleanup\` |
+| "What should we work on next?" / "Build a roadmap" | \`roadmap\` |
 | "What projects are in memory?" | \`list-projects\` |
 | "Forget/delete memory about X" | \`forget\` |
 

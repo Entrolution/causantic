@@ -7,8 +7,8 @@ import { CAUSANTIC_SKILLS, getMinimalClaudeMdBlock } from '../../src/cli/skill-t
 
 describe('skill-templates', () => {
   describe('CAUSANTIC_SKILLS', () => {
-    it('has 14 skill templates', () => {
-      expect(CAUSANTIC_SKILLS.length).toBe(14);
+    it('has 15 skill templates', () => {
+      expect(CAUSANTIC_SKILLS.length).toBe(15);
     });
 
     it('includes causantic-recall skill', () => {
@@ -290,14 +290,12 @@ describe('skill-templates', () => {
       expect(skill.content).toContain('`search`');
     });
 
-    it('causantic-cleanup has 6 phases with checkpoints', () => {
+    it('causantic-cleanup has 4 phases with checkpoints', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-cleanup')!;
       expect(skill.content).toContain('Phase 1');
       expect(skill.content).toContain('Phase 2');
       expect(skill.content).toContain('Phase 3');
       expect(skill.content).toContain('Phase 4');
-      expect(skill.content).toContain('Phase 5');
-      expect(skill.content).toContain('Phase 6');
       expect(skill.content).toContain('CHECKPOINT');
     });
 
