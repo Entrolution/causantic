@@ -49,11 +49,7 @@ function makeChunk(id: string, overrides: Partial<StoredChunk> = {}): StoredChun
   };
 }
 
-function makeEdge(
-  source: string,
-  target: string,
-  overrides: Partial<StoredEdge> = {},
-): StoredEdge {
+function makeEdge(source: string, target: string, overrides: Partial<StoredEdge> = {}): StoredEdge {
   return {
     id: `edge-${source}-${target}`,
     sourceChunkId: source,
