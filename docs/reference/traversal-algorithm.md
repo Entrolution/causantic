@@ -4,7 +4,7 @@ Causantic uses a chain-walking algorithm to reconstruct episodic narratives from
 
 ## Overview
 
-The causal graph is a **sequential linked list** with branch points at sub-agent forks. The chain walker follows directed edges to build ordered narrative chains from seed chunks.
+The causal graph is a **sequential linked list** with branch points at sub-agent forks, team edges, and cross-session links. The chain walker uses **multi-path DFS with backtracking** to explore all reachable paths from seed chunks, emitting each as a candidate chain. `selectBestChain()` picks the winner by highest median per-node cosine similarity.
 
 | Direction    | Edge following                            | Use case                            |
 | ------------ | ----------------------------------------- | ----------------------------------- |
@@ -21,38 +21,61 @@ function walkChains(seedIds: string[], options: ChainWalkerOptions): Chain[];
 
 ```
 function walkChains(seedIds, options):
-    chains = []
-    visited = Set()
-    tokenTally = 0
+    allCandidates = []
 
-    for each seed in seedIds:
-        chain = []
-        current = seed
+    for each seed in seedIds:                   // Per-seed independence
+        candidates = walkAllPaths(seed, options)
+        allCandidates.append(...candidates)
 
-        while current is not null:
-            if current in visited: break  // Cycle handling
-            visited.add(current)
+    return allCandidates
 
-            chunk = getChunk(current)
-            score = cosineSimilarity(queryEmbedding, chunkEmbedding)
-            tokenTally += chunk.approxTokens
+function walkAllPaths(seedId, options):
+    candidates = []
+    scoreCache = Map()
+    expansions = 0
+    pathVisited = Set()                         // Per-path, not global
+    pathState = { chunkIds: [], scores: [], tokens: 0 }
 
-            if tokenTally > tokenBudget: break  // Budget exhausted
+    // Initialize with seed
+    pathVisited.add(seedId)
+    pushToPath(seedId)
 
-            chain.append({ chunkId: current, score })
+    dfs(seedId, depth=1, consecutiveSkips=0)
+    return candidates
 
-            // Follow directed edges
-            if direction == 'backward':
-                edges = getBackwardEdges(current)  // target_chunk_id = current
-            else:
-                edges = getForwardEdges(current)    // source_chunk_id = current
+function dfs(currentId, depth, consecutiveSkips):
+    if ++expansions > maxExpansions: return
+    if candidates.length >= maxCandidates: return
 
-            current = edges[0]?.nextChunkId or null  // Sequential: at most one edge
+    edges = getEdges(currentId, direction)
+    unvisited = edges.filter(e => !pathVisited.has(e.nextId))
 
-        if chain.length >= 1:
-            chains.append(chain)
+    // Terminal: dead end or depth limit — emit candidate
+    if unvisited is empty OR depth >= maxDepth:
+        emit(currentPath)
+        return
 
-    return chains
+    for each edge in unvisited:
+        chunk = getChunk(edge.nextId)
+        pathVisited.add(edge.nextId)
+
+        // Agent filter: skip but traverse
+        if agentFilter and chunk.agentId != agentFilter:
+            if consecutiveSkips + 1 <= maxSkippedConsecutive:
+                dfs(edge.nextId, depth + 1, consecutiveSkips + 1)
+            pathVisited.delete(edge.nextId)
+            continue
+
+        score = scoreNode(edge.nextId)          // Memoized
+        if tokens + chunk.tokens > tokenBudget:
+            emit(currentPath)                   // Budget hit — emit, don't extend
+            pathVisited.delete(edge.nextId)
+            continue
+
+        push(edge.nextId, score, chunk.tokens)  // Extend path
+        dfs(edge.nextId, depth + 1, 0)          // Reset skip counter
+        pop()                                   // Backtrack
+        pathVisited.delete(edge.nextId)
 ```
 
 ### Chain Selection
@@ -66,6 +89,26 @@ function selectBestChain(chains):
     return qualifying.maxBy(c => c.medianScore)
 ```
 
+## Key Design Decisions
+
+### Multi-path DFS vs greedy single-path
+
+Prior to v0.8.0, the walker used greedy single-path traversal: `pickBestEdge()` selected ONE edge per node (highest `initialWeight`), discarding all alternatives. This worked for linear chains (out-degree 1) but missed alternative paths at branching points (agent transitions, team edges, cross-session links).
+
+Multi-path DFS explores all branches and emits each terminal path as a candidate. `selectBestChain()` gets a proper candidate set. For linear chains, behavior is identical — exactly 1 candidate per seed.
+
+### Per-seed independence
+
+Each seed explores independently with its own per-path visited set. No global visited set across seeds. This allows different seeds on the same chain to both produce candidates through shared nodes. `selectBestChain()` picks the single best chain regardless of which seed produced it.
+
+### Mutable backtracking state
+
+Path state (`chunkIds`, `chunks`, `nodeScores`, token count) uses push/pop with backtracking rather than array spread. This avoids O(depth) allocation per step. `pathVisited` uses `.add()` on entry and `.delete()` on backtracking return.
+
+### Agent filter scoping
+
+When `agentFilter` is set and a non-matching chunk is encountered, the chunk is skipped (not added to output) but its edges are explored. `consecutiveSkips` is passed as a parameter to recursion — each recursive frame gets its own count, reset to 0 when a matching chunk is found. This prevents cross-frame interference during backtracking.
+
 ## Pipeline Integration
 
 The chain walker is part of the episodic retrieval pipeline:
@@ -78,11 +121,11 @@ Query
   ├─ 3. RRF fusion + cluster expansion → top-5 seeds
   │
   ├─ 4. walkChains(seedIds, { direction, tokenBudget, queryEmbedding })
-  │     ├─ Follow directed edges, one chain per seed
-  │     ├─ Stop when token tally exceeds budget
-  │     └─ Skip revisited nodes (cycle handling)
+  │     ├─ For each seed, DFS with backtracking explores all paths
+  │     ├─ Emit candidate at: dead end, depth limit, or token budget
+  │     └─ Per-path visited set prevents cycles within a path
   │
-  ├─ 5. selectBestChain(chains) → highest median per-node similarity with ≥ 2 chunks
+  ├─ 5. selectBestChain(candidates) → highest median per-node similarity with ≥ 2 chunks
   │
   ├─ 6. If chain found → reverse for chronological output (recall only)
   └─ 7. Else → fall back to search-style ranked results
@@ -129,9 +172,13 @@ Median is robust to bridge nodes (semantic novelty) in short chains. A 3-node ch
 ```typescript
 interface ChainWalkerOptions {
   direction: 'forward' | 'backward';
-  tokenBudget: number; // Max tokens across all chains
-  queryEmbedding: number[]; // For per-node scoring
-  maxDepth?: number; // Safety cap (default: from config, typically 50)
+  tokenBudget: number;          // Max tokens per path
+  queryEmbedding: number[];     // For per-node scoring
+  maxDepth?: number;            // Safety cap (default: 50)
+  agentFilter?: string;         // Skip non-matching chunks
+  maxSkippedConsecutive?: number; // Abandon branch after N skips (default: 5)
+  maxCandidatesPerSeed?: number; // Cap on emitted chains per seed (default: 10)
+  maxExpansionsPerSeed?: number; // Cap on DFS recursive calls per seed (default: 200)
 }
 ```
 
@@ -145,39 +192,53 @@ interface ChainWalkerOptions {
 }
 ```
 
-`maxDepth` is a safety net that limits chain length. For most collections, the token budget is the effective limit.
+`maxDepth` limits the maximum chain depth. For most collections, the token budget is the effective limit. `maxExpansionsPerSeed` bounds DFS cost on rare dense subgraphs.
 
 ## Performance Characteristics
 
-| Aspect           | Behavior                                                  |
-| ---------------- | --------------------------------------------------------- |
-| Time complexity  | O(S × L) where S = seeds (5), L = max chain length        |
-| Space complexity | O(V) where V = unique chunks visited                      |
-| Edge lookups     | O(1) per hop via indexed queries                          |
-| Scoring          | O(1) per node (in-memory vector Map lookup + dot product) |
+| Aspect           | Behavior                                                                       |
+| ---------------- | ------------------------------------------------------------------------------ |
+| Time complexity  | O(S × E) where S = seeds (5), E = expansions per seed (≤200)                  |
+| Space complexity | O(D) where D = max path depth (mutable backtracking state)                     |
+| Edge lookups     | O(1) per hop via indexed queries                                               |
+| Scoring          | O(1) per unique node (memoized — in-memory vector Map lookup + dot product)    |
 
-### Optimizations
+### Bounding DFS Cost
 
-1. **Token budget**: Chains stop growing when budget is exhausted
-2. **Depth limit**: Safety cap on chain length
-3. **Global visited set**: Prevents re-traversal across seeds
-4. **Sequential structure**: At most one outgoing edge per direction → no branching search
+Two independent limits prevent runaway exploration:
 
-## Comparison to Previous Algorithm
+1. **`maxExpansionsPerSeed = 200`** — pre-order counter incremented at each DFS recursive call. Aborts entire seed's DFS when reached.
+2. **`maxCandidatesPerSeed = 10`** — cap on emitted chains per seed. Early-exit once enough candidates are collected.
 
-### Previous: Sum-Product Traversal
+With typical out-degree 1 (linear chains), a seed's DFS visits ~50 nodes (1 path). At branching points (out-degree 2-3), total expansions are ~60-100. The 200-expansion budget is generous for typical graphs and protective against rare dense subgraphs.
+
+### Score Memoization
+
+`Map<string, number>` cache for `scoreNode()` results per seed walk. A node at depth 1 that branches to 3 paths would otherwise be scored 3 times. Each node is scored at most once per seed.
+
+## Comparison to Previous Algorithms
+
+### v0.2: Sum-Product Traversal
 
 - Explored **all paths** from seeds, accumulating weights multiplicatively
 - Handled cycles via geometric attenuation (weight-based pruning)
 - Required hop-based decay curves and `minWeight` threshold
 - O(E × D) complexity where E = edges explored
 
-### Current: Chain Walking
+### v0.3–v0.7: Greedy Single-Path
 
-- Follows **sequential links** from seeds, building ordered chains
-- Handles cycles via visited set (O(1) lookup)
+- Followed **one edge per node** (highest `initialWeight`), building a single chain per seed
+- Handled cycles via global visited set (O(1) lookup)
 - No decay curves needed — scoring uses direct cosine similarity to query
-- O(S × L) complexity, much faster for the same graph size
+- O(S × L) complexity — fast but missed alternative paths at branching points
+
+### v0.8: Multi-Path DFS
+
+- Explores **all paths** from each seed via DFS with backtracking
+- Handles cycles via per-path visited set (add on entry, delete on backtrack)
+- Emits candidate at every terminal condition (dead end, depth limit, token budget)
+- Bounded by `maxExpansionsPerSeed` (200) and `maxCandidatesPerSeed` (10)
+- For linear chains (out-degree 1), behavior identical to v0.3–v0.7
 
 ## Related
 

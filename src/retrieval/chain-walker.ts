@@ -3,13 +3,16 @@
  *
  * Walks the causal graph from seed chunks, building ordered narrative chains.
  * Each chain is scored by aggregate cosine similarity per token.
+ *
+ * Uses multi-path DFS with backtracking: at branching points, all paths are
+ * explored and emitted as candidates. selectBestChain() picks the winner.
  */
 
 import { getForwardEdges, getBackwardEdges } from '../storage/edge-store.js';
 import { getChunkById } from '../storage/chunk-store.js';
 import { vectorStore } from '../storage/vector-store.js';
 import { angularDistance } from '../utils/angular-distance.js';
-import type { StoredChunk, StoredEdge } from '../storage/types.js';
+import type { StoredChunk } from '../storage/types.js';
 
 /**
  * Options for chain walking.
@@ -27,6 +30,10 @@ export interface ChainWalkerOptions {
   agentFilter?: string;
   /** Max consecutive non-matching agent chunks before abandoning a branch. Default: 5. */
   maxSkippedConsecutive?: number;
+  /** Max candidate chains per seed. Default: 10. */
+  maxCandidatesPerSeed?: number;
+  /** Max DFS node expansions per seed. Default: 200. */
+  maxExpansionsPerSeed?: number;
 }
 
 /**
@@ -48,16 +55,15 @@ export interface Chain {
 }
 
 /**
- * Walk causal chains from seed chunks.
+ * Walk causal chains from seed chunks using multi-path DFS.
  *
- * For each seed, traverses the graph following directed edges.
- * Each branch path produces a separate chain.
- * A global visited set prevents cycles.
- * A running token tally stops traversal when the budget is hit.
+ * For each seed, explores all reachable paths via DFS with backtracking.
+ * Each seed uses an independent visited set — no cross-seed interference.
+ * All candidate chains are returned for selectBestChain() to choose from.
  *
  * @param seedIds - Starting chunk IDs
  * @param options - Walk options
- * @returns Array of chains (one per seed that yielded results)
+ * @returns Array of candidate chains from all seeds
  */
 export async function walkChains(seedIds: string[], options: ChainWalkerOptions): Promise<Chain[]> {
   const {
@@ -67,132 +73,175 @@ export async function walkChains(seedIds: string[], options: ChainWalkerOptions)
     maxDepth = 50,
     agentFilter,
     maxSkippedConsecutive = 5,
+    maxCandidatesPerSeed = 10,
+    maxExpansionsPerSeed = 200,
   } = options;
 
-  const visited = new Set<string>();
-  let globalTokens = 0;
-  const chains: Chain[] = [];
+  const allCandidates: Chain[] = [];
 
   for (const seedId of seedIds) {
-    if (visited.has(seedId) || globalTokens >= tokenBudget) break;
-
-    const chain = await walkSingleChain(
+    const seedCandidates = await walkAllPaths(
       seedId,
       direction,
       queryEmbedding,
-      tokenBudget - globalTokens,
+      tokenBudget,
       maxDepth,
-      visited,
+      maxCandidatesPerSeed,
+      maxExpansionsPerSeed,
       agentFilter,
       maxSkippedConsecutive,
     );
-
-    if (chain && chain.chunkIds.length > 0) {
-      chains.push(chain);
-      globalTokens += chain.tokenCount;
-    }
+    allCandidates.push(...seedCandidates);
   }
 
-  return chains;
+  return allCandidates;
 }
 
 /**
- * Walk a single chain from a seed, following edges in one direction.
+ * Multi-path DFS from a single seed. Returns all candidate chains found.
  *
- * When agentFilter is set, non-matching chunks are skipped (not added to chain
- * output) but their edges are still followed. The branch is abandoned after
- * maxSkippedConsecutive non-matching chunks in a row.
+ * Uses mutable path state with push/pop backtracking. Per-path visited set
+ * prevents cycles within a path while allowing different paths to share nodes.
  */
-async function walkSingleChain(
+async function walkAllPaths(
   seedId: string,
   direction: 'forward' | 'backward',
   queryEmbedding: number[],
-  remainingBudget: number,
+  tokenBudget: number,
   maxDepth: number,
-  visited: Set<string>,
+  maxCandidates: number,
+  maxExpansions: number,
   agentFilter?: string,
   maxSkippedConsecutive: number = 5,
-): Promise<Chain | null> {
-  const chunkIds: string[] = [];
-  const chunks: StoredChunk[] = [];
-  const nodeScores: number[] = [];
-  let score = 0;
-  let tokenCount = 0;
+): Promise<Chain[]> {
+  const candidates: Chain[] = [];
+  const scoreCache = new Map<string, number>();
+  let expansions = 0;
 
-  let currentId: string | null = seedId;
-  let depth = 0;
-  let consecutiveSkips = 0;
+  const seedChunk = getChunkById(seedId);
+  if (!seedChunk) return [];
 
-  while (currentId && depth < maxDepth && tokenCount < remainingBudget) {
-    if (visited.has(currentId)) break;
-    visited.add(currentId);
-
-    const chunk = getChunkById(currentId);
-    if (!chunk) break;
-
-    // Agent filter: skip non-matching chunks but still follow their edges
-    if (agentFilter && chunk.agentId !== agentFilter) {
-      consecutiveSkips++;
-      if (consecutiveSkips > maxSkippedConsecutive) break;
-
-      depth++;
-      currentId = pickBestEdge(currentId, direction, visited);
-      continue;
+  async function scoreMemo(id: string): Promise<number> {
+    if (!scoreCache.has(id)) {
+      scoreCache.set(id, await scoreNode(id, queryEmbedding));
     }
-    consecutiveSkips = 0;
-
-    // Score this node
-    const nodeScore = await scoreNode(currentId, queryEmbedding);
-    const chunkTokens = chunk.approxTokens || 100;
-
-    if (tokenCount + chunkTokens > remainingBudget && chunkIds.length > 0) break;
-
-    chunkIds.push(currentId);
-    chunks.push(chunk);
-    nodeScores.push(nodeScore);
-    score += nodeScore;
-    tokenCount += chunkTokens;
-    depth++;
-
-    // Follow highest-weight edge
-    currentId = pickBestEdge(currentId, direction, visited);
+    return scoreCache.get(id)!;
   }
 
-  if (chunkIds.length === 0) return null;
+  // Mutable path state (push/pop for backtracking)
+  const pathChunkIds: string[] = [];
+  const pathChunks: StoredChunk[] = [];
+  const pathScores: number[] = [];
+  let pathScore = 0;
+  let pathTokens = 0;
+  const pathVisited = new Set<string>();
 
-  return {
-    chunkIds,
-    chunks,
-    nodeScores,
-    score,
-    tokenCount,
-    medianScore: median(nodeScores),
-  };
-}
+  function emitCandidate(): void {
+    if (pathChunkIds.length === 0) return;
+    candidates.push({
+      chunkIds: [...pathChunkIds],
+      chunks: [...pathChunks],
+      nodeScores: [...pathScores],
+      score: pathScore,
+      tokenCount: pathTokens,
+      medianScore: median(pathScores),
+    });
+  }
 
-/**
- * Pick the unvisited neighbor with the highest initial_weight edge.
- */
-function pickBestEdge(
-  currentId: string,
-  direction: 'forward' | 'backward',
-  visited: Set<string>,
-): string | null {
-  const edges: StoredEdge[] =
-    direction === 'forward' ? getForwardEdges(currentId) : getBackwardEdges(currentId);
+  async function dfs(currentId: string, depth: number, consecutiveSkips: number): Promise<void> {
+    if (++expansions > maxExpansions || candidates.length >= maxCandidates) return;
 
-  let bestId: string | null = null;
-  let bestWeight = -Infinity;
+    const edges =
+      direction === 'forward' ? getForwardEdges(currentId) : getBackwardEdges(currentId);
 
-  for (const edge of edges) {
-    const nextId = direction === 'forward' ? edge.targetChunkId : edge.sourceChunkId;
-    if (!visited.has(nextId) && edge.initialWeight > bestWeight) {
-      bestWeight = edge.initialWeight;
-      bestId = nextId;
+    const unvisited = edges.filter((e) => {
+      const nextId = direction === 'forward' ? e.targetChunkId : e.sourceChunkId;
+      return !pathVisited.has(nextId);
+    });
+
+    // Terminal: dead end or depth limit — emit
+    if (unvisited.length === 0 || depth >= maxDepth) {
+      emitCandidate();
+      return;
+    }
+
+    let anyChildEmitted = false;
+
+    for (const edge of unvisited) {
+      if (expansions > maxExpansions || candidates.length >= maxCandidates) return;
+
+      const nextId = direction === 'forward' ? edge.targetChunkId : edge.sourceChunkId;
+      const chunk = getChunkById(nextId);
+      if (!chunk) continue;
+
+      pathVisited.add(nextId);
+
+      // Agent filter: skip non-matching but follow edges
+      if (agentFilter && chunk.agentId !== agentFilter) {
+        const newSkips = consecutiveSkips + 1;
+        if (newSkips <= maxSkippedConsecutive) {
+          await dfs(nextId, depth + 1, newSkips);
+          anyChildEmitted = true;
+        }
+        pathVisited.delete(nextId);
+        continue;
+      }
+
+      const nodeScore = await scoreMemo(nextId);
+      const chunkTokens = chunk.approxTokens || 100;
+
+      // Token budget: emit current path, don't extend
+      if (pathTokens + chunkTokens > tokenBudget && pathChunkIds.length > 0) {
+        emitCandidate();
+        pathVisited.delete(nextId);
+        anyChildEmitted = true;
+        continue;
+      }
+
+      // Push onto path
+      pathChunkIds.push(nextId);
+      pathChunks.push(chunk);
+      pathScores.push(nodeScore);
+      pathScore += nodeScore;
+      pathTokens += chunkTokens;
+
+      await dfs(nextId, depth + 1, 0);
+      anyChildEmitted = true;
+
+      // Pop (backtrack)
+      pathChunkIds.pop();
+      pathChunks.pop();
+      pathScores.pop();
+      pathScore -= nodeScore;
+      pathTokens -= chunkTokens;
+      pathVisited.delete(nextId);
+    }
+
+    // If no child branch emitted anything (all filtered/skipped), emit current path
+    if (!anyChildEmitted) {
+      emitCandidate();
     }
   }
 
-  return bestId;
+  // Initialize with seed
+  const seedScore = await scoreMemo(seedId);
+  const seedTokens = seedChunk.approxTokens || 100;
+
+  pathVisited.add(seedId);
+  pathChunkIds.push(seedId);
+  pathChunks.push(seedChunk);
+  pathScores.push(seedScore);
+  pathScore = seedScore;
+  pathTokens = seedTokens;
+
+  await dfs(seedId, 1, 0);
+
+  // If DFS produced no candidates (expansion budget exhausted before any terminal), emit current
+  if (candidates.length === 0 && pathChunkIds.length > 0) {
+    emitCandidate();
+  }
+
+  return candidates;
 }
 
 /**
