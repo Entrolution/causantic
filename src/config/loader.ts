@@ -36,6 +36,8 @@ export interface ExternalConfig {
   llm?: {
     clusterRefreshModel?: string;
     refreshRateLimitPerMin?: number;
+    /** Enable LLM-based cluster labelling. Requires Anthropic API key. Default: true. */
+    enableLabelling?: boolean;
   };
   encryption?: {
     enabled?: boolean;
@@ -89,6 +91,7 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   llm: {
     clusterRefreshModel: 'claude-3-haiku-20240307',
     refreshRateLimitPerMin: 30,
+    enableLabelling: true,
   },
   encryption: {
     enabled: false,
@@ -191,6 +194,11 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.CAUSANTIC_LLM_REFRESH_RATE_LIMIT) {
     config.llm = config.llm ?? {};
     config.llm.refreshRateLimitPerMin = parseInt(process.env.CAUSANTIC_LLM_REFRESH_RATE_LIMIT, 10);
+  }
+
+  if (process.env.CAUSANTIC_LLM_ENABLE_LABELLING) {
+    config.llm = config.llm ?? {};
+    config.llm.enableLabelling = process.env.CAUSANTIC_LLM_ENABLE_LABELLING === 'true';
   }
 
   // Encryption

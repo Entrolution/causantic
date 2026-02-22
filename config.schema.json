@@ -93,6 +93,11 @@
           "maximum": 1000,
           "default": 30,
           "description": "Rate limit for LLM refresh calls per minute"
+        },
+        "enableLabelling": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable LLM-based cluster labelling. Requires Anthropic API key. Set to false for fully local usage without an API key."
         }
       },
       "additionalProperties": false

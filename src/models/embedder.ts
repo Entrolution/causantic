@@ -70,6 +70,7 @@ export class Embedder {
     }
 
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HF pipeline() lacks typed overloads for dynamic task+model args
       this.pipe = (await (pipeline as any)(
         'feature-extraction',
         config.hfId,
@@ -89,6 +90,7 @@ export class Embedder {
           notes: `${detection.label} failed: ${(epError as Error).message}`,
         };
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HF pipeline() lacks typed overloads for dynamic task+model args
         this.pipe = (await (pipeline as any)('feature-extraction', config.hfId, {
           dtype: 'fp32',
           device: 'cpu',

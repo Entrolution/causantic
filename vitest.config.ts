@@ -9,6 +9,9 @@ export default defineConfig({
       reporter: ['text', 'text-summary'],
       include: ['src/**/*.ts'],
       exclude: ['src/cli/skill-templates.ts', 'src/eval/experiments/**'],
+      thresholds: {
+        lines: 60,
+      },
     },
   },
 });

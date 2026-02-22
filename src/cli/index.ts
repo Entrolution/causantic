@@ -7,7 +7,7 @@
 
 import type { Command } from './types.js';
 import { VERSION } from '../utils/version.js';
-import { initCommand } from './commands/init.js';
+import { initCommand } from './commands/init/index.js';
 import { serveCommand } from './commands/serve.js';
 import { ingestCommand, batchIngestCommand } from './commands/ingest.js';
 import { recallCommand } from './commands/search.js';
