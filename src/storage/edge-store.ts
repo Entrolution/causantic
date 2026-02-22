@@ -4,36 +4,14 @@
  * Direction is inferred at query time via getForwardEdges/getBackwardEdges.
  */
 
-import { getDb, generateId } from './db.js';
+import { getDb, generateId, sqlPlaceholders } from './db.js';
 import type { StoredEdge, EdgeInput, EdgeType } from './types.js';
 
 /**
  * Create a single edge.
  */
 export function createEdge(edge: EdgeInput): string {
-  const db = getDb();
-  const id = generateId();
-  const createdAt = new Date().toISOString();
-
-  const stmt = db.prepare(`
-    INSERT INTO edges (
-      id, source_chunk_id, target_chunk_id, edge_type,
-      reference_type, initial_weight, created_at, link_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  stmt.run(
-    id,
-    edge.sourceChunkId,
-    edge.targetChunkId,
-    edge.edgeType,
-    edge.referenceType ?? null,
-    edge.initialWeight,
-    createdAt,
-    1,
-  );
-
-  return id;
+  return createEdges([edge])[0];
 }
 
 /**
@@ -165,7 +143,7 @@ export function deleteEdges(ids: string[]): number {
   }
 
   const db = getDb();
-  const placeholders = ids.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(ids.length);
   const result = db.prepare(`DELETE FROM edges WHERE id IN (${placeholders})`).run(...ids);
   return result.changes;
 }
@@ -188,7 +166,7 @@ export function deleteEdgesForSession(chunkIds: string[]): number {
   if (chunkIds.length === 0) return 0;
 
   const db = getDb();
-  const placeholders = chunkIds.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(chunkIds.length);
   const result = db
     .prepare(
       `DELETE FROM edges WHERE source_chunk_id IN (${placeholders}) OR target_chunk_id IN (${placeholders})`,

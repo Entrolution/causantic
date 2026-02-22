@@ -18,6 +18,7 @@ import { getChunkCount } from '../storage/chunk-store.js';
 import { getEdgeCount } from '../storage/edge-store.js';
 import { getClusterCount } from '../storage/cluster-store.js';
 import { createLogger } from '../utils/logger.js';
+import { errorMessage } from '../utils/errors.js';
 import { VERSION } from '../utils/version.js';
 
 const log = createLogger('mcp-server');
@@ -231,14 +232,14 @@ export class McpServer {
           0,
           ErrorCodes.PARSE_ERROR,
           'Parse error',
-          error instanceof Error ? error.message : String(error),
+          errorMessage(error),
         );
         console.log(JSON.stringify(errorResponse));
 
         this.log({
           level: 'error',
           event: 'parse_error',
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
           durationMs: Date.now() - startTime,
         });
       }
@@ -290,7 +291,7 @@ export class McpServer {
       this.log({
         level: 'error',
         event: 'shutdown_error',
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
     }
   }
@@ -355,14 +356,14 @@ export class McpServer {
         event: 'request_error',
         requestId: id,
         method,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
 
       return createErrorResponse(
         id,
         ErrorCodes.INTERNAL_ERROR,
         'Internal error',
-        error instanceof Error ? error.message : String(error),
+        errorMessage(error),
       );
     }
   }
@@ -511,20 +512,16 @@ export class McpServer {
         },
       };
     } catch (error) {
+      const errMsg = errorMessage(error);
       this.log({
         level: 'error',
         event: 'tool_error',
         requestId: id,
         details: { tool: name },
-        error: error instanceof Error ? error.message : String(error),
+        error: errMsg,
       });
 
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return createErrorResponse(
-        id,
-        ErrorCodes.TOOL_ERROR,
-        `Tool '${name}' failed: ${errorMessage}`,
-      );
+      return createErrorResponse(id, ErrorCodes.TOOL_ERROR, `Tool '${name}' failed: ${errMsg}`);
     }
   }
 
@@ -553,7 +550,7 @@ export async function startMcpServer(config?: McpServerConfig): Promise<McpServe
 if (import.meta.url === `file://${process.argv[1]}`) {
   startMcpServer().catch((error) => {
     log.error('Failed to start MCP server:', {
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
     process.exit(1);
   });

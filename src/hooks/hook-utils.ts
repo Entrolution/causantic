@@ -9,6 +9,7 @@
  */
 
 import type { recordHookStatus as RecordHookStatusFn } from './hook-status.js';
+import { errorMessage } from '../utils/errors.js';
 
 /** Log entry structure */
 export interface HookLogEntry {
@@ -341,7 +342,7 @@ export async function ingestCurrentSession(
         level: 'warn',
         hook: hookName,
         event: 'cluster_assignment_failed',
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
     }
   }
@@ -425,6 +426,48 @@ export async function handleIngestionHook(
     metrics,
     durationMs: metrics.durationMs ?? result.durationMs,
   };
+}
+
+/**
+ * Shared CLI entry point for ingestion hooks (session-end, pre-compact).
+ *
+ * @param hookName - The hook name (used in log messages)
+ * @param handler - The handler function (typically handleIngestionHook bound to hookName)
+ * @param degradedExitCode - Exit code when hook ran in degraded mode (1 for session-end, 0 for pre-compact)
+ */
+export async function ingestionHookCli(
+  hookName: string,
+  handler: () => Promise<IngestionHookResult>,
+  degradedExitCode: number,
+): Promise<void> {
+  const { createLogger } = await import('../utils/logger.js');
+  const log = createLogger(hookName);
+
+  try {
+    const result = await handler();
+
+    if (result.degraded) {
+      const level = degradedExitCode === 0 ? 'warn' : 'error';
+      log[level](`${hookName} hook ran in degraded mode due to errors.`);
+      process.exit(degradedExitCode);
+    }
+
+    if (result.skipped) {
+      log.info(`Session ${result.sessionId} already ingested, skipped.`);
+    } else {
+      log.info(
+        `Ingested session ${result.sessionId}: Chunks: ${result.chunkCount}, Edges: ${result.edgeCount}, Clusters assigned: ${result.clustersAssigned}, Duration: ${result.durationMs}ms`,
+      );
+      if (result.metrics?.retryCount && result.metrics.retryCount > 0) {
+        log.info(`Retries: ${result.metrics.retryCount}`);
+      }
+    }
+  } catch (error) {
+    log.error(`${hookName} hook failed:`, {
+      error: errorMessage(error),
+    });
+    process.exit(1);
+  }
 }
 
 /**

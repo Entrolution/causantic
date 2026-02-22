@@ -14,6 +14,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { generateMemorySection } from './session-start.js';
 import { executeHook, logHook, isTransientError, type HookMetrics } from './hook-utils.js';
+import { errorMessage } from '../utils/errors.js';
 import type { SessionStartOptions } from './session-start.js';
 
 /**
@@ -270,7 +271,7 @@ export async function removeMemorySection(claudeMdPath: string): Promise<boolean
       level: 'error',
       hook: 'claudemd-generator',
       event: 'remove_failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
       details: { path: claudeMdPath },
     });
     return false;

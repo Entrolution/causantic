@@ -7,7 +7,7 @@
  */
 
 import { createHash } from 'crypto';
-import { getDb } from './db.js';
+import { getDb, sqlPlaceholders } from './db.js';
 
 /**
  * Compute a short hash of a query string for grouping.
@@ -50,7 +50,7 @@ export function getFeedbackScores(chunkIds: string[]): Map<string, number> {
   if (chunkIds.length === 0) return new Map();
 
   const db = getDb();
-  const placeholders = chunkIds.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(chunkIds.length);
   const rows = db
     .prepare(
       `SELECT chunk_id, COUNT(*) as cnt FROM retrieval_feedback WHERE chunk_id IN (${placeholders}) GROUP BY chunk_id`,

@@ -10,6 +10,7 @@ import { readFileSync, existsSync, readdirSync } from 'fs';
 import { basename, join } from 'path';
 import { homedir } from 'os';
 import { loadSchemaStatements } from './schema-loader.js';
+import { errorMessage } from '../utils/errors.js';
 
 /**
  * Run all pending migrations on the database.
@@ -34,7 +35,7 @@ export function runMigrations(database: Database.Database): void {
       database.exec(statement);
     } catch (error) {
       // Ignore "table already exists" errors for CREATE TABLE IF NOT EXISTS
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       if (!message.includes('already exists')) {
         throw error;
       }
@@ -94,7 +95,7 @@ function migrateToV2(database: Database.Database): void {
     try {
       database.exec(`ALTER TABLE chunks ADD COLUMN ${col.name} ${col.type}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       if (!message.includes('duplicate column')) {
         throw error;
       }
@@ -110,7 +111,7 @@ function migrateToV2(database: Database.Database): void {
     try {
       database.exec(`ALTER TABLE edges ADD COLUMN ${col.name} ${col.type}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       if (!message.includes('duplicate column')) {
         throw error;
       }
@@ -178,7 +179,7 @@ function migrateToV4(database: Database.Database): void {
   try {
     database.exec('ALTER TABLE chunks ADD COLUMN project_path TEXT');
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     if (!message.includes('duplicate column')) {
       throw error;
     }
@@ -323,7 +324,7 @@ function migrateToV5(database: Database.Database): void {
       )
     `);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     if (message.includes('already exists')) {
       // Table exists, continue
     } else {
@@ -429,7 +430,7 @@ function migrateToV9(database: Database.Database): void {
   try {
     database.exec('ALTER TABLE chunks ADD COLUMN team_name TEXT');
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     if (!message.includes('duplicate column')) {
       throw error;
     }
@@ -478,7 +479,7 @@ function migrateToV11(database: Database.Database): void {
     try {
       database.exec("ALTER TABLE vectors ADD COLUMN model_id TEXT DEFAULT 'jina-small'");
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       if (!message.includes('duplicate column')) {
         throw error;
       }

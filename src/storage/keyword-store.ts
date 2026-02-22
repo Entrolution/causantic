@@ -5,7 +5,7 @@
  * Mirrors VectorStore's project-filtering pattern.
  */
 
-import { getDb } from './db.js';
+import { getDb, sqlPlaceholders } from './db.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('keyword-store');
@@ -99,7 +99,7 @@ export class KeywordStore {
     const projectList = Array.isArray(projects) ? projects : [projects];
     if (projectList.length === 0) return [];
 
-    const placeholders = projectList.map(() => '?').join(',');
+    const placeholders = sqlPlaceholders(projectList.length);
 
     let sql = `
         SELECT chunks.id, bm25(chunks_fts) as score

@@ -2,7 +2,7 @@
  * CRUD operations for chunks.
  */
 
-import { getDb, generateId } from './db.js';
+import { getDb, generateId, sqlPlaceholders } from './db.js';
 import type { StoredChunk, ChunkInput } from './types.js';
 
 /** Conservative estimate of average tokens per chunk, used to convert a token budget into a SQL LIMIT. */
@@ -12,37 +12,7 @@ export const ESTIMATED_AVG_TOKENS_PER_CHUNK = 200;
  * Insert a single chunk.
  */
 export function insertChunk(chunk: ChunkInput): string {
-  const db = getDb();
-  const id = chunk.id || generateId();
-
-  const stmt = db.prepare(`
-    INSERT OR IGNORE INTO chunks (
-      id, session_id, session_slug, turn_indices, start_time, end_time,
-      content, code_block_count, tool_use_count, approx_tokens,
-      agent_id, spawn_depth, project_path, team_name
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  stmt.run(
-    id,
-    chunk.sessionId,
-    chunk.sessionSlug,
-    JSON.stringify(chunk.turnIndices),
-    chunk.startTime,
-    chunk.endTime,
-    chunk.content,
-    chunk.codeBlockCount,
-    chunk.toolUseCount,
-    chunk.approxTokens,
-    chunk.agentId ?? null,
-    chunk.spawnDepth ?? 0,
-    chunk.projectPath ?? null,
-    chunk.teamName ?? null,
-  );
-
-  invalidateProjectsCache();
-
-  return id;
+  return insertChunks([chunk])[0];
 }
 
 /**
@@ -111,7 +81,7 @@ export function getChunksByIds(ids: string[]): StoredChunk[] {
   }
 
   const db = getDb();
-  const placeholders = ids.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(ids.length);
   const rows = db
     .prepare(`SELECT * FROM chunks WHERE id IN (${placeholders})`)
     .all(...ids) as DbChunkRow[];
@@ -253,7 +223,7 @@ export function deleteChunks(ids: string[]): number {
   }
 
   const db = getDb();
-  const placeholders = ids.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(ids.length);
   const result = db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...ids);
   return result.changes;
 }

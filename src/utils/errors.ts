@@ -233,6 +233,15 @@ export function isHookError(error: unknown): error is HookError {
 }
 
 /**
+ * Extract a message string from an unknown error.
+ *
+ * Safely handles both Error instances and non-Error throwables.
+ */
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
  * Wrap an unknown error in a CausanticError.
  *
  * If the error is already a CausanticError, returns it unchanged.
@@ -243,6 +252,6 @@ export function wrapError(error: unknown, message?: string): CausanticError {
     return error;
   }
 
-  const errorMessage = message ?? (error instanceof Error ? error.message : String(error));
-  return new CausanticError(errorMessage, 'UNKNOWN', error);
+  const msg = message ?? errorMessage(error);
+  return new CausanticError(msg, 'UNKNOWN', error);
 }

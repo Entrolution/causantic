@@ -3,7 +3,15 @@
  */
 
 // Database
-export { getDb, closeDb, clearAllData, getDbStats, generateId, getSchemaVersion } from './db.js';
+export {
+  getDb,
+  closeDb,
+  clearAllData,
+  getDbStats,
+  generateId,
+  getSchemaVersion,
+  sqlPlaceholders,
+} from './db.js';
 
 // Types
 export type {

@@ -4,7 +4,7 @@
  */
 
 import { createHash } from 'crypto';
-import { getDb } from './db.js';
+import { getDb, sqlPlaceholders } from './db.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
 
 /** Maximum cache entries before LRU eviction (~400MB for 1024-dim embeddings) */
@@ -62,7 +62,7 @@ export function getCachedEmbeddingsBatch(
   if (contentHashes.length === 0) return cache;
 
   const db = getDb();
-  const placeholders = contentHashes.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(contentHashes.length);
   const rows = db
     .prepare(
       `
@@ -82,7 +82,7 @@ export function getCachedEmbeddingsBatch(
   // Update hit counts for found entries
   if (rows.length > 0) {
     const foundHashes = rows.map((r) => r.content_hash);
-    const updatePlaceholders = foundHashes.map(() => '?').join(',');
+    const updatePlaceholders = sqlPlaceholders(foundHashes.length);
     db.prepare(
       `
       UPDATE embedding_cache SET hit_count = hit_count + 1

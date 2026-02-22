@@ -17,6 +17,7 @@ import { vectorStore } from '../storage/vector-store.js';
 import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
 import { formatDateRange, formatChunkPreview, buildChunkMap, getMemoryStats } from './services.js';
+import { errorMessage } from '../utils/errors.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 import type { SearchResponse } from '../retrieval/search-assembler.js';
 
@@ -411,7 +412,7 @@ export const reconstructTool: ToolDefinition = {
 
       return formatReconstruction(result);
     } catch (error) {
-      return `Error: ${error instanceof Error ? error.message : String(error)}`;
+      return `Error: ${errorMessage(error)}`;
     }
   },
 };
