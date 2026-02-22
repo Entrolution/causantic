@@ -34,15 +34,14 @@ Interactive query interface:
 - View matching chunks with relevance scores
 - Filter by project
 
-### Graph Explorer
+### Timeline
 
-Visual exploration of the causal graph:
+D3.js swimlane visualization of session history:
 
-- Interactive node-edge visualization (D3.js force layout)
-- Click nodes to see chunk content
-- Color-coded by project or cluster membership
-- Zoom, pan, and filter by edge type
-- Hover edges to see type and weight
+- Swimlane layout grouped by project
+- Chain walking visualization between chunks
+- Click chunks to see content
+- Zoom and pan across session timeline
 
 ### Clusters
 

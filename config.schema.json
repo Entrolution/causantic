@@ -187,6 +187,27 @@
         }
       },
       "additionalProperties": false
+    },
+    "recency": {
+      "type": "object",
+      "description": "Recency boost settings for time-decay scoring",
+      "properties": {
+        "decayFactor": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.3,
+          "description": "Amplitude of the time-decay boost (multiplied by exp decay)"
+        },
+        "halfLifeHours": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 8760,
+          "default": 48,
+          "description": "Half-life in hours for the decay function"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

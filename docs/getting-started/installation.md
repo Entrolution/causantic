@@ -87,7 +87,7 @@ You can add or update the API key later:
 
 ```bash
 npx causantic config set-key anthropic-api-key
-npx causantic maintenance run refresh-labels
+npx causantic maintenance run update-clusters
 ```
 
 ## Verify Installation

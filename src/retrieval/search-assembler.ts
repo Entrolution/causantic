@@ -18,7 +18,7 @@ import { fuseRRF, type RankedItem } from './rrf.js';
 import { expandViaClusters } from './cluster-expander.js';
 import { reorderWithMMR } from './mmr.js';
 import { createLogger } from '../utils/logger.js';
-import type { StoredChunk } from '../storage/types.js';
+import { formatSearchChunk } from './formatting.js';
 
 const log = createLogger('search-assembler');
 
@@ -294,7 +294,7 @@ function assembleWithinBudget(
       const remainingTokens = maxTokens - totalTokens;
       if (remainingTokens > 100) {
         const truncated = truncateChunk(chunk.content, remainingTokens);
-        parts.push(formatChunkForOutput(chunk, truncated, item.score));
+        parts.push(formatSearchChunk(chunk, truncated, item.score));
         totalTokens += approximateTokens(truncated);
         includedChunks.push({
           id: chunk.id,
@@ -307,7 +307,7 @@ function assembleWithinBudget(
       break;
     }
 
-    parts.push(formatChunkForOutput(chunk, chunk.content, item.score));
+    parts.push(formatSearchChunk(chunk, chunk.content, item.score));
     totalTokens += chunkTokens;
     includedChunks.push({
       id: chunk.id,
@@ -323,13 +323,6 @@ function assembleWithinBudget(
     tokenCount: totalTokens,
     includedChunks,
   };
-}
-
-function formatChunkForOutput(chunk: StoredChunk, content: string, weight: number): string {
-  const date = new Date(chunk.startTime).toLocaleDateString();
-  const relevance = (weight * 100).toFixed(0);
-  const agentPart = chunk.agentId && chunk.agentId !== 'ui' ? ` | Agent: ${chunk.agentId}` : '';
-  return `[Session: ${chunk.sessionSlug}${agentPart} | Date: ${date} | Relevance: ${relevance}%]\n${content}`;
 }
 
 function truncateChunk(content: string, maxTokens: number): string {

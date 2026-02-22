@@ -3,36 +3,21 @@
  */
 
 import { recall, predict } from '../retrieval/context-assembler.js';
-import {
-  searchContext,
-  findSimilarChunkIds,
-  type SimilarChunkResult,
-} from '../retrieval/search-assembler.js';
+import { searchContext, findSimilarChunkIds } from '../retrieval/search-assembler.js';
 import { getConfig } from '../config/memory-config.js';
 import {
-  getChunkCount,
-  getChunksByIds,
   getDistinctProjects,
   getSessionsForProject,
   queryChunkIds,
   deleteChunks,
   invalidateProjectsCache,
 } from '../storage/chunk-store.js';
-import { getDb } from '../storage/db.js';
 import { vectorStore } from '../storage/vector-store.js';
-import { getEdgeCount } from '../storage/edge-store.js';
-import { getClusterCount } from '../storage/cluster-store.js';
 import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
-import { readFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { formatDateRange, formatChunkPreview, buildChunkMap, getMemoryStats } from './services.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 import type { SearchResponse } from '../retrieval/search-assembler.js';
-
-const __tools_dirname = dirname(fileURLToPath(import.meta.url));
-const toolsPkg = JSON.parse(readFileSync(resolve(__tools_dirname, '../../package.json'), 'utf-8'));
-const TOOLS_VERSION: string = toolsPkg.version;
 
 /**
  * Tool definition for MCP.
@@ -241,15 +226,7 @@ export const listProjectsTool: ToolDefinition = {
     }
 
     const lines = projects.map((p) => {
-      const first = new Date(p.firstSeen).toLocaleDateString('en-US', {
-        month: 'short',
-        year: 'numeric',
-      });
-      const last = new Date(p.lastSeen).toLocaleDateString('en-US', {
-        month: 'short',
-        year: 'numeric',
-      });
-      const range = first === last ? first : `${first} – ${last}`;
+      const range = formatDateRange(p.firstSeen, p.lastSeen);
       return `- ${p.slug} (${p.chunkCount} chunks, ${range})`;
     });
 
@@ -428,69 +405,7 @@ export const statsTool: ToolDefinition = {
     required: [],
   },
   handler: async () => {
-    const chunks = getChunkCount();
-    const edges = getEdgeCount();
-    const clusters = getClusterCount();
-    const projects = getDistinctProjects();
-
-    const lines = [
-      `Causantic v${TOOLS_VERSION}`,
-      '',
-      'Memory Statistics:',
-      `- Chunks: ${chunks}`,
-      `- Edges: ${edges}`,
-      `- Clusters: ${clusters}`,
-    ];
-
-    if (projects.length > 0) {
-      lines.push('', 'Projects:');
-      for (const p of projects) {
-        const first = new Date(p.firstSeen).toLocaleDateString('en-US', {
-          month: 'short',
-          year: 'numeric',
-        });
-        const last = new Date(p.lastSeen).toLocaleDateString('en-US', {
-          month: 'short',
-          year: 'numeric',
-        });
-        const range = first === last ? first : `${first} – ${last}`;
-        lines.push(`- ${p.slug}: ${p.chunkCount} chunks (${range})`);
-      }
-    }
-
-    // Agent team stats
-    try {
-      const db = getDb();
-      const agentChunks = db
-        .prepare(
-          "SELECT COUNT(*) as count FROM chunks WHERE agent_id IS NOT NULL AND agent_id != 'ui'",
-        )
-        .get() as { count: number };
-      const distinctAgents = db
-        .prepare(
-          "SELECT COUNT(DISTINCT agent_id) as count FROM chunks WHERE agent_id IS NOT NULL AND agent_id != 'ui'",
-        )
-        .get() as { count: number };
-
-      if (agentChunks.count > 0) {
-        lines.push('', 'Agent Teams:');
-        lines.push(`- Agent chunks: ${agentChunks.count}`);
-        lines.push(`- Distinct agents: ${distinctAgents.count}`);
-
-        const teamEdgeRows = db
-          .prepare(
-            "SELECT reference_type, COUNT(*) as count FROM edges WHERE reference_type IN ('team-spawn', 'team-report', 'peer-message') GROUP BY reference_type",
-          )
-          .all() as Array<{ reference_type: string; count: number }>;
-        for (const row of teamEdgeRows) {
-          lines.push(`- ${row.reference_type} edges: ${row.count}`);
-        }
-      }
-    } catch {
-      // Agent stats unavailable (table may not have agent columns yet)
-    }
-
-    return lines.join('\n');
+    return getMemoryStats();
   },
 };
 
@@ -498,7 +413,7 @@ export const statsTool: ToolDefinition = {
  * Format a semantic dry-run preview showing top matches with scores and distribution.
  */
 function formatSemanticDryRun(
-  matches: SimilarChunkResult[],
+  matches: { id: string; score: number }[],
   query: string,
   threshold: number,
   project: string,
@@ -523,24 +438,12 @@ function formatSemanticDryRun(
   // Top 5 previews
   const topN = Math.min(5, matches.length);
   const topMatches = matches.slice(0, topN);
-  const chunks = getChunksByIds(topMatches.map((m) => m.id));
-  const chunkMap = new Map(chunks.map((c) => [c.id, c]));
+  const chunkMap = buildChunkMap(topMatches);
 
   lines.push('');
   lines.push('Top matches:');
   for (let i = 0; i < topN; i++) {
-    const match = topMatches[i];
-    const chunk = chunkMap.get(match.id);
-    const scorePct = Math.round(match.score * 100);
-    const preview = chunk ? chunk.content.split('\n')[0].slice(0, 80) : '(chunk not found)';
-    const date = chunk
-      ? new Date(chunk.startTime).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })
-      : '';
-    lines.push(`  ${i + 1}. [${scorePct}%] "${preview}" (${date})`);
+    lines.push(formatChunkPreview(topMatches[i], chunkMap.get(topMatches[i].id), i));
   }
 
   if (matches.length > topN) {
@@ -564,25 +467,13 @@ function formatSemanticDryRun(
 /**
  * Format the top N deleted chunks for confirmation display.
  */
-function formatDeletedPreview(matches: SimilarChunkResult[], n: number): string {
+function formatDeletedPreview(matches: { id: string; score: number }[], n: number): string {
   const topN = matches.slice(0, n);
-  const chunks = getChunksByIds(topN.map((m) => m.id));
-  const chunkMap = new Map(chunks.map((c) => [c.id, c]));
+  const chunkMap = buildChunkMap(topN);
 
   const lines: string[] = ['', 'Top deleted:'];
   for (let i = 0; i < topN.length; i++) {
-    const match = topN[i];
-    const chunk = chunkMap.get(match.id);
-    const scorePct = Math.round(match.score * 100);
-    const preview = chunk ? chunk.content.split('\n')[0].slice(0, 80) : '(chunk not found)';
-    const date = chunk
-      ? new Date(chunk.startTime).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })
-      : '';
-    lines.push(`  ${i + 1}. [${scorePct}%] "${preview}" (${date})`);
+    lines.push(formatChunkPreview(topN[i], chunkMap.get(topN[i].id), i));
   }
   return lines.join('\n');
 }

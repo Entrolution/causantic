@@ -72,7 +72,7 @@ Control output sizes:
 | Setting                 | Default | Description                         |
 | ----------------------- | ------- | ----------------------------------- |
 | `tokens.claudeMdBudget` | `500`   | Tokens for CLAUDE.md memory section |
-| `tokens.mcpMaxResponse` | `2000`  | Max tokens in MCP responses         |
+| `tokens.mcpMaxResponse` | `20000` | Max tokens in MCP responses         |
 
 ## More Settings
 

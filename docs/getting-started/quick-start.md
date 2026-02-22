@@ -27,7 +27,7 @@ This creates:
 
 Add Causantic as an MCP server in your Claude Code configuration:
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Claude Code**: `~/.claude.json`
 
 ```json
 {
@@ -59,6 +59,6 @@ Claude: [Uses memory tools to recall relevant context]
 
 ## Next Steps
 
-- [Configuration](configuration.md) - Customize decay curves, thresholds, etc.
+- [Configuration](configuration.md) - Customize clustering, chain walking, token budgets, etc.
 - [How It Works](../guides/how-it-works.md) - Understand the architecture
 - [MCP Tools](../reference/mcp-tools.md) - Learn about search, recall, and predict

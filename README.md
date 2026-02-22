@@ -189,7 +189,7 @@ Or run `npx causantic init` to configure automatically.
 
 ## Skills
 
-Causantic installs 14 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
+Causantic installs 15 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
 
 | Skill                           | Description                                                                                                          |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -206,6 +206,7 @@ Causantic installs 14 Claude Code slash commands (via `npx causantic init`) for 
 | `/causantic-crossref [pattern]` | Search across all projects for reusable patterns                                                                     |
 | `/causantic-retro [scope]`      | Surface recurring patterns, problems, and decisions across sessions                                                  |
 | `/causantic-cleanup`            | Memory-informed codebase review and cleanup plan                                                                     |
+| `/causantic-roadmap [goal]`     | Gather deferred work and goals into a phased roadmap                                                                 |
 | `/causantic-forget [query]`     | Delete memory by topic, time range, or session (always previews first)                                               |
 
 Skills are installed to `~/.claude/skills/causantic-*/` and work as slash commands in Claude Code. They orchestrate the MCP tools above with structured prompts tailored to each use case.
@@ -274,7 +275,7 @@ See [Security Guide](docs/guides/security.md).
 - [User Guides](docs/guides/) — Dashboard, benchmarking, integration, security, maintenance
 - [CLI Reference](docs/reference/cli-commands.md) — All commands and options
 - [MCP Tools Reference](docs/reference/mcp-tools.md) — Tool schemas and usage
-- [Skills Reference](docs/reference/skills.md) — All 14 slash commands
+- [Skills Reference](docs/reference/skills.md) — All 15 slash commands
 - [Configuration Reference](docs/reference/configuration.md) — All configuration options
 - [Research Documentation](docs/research/) — Experiment results and design decisions
 - [Design Decision Log](docs/research/decisions.md) — Why things are the way they are

@@ -14,7 +14,7 @@
 import { approximateTokens } from '../utils/token-counter.js';
 import { searchContext, type SearchRequest } from './search-assembler.js';
 import { walkChains, selectBestChain, type Chain } from './chain-walker.js';
-import type { StoredChunk } from '../storage/types.js';
+import { formatChainChunk } from './formatting.js';
 
 /**
  * Request for episodic retrieval.
@@ -236,7 +236,7 @@ function formatChain(
     const chunk = orderedChunks[i];
     const chunkTokens = chunk.approxTokens || approximateTokens(chunk.content);
 
-    parts.push(formatChunkForOutput(chunk, chunk.content, i + 1, orderedChunks.length));
+    parts.push(formatChainChunk(chunk, chunk.content, i + 1, orderedChunks.length));
     totalTokens += chunkTokens;
     resultChunks.push({
       id: orderedIds[i],
@@ -251,15 +251,4 @@ function formatChain(
     tokenCount: totalTokens,
     chunks: resultChunks,
   };
-}
-
-function formatChunkForOutput(
-  chunk: StoredChunk,
-  content: string,
-  position: number,
-  total: number,
-): string {
-  const date = new Date(chunk.startTime).toLocaleDateString();
-  const agentPart = chunk.agentId && chunk.agentId !== 'ui' ? ` | Agent: ${chunk.agentId}` : '';
-  return `[${position}/${total} | Session: ${chunk.sessionSlug}${agentPart} | Date: ${date}]\n${content}`;
 }
