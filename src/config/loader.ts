@@ -12,6 +12,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { resolvePath, DEFAULT_CONFIG, type MemoryConfig } from './memory-config.js';
+import { getAllModelIds } from '../models/model-registry.js';
 import { createLogger } from '../utils/logger.js';
 
 const log = createLogger('config-loader');
@@ -21,6 +22,8 @@ export interface ExternalConfig {
   clustering?: {
     threshold?: number;
     minClusterSize?: number;
+    /** Ratio of new chunks (vs total) that triggers a full recluster. Default: 0.3. */
+    incrementalThreshold?: number;
   };
   traversal?: {
     maxDepth?: number;
@@ -54,6 +57,8 @@ export interface ExternalConfig {
   embedding?: {
     /** Device for embedding inference: 'auto' | 'coreml' | 'cuda' | 'cpu' | 'wasm'. Default: 'auto'. */
     device?: string;
+    /** Embedding model ID from model registry. Default: 'jina-small'. */
+    model?: string;
   };
   maintenance?: {
     /** Hour of day (0-23) to run reclustering. Default: 2. */
@@ -62,6 +67,8 @@ export interface ExternalConfig {
   retrieval?: {
     /** MMR lambda: 0 = pure diversity, 1 = pure relevance. Default: 0.7 */
     mmrLambda?: number;
+    /** Feedback weight for cluster expansion scoring. Default: 0.1 */
+    feedbackWeight?: number;
   };
   recency?: {
     /** Amplitude of the time-decay boost (multiplied by exp decay). Default: 0.3 */
@@ -76,6 +83,7 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   clustering: {
     threshold: 0.1,
     minClusterSize: 4,
+    incrementalThreshold: 0.3,
   },
   traversal: {
     maxDepth: 50, // Safety net for chain walk depth
@@ -105,12 +113,14 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   },
   embedding: {
     device: 'auto',
+    model: 'jina-small',
   },
   maintenance: {
     clusterHour: 2,
   },
   retrieval: {
     mmrLambda: 0.7,
+    feedbackWeight: 0.1,
   },
   recency: {
     decayFactor: 0.3,
@@ -157,6 +167,12 @@ function loadEnvConfig(): ExternalConfig {
     config.clustering.minClusterSize = parseInt(
       process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE,
       10,
+    );
+  }
+  if (process.env.CAUSANTIC_CLUSTERING_INCREMENTAL_THRESHOLD) {
+    config.clustering = config.clustering ?? {};
+    config.clustering.incrementalThreshold = parseFloat(
+      process.env.CAUSANTIC_CLUSTERING_INCREMENTAL_THRESHOLD,
     );
   }
 
@@ -243,11 +259,19 @@ function loadEnvConfig(): ExternalConfig {
     config.embedding = config.embedding ?? {};
     config.embedding.device = process.env.CAUSANTIC_EMBEDDING_DEVICE;
   }
+  if (process.env.CAUSANTIC_EMBEDDING_MODEL) {
+    config.embedding = config.embedding ?? {};
+    config.embedding.model = process.env.CAUSANTIC_EMBEDDING_MODEL;
+  }
 
   // Retrieval
   if (process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA) {
     config.retrieval = config.retrieval ?? {};
     config.retrieval.mmrLambda = parseFloat(process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA);
+  }
+  if (process.env.CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT) {
+    config.retrieval = config.retrieval ?? {};
+    config.retrieval.feedbackWeight = parseFloat(process.env.CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT);
   }
 
   // Recency
@@ -341,10 +365,25 @@ export function validateExternalConfig(config: ExternalConfig): string[] {
     }
   }
 
+  // Embedding validation
+  if (config.embedding?.model !== undefined) {
+    const validModels = getAllModelIds();
+    if (!validModels.includes(config.embedding.model)) {
+      errors.push(
+        `embedding.model '${config.embedding.model}' is not a registered model. Available: ${validModels.join(', ')}`,
+      );
+    }
+  }
+
   // Retrieval validation
   if (config.retrieval?.mmrLambda !== undefined) {
     if (config.retrieval.mmrLambda < 0 || config.retrieval.mmrLambda > 1) {
       errors.push('retrieval.mmrLambda must be between 0 and 1 (inclusive)');
+    }
+  }
+  if (config.retrieval?.feedbackWeight !== undefined) {
+    if (config.retrieval.feedbackWeight < 0 || config.retrieval.feedbackWeight > 1) {
+      errors.push('retrieval.feedbackWeight must be between 0 and 1 (inclusive)');
     }
   }
 
@@ -444,6 +483,10 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
     clusterThreshold: external.clustering.threshold ?? DEFAULT_CONFIG.clusterThreshold,
     minClusterSize: external.clustering.minClusterSize ?? DEFAULT_CONFIG.minClusterSize,
 
+    // Clustering (incremental)
+    incrementalClusterThreshold:
+      external.clustering.incrementalThreshold ?? DEFAULT_CONFIG.incrementalClusterThreshold,
+
     // Chain walking
     maxChainDepth: external.traversal.maxDepth ?? DEFAULT_CONFIG.maxChainDepth,
 
@@ -460,10 +503,14 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
     refreshRateLimitPerMin:
       external.llm.refreshRateLimitPerMin ?? DEFAULT_CONFIG.refreshRateLimitPerMin,
 
+    // Embedding
+    embeddingModel: external.embedding?.model ?? DEFAULT_CONFIG.embeddingModel,
+
     // Retrieval
     mmrReranking: {
       lambda: external.retrieval?.mmrLambda ?? DEFAULT_CONFIG.mmrReranking.lambda,
     },
+    feedbackWeight: external.retrieval?.feedbackWeight ?? DEFAULT_CONFIG.feedbackWeight,
 
     // Recency
     recency: {

@@ -7,6 +7,7 @@
 
 import { getChunkClusterAssignments, getClusterChunkIds } from '../storage/cluster-store.js';
 import { vectorStore } from '../storage/vector-store.js';
+import { getFeedbackScores } from '../storage/feedback-store.js';
 import type { RankedItem } from './rrf.js';
 
 export interface ClusterExpansionConfig {
@@ -38,6 +39,7 @@ export function expandViaClusters(
   config: ClusterExpansionConfig = DEFAULT_CLUSTER_EXPANSION,
   projectFilter?: string | string[],
   agentFilter?: string,
+  feedbackWeight: number = 0,
 ): RankedItem[] {
   if (hits.length === 0) return [];
 
@@ -107,6 +109,19 @@ export function expandViaClusters(
           existingIds.add(siblingId);
           addedSiblings++;
         }
+      }
+    }
+  }
+
+  // Apply feedback boost to sibling items
+  if (feedbackWeight > 0 && siblingItems.length > 0) {
+    const siblingIds = siblingItems.map((s) => s.chunkId);
+    const scores = getFeedbackScores(siblingIds);
+
+    for (const item of siblingItems) {
+      const feedbackScore = scores.get(item.chunkId);
+      if (feedbackScore !== undefined) {
+        item.score += feedbackWeight * feedbackScore;
       }
     }
   }

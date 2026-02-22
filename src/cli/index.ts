@@ -20,6 +20,7 @@ import { exportCommand, importCommand } from './commands/archive.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { dashboardCommand } from './commands/dashboard.js';
 import { benchmarkCollectionCommand } from './commands/benchmark-collection.js';
+import { reindexCommand } from './commands/reindex.js';
 
 const commands: Command[] = [
   initCommand,
@@ -38,6 +39,7 @@ const commands: Command[] = [
   uninstallCommand,
   dashboardCommand,
   benchmarkCollectionCommand,
+  reindexCommand,
 ];
 
 function showHelp(): void {

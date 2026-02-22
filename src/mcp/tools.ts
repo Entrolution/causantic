@@ -5,6 +5,7 @@
 import { recall, predict } from '../retrieval/context-assembler.js';
 import { searchContext, findSimilarChunkIds } from '../retrieval/search-assembler.js';
 import { getConfig } from '../config/memory-config.js';
+import { recordRetrieval } from '../storage/feedback-store.js';
 import {
   getDistinctProjects,
   getSessionsForProject,
@@ -105,7 +106,22 @@ export const searchTool: ToolDefinition = {
       agentFilter: agent,
     });
 
-    return formatSearchResponse(response);
+    const result = formatSearchResponse(response);
+
+    // Fire-and-forget feedback recording
+    if (response.chunks.length > 0) {
+      try {
+        recordRetrieval(
+          response.chunks.map((c) => c.id),
+          query,
+          'search',
+        );
+      } catch {
+        // Non-critical — don't fail the response
+      }
+    }
+
+    return result;
   },
 };
 
@@ -147,7 +163,21 @@ export const recallTool: ToolDefinition = {
       agentFilter: agent,
     });
 
-    return formatResponse(response);
+    const result = formatResponse(response);
+
+    if (response.chunks.length > 0) {
+      try {
+        recordRetrieval(
+          response.chunks.map((c) => c.id),
+          query,
+          'recall',
+        );
+      } catch {
+        // Non-critical
+      }
+    }
+
+    return result;
   },
 };
 
@@ -200,6 +230,18 @@ export const predictTool: ToolDefinition = {
       const d = response.diagnostics;
       const lengths = d.chainLengths.length > 0 ? d.chainLengths.join(', ') : 'none';
       result += `\n\n[Chain walk: fell back to search — ${d.fallbackReason}. Search found ${d.searchResultCount} chunks, ${d.seedCount} seeds, ${d.chainsAttempted} chain(s) attempted, lengths: ${lengths}]`;
+    }
+
+    if (response.chunks.length > 0) {
+      try {
+        recordRetrieval(
+          response.chunks.map((c) => c.id),
+          context,
+          'predict',
+        );
+      } catch {
+        // Non-critical
+      }
     }
 
     return result;

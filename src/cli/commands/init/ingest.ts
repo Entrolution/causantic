@@ -104,9 +104,13 @@ export async function offerBatchIngest(): Promise<void> {
   const { discoverSessions, batchIngest } = await import('../../../ingest/batch-ingest.js');
   const { Embedder } = await import('../../../models/embedder.js');
   const { getModel } = await import('../../../models/model-registry.js');
+  const { loadConfig, toRuntimeConfig } = await import('../../../config/loader.js');
 
+  const runtimeConfig = toRuntimeConfig(loadConfig());
   const sharedEmbedder = new Embedder();
-  await sharedEmbedder.load(getModel('jina-small'), { device: detectedDevice.device });
+  await sharedEmbedder.load(getModel(runtimeConfig.embeddingModel), {
+    device: detectedDevice.device,
+  });
 
   let totalIngested = 0;
   let totalSkipped = 0;

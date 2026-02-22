@@ -109,8 +109,30 @@ export function createTestDb(): Database.Database {
 
     CREATE INDEX IF NOT EXISTS idx_chunk_clusters_cluster ON chunk_clusters(cluster_id);
 
+    -- HDBSCAN model persistence for incremental clustering
+    CREATE TABLE IF NOT EXISTS hdbscan_models (
+      project_id TEXT NOT NULL,
+      embedding_model TEXT NOT NULL,
+      model_blob BLOB NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (project_id, embedding_model)
+    );
+
+    -- Retrieval feedback for relevance learning
+    CREATE TABLE IF NOT EXISTS retrieval_feedback (
+      chunk_id TEXT NOT NULL,
+      query_hash TEXT NOT NULL,
+      returned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      tool_name TEXT NOT NULL,
+      FOREIGN KEY (chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_chunk ON retrieval_feedback(chunk_id);
+    CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_returned ON retrieval_feedback(returned_at);
+
     -- Set schema version
-    INSERT OR REPLACE INTO schema_version (version) VALUES (10);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (13);
   `);
 
   // Create FTS5 table and sync triggers (separate exec for virtual table)

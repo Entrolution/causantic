@@ -55,6 +55,9 @@ export interface MemoryConfig {
     lambda: number;
   };
 
+  /** Relevance feedback weight for cluster expansion scoring. Default: 0.1 */
+  feedbackWeight: number;
+
   /** Recency boost configuration for time-decay scoring */
   recency: {
     /** Amplitude of the time-decay boost. Default: 0.3 */
@@ -62,6 +65,14 @@ export interface MemoryConfig {
     /** Half-life in hours for the decay function. Default: 48 */
     halfLifeHours: number;
   };
+
+  // Clustering (incremental)
+  /** Ratio of new chunks that triggers a full recluster. Default: 0.3 (30%). */
+  incrementalClusterThreshold: number;
+
+  // Embedding
+  /** Embedding model ID (from model registry). Default: 'jina-small'. */
+  embeddingModel: string;
 
   // Storage
   /** Path to SQLite database file */
@@ -106,10 +117,19 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   mmrReranking: {
     lambda: 0.7,
   },
+  // Relevance feedback
+  feedbackWeight: 0.1,
+
   recency: {
     decayFactor: 0.3,
     halfLifeHours: 48,
   },
+
+  // Clustering (incremental)
+  incrementalClusterThreshold: 0.3,
+
+  // Embedding
+  embeddingModel: 'jina-small',
 
   // Storage - defaults to ~/.causantic/
   dbPath: '~/.causantic/memory.db',
