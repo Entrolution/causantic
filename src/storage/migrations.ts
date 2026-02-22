@@ -466,11 +466,12 @@ function migrateToV10(database: Database.Database): void {
  */
 function migrateToV11(database: Database.Database): void {
   // vectors table is created lazily by VectorStore.load() — it may not exist yet
-  const vectorsTableExists = (
-    database
-      .prepare("SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='vectors'")
-      .get() as { cnt: number }
-  ).cnt > 0;
+  const vectorsTableExists =
+    (
+      database
+        .prepare("SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='vectors'")
+        .get() as { cnt: number }
+    ).cnt > 0;
 
   if (vectorsTableExists) {
     // Add model_id column — safe to backfill as 'jina-small' since that was the only model ever used

@@ -153,7 +153,9 @@ export class VectorStore {
     }
 
     // Load only vectors matching the active model_id
-    const rows = db.prepare('SELECT id, embedding FROM vectors WHERE model_id = ?').all(this.modelId) as {
+    const rows = db
+      .prepare('SELECT id, embedding FROM vectors WHERE model_id = ?')
+      .all(this.modelId) as {
       id: string;
       embedding: Buffer;
     }[];

@@ -122,9 +122,7 @@ export const reindexCommand: Command = {
     const insertStmt = db.prepare(
       'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed, model_id) VALUES (?, ?, NULL, CURRENT_TIMESTAMP, ?)',
     );
-    const deleteOldStmt = db.prepare(
-      'DELETE FROM vectors WHERE id = ? AND model_id != ?',
-    );
+    const deleteOldStmt = db.prepare('DELETE FROM vectors WHERE id = ? AND model_id != ?');
 
     // Process in batches
     const allChunks = db
@@ -170,9 +168,7 @@ export const reindexCommand: Command = {
     clearProgress(db, targetModel);
 
     // Clean up any remaining vectors from other models that don't correspond to chunks
-    const cleanedUp = db
-      .prepare('DELETE FROM vectors WHERE model_id != ?')
-      .run(targetModel);
+    const cleanedUp = db.prepare('DELETE FROM vectors WHERE model_id != ?').run(targetModel);
 
     if (cleanedUp.changes > 0) {
       console.log(`Cleaned up ${cleanedUp.changes} orphaned vectors from other models`);
@@ -181,6 +177,8 @@ export const reindexCommand: Command = {
     await embedder.dispose();
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`Reindex complete: ${processed} chunks re-embedded with ${targetModel} in ${duration}s`);
+    console.log(
+      `Reindex complete: ${processed} chunks re-embedded with ${targetModel} in ${duration}s`,
+    );
   },
 };

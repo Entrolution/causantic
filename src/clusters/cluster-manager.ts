@@ -379,12 +379,7 @@ export class ClusterManager {
     };
 
     // Run incremental assignment
-    const labels = predictLabels(
-      newEmbeddings,
-      fullModel,
-      this.config.minClusterSize,
-      'angular',
-    );
+    const labels = predictLabels(newEmbeddings, fullModel, this.config.minClusterSize, 'angular');
 
     // Process assignments
     const assignments: ChunkClusterAssignment[] = [];
@@ -434,11 +429,9 @@ export class ClusterManager {
         // Check if already assigned via the block above
         if (assignments.some((a) => a.chunkId === validChunkIds[i])) continue;
 
-        const assigned = await this.assignChunkToClusters(
-          validChunkIds[i],
-          newEmbeddings[i],
-          { threshold: clusterThreshold },
-        );
+        const assigned = await this.assignChunkToClusters(validChunkIds[i], newEmbeddings[i], {
+          threshold: clusterThreshold,
+        });
         if (assigned.length > 0) {
           noiseCount--;
         }

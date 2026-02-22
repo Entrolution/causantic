@@ -108,7 +108,9 @@ export async function offerBatchIngest(): Promise<void> {
 
   const runtimeConfig = toRuntimeConfig(loadConfig());
   const sharedEmbedder = new Embedder();
-  await sharedEmbedder.load(getModel(runtimeConfig.embeddingModel), { device: detectedDevice.device });
+  await sharedEmbedder.load(getModel(runtimeConfig.embeddingModel), {
+    device: detectedDevice.device,
+  });
 
   let totalIngested = 0;
   let totalSkipped = 0;
