@@ -62,7 +62,7 @@
  * @module storage/vector-store
  */
 
-import { getDb } from './db.js';
+import { getDb, sqlPlaceholders } from './db.js';
 import { angularDistance } from '../utils/angular-distance.js';
 import type { VectorSearchResult } from './types.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
@@ -286,7 +286,7 @@ export class VectorStore {
     try {
       const ids = items.map((i) => i.id);
       if (ids.length > 0) {
-        const placeholders = ids.map(() => '?').join(',');
+        const placeholders = sqlPlaceholders(ids.length);
         const rows = db
           .prepare(
             `SELECT id, session_slug, agent_id, team_name FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`,
@@ -459,7 +459,7 @@ export class VectorStore {
     await this.load();
 
     const db = getDb();
-    const placeholders = ids.map(() => '?').join(',');
+    const placeholders = sqlPlaceholders(ids.length);
     const result = db.prepare(`DELETE FROM vectors WHERE id IN (${placeholders})`).run(...ids);
 
     for (const id of ids) {
@@ -550,7 +550,7 @@ export class VectorStore {
     if (ids.length === 0) return;
 
     const db = getDb();
-    const placeholders = ids.map(() => '?').join(',');
+    const placeholders = sqlPlaceholders(ids.length);
     db.prepare(
       `UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
     ).run(...ids);
@@ -584,7 +584,7 @@ export class VectorStore {
     }
 
     const expiredIds = expiredRows.map((r) => r.id);
-    const placeholders = expiredIds.map(() => '?').join(',');
+    const placeholders = sqlPlaceholders(expiredIds.length);
 
     // Delete chunks first (FK cascades handle chunk_clusters and edges)
     db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...expiredIds);
@@ -644,7 +644,7 @@ export class VectorStore {
     if (toEvict.length === 0) return 0;
 
     const evictIds = toEvict.map((r) => r.id);
-    const placeholders = evictIds.map(() => '?').join(',');
+    const placeholders = sqlPlaceholders(evictIds.length);
 
     // Delete chunks first (FK cascades handle chunk_clusters and edges)
     db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...evictIds);

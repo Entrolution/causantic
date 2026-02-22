@@ -6,9 +6,13 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../../src/hooks/hook-utils.js', () => ({
-  handleIngestionHook: vi.fn(),
-}));
+vi.mock('../../src/hooks/hook-utils.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...(actual as object),
+    handleIngestionHook: vi.fn(),
+  };
+});
 
 vi.mock('../../src/utils/logger.js', () => ({
   createLogger: vi.fn(() => ({

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDb } from '../../storage/db.js';
+import { getDb, sqlPlaceholders } from '../../storage/db.js';
 import { getClusterChunkIds, getAllClusters } from '../../storage/cluster-store.js';
 
 const router = Router();
@@ -80,7 +80,7 @@ router.get('/', (req, res) => {
 
   // Get forward edges where both endpoints are in the returned chunk set
   const idList = [...chunkIds];
-  const placeholders = idList.map(() => '?').join(',');
+  const placeholders = sqlPlaceholders(idList.length);
   const edgeRows = db
     .prepare(
       `SELECT source_chunk_id, target_chunk_id, reference_type

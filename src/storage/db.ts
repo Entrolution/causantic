@@ -299,3 +299,12 @@ export function getDbStats(database?: Database.Database): {
 export function generateId(): string {
   return crypto.randomUUID();
 }
+
+/**
+ * Generate a comma-separated list of SQL placeholders for parameterised queries.
+ *
+ * @example sqlPlaceholders(3) // '?, ?, ?'
+ */
+export function sqlPlaceholders(count: number): string {
+  return new Array(count).fill('?').join(', ');
+}

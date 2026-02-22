@@ -8,7 +8,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { gzipSync, gunzipSync } from 'node:zlib';
 import { encrypt, decrypt, serializeEncrypted, deserializeEncrypted } from './encryption.js';
-import { getDb, generateId } from './db.js';
+import { getDb, generateId, sqlPlaceholders } from './db.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
 import { createLogger } from '../utils/logger.js';
 
@@ -244,7 +244,7 @@ export async function exportArchive(options: ExportOptions): Promise<ExportResul
   const chunksQuery = db.prepare(`
     SELECT id, session_id, session_slug, project_path, content, start_time, end_time, turn_indices
     FROM chunks
-    WHERE session_slug IN (${targetProjects.map(() => '?').join(',')})
+    WHERE session_slug IN (${sqlPlaceholders(targetProjects.length)})
   `);
   const chunksResult = chunksQuery.all(...targetProjects) as Array<{
     id: string;
@@ -292,7 +292,7 @@ export async function exportArchive(options: ExportOptions): Promise<ExportResul
     const edgesQuery = db.prepare(`
       SELECT id, source_chunk_id, target_chunk_id, edge_type, reference_type, initial_weight, link_count
       FROM edges
-      WHERE source_chunk_id IN (${chunkIds.map(() => '?').join(',')})
+      WHERE source_chunk_id IN (${sqlPlaceholders(chunkIds.length)})
     `);
     const edgesResult = edgesQuery.all(...chunkIds) as Array<{
       id: string;
@@ -324,7 +324,7 @@ export async function exportArchive(options: ExportOptions): Promise<ExportResul
     // Find clusters that have at least one member in our export
     const clusterIdsQuery = db.prepare(`
       SELECT DISTINCT cluster_id FROM chunk_clusters
-      WHERE chunk_id IN (${chunkIds.map(() => '?').join(',')})
+      WHERE chunk_id IN (${sqlPlaceholders(chunkIds.length)})
     `);
     const clusterIds = (clusterIdsQuery.all(...chunkIds) as Array<{ cluster_id: string }>).map(
       (r) => r.cluster_id,
@@ -334,7 +334,7 @@ export async function exportArchive(options: ExportOptions): Promise<ExportResul
       const clustersQuery = db.prepare(`
         SELECT id, name, description, centroid, exemplar_ids, membership_hash
         FROM clusters
-        WHERE id IN (${clusterIds.map(() => '?').join(',')})
+        WHERE id IN (${sqlPlaceholders(clusterIds.length)})
       `);
       const clustersResult = clustersQuery.all(...clusterIds) as Array<{
         id: string;
@@ -347,7 +347,7 @@ export async function exportArchive(options: ExportOptions): Promise<ExportResul
 
       const membersQuery = db.prepare(`
         SELECT chunk_id, distance FROM chunk_clusters
-        WHERE cluster_id = ? AND chunk_id IN (${chunkIds.map(() => '?').join(',')})
+        WHERE cluster_id = ? AND chunk_id IN (${sqlPlaceholders(chunkIds.length)})
       `);
 
       clusters = clustersResult.map((row) => {
@@ -383,7 +383,7 @@ export async function exportArchive(options: ExportOptions): Promise<ExportResul
     if (tableExists) {
       const vectorsQuery = db.prepare(`
         SELECT id, embedding FROM vectors
-        WHERE id IN (${chunkIds.map(() => '?').join(',')})
+        WHERE id IN (${sqlPlaceholders(chunkIds.length)})
       `);
       const vectorsResult = vectorsQuery.all(...chunkIds) as Array<{
         id: string;
