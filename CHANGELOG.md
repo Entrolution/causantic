@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-02-22
+
+### Changed
+
+- **Reduced code duplication**: Extracted `sqlPlaceholders()` utility in `db.ts` (replacing 20 inline occurrences across 9 files) and `errorMessage()` utility in `errors.ts` (replacing 20 inline occurrences across 8 files). `insertChunk` now delegates to `insertChunks`, `createEdge` delegates to `createEdges`. Shared `ingestionHookCli()` consolidates session-end and pre-compact CLI entry points.
+- **Dashboard dependency**: Bumped `lucide-react` from `^0.469.0` to `^0.575.0`. All 18 icon imports resolve without renames.
+
+### Fixed
+
+- **28 documentation accuracy issues** across 12 files: storage-api.md edge topology (sequential 1-to-1, not m×n), removed stale hopDecay/linkBoost references, added 3 missing stores. configuration.md gained `embedding.model`, `llm.enableLabelling`, `clustering.incrementalThreshold`, and 5 missing env var mappings. cli-commands.md added `reindex` command and fixed benchmark categories (`chain` not `graph`). traversal-algorithm.md fixed `initial_weight` (varies by type). integration.md updated hook config format with `async: true` and added `session-end` hook. dashboard.md added 4 missing API routes. future-work.md moved implemented items to Recently Implemented. Six other docs received minor accuracy fixes.
+
+### Removed
+
+- **Stale artifacts**: Deleted broken `scripts/benchmarks/hdbscan-benchmark.ts` (imported non-existent `hdbscan-ts` dependency, masked by `@ts-ignore`) and unused `test/fixtures/labeled-pairs.json` fixture.
+
 ## [0.8.0] - 2026-02-22
 
 ### Changed
