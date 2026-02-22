@@ -69,6 +69,15 @@ export function runMigrations(database: Database.Database): void {
   if (currentVersion < 10) {
     migrateToV10(database);
   }
+  if (currentVersion < 11) {
+    migrateToV11(database);
+  }
+  if (currentVersion < 12) {
+    migrateToV12(database);
+  }
+  if (currentVersion < 13) {
+    migrateToV13(database);
+  }
 }
 
 /**
@@ -450,6 +459,80 @@ function migrateToV10(database: Database.Database): void {
   `);
 
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (10)');
+}
+
+/**
+ * Migrate from v10 to v11 (add model_id column to vectors for multi-model support).
+ */
+function migrateToV11(database: Database.Database): void {
+  // vectors table is created lazily by VectorStore.load() — it may not exist yet
+  const vectorsTableExists = (
+    database
+      .prepare("SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='vectors'")
+      .get() as { cnt: number }
+  ).cnt > 0;
+
+  if (vectorsTableExists) {
+    // Add model_id column — safe to backfill as 'jina-small' since that was the only model ever used
+    try {
+      database.exec("ALTER TABLE vectors ADD COLUMN model_id TEXT DEFAULT 'jina-small'");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('duplicate column')) {
+        throw error;
+      }
+    }
+
+    // Backfill existing rows
+    database.exec("UPDATE vectors SET model_id = 'jina-small' WHERE model_id IS NULL");
+
+    // Index for model-filtered queries
+    database.exec('CREATE INDEX IF NOT EXISTS idx_vectors_model ON vectors(model_id)');
+  }
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (11)');
+}
+
+/**
+ * Migrate from v11 to v12 (add hdbscan_models table for incremental clustering).
+ */
+function migrateToV12(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS hdbscan_models (
+      project_id TEXT NOT NULL,
+      embedding_model TEXT NOT NULL,
+      model_blob BLOB NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (project_id, embedding_model)
+    )
+  `);
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (12)');
+}
+
+/**
+ * Migrate from v12 to v13 (add retrieval_feedback table for relevance learning).
+ */
+function migrateToV13(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS retrieval_feedback (
+      chunk_id TEXT NOT NULL,
+      query_hash TEXT NOT NULL,
+      returned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      tool_name TEXT NOT NULL,
+      FOREIGN KEY (chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
+    )
+  `);
+
+  database.exec(
+    'CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_chunk ON retrieval_feedback(chunk_id)',
+  );
+  database.exec(
+    'CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_returned ON retrieval_feedback(returned_at)',
+  );
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (13)');
 }
 
 /**

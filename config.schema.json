@@ -22,6 +22,13 @@
           "maximum": 100,
           "default": 4,
           "description": "Minimum points required to form a cluster"
+        },
+        "incrementalThreshold": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 1,
+          "default": 0.3,
+          "description": "Ratio of new chunks (vs total at last full recluster) that triggers a full recluster. 0.3 = 30%."
         }
       },
       "additionalProperties": false
@@ -161,6 +168,12 @@
           "enum": ["auto", "coreml", "cuda", "cpu", "wasm"],
           "default": "auto",
           "description": "Device for embedding inference. 'auto' detects hardware capabilities."
+        },
+        "model": {
+          "type": "string",
+          "enum": ["jina-small", "nomic-v1.5", "jina-code", "bge-small"],
+          "default": "jina-small",
+          "description": "Embedding model. Changing model requires running 'npx causantic reindex' to re-embed all chunks."
         }
       },
       "additionalProperties": false
@@ -189,6 +202,13 @@
           "maximum": 1,
           "default": 0.7,
           "description": "MMR lambda: 0 = pure diversity, 1 = pure relevance"
+        },
+        "feedbackWeight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.1,
+          "description": "How much retrieval feedback influences cluster expansion scoring. 0 = disabled, 1 = maximum influence."
         }
       },
       "additionalProperties": false

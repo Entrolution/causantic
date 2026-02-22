@@ -66,6 +66,7 @@ import { getDb } from './db.js';
 import { angularDistance } from '../utils/angular-distance.js';
 import type { VectorSearchResult } from './types.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
+import { getModel } from '../models/model-registry.js';
 
 /**
  * In-memory vector index backed by SQLite for persistence.
@@ -87,6 +88,32 @@ export class VectorStore {
   /** chunkId → teamName index for team-filtered queries */
   private chunkTeamIndex: Map<string, string> = new Map();
 
+  /** The model ID to filter vectors by. Set via setModelId(). */
+  private modelId: string = 'jina-small';
+  /** Expected embedding dimensions for the current model. */
+  private expectedDims: number = 512;
+
+  /**
+   * Set the active model ID for this vector store.
+   * Only vectors matching this model_id are loaded and returned from search.
+   */
+  setModelId(modelId: string): void {
+    const model = getModel(modelId); // throws if unknown
+    this.modelId = modelId;
+    this.expectedDims = model.dims;
+    // Force reload to pick up model-filtered vectors
+    if (this.loaded) {
+      this.reset();
+    }
+  }
+
+  /**
+   * Get the active model ID.
+   */
+  getModelId(): string {
+    return this.modelId;
+  }
+
   /**
    * Load vectors from database into memory.
    */
@@ -101,7 +128,8 @@ export class VectorStore {
         id TEXT PRIMARY KEY,
         embedding BLOB NOT NULL,
         orphaned_at TEXT DEFAULT NULL,
-        last_accessed TEXT DEFAULT CURRENT_TIMESTAMP
+        last_accessed TEXT DEFAULT CURRENT_TIMESTAMP,
+        model_id TEXT DEFAULT 'jina-small'
       )
     `);
 
@@ -109,6 +137,7 @@ export class VectorStore {
     const columns = db.prepare('PRAGMA table_info(vectors)').all() as { name: string }[];
     const hasOrphanedAt = columns.some((c) => c.name === 'orphaned_at');
     const hasLastAccessed = columns.some((c) => c.name === 'last_accessed');
+    const hasModelId = columns.some((c) => c.name === 'model_id');
 
     if (!hasOrphanedAt) {
       db.exec('ALTER TABLE vectors ADD COLUMN orphaned_at TEXT DEFAULT NULL');
@@ -117,8 +146,14 @@ export class VectorStore {
       db.exec('ALTER TABLE vectors ADD COLUMN last_accessed TEXT DEFAULT CURRENT_TIMESTAMP');
       db.exec('UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE last_accessed IS NULL');
     }
+    if (!hasModelId) {
+      db.exec("ALTER TABLE vectors ADD COLUMN model_id TEXT DEFAULT 'jina-small'");
+      db.exec("UPDATE vectors SET model_id = 'jina-small' WHERE model_id IS NULL");
+      db.exec('CREATE INDEX IF NOT EXISTS idx_vectors_model ON vectors(model_id)');
+    }
 
-    const rows = db.prepare('SELECT id, embedding FROM vectors').all() as {
+    // Load only vectors matching the active model_id
+    const rows = db.prepare('SELECT id, embedding FROM vectors WHERE model_id = ?').all(this.modelId) as {
       id: string;
       embedding: Buffer;
     }[];
@@ -172,16 +207,23 @@ export class VectorStore {
 
   /**
    * Insert a vector.
+   * @throws Error if embedding dimensions don't match the current model's expected dimensions.
    */
   async insert(id: string, embedding: number[]): Promise<void> {
     await this.load();
+
+    if (embedding.length !== this.expectedDims) {
+      throw new Error(
+        `Dimension mismatch: embedding has ${embedding.length} dims, but model '${this.modelId}' expects ${this.expectedDims}`,
+      );
+    }
 
     const db = getDb();
     const blob = serializeEmbedding(embedding);
 
     db.prepare(
-      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)',
-    ).run(id, blob);
+      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed, model_id) VALUES (?, ?, NULL, CURRENT_TIMESTAMP, ?)',
+    ).run(id, blob, this.modelId);
 
     this.vectors.set(id, embedding);
 
@@ -208,19 +250,30 @@ export class VectorStore {
 
   /**
    * Insert multiple vectors in a transaction.
+   * @throws Error if any embedding dimensions don't match the current model's expected dimensions.
    */
   async insertBatch(items: Array<{ id: string; embedding: number[] }>): Promise<void> {
     await this.load();
 
+    // Dimension guard: check all items before inserting any
+    for (const item of items) {
+      if (item.embedding.length !== this.expectedDims) {
+        throw new Error(
+          `Dimension mismatch: embedding for '${item.id}' has ${item.embedding.length} dims, but model '${this.modelId}' expects ${this.expectedDims}`,
+        );
+      }
+    }
+
     const db = getDb();
     const stmt = db.prepare(
-      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed) VALUES (?, ?, NULL, CURRENT_TIMESTAMP)',
+      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed, model_id) VALUES (?, ?, NULL, CURRENT_TIMESTAMP, ?)',
     );
 
+    const modelId = this.modelId;
     const insertMany = db.transaction((items: Array<{ id: string; embedding: number[] }>) => {
       for (const item of items) {
         const blob = serializeEmbedding(item.embedding);
-        stmt.run(item.id, blob);
+        stmt.run(item.id, blob, modelId);
         this.vectors.set(item.id, item.embedding);
       }
     });

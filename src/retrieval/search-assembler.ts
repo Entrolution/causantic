@@ -72,11 +72,16 @@ export interface SearchResponse {
  * Shared embedder instance.
  */
 let sharedEmbedder: Embedder | null = null;
+let sharedEmbedderModelId: string | null = null;
 
-async function getEmbedder(): Promise<Embedder> {
-  if (!sharedEmbedder) {
+async function getEmbedder(embeddingModel: string): Promise<Embedder> {
+  if (!sharedEmbedder || sharedEmbedderModelId !== embeddingModel) {
+    if (sharedEmbedder) {
+      await sharedEmbedder.dispose();
+    }
     sharedEmbedder = new Embedder();
-    await sharedEmbedder.load(getModel('jina-small'));
+    await sharedEmbedder.load(getModel(embeddingModel));
+    sharedEmbedderModelId = embeddingModel;
   }
   return sharedEmbedder;
 }
@@ -111,10 +116,13 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     agentFilter,
   } = request;
 
-  const { hybridSearch, clusterExpansion, mmrReranking } = config;
+  const { hybridSearch, clusterExpansion, mmrReranking, embeddingModel } = config;
+
+  // Configure vector store for current model
+  vectorStore.setModelId(embeddingModel);
 
   // 1. Embed query
-  const embedder = await getEmbedder();
+  const embedder = await getEmbedder(embeddingModel);
   const queryResult = await embedder.embed(query, true);
 
   // 2. Vector + keyword search in parallel
@@ -196,7 +204,13 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
   // 4. Cluster expansion
   const expandedResults = skipClusters
     ? fusedResults
-    : expandViaClusters(fusedResults, clusterExpansion, projectFilter, agentFilter);
+    : expandViaClusters(
+        fusedResults,
+        clusterExpansion,
+        projectFilter,
+        agentFilter,
+        config.feedbackWeight,
+      );
 
   // Track sources
   type ChunkSource = 'vector' | 'keyword' | 'cluster';
@@ -364,7 +378,10 @@ export async function findSimilarChunkIds(options: {
     threshold = threshold / 100;
   }
 
-  const embedder = await getEmbedder();
+  const externalConfig = loadConfig();
+  const runtimeConfig = toRuntimeConfig(externalConfig);
+  vectorStore.setModelId(runtimeConfig.embeddingModel);
+  const embedder = await getEmbedder(runtimeConfig.embeddingModel);
   const { embedding } = await embedder.embed(query, true);
 
   // searchByProject is O(n) brute-force regardless of limit — high limit is free
@@ -390,5 +407,6 @@ export async function disposeSearch(): Promise<void> {
   if (sharedEmbedder) {
     await sharedEmbedder.dispose();
     sharedEmbedder = null;
+    sharedEmbedderModelId = null;
   }
 }

@@ -23,6 +23,7 @@ vi.mock('../../src/storage/vector-store.js', () => ({
     search: async () => mockVectorResults,
     searchByProject: async () => mockVectorResults,
     get: async () => null,
+    setModelId: () => {},
   },
 }));
 
@@ -59,6 +60,7 @@ vi.mock('../../src/config/loader.js', () => ({
   loadConfig: () => ({}),
   toRuntimeConfig: () => ({
     mcpMaxResponseTokens: 20000,
+    embeddingModel: 'jina-small',
     hybridSearch: {
       vectorWeight: 0.7,
       keywordWeight: 0.3,

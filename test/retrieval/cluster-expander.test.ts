@@ -18,6 +18,7 @@ import {
   type ClusterExpansionConfig,
 } from '../../src/retrieval/cluster-expander.js';
 import { vectorStore } from '../../src/storage/vector-store.js';
+import { recordRetrieval } from '../../src/storage/feedback-store.js';
 import type { RankedItem } from '../../src/retrieval/rrf.js';
 
 describe('cluster-expander', () => {
@@ -265,6 +266,45 @@ describe('cluster-expander', () => {
     const ids = result.map((r) => r.chunkId);
     expect(ids).toContain('b1');
     expect(ids).toContain('b2');
+  });
+
+  it('applies feedback boost to sibling scores', () => {
+    setupChunksAndClusters();
+
+    // Record feedback for c2 (3 times) and c3 (1 time)
+    recordRetrieval(['c2'], 'q1', 'search');
+    recordRetrieval(['c2'], 'q2', 'search');
+    recordRetrieval(['c2'], 'q3', 'search');
+    recordRetrieval(['c3'], 'q1', 'search');
+
+    const hits: RankedItem[] = [{ chunkId: 'c1', score: 0.8, source: 'vector' }];
+
+    // With feedbackWeight = 0, no boost
+    const resultNoFeedback = expandViaClusters(hits, defaultConfig, undefined, undefined, 0);
+    const sib2NoFb = resultNoFeedback.find((r) => r.chunkId === 'c2');
+
+    // With feedbackWeight = 0.5, feedback is applied
+    const resultWithFeedback = expandViaClusters(hits, defaultConfig, undefined, undefined, 0.5);
+    const sib2WithFb = resultWithFeedback.find((r) => r.chunkId === 'c2');
+
+    expect(sib2NoFb).toBeDefined();
+    expect(sib2WithFb).toBeDefined();
+    // Feedback-boosted score should be higher
+    expect(sib2WithFb!.score).toBeGreaterThan(sib2NoFb!.score);
+  });
+
+  it('feedback boost is zero when feedbackWeight is 0', () => {
+    setupChunksAndClusters();
+    recordRetrieval(['c2'], 'q1', 'search');
+
+    const hits: RankedItem[] = [{ chunkId: 'c1', score: 0.8, source: 'vector' }];
+
+    const result1 = expandViaClusters(hits, defaultConfig, undefined, undefined, 0);
+    const result2 = expandViaClusters(hits, defaultConfig); // default feedbackWeight = 0
+
+    const score1 = result1.find((r) => r.chunkId === 'c2')!.score;
+    const score2 = result2.find((r) => r.chunkId === 'c2')!.score;
+    expect(score1).toBe(score2);
   });
 
   it('project filter excludes cross-project siblings', () => {

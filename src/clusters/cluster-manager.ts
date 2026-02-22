@@ -15,7 +15,10 @@ import {
 import { angularDistance } from '../utils/angular-distance.js';
 import { getConfig } from '../config/memory-config.js';
 import { generateId } from '../storage/db.js';
+import { predictLabels } from './hdbscan/incremental.js';
+import { saveModel, loadModel } from './hdbscan-model-store.js';
 import type { StoredCluster, ChunkClusterAssignment } from '../storage/types.js';
+import type { HDBSCANModel } from './hdbscan/types.js';
 
 /**
  * Snapshot of an old cluster's label metadata and member set,
@@ -117,6 +120,10 @@ export interface ClusteringOptions {
   clusterThreshold?: number;
   /** Clear existing clusters before reclustering. Default: true. */
   clearExisting?: boolean;
+  /** Project ID for persisting HDBSCAN model (incremental clustering). */
+  projectId?: string;
+  /** Embedding model ID for model-aware persistence. Default: 'jina-small'. */
+  embeddingModel?: string;
 }
 
 /**
@@ -281,6 +288,13 @@ export class ClusterManager {
 
     const noiseCount = rawNoiseCount - reassignedNoiseIds.size;
 
+    // Save the HDBSCAN model for incremental assignment
+    const hdbscanModel = hdbscan.getModel();
+    if (hdbscanModel && options.projectId) {
+      const embeddingModel = options.embeddingModel ?? 'jina-small';
+      saveModel(options.projectId, embeddingModel, hdbscanModel, vectors.length);
+    }
+
     return {
       numClusters: clusterMembers.size,
       assignedChunks: assignments.length + noiseAssignments.length,
@@ -289,6 +303,157 @@ export class ClusterManager {
       clusterSizes: clusterSizes.sort((a, b) => b - a),
       reassignedNoise: reassignedNoiseIds.size,
       durationMs: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * Incrementally assign new chunks to existing clusters using a persisted HDBSCAN model.
+   *
+   * Falls back to full recluster if:
+   * - No persisted model exists
+   * - Embedding model has changed (model invalidation)
+   * - New chunk ratio exceeds incrementalClusterThreshold
+   *
+   * @returns Result from either incremental assignment or full recluster
+   */
+  async incrementalAssign(
+    newChunkIds: string[],
+    options: {
+      projectId: string;
+      embeddingModel?: string;
+      incrementalThreshold?: number;
+    },
+  ): Promise<{ assigned: number; noise: number; usedFullRecluster: boolean }> {
+    const embeddingModel = options.embeddingModel ?? 'jina-small';
+    const clusterThreshold = options.incrementalThreshold ?? this.config.clusterThreshold;
+
+    // Try to load persisted model
+    const stored = loadModel(options.projectId, embeddingModel);
+
+    if (!stored) {
+      // No model or model mismatch — full recluster
+      await this.recluster({
+        projectId: options.projectId,
+        embeddingModel,
+      });
+      return { assigned: newChunkIds.length, noise: 0, usedFullRecluster: true };
+    }
+
+    // Check if threshold exceeded: too many new chunks since last recluster
+    const currentCount = await vectorStore.count();
+    const newSinceRecluster = currentCount - stored.chunkCount;
+    const ratio = stored.chunkCount > 0 ? newSinceRecluster / stored.chunkCount : 1;
+
+    if (ratio > this.config.incrementalClusterThreshold) {
+      // Too many new chunks — full recluster
+      await this.recluster({
+        projectId: options.projectId,
+        embeddingModel,
+      });
+      return { assigned: newChunkIds.length, noise: 0, usedFullRecluster: true };
+    }
+
+    // Get embeddings for new chunks
+    const newEmbeddings: number[][] = [];
+    const validChunkIds: string[] = [];
+    for (const id of newChunkIds) {
+      const embedding = await vectorStore.get(id);
+      if (embedding) {
+        newEmbeddings.push(embedding);
+        validChunkIds.push(id);
+      }
+    }
+
+    if (newEmbeddings.length === 0) {
+      return { assigned: 0, noise: 0, usedFullRecluster: false };
+    }
+
+    // Load all embeddings for core distance computation
+    const allVectors = await vectorStore.getAllVectors();
+    const allEmbeddings = allVectors.map((v) => v.embedding);
+
+    // Reconstruct a full model with current embeddings for predictLabels
+    const fullModel: HDBSCANModel = {
+      ...stored.model,
+      embeddings: allEmbeddings,
+    };
+
+    // Run incremental assignment
+    const labels = predictLabels(
+      newEmbeddings,
+      fullModel,
+      this.config.minClusterSize,
+      'angular',
+    );
+
+    // Process assignments
+    const assignments: ChunkClusterAssignment[] = [];
+    let noiseCount = 0;
+
+    for (let i = 0; i < labels.length; i++) {
+      const label = labels[i];
+      if (label >= 0) {
+        // Find the cluster with this label's centroid
+        const centroid = stored.model.centroids.get(label);
+        if (centroid) {
+          const distance = angularDistance(newEmbeddings[i], centroid);
+          // Find matching cluster by centroid distance
+          const clusters = getAllClusters();
+          let bestCluster: StoredCluster | null = null;
+          let bestDist = Infinity;
+          for (const cluster of clusters) {
+            if (!cluster.centroid) continue;
+            const d = angularDistance(centroid, cluster.centroid);
+            if (d < bestDist) {
+              bestDist = d;
+              bestCluster = cluster;
+            }
+          }
+
+          if (bestCluster && bestDist < 0.1) {
+            assignments.push({
+              chunkId: validChunkIds[i],
+              clusterId: bestCluster.id,
+              distance,
+            });
+          } else {
+            noiseCount++;
+          }
+        } else {
+          noiseCount++;
+        }
+      } else {
+        noiseCount++;
+      }
+    }
+
+    // Assign noise points to nearest cluster (fallback)
+    if (noiseCount > 0) {
+      for (let i = 0; i < labels.length; i++) {
+        if (labels[i] >= 0) continue; // Already assigned
+        // Check if already assigned via the block above
+        if (assignments.some((a) => a.chunkId === validChunkIds[i])) continue;
+
+        const assigned = await this.assignChunkToClusters(
+          validChunkIds[i],
+          newEmbeddings[i],
+          { threshold: clusterThreshold },
+        );
+        if (assigned.length > 0) {
+          noiseCount--;
+        }
+      }
+    }
+
+    if (assignments.length > 0) {
+      assignChunksToClusters(assignments);
+      await this.updateCentroids();
+    }
+
+    return {
+      assigned: assignments.length + (validChunkIds.length - noiseCount - assignments.length),
+      noise: noiseCount,
+      usedFullRecluster: false,
     };
   }
 
