@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-02-22
+
+### Changed
+
+- **Multi-path chain walking**: Replaced greedy single-path traversal (`walkSingleChain` + `pickBestEdge`) with DFS backtracking (`walkAllPaths`). At branching points (agent transitions, cross-session links), all paths are now explored and emitted as candidates. `selectBestChain()` picks the best from a richer candidate set. Linear chains (out-degree 1) produce identical results to the previous algorithm.
+- **Per-seed independence**: Removed global visited set across seeds. Each seed now explores independently with per-path visited sets, allowing different seeds to traverse shared nodes. This produces more candidate chains for `selectBestChain()` to choose from.
+- **Agent filter scoping**: `consecutiveSkips` counter is now scoped per recursive frame (passed as parameter), not shared across backtracking paths. Each branch gets its own skip count.
+
+### Added
+
+- **`maxCandidatesPerSeed`** option on `ChainWalkerOptions` (default: 10). Caps emitted chains per seed to bound memory usage on highly branched graphs.
+- **`maxExpansionsPerSeed`** option on `ChainWalkerOptions` (default: 200). Pre-order counter that bounds total DFS recursive calls per seed, protecting against rare dense subgraphs.
+- **Score memoization**: `scoreNode()` results are cached per seed walk via `Map<string, number>`, preventing redundant `angularDistance()` calls for nodes visited on multiple paths.
+
+### Tests
+
+- 10 new multi-path tests (`chain-walker-multipath.test.ts`): linear chain, branching at root, deep branching, maxDepth emission, expansion budget termination, candidate cap, agent filter with branching, per-seed independence, token budget per-path, orphan seed.
+- Updated 2 existing tests for multi-path behavior: shared visited set → per-seed independence, weight-based edge selection → multi-path exploration.
+- 2053 total tests passing.
+
 ## [0.7.2] - 2026-02-22
 
 ### Changed

@@ -35,7 +35,17 @@ Controls chain walking behavior.
 | ---------- | --------- | ------- | ----------------------------------------- |
 | `maxDepth` | `integer` | `50`    | Safety cap on chain walking depth (1-100) |
 
-`maxDepth` limits the maximum chain length during episodic recall/predict. The token budget is the primary stopping criterion; `maxDepth` is a safety net.
+`maxDepth` limits the maximum chain depth during episodic recall/predict. The token budget is the primary stopping criterion; `maxDepth` is a safety net.
+
+The chain walker also uses two internal limits (not currently exposed in config):
+
+| Internal Option          | Default | Description                                                |
+| ------------------------ | ------- | ---------------------------------------------------------- |
+| `maxCandidatesPerSeed`   | `10`    | Cap on emitted candidate chains per seed                   |
+| `maxExpansionsPerSeed`   | `200`   | Cap on DFS recursive calls per seed (bounds wall time)     |
+| `maxSkippedConsecutive`  | `5`     | Abandon branch after N consecutive agent-filtered skips    |
+
+With typical out-degree 1 (linear chains), a seed's DFS visits ~50 nodes. At branching points (out-degree 2-3), total expansions are ~60-100. The 200-expansion budget is generous for typical graphs and protective against rare dense subgraphs.
 
 ## Token Settings
 

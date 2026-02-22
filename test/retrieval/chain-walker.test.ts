@@ -207,9 +207,9 @@ describe('chain-walker', () => {
       expect(chains[1].chunkIds).toEqual(['P', 'Q']);
     });
 
-    it('shared visited set prevents duplicate chunks across chains', async () => {
+    it('per-seed independence allows shared nodes across seeds', async () => {
       // Seed A → B → C
-      // Seed B (already visited) — should produce empty chain
+      // Seed B → C (independent walk, shares nodes with seed A)
       mockChunks.set('A', makeChunk('A'));
       mockChunks.set('B', makeChunk('B'));
       mockChunks.set('C', makeChunk('C'));
@@ -228,9 +228,10 @@ describe('chain-walker', () => {
         queryEmbedding: qEmb,
       });
 
-      // Only one chain — B is already visited by chain from A
-      expect(chains.length).toBe(1);
+      // Both seeds produce candidates independently
+      expect(chains.length).toBe(2);
       expect(chains[0].chunkIds).toEqual(['A', 'B', 'C']);
+      expect(chains[1].chunkIds).toEqual(['B', 'C']);
     });
 
     it('respects maxDepth', async () => {
@@ -518,10 +519,10 @@ describe('chain-walker', () => {
     });
   });
 
-  describe('weight-based edge selection', () => {
-    it('prefers higher-weight edges', async () => {
+  describe('multi-path edge exploration', () => {
+    it('explores both branches at a branching point', async () => {
       // A has two edges: A→B (weight 0.7) and A→C (weight 1.0)
-      // Walker should pick C (higher weight)
+      // Multi-path walker should explore both
       mockChunks.set('A', makeChunk('A'));
       mockChunks.set('B', makeChunk('B'));
       mockChunks.set('C', makeChunk('C'));
@@ -542,9 +543,11 @@ describe('chain-walker', () => {
         queryEmbedding: qEmb,
       });
 
-      expect(chains.length).toBe(1);
-      // Should pick C (weight 1.0) over B (weight 0.7)
-      expect(chains[0].chunkIds).toEqual(['A', 'C']);
+      // Both paths explored: [A, B] and [A, C]
+      expect(chains.length).toBe(2);
+      const allPaths = chains.map((c) => c.chunkIds);
+      expect(allPaths).toContainEqual(['A', 'B']);
+      expect(allPaths).toContainEqual(['A', 'C']);
     });
   });
 });

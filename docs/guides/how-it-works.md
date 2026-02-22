@@ -67,9 +67,9 @@ The `search` tool finds semantically similar context:
 The `recall` and `predict` tools reconstruct narrative chains:
 
 1. **Seed discovery**: Same as search (embed → vector + keyword → RRF → cluster expand) to find top 5 seeds
-2. **Chain walking**: For each seed, walk the causal graph (backward for recall, forward for predict), building ordered chains
-3. **Chain scoring**: Each chain scored by Σ cosine_similarity(query, node) / token_count
-4. **Best chain selection**: Highest score-per-token among chains with ≥ 2 chunks
+2. **Multi-path chain walking**: For each seed, DFS with backtracking explores all reachable paths (backward for recall, forward for predict). At branching points (agent transitions, cross-session links), all branches are explored and emitted as candidates
+3. **Chain scoring**: Each candidate chain scored by median per-node cosine similarity to the query
+4. **Best chain selection**: Highest median score among candidates with ≥ 2 chunks
 5. **Fallback**: If no qualifying chain found, fall back to search-style results
 
 ### Hybrid Search

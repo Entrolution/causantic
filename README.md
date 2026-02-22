@@ -72,8 +72,8 @@ All data stays on your machine. Optional per-chunk encryption (ChaCha20-Poly1305
 **2. Hybrid BM25 + Vector Search**
 Vector search finds chunks that _look similar_. BM25 keyword search finds chunks with _exact lexical matches_ — function names, error codes, CLI flags. Both run in parallel and fuse via Reciprocal Rank Fusion (RRF).
 
-**3. Sequential Causal Graph with Episodic Chain Walking**
-Chunks are connected in a sequential linked list — intra-turn chunks chained sequentially, inter-turn edges linking last→first, cross-session edges bridging sessions. The `recall` tool walks this graph backward to reconstruct episodic narratives; `predict` walks forward. Chains are scored by cosine similarity per token, producing ordered narratives where each chunk adds new information.
+**3. Causal Graph with Multi-Path Chain Walking**
+Chunks are connected in a sequential linked list — intra-turn chunks chained sequentially, inter-turn edges linking last→first, cross-session edges bridging sessions. The `recall` tool walks this graph backward to reconstruct episodic narratives; `predict` walks forward. At branching points (agent transitions, cross-session links), multi-path DFS explores all alternatives and selects the best chain by median cosine similarity, producing ordered narratives where each chunk adds new information.
 
 **4. HDBSCAN Cluster-Guided Expansion**
 Topic clusters group semantically related chunks. During retrieval, results expand through cluster siblings — surfacing context that neither vector nor keyword search found independently. Native TypeScript implementation (130× faster than hdbscan-ts).
