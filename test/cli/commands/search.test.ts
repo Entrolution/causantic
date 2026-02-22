@@ -35,7 +35,9 @@ describe('recallCommand', () => {
 
   it('calls recall with joined args and prints JSON results', async () => {
     const mockResults = { chunks: [{ id: '1', content: 'test' }] };
-    mockRecall.mockResolvedValue(mockResults as ReturnType<typeof recall> extends Promise<infer T> ? T : never);
+    mockRecall.mockResolvedValue(
+      mockResults as ReturnType<typeof recall> extends Promise<infer T> ? T : never,
+    );
 
     await recallCommand.handler(['how', 'did', 'we', 'solve', 'this']);
 

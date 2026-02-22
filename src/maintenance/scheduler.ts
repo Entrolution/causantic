@@ -179,7 +179,10 @@ async function createUpdateClustersHandler(): Promise<MaintenanceResult> {
   const config = loadConfig();
   const { clusterManager } = await import('../clusters/cluster-manager.js');
 
-  const deps: { recluster: () => ReturnType<typeof clusterManager.recluster>; refreshLabels?: () => Promise<unknown[]> } = {
+  const deps: {
+    recluster: () => ReturnType<typeof clusterManager.recluster>;
+    refreshLabels?: () => Promise<unknown[]>;
+  } = {
     recluster: () => clusterManager.recluster(),
   };
 

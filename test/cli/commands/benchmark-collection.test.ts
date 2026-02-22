@@ -91,7 +91,10 @@ describe('benchmarkCollectionCommand', () => {
 
   it('runs standard benchmark by default', async () => {
     mockRunBenchmark.mockResolvedValue(mockBenchmarkResult as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler([]);
 
@@ -106,29 +109,34 @@ describe('benchmarkCollectionCommand', () => {
 
   it('passes --quick profile', async () => {
     mockRunBenchmark.mockResolvedValue(mockBenchmarkResult as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler(['--quick']);
 
-    expect(mockRunBenchmark).toHaveBeenCalledWith(
-      expect.objectContaining({ profile: 'quick' }),
-    );
+    expect(mockRunBenchmark).toHaveBeenCalledWith(expect.objectContaining({ profile: 'quick' }));
   });
 
   it('passes --full profile', async () => {
     mockRunBenchmark.mockResolvedValue(mockBenchmarkResult as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler(['--full']);
 
-    expect(mockRunBenchmark).toHaveBeenCalledWith(
-      expect.objectContaining({ profile: 'full' }),
-    );
+    expect(mockRunBenchmark).toHaveBeenCalledWith(expect.objectContaining({ profile: 'full' }));
   });
 
   it('passes custom sample size and seed', async () => {
     mockRunBenchmark.mockResolvedValue(mockBenchmarkResult as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler(['--sample-size', '100', '--seed', '42']);
 
@@ -139,7 +147,10 @@ describe('benchmarkCollectionCommand', () => {
 
   it('passes --no-tuning flag', async () => {
     mockRunBenchmark.mockResolvedValue(mockBenchmarkResult as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler(['--no-tuning']);
 
@@ -150,7 +161,10 @@ describe('benchmarkCollectionCommand', () => {
 
   it('passes project filter', async () => {
     mockRunBenchmark.mockResolvedValue(mockBenchmarkResult as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler(['--project', 'my-project']);
 
@@ -161,7 +175,10 @@ describe('benchmarkCollectionCommand', () => {
 
   it('prints highlights from results', async () => {
     mockRunBenchmark.mockResolvedValue(mockBenchmarkResult as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler([]);
 
@@ -171,7 +188,10 @@ describe('benchmarkCollectionCommand', () => {
 
   it('writes reports by default', async () => {
     mockRunBenchmark.mockResolvedValue(mockBenchmarkResult as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler([]);
 
@@ -188,12 +208,13 @@ describe('benchmarkCollectionCommand', () => {
 
   it('suggests --full when running with non-full profile', async () => {
     mockRunBenchmark.mockResolvedValue({ ...mockBenchmarkResult, highlights: [] } as any);
-    mockWriteReports.mockResolvedValue({ markdownPath: '/out/report.md', jsonPath: '/out/report.json' });
+    mockWriteReports.mockResolvedValue({
+      markdownPath: '/out/report.md',
+      jsonPath: '/out/report.json',
+    });
 
     await benchmarkCollectionCommand.handler(['--quick']);
 
-    expect(console.log).toHaveBeenCalledWith(
-      expect.stringContaining('--full'),
-    );
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('--full'));
   });
 });
