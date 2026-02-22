@@ -7,7 +7,6 @@ Thank you for your interest in contributing! This document provides guidelines a
 ### Prerequisites
 
 - Node.js 20+
-- Python 3.8+ with pip
 - Git
 
 ### Getting Started
@@ -19,7 +18,6 @@ cd causantic
 
 # Install dependencies
 npm install
-pip install hdbscan numpy
 
 # Build
 npm run build
@@ -89,10 +87,15 @@ Add graph pruning for stale edges
 
 ```
 src/
+├── cli/           # Command-line interface
 ├── clusters/      # HDBSCAN clustering
 ├── config/        # Configuration management
+├── core/          # Core utilities (version, formatting)
+├── dashboard/     # Web dashboard server and client
+├── eval/          # Benchmarking and evaluation
 ├── hooks/         # Claude Code integration hooks
 ├── ingest/        # Session ingestion pipeline
+├── maintenance/   # Scheduled maintenance tasks
 ├── mcp/           # MCP server and tools
 ├── models/        # Embedding models
 ├── parser/        # Session parsing

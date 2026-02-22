@@ -90,7 +90,7 @@ Using the same `--seed` ensures comparable results.
 
 - Lower `clustering.threshold` (default: 0.10, try 0.12)
 - Lower `clustering.minClusterSize` (default: 4, try 3)
-- Then run `npx causantic cluster --refresh`
+- Then run `npx causantic maintenance run update-clusters`
 
 **Low chain quality (high fallback rate)**
 

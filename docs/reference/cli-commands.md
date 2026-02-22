@@ -155,12 +155,13 @@ npx causantic maintenance <subcommand> [options]
 
 **Subcommands**:
 
-| Subcommand   | Description              |
-| ------------ | ------------------------ |
-| `run <task>` | Run a specific task      |
-| `run all`    | Run all tasks            |
-| `status`     | Show task status         |
-| `daemon`     | Run as background daemon |
+| Subcommand      | Description                                     |
+| --------------- | ----------------------------------------------- |
+| `run <task>`    | Run a specific task                             |
+| `run all`       | Run all tasks                                   |
+| `status`        | Show task status                                |
+| `daemon`        | Run as background daemon                        |
+| `rebuild-edges` | Rebuild all edges from ingested session data    |
 
 **Tasks**:
 
@@ -325,20 +326,13 @@ npx causantic stats --json
 Check system health.
 
 ```bash
-npx causantic health [options]
+npx causantic health
 ```
-
-**Options**:
-
-| Option      | Description          |
-| ----------- | -------------------- |
-| `--verbose` | Show detailed status |
 
 **Example**:
 
 ```bash
 npx causantic health
-npx causantic health --verbose
 ```
 
 ### hook
@@ -481,13 +475,10 @@ npx causantic uninstall --force
 
 These options work with all commands:
 
-| Option            | Description               |
-| ----------------- | ------------------------- |
-| `--config <path>` | Use specific config file  |
-| `--debug`         | Enable debug logging      |
-| `--quiet`         | Suppress non-error output |
-| `--version`       | Show version              |
-| `--help`          | Show help                 |
+| Option      | Description  |
+| ----------- | ------------ |
+| `--version` | Show version |
+| `--help`    | Show help    |
 
 ## Exit Codes
 

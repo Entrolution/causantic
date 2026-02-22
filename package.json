@@ -84,14 +84,15 @@
     "docs:build": "typedoc --out docs/api src/index.ts --name 'Causantic API' --readme none --excludePrivate --excludeInternal"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.74.0",
+    "@anthropic-ai/sdk": "^0.78.0",
     "@huggingface/transformers": "^3.4.1",
     "better-sqlite3-multiple-ciphers": "^12.6.2",
     "express": "^5.2.1",
     "onnxruntime-node": "^1.24.1"
   },
   "overrides": {
-    "qs": ">=6.14.2"
+    "qs": ">=6.14.2",
+    "minimatch": ">=10.0.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",

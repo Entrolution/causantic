@@ -53,7 +53,7 @@ interface StoredEdge {
   targetChunkId: string;
   edgeType: 'backward' | 'forward';
   referenceType: ReferenceType | null;
-  initialWeight: number; // 0-1, before decay
+  initialWeight: number; // 0-1, varies by edge type (see Reference Types)
   createdAt: string;
   linkCount: number; // Boost count for duplicates
 }
@@ -315,6 +315,6 @@ vectorStore.insertBatch([...]);
 
 ## Related
 
-- [Types Reference](../src/storage/types.ts) - Full type definitions
+- [Types Reference](../../src/storage/types.ts) - Full type definitions
 - [Traversal Algorithm](./traversal-algorithm.md) - How edges are traversed
 - [Decay Models](../research/archive/decay-models.md) - Decay curve details (historical, pre-v0.3)

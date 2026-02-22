@@ -78,20 +78,18 @@ npx causantic maintenance run vacuum
 **Check 1**: Verify the session was ingested:
 
 ```bash
-npx causantic list-sessions
+npx causantic stats
 ```
+
+Note: `list-sessions` is an MCP tool, not a CLI command. Use `npx causantic stats` to check ingestion status, or query via the MCP tools or dashboard.
 
 **Check 2**: Search for specific content:
 
-```bash
-npx causantic search "your expected content"
-```
+Use the MCP `search` tool or the dashboard's Search page to find specific content in memory.
 
 **Check 3**: Check clustering:
 
-```bash
-npx causantic clusters list
-```
+Use `npx causantic stats` or the dashboard's Clusters page to inspect cluster assignments.
 
 If content is in a different cluster than expected, adjust `clustering.threshold`.
 
@@ -189,7 +187,7 @@ npx causantic hook session-start
 If issues persist:
 
 1. Check [GitHub Issues](https://github.com/Entrolution/causantic/issues)
-2. Run diagnostics: `npx causantic diagnose`
+2. Run a health check: `npx causantic health`
 3. Open a new issue with:
    - Causantic version: `npx causantic --version`
    - Node.js version: `node --version`

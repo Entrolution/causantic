@@ -70,6 +70,24 @@ Controls cluster-guided expansion during retrieval. These settings are internal 
 | `maxClusters` | `integer` | `3`     | Maximum clusters to expand from per query   |
 | `maxSiblings` | `integer` | `5`     | Maximum sibling chunks added per cluster    |
 
+## Recency Settings
+
+### `recency`
+
+Controls time-decay scoring for search results. These settings are internal defaults and not currently exposed in `causantic.config.json` — they are configured programmatically via `MemoryConfig`.
+
+| Property        | Type     | Default | Description                                           |
+| --------------- | -------- | ------- | ----------------------------------------------------- |
+| `decayFactor`   | `number` | `0.3`   | Amplitude of the time-decay boost (0-1)               |
+| `halfLifeHours` | `number` | `48`    | Half-life in hours for the decay function             |
+
+**Environment variables**:
+
+| Setting               | Environment Variable                |
+| --------------------- | ----------------------------------- |
+| `recency.decayFactor` | `CAUSANTIC_RECENCY_DECAY_FACTOR`    |
+| `recency.halfLifeHours` | `CAUSANTIC_RECENCY_HALF_LIFE_HOURS` |
+
 ## Retrieval Settings
 
 ### `retrieval`

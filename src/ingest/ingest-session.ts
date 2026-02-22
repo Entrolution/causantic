@@ -37,7 +37,7 @@ import {
   detectDebriefPoints,
   buildChunkIdsByTurn,
 } from './brief-debrief-detector.js';
-import { detectTeamTopology, groupTeammateFiles } from './team-detector.js';
+import { detectTeamTopology, groupTeammateFiles, type TeamTopology } from './team-detector.js';
 import { detectTeamEdges } from './team-edge-detector.js';
 import { getCheckpoint, saveCheckpoint } from '../storage/checkpoint-store.js';
 import {
@@ -117,6 +117,32 @@ export interface IngestResult {
 }
 
 /**
+ * Create a result for a skipped or empty session.
+ */
+function createSkipResult(
+  sessionId: string,
+  sessionSlug: string,
+  startTime: number,
+  overrides: Partial<IngestResult> = {},
+): IngestResult {
+  return {
+    sessionId,
+    sessionSlug,
+    chunkCount: 0,
+    edgeCount: 0,
+    crossSessionEdges: 0,
+    subAgentEdges: 0,
+    skipped: true,
+    durationMs: Date.now() - startTime,
+    subAgentCount: 0,
+    teamEdges: 0,
+    deadEndFilesSkipped: 0,
+    isTeamSession: false,
+    ...overrides,
+  };
+}
+
+/**
  * Ingest a single session file.
  */
 export async function ingestSession(
@@ -153,41 +179,17 @@ export async function ingestSession(
   if (checkpoint && checkpoint.fileMtime) {
     const lastIngestMtime = new Date(checkpoint.fileMtime);
     if (fileStats.mtime <= lastIngestMtime) {
-      return {
-        sessionId: info.sessionId,
-        sessionSlug: projectSlug,
-        chunkCount: 0,
-        edgeCount: 0,
-        crossSessionEdges: 0,
-        subAgentEdges: 0,
-        skipped: true,
+      return createSkipResult(info.sessionId, projectSlug, startTime, {
         skipReason: 'unchanged_file',
-        durationMs: Date.now() - startTime,
-        subAgentCount: 0,
-        teamEdges: 0,
-        deadEndFilesSkipped: 0,
-        isTeamSession: false,
-      };
+      });
     }
   }
 
   // Check if already ingested (only if no checkpoint - checkpoint means we might resume)
   if (skipIfExists && !checkpoint && isSessionIngested(info.sessionId)) {
-    return {
-      sessionId: info.sessionId,
-      sessionSlug: projectSlug,
-      chunkCount: 0,
-      edgeCount: 0,
-      crossSessionEdges: 0,
-      subAgentEdges: 0,
-      skipped: true,
+    return createSkipResult(info.sessionId, projectSlug, startTime, {
       skipReason: 'already_ingested',
-      durationMs: Date.now() - startTime,
-      subAgentCount: 0,
-      teamEdges: 0,
-      deadEndFilesSkipped: 0,
-      isTeamSession: false,
-    };
+    });
   }
 
   // Use streaming for large files
@@ -222,21 +224,10 @@ export async function ingestSession(
         fileMtime,
       });
     }
-    return {
-      sessionId: info.sessionId,
-      sessionSlug: projectSlug,
-      chunkCount: 0,
-      edgeCount: 0,
-      crossSessionEdges: 0,
-      subAgentEdges: 0,
+    return createSkipResult(info.sessionId, projectSlug, startTime, {
       skipped: startTurnIndex > 0,
       skipReason: startTurnIndex > 0 ? 'no_new_turns' : undefined,
-      durationMs: Date.now() - startTime,
-      subAgentCount: 0,
-      teamEdges: 0,
-      deadEndFilesSkipped: 0,
-      isTeamSession: false,
-    };
+    });
   }
 
   // Set up embedding — single embedder, sequential inference
@@ -265,8 +256,6 @@ export async function ingestSession(
     // Track all chunks and sub-agent data
     let totalChunkCount = 0;
     let totalEdgeCount = 0;
-    let subAgentEdges = 0;
-    let teamEdgeCount = 0;
     let deadEndFilesSkipped = 0;
     const subAgentData = new Map<string, { turns: Turn[]; chunks: Chunk[] }>();
 
@@ -401,143 +390,44 @@ export async function ingestSession(
           }
         }
 
-        // 2. Chunk main session (only new turns)
-        const mainChunks = chunkTurns(turnsToProcess, {
-          maxTokens: maxTokensPerChunk,
-          includeThinking,
+        // 2. Process main session (shared pipeline)
+        const mainResult = await processMainSession({
+          turnsToProcess,
+          allTurns: turns,
           sessionId: info.sessionId,
-          sessionSlug: projectSlug,
+          projectSlug,
+          projectPath,
+          maxTokensPerChunk,
+          includeThinking,
+          embedAllFn,
+          embeddingModel,
+          useEmbeddingCache,
+          useIncrementalIngestion,
+          linkCrossSessions,
+          startTurnIndex,
+          fileMtime,
+          subAgentData,
+          team: { topology, agentData: teamAgentData },
         });
 
-        if (mainChunks.length === 0) {
-          return {
-            sessionId: info.sessionId,
-            sessionSlug: projectSlug,
-            chunkCount: totalChunkCount,
-            edgeCount: totalEdgeCount,
-            crossSessionEdges: 0,
-            subAgentEdges: 0,
-            skipped: false,
-            durationMs: Date.now() - startTime,
-            subAgentCount: subAgentInfos.length,
-            cacheHits: totalCacheHits,
-            cacheMisses: totalCacheMisses,
-            teamEdges: 0,
-            deadEndFilesSkipped,
-            isTeamSession: true,
-          };
-        }
-
-        // Store main chunks
-        const mainChunkInputs = mainChunks.map((chunk) => ({
-          ...chunkToInput(chunk),
-          projectPath,
-        }));
-        const mainChunkIds = insertChunks(mainChunkInputs);
-
-        // Embed main chunks
-        const {
-          embeddings: mainEmbeddings,
-          cacheHits: mainCH,
-          cacheMisses: mainCM,
-        } = await embedChunksWithCache(mainChunks, embedAllFn, embeddingModel, useEmbeddingCache);
-        totalCacheHits += mainCH;
-        totalCacheMisses += mainCM;
-
-        await vectorStore.insertBatch(
-          mainChunkIds.map((id, i) => ({ id, embedding: mainEmbeddings[i] })),
-        );
-
-        // Create main intra-session edges
-        const mainTransitions = detectCausalTransitions(mainChunks);
-        const mainEdgeResult = await createEdgesFromTransitions(mainTransitions, mainChunkIds);
-        totalChunkCount += mainChunkIds.length;
-        totalEdgeCount += mainEdgeResult.totalCount;
-
-        // Brief/debrief edges for regular sub-agents
-        if (subAgentData.size > 0) {
-          const chunkIdsByTurn = buildChunkIdsByTurn(
-            mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] })),
-          );
-
-          const briefPoints = detectBriefPoints(turnsToProcess, chunkIdsByTurn, undefined, 0);
-          for (const brief of briefPoints) {
-            const subData = subAgentData.get(brief.agentId);
-            if (subData && subData.chunks.length > 0) {
-              const lastParentChunkId = brief.parentChunkIds[brief.parentChunkIds.length - 1];
-              const firstSubAgentChunkId = subData.chunks[0].id;
-              await createBriefEdge(lastParentChunkId, firstSubAgentChunkId);
-              subAgentEdges += 1;
-            }
-          }
-
-          const debriefPoints = detectDebriefPoints(
-            turnsToProcess,
-            new Map(Array.from(subAgentData.entries()).map(([k, v]) => [k, v.chunks])),
-            mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] })),
-            chunkIdsByTurn,
-            undefined,
-            1,
-          );
-          for (const debrief of debriefPoints) {
-            const lastAgentChunkId =
-              debrief.agentFinalChunkIds[debrief.agentFinalChunkIds.length - 1];
-            const firstParentChunkId = debrief.parentChunkIds[0];
-            await createDebriefEdge(lastAgentChunkId, firstParentChunkId);
-            subAgentEdges += 1;
-          }
-        }
-
-        // Detect and create team edges
-        if (teamAgentData.size > 0) {
-          const mainChunkInputsForEdges = mainChunks.map((c, i) => ({
-            ...chunkToInput(c),
-            projectPath,
-            id: mainChunkIds[i],
-          }));
-
-          const teamEdgePoints = detectTeamEdges(
-            turns, // Use ALL turns for detection
-            mainChunkInputsForEdges,
-            teamAgentData,
-            topology,
-          );
-
-          teamEdgeCount = await createTeamEdges(teamEdgePoints);
-          totalEdgeCount += teamEdgeCount;
-        }
-
-        // Save checkpoint
-        if (useIncrementalIngestion) {
-          saveCheckpoint({
-            sessionId: info.sessionId,
-            projectSlug,
-            lastTurnIndex: startTurnIndex + turnsToProcess.length - 1,
-            lastChunkId: mainChunkIds[mainChunkIds.length - 1],
-            fileMtime,
-          });
-        }
-
-        // Link cross-sessions
-        let crossSessionEdges = 0;
-        if (linkCrossSessions) {
-          const linkResult = await linkCrossSession(info.sessionId, projectSlug);
-          crossSessionEdges = linkResult.edgeCount;
-        }
+        totalChunkCount += mainResult?.chunkCount ?? 0;
+        totalEdgeCount += mainResult?.edgeCount ?? 0;
+        totalCacheHits += mainResult?.cacheHits ?? 0;
+        totalCacheMisses += mainResult?.cacheMisses ?? 0;
 
         return {
           sessionId: info.sessionId,
           sessionSlug: projectSlug,
           chunkCount: totalChunkCount,
           edgeCount: totalEdgeCount,
-          crossSessionEdges,
-          subAgentEdges,
+          crossSessionEdges: mainResult?.crossSessionEdges ?? 0,
+          subAgentEdges: mainResult?.subAgentEdges ?? 0,
           skipped: false,
           durationMs: Date.now() - startTime,
           subAgentCount: subAgentInfos.length,
           cacheHits: totalCacheHits,
           cacheMisses: totalCacheMisses,
-          teamEdges: teamEdgeCount,
+          teamEdges: mainResult?.teamEdges ?? 0,
           deadEndFilesSkipped,
           isTeamSession: true,
         };
@@ -566,127 +456,38 @@ export async function ingestSession(
       }
     }
 
-    // 2. Chunk main session (only new turns)
-    const mainChunks = chunkTurns(turnsToProcess, {
-      maxTokens: maxTokensPerChunk,
-      includeThinking,
+    // 2. Process main session (shared pipeline)
+    const mainResult = await processMainSession({
+      turnsToProcess,
+      allTurns: turns,
       sessionId: info.sessionId,
-      sessionSlug: projectSlug,
+      projectSlug,
+      projectPath,
+      maxTokensPerChunk,
+      includeThinking,
+      embedAllFn,
+      embeddingModel,
+      useEmbeddingCache,
+      useIncrementalIngestion,
+      linkCrossSessions,
+      startTurnIndex,
+      fileMtime,
+      subAgentData,
+      team: null,
     });
 
-    if (mainChunks.length === 0) {
-      return {
-        sessionId: info.sessionId,
-        sessionSlug: projectSlug,
-        chunkCount: totalChunkCount,
-        edgeCount: totalEdgeCount,
-        crossSessionEdges: 0,
-        subAgentEdges: 0,
-        skipped: false,
-        durationMs: Date.now() - startTime,
-        subAgentCount: subAgentInfos.length,
-        cacheHits: totalCacheHits,
-        cacheMisses: totalCacheMisses,
-        teamEdges: 0,
-        deadEndFilesSkipped,
-        isTeamSession: false,
-      };
-    }
-
-    // Store main chunks
-    const mainChunkInputs = mainChunks.map((chunk) => ({ ...chunkToInput(chunk), projectPath }));
-    const mainChunkIds = insertChunks(mainChunkInputs);
-
-    // Embed with caching and true batch embedding
-    const {
-      embeddings: mainEmbeddings,
-      cacheHits,
-      cacheMisses,
-    } = await embedChunksWithCache(mainChunks, embedAllFn, embeddingModel, useEmbeddingCache);
-    totalCacheHits += cacheHits;
-    totalCacheMisses += cacheMisses;
-
-    await vectorStore.insertBatch(
-      mainChunkIds.map((id, i) => ({
-        id,
-        embedding: mainEmbeddings[i],
-      })),
-    );
-
-    // Create main intra-session edges (sequential linked-list)
-    const mainTransitions = detectCausalTransitions(mainChunks);
-    const mainEdgeResult = await createEdgesFromTransitions(mainTransitions, mainChunkIds);
-
-    totalChunkCount += mainChunkIds.length;
-    totalEdgeCount += mainEdgeResult.totalCount;
-
-    // 3. Detect and create brief/debrief edges
-    if (processSubAgents && subAgentData.size > 0) {
-      // Build chunk ID lookup by turn
-      const chunkIdsByTurn = buildChunkIdsByTurn(
-        mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] })),
-      );
-
-      // Detect brief points (spawns)
-      const briefPoints = detectBriefPoints(turnsToProcess, chunkIdsByTurn, undefined, 0);
-
-      // Create brief edges (single: last parent chunk → first sub-agent chunk)
-      for (const brief of briefPoints) {
-        const subData = subAgentData.get(brief.agentId);
-        if (subData && subData.chunks.length > 0) {
-          const lastParentChunkId = brief.parentChunkIds[brief.parentChunkIds.length - 1];
-          const firstSubAgentChunkId = subData.chunks[0].id;
-
-          await createBriefEdge(lastParentChunkId, firstSubAgentChunkId);
-          subAgentEdges += 1;
-        }
-      }
-
-      // Detect debrief points (returns)
-      const debriefPoints = detectDebriefPoints(
-        turnsToProcess,
-        new Map(Array.from(subAgentData.entries()).map(([k, v]) => [k, v.chunks])),
-        mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] })),
-        chunkIdsByTurn,
-        undefined,
-        1,
-      );
-
-      // Create debrief edges (single: last sub-agent chunk → first parent chunk after return)
-      for (const debrief of debriefPoints) {
-        const lastAgentChunkId = debrief.agentFinalChunkIds[debrief.agentFinalChunkIds.length - 1];
-        const firstParentChunkId = debrief.parentChunkIds[0];
-
-        await createDebriefEdge(lastAgentChunkId, firstParentChunkId);
-        subAgentEdges += 1;
-      }
-    }
-
-    // 4. Save checkpoint for incremental ingestion
-    if (useIncrementalIngestion) {
-      saveCheckpoint({
-        sessionId: info.sessionId,
-        projectSlug,
-        lastTurnIndex: startTurnIndex + turnsToProcess.length - 1,
-        lastChunkId: mainChunkIds[mainChunkIds.length - 1],
-        fileMtime,
-      });
-    }
-
-    // 5. Link cross-sessions if requested
-    let crossSessionEdges = 0;
-    if (linkCrossSessions) {
-      const linkResult = await linkCrossSession(info.sessionId, projectSlug);
-      crossSessionEdges = linkResult.edgeCount;
-    }
+    totalChunkCount += mainResult?.chunkCount ?? 0;
+    totalEdgeCount += mainResult?.edgeCount ?? 0;
+    totalCacheHits += mainResult?.cacheHits ?? 0;
+    totalCacheMisses += mainResult?.cacheMisses ?? 0;
 
     return {
       sessionId: info.sessionId,
       sessionSlug: projectSlug,
       chunkCount: totalChunkCount,
       edgeCount: totalEdgeCount,
-      crossSessionEdges,
-      subAgentEdges,
+      crossSessionEdges: mainResult?.crossSessionEdges ?? 0,
+      subAgentEdges: mainResult?.subAgentEdges ?? 0,
       skipped: false,
       durationMs: Date.now() - startTime,
       subAgentCount: subAgentInfos.length,
@@ -701,6 +502,186 @@ export async function ingestSession(
       await embedder.dispose();
     }
   }
+}
+
+/** Parameters for the shared main session processing pipeline. */
+interface MainSessionParams {
+  turnsToProcess: Turn[];
+  allTurns: Turn[];
+  sessionId: string;
+  projectSlug: string;
+  projectPath: string;
+  maxTokensPerChunk: number;
+  includeThinking: boolean;
+  embedAllFn: (texts: string[]) => Promise<number[][]>;
+  embeddingModel: string;
+  useEmbeddingCache: boolean;
+  useIncrementalIngestion: boolean;
+  linkCrossSessions: boolean;
+  startTurnIndex: number;
+  fileMtime: string;
+  subAgentData: Map<string, { turns: Turn[]; chunks: Chunk[] }>;
+  /** Team-specific data (null for non-team sessions). */
+  team: {
+    topology: TeamTopology;
+    agentData: Map<string, { turns: Turn[]; chunks: ChunkInput[] }>;
+  } | null;
+}
+
+/** Result from processMainSession. */
+interface MainSessionResult {
+  chunkCount: number;
+  edgeCount: number;
+  crossSessionEdges: number;
+  subAgentEdges: number;
+  teamEdges: number;
+  cacheHits: number;
+  cacheMisses: number;
+  mainChunkIds: string[];
+}
+
+/**
+ * Shared pipeline for processing the main session chunks.
+ * Handles: chunk → store → embed → edges → brief/debrief → team edges → checkpoint → cross-session.
+ * Returns null if no chunks were produced.
+ */
+async function processMainSession(params: MainSessionParams): Promise<MainSessionResult | null> {
+  const {
+    turnsToProcess,
+    allTurns,
+    sessionId,
+    projectSlug,
+    projectPath,
+    maxTokensPerChunk,
+    includeThinking,
+    embedAllFn,
+    embeddingModel,
+    useEmbeddingCache,
+    useIncrementalIngestion,
+    linkCrossSessions,
+    startTurnIndex,
+    fileMtime,
+    subAgentData,
+    team,
+  } = params;
+
+  // Chunk main session (only new turns)
+  const mainChunks = chunkTurns(turnsToProcess, {
+    maxTokens: maxTokensPerChunk,
+    includeThinking,
+    sessionId,
+    sessionSlug: projectSlug,
+  });
+
+  if (mainChunks.length === 0) {
+    return null;
+  }
+
+  // Store main chunks
+  const mainChunkInputs = mainChunks.map((chunk) => ({
+    ...chunkToInput(chunk),
+    projectPath,
+  }));
+  const mainChunkIds = insertChunks(mainChunkInputs);
+
+  // Embed main chunks
+  const {
+    embeddings: mainEmbeddings,
+    cacheHits,
+    cacheMisses,
+  } = await embedChunksWithCache(mainChunks, embedAllFn, embeddingModel, useEmbeddingCache);
+
+  await vectorStore.insertBatch(
+    mainChunkIds.map((id, i) => ({ id, embedding: mainEmbeddings[i] })),
+  );
+
+  // Create main intra-session edges
+  const mainTransitions = detectCausalTransitions(mainChunks);
+  const mainEdgeResult = await createEdgesFromTransitions(mainTransitions, mainChunkIds);
+  let totalEdgeCount = mainEdgeResult.totalCount;
+  let subAgentEdges = 0;
+  let teamEdgeCount = 0;
+
+  // Brief/debrief edges
+  if (subAgentData.size > 0) {
+    const chunkIdsByTurn = buildChunkIdsByTurn(
+      mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] })),
+    );
+
+    const briefPoints = detectBriefPoints(turnsToProcess, chunkIdsByTurn, undefined, 0);
+    for (const brief of briefPoints) {
+      const subData = subAgentData.get(brief.agentId);
+      if (subData && subData.chunks.length > 0) {
+        const lastParentChunkId = brief.parentChunkIds[brief.parentChunkIds.length - 1];
+        const firstSubAgentChunkId = subData.chunks[0].id;
+        await createBriefEdge(lastParentChunkId, firstSubAgentChunkId);
+        subAgentEdges += 1;
+      }
+    }
+
+    const debriefPoints = detectDebriefPoints(
+      turnsToProcess,
+      new Map(Array.from(subAgentData.entries()).map(([k, v]) => [k, v.chunks])),
+      mainChunks.map((c, i) => ({ ...c, id: mainChunkIds[i] })),
+      chunkIdsByTurn,
+      undefined,
+      1,
+    );
+    for (const debrief of debriefPoints) {
+      const lastAgentChunkId = debrief.agentFinalChunkIds[debrief.agentFinalChunkIds.length - 1];
+      const firstParentChunkId = debrief.parentChunkIds[0];
+      await createDebriefEdge(lastAgentChunkId, firstParentChunkId);
+      subAgentEdges += 1;
+    }
+  }
+
+  // Team edges (team sessions only)
+  if (team && team.agentData.size > 0) {
+    const mainChunkInputsForEdges = mainChunks.map((c, i) => ({
+      ...chunkToInput(c),
+      projectPath,
+      id: mainChunkIds[i],
+    }));
+
+    const teamEdgePoints = detectTeamEdges(
+      allTurns, // Use ALL turns for detection
+      mainChunkInputsForEdges,
+      team.agentData,
+      team.topology,
+    );
+
+    teamEdgeCount = await createTeamEdges(teamEdgePoints);
+    totalEdgeCount += teamEdgeCount;
+  }
+
+  // Save checkpoint
+  if (useIncrementalIngestion) {
+    saveCheckpoint({
+      sessionId,
+      projectSlug,
+      lastTurnIndex: startTurnIndex + turnsToProcess.length - 1,
+      lastChunkId: mainChunkIds[mainChunkIds.length - 1],
+      fileMtime,
+    });
+  }
+
+  // Link cross-sessions
+  let crossSessionEdges = 0;
+  if (linkCrossSessions) {
+    const linkResult = await linkCrossSession(sessionId, projectSlug);
+    crossSessionEdges = linkResult.edgeCount;
+  }
+
+  return {
+    chunkCount: mainChunkIds.length,
+    edgeCount: totalEdgeCount,
+    crossSessionEdges,
+    subAgentEdges,
+    teamEdges: teamEdgeCount,
+    cacheHits,
+    cacheMisses,
+    mainChunkIds,
+  };
 }
 
 /**
