@@ -2,6 +2,26 @@
 
 This guide covers integrating Causantic with Claude Code through hooks and MCP.
 
+## Claude Code Compatibility
+
+### Worktree Sessions
+
+Claude Code v2.1.47+ supports worktree isolation (`isolation: "worktree"` in agents, `--worktree` flag). When a session runs in a worktree, Claude Code passes the worktree path (e.g., `/tmp/claude-worktree-abc123/`) as `cwd` in hook stdin.
+
+Causantic automatically resolves worktree paths back to the main repository, so project identity remains consistent across worktree and non-worktree sessions. No configuration is needed.
+
+### CLAUDE_CODE_SIMPLE Mode
+
+Setting `CLAUDE_CODE_SIMPLE=true` disables all Claude Code integrations including MCP servers and hooks. Causantic will not receive any hook events or serve MCP queries when this mode is active.
+
+### Enterprise `disableAllHooks`
+
+The `disableAllHooks` managed setting (enterprise Claude Code deployments) can override Causantic hooks. If hooks are not firing, check whether this setting is active in your organisation's Claude Code configuration.
+
+### Future Hook Events
+
+Claude Code may introduce additional hook events (`ConfigChange`, `WorktreeCreate`, `WorktreeRemove`) that Causantic could leverage for richer context tracking.
+
 ## Hook System
 
 Causantic uses Claude Code hooks to capture context at key moments:

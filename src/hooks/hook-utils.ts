@@ -382,6 +382,7 @@ export async function handleIngestionHook(
   options: IngestionHookOptions = {},
 ): Promise<IngestionHookResult> {
   const { basename } = await import('node:path');
+  const { resolveCanonicalProjectPath } = await import('../utils/project-path.js');
   const { recordHookStatus } = await import('./hook-status.js');
 
   const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
@@ -396,7 +397,7 @@ export async function handleIngestionHook(
     degraded: true,
   };
 
-  const project = options.project ?? basename(process.cwd());
+  const project = options.project ?? basename(resolveCanonicalProjectPath(process.cwd()));
 
   const { result, metrics } = await executeHook<IngestionHookResult>(
     hookName,

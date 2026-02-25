@@ -11,7 +11,7 @@
 
 import { readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { generateMemorySection } from './session-start.js';
 import { executeHook, logHook, isTransientError, type HookMetrics } from './hook-utils.js';
 import { errorMessage } from '../utils/errors.js';
@@ -31,6 +31,8 @@ export interface ClaudeMdOptions extends SessionStartOptions {
   claudeMdPath?: string;
   /** Create file if it doesn't exist. Default: false */
   createIfMissing?: boolean;
+  /** Project slug for memory queries (overrides basename(projectPath)). */
+  projectSlug?: string;
 }
 
 /**
@@ -64,8 +66,9 @@ async function internalUpdateClaudeMd(
     ...sessionOptions
   } = options;
 
-  // Generate memory section
-  const memorySection = await generateMemorySection(projectPath, sessionOptions);
+  // Generate memory section using project slug for DB queries
+  const memorySlug = options.projectSlug ?? basename(projectPath);
+  const memorySection = await generateMemorySection(memorySlug, sessionOptions);
 
   if (!memorySection) {
     logHook({
