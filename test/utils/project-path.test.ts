@@ -15,7 +15,10 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-import { resolveCanonicalProjectPath, clearProjectPathCache } from '../../src/utils/project-path.js';
+import {
+  resolveCanonicalProjectPath,
+  clearProjectPathCache,
+} from '../../src/utils/project-path.js';
 import { execFileSync } from 'node:child_process';
 import { statSync, readFileSync } from 'node:fs';
 
@@ -90,9 +93,7 @@ describe('resolveCanonicalProjectPath', () => {
       throw new Error('git not found');
     });
 
-    mockReadFileSync.mockReturnValue(
-      'gitdir: /Users/test/main-project/.git/modules/my-submodule',
-    );
+    mockReadFileSync.mockReturnValue('gitdir: /Users/test/main-project/.git/modules/my-submodule');
 
     expect(resolveCanonicalProjectPath('/Users/test/main-project/my-submodule')).toBe(
       '/Users/test/main-project/my-submodule',
@@ -147,9 +148,7 @@ describe('resolveCanonicalProjectPath', () => {
     >);
 
     // When git worktree list returns the same path as cwd, it IS the main worktree
-    mockExecFileSync.mockReturnValue(
-      'worktree /Users/test/my-project\nbare\n',
-    );
+    mockExecFileSync.mockReturnValue('worktree /Users/test/my-project\nbare\n');
 
     expect(resolveCanonicalProjectPath('/Users/test/my-project')).toBe('/Users/test/my-project');
   });

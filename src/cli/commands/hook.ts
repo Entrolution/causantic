@@ -70,7 +70,9 @@ export const hookCommand: Command = {
     switch (hookName) {
       case 'session-start': {
         // session-start needs the project slug (basename of canonical cwd)
-        const projectSlug = basename(resolveCanonicalProjectPath(input.cwd ?? args[1] ?? process.cwd()));
+        const projectSlug = basename(
+          resolveCanonicalProjectPath(input.cwd ?? args[1] ?? process.cwd()),
+        );
 
         const { handleSessionStart } = await import('../../hooks/session-start.js');
         const result = await handleSessionStart(projectSlug, {});
