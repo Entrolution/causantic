@@ -164,7 +164,9 @@ describe('hookCommand', () => {
 
       await hookCommand.handler(['claudemd-generator', '/projects/my-app']);
 
-      expect(mockUpdateClaudeMd).toHaveBeenCalledWith('/projects/my-app', {});
+      expect(mockUpdateClaudeMd).toHaveBeenCalledWith('/projects/my-app', {
+        projectSlug: 'my-app',
+      });
       expect(console.log).toHaveBeenCalledWith('CLAUDE.md updated.');
     });
 
@@ -173,7 +175,9 @@ describe('hookCommand', () => {
 
       await hookCommand.handler(['claudemd-generator']);
 
-      expect(mockUpdateClaudeMd).toHaveBeenCalledWith(expect.any(String), {});
+      expect(mockUpdateClaudeMd).toHaveBeenCalledWith(expect.any(String), {
+        projectSlug: expect.any(String),
+      });
     });
   });
 

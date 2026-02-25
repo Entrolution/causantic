@@ -48,6 +48,7 @@ import {
 import type { ChunkInput } from '../storage/types.js';
 import type { Chunk, Turn } from '../parser/types.js';
 import { createLogger } from '../utils/logger.js';
+import { resolveCanonicalProjectPath } from '../utils/project-path.js';
 
 const log = createLogger('ingest-session');
 
@@ -166,7 +167,7 @@ export async function ingestSession(
   // Get session info
   const info = await getSessionInfo(sessionPath);
   const projectSlug = deriveProjectSlug(info);
-  const projectPath = info.cwd || '';
+  const projectPath = info.cwd ? resolveCanonicalProjectPath(info.cwd) : '';
 
   // Get file stats for mtime check
   const fileStats = await stat(sessionPath);

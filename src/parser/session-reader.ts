@@ -10,6 +10,7 @@ import { createInterface } from 'node:readline';
 import { basename, dirname, join } from 'node:path';
 import type { RawMessage, RawMessageType, SessionInfo } from './types.js';
 import { createLogger } from '../utils/logger.js';
+import { resolveCanonicalProjectPath } from '../utils/project-path.js';
 
 const log = createLogger('session-reader');
 
@@ -257,14 +258,15 @@ export async function hasSubAgents(sessionPath: string): Promise<boolean> {
  */
 export function deriveProjectSlug(info: SessionInfo, knownSlugs?: Map<string, string>): string {
   if (info.cwd) {
-    let slug = basename(info.cwd);
+    const canonicalCwd = resolveCanonicalProjectPath(info.cwd);
+    let slug = basename(canonicalCwd);
 
     // Check for collision: same basename but different cwd
     if (knownSlugs) {
       const existingCwd = knownSlugs.get(slug);
-      if (existingCwd && existingCwd !== info.cwd) {
+      if (existingCwd && existingCwd !== canonicalCwd) {
         // Disambiguate using last two path components
-        slug = twoComponentSlug(info.cwd);
+        slug = twoComponentSlug(canonicalCwd);
       }
     }
 

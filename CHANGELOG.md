@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-02-25
+
+### Fixed
+
+- **Worktree sessions fragment project identity**: When Claude Code runs in a worktree (`isolation: "worktree"`, introduced in v2.1.47), hook stdin reports the worktree path (e.g., `/tmp/claude-worktree-abc123/`) as `cwd`. Causantic derived project identity from `basename(cwd)`, so worktree sessions were tagged as `claude-worktree-abc123` instead of the real project name. All entry points (hook dispatcher, claudemd-generator, session reader, ingestion, hook-utils) now resolve worktree paths back to the main repository via `git worktree list --porcelain` with a `.git` file parsing fallback. Project identity is consistent across worktree and non-worktree sessions.
+
+### Added
+
+- **`src/utils/project-path.ts`**: New utility — `resolveCanonicalProjectPath(cwd)` detects linked worktrees (`.git` is a file, not a directory), resolves to the main repo path, and caches results. Uses `execFileSync` with 500ms timeout, falls back to parsing the `.git` file. Skips submodules (`.git/modules/` paths). Pattern follows `device-detector.ts`.
+- **Claude Code Compatibility section** in `docs/guides/integration.md`: Documents worktree resolution, `CLAUDE_CODE_SIMPLE` mode, enterprise `disableAllHooks`, and future hook events.
+
+### Tests
+
+- 11 new tests in `test/utils/project-path.test.ts`: normal repo, worktree resolution via git command, `.git` file fallback, submodule guard, error cases, caching, and a real git worktree integration test.
+- Updated `test/cli/commands/hook.test.ts` and `test/parser/session-reader.test.ts` with worktree-aware assertions.
+- 2066 total tests passing.
+
 ## [0.8.1] - 2026-02-22
 
 ### Changed

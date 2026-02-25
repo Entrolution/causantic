@@ -118,4 +118,17 @@ describe('deriveProjectSlug', () => {
     const info = makeInfo({ cwd: '/root' });
     expect(deriveProjectSlug(info)).toBe('root');
   });
+
+  it('resolves worktree cwd to main repo name (mocked)', async () => {
+    // Mock resolveCanonicalProjectPath to simulate worktree resolution
+    const { vi } = await import('vitest');
+    const projectPath = await import('../../src/utils/project-path.js');
+    const spy = vi.spyOn(projectPath, 'resolveCanonicalProjectPath');
+    spy.mockReturnValue('/Users/test/my-real-project');
+
+    const info = makeInfo({ cwd: '/tmp/claude-worktree-abc123' });
+    expect(deriveProjectSlug(info)).toBe('my-real-project');
+
+    spy.mockRestore();
+  });
 });

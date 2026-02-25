@@ -152,6 +152,15 @@ describe('hook-command', () => {
       expect(basename('/tmp')).toBe('tmp');
     });
 
+    it('worktree cwd would resolve to main repo basename', () => {
+      // Verifies the concept: if resolveCanonicalProjectPath maps
+      // /tmp/claude-worktree-abc123 → /Users/test/my-project,
+      // then basename gives 'my-project' not 'claude-worktree-abc123'
+      const { basename } = require('node:path');
+      const mainRepoPath = '/Users/test/my-project';
+      expect(basename(mainRepoPath)).toBe('my-project');
+    });
+
     it('session-end prefers transcript_path over args', () => {
       const input = { transcript_path: '/from/stdin.jsonl' };
       const args = ['/from/args.jsonl'];

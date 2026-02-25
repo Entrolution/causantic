@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import type { Command } from '../types.js';
+import { resolveCanonicalProjectPath } from '../../utils/project-path.js';
 
 /**
  * Claude Code hook stdin input shape.
@@ -68,8 +69,10 @@ export const hookCommand: Command = {
 
     switch (hookName) {
       case 'session-start': {
-        // session-start needs the project slug (basename of cwd)
-        const projectSlug = basename(input.cwd ?? args[1] ?? process.cwd());
+        // session-start needs the project slug (basename of canonical cwd)
+        const projectSlug = basename(
+          resolveCanonicalProjectPath(input.cwd ?? args[1] ?? process.cwd()),
+        );
 
         const { handleSessionStart } = await import('../../hooks/session-start.js');
         const result = await handleSessionStart(projectSlug, {});
@@ -93,7 +96,7 @@ export const hookCommand: Command = {
           process.exit(2);
         }
 
-        const project = basename(input.cwd ?? process.cwd());
+        const project = basename(resolveCanonicalProjectPath(input.cwd ?? process.cwd()));
         const { handlePreCompact } = await import('../../hooks/pre-compact.js');
         await handlePreCompact(sessionPath, { project, sessionId: input.session_id });
         console.log('Pre-compact hook executed.');
@@ -108,16 +111,17 @@ export const hookCommand: Command = {
           process.exit(2);
         }
 
-        const project = basename(input.cwd ?? process.cwd());
+        const project = basename(resolveCanonicalProjectPath(input.cwd ?? process.cwd()));
         const { handleSessionEnd } = await import('../../hooks/session-end.js');
         await handleSessionEnd(sessionPath, { project, sessionId: input.session_id });
         console.log('Session-end hook executed.');
         break;
       }
       case 'claudemd-generator': {
-        const projectPath = input.cwd ?? args[1] ?? process.cwd();
+        const rawCwd = input.cwd ?? args[1] ?? process.cwd();
+        const projectSlug = basename(resolveCanonicalProjectPath(rawCwd));
         const { updateClaudeMd } = await import('../../hooks/claudemd-generator.js');
-        await updateClaudeMd(projectPath, {});
+        await updateClaudeMd(rawCwd, { projectSlug });
         console.log('CLAUDE.md updated.');
         break;
       }
