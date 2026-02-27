@@ -1,13 +1,9 @@
 import * as fs from 'node:fs';
-import { getCliEntryPath } from './shared.js';
 
 export async function configureHooks(claudeConfigPath: string): Promise<void> {
   try {
     const settingsContent = fs.readFileSync(claudeConfigPath, 'utf-8');
     const config = JSON.parse(settingsContent);
-
-    const cliEntry = getCliEntryPath();
-    const nodeBin = process.execPath;
 
     const causanticHooks = [
       {
@@ -15,7 +11,7 @@ export async function configureHooks(claudeConfigPath: string): Promise<void> {
         matcher: '',
         hook: {
           type: 'command',
-          command: `${nodeBin} ${cliEntry} hook pre-compact`,
+          command: `npx causantic hook pre-compact`,
           timeout: 300,
           async: true,
         },
@@ -25,7 +21,7 @@ export async function configureHooks(claudeConfigPath: string): Promise<void> {
         matcher: '',
         hook: {
           type: 'command',
-          command: `${nodeBin} ${cliEntry} hook session-start`,
+          command: `npx causantic hook session-start`,
           timeout: 60,
         },
       },
@@ -34,7 +30,7 @@ export async function configureHooks(claudeConfigPath: string): Promise<void> {
         matcher: '',
         hook: {
           type: 'command',
-          command: `${nodeBin} ${cliEntry} hook session-end`,
+          command: `npx causantic hook session-end`,
           timeout: 300,
           async: true,
         },
@@ -44,7 +40,7 @@ export async function configureHooks(claudeConfigPath: string): Promise<void> {
         matcher: '',
         hook: {
           type: 'command',
-          command: `${nodeBin} ${cliEntry} hook claudemd-generator`,
+          command: `npx causantic hook claudemd-generator`,
           timeout: 60,
           async: true,
         },

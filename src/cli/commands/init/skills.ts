@@ -26,7 +26,14 @@ export async function installSkillsAndClaudeMd(): Promise<void> {
   }
 
   // Clean up removed skills (causantic-context merged into causantic-explain)
-  const removedSkills = ['causantic-context'];
+  const removedSkills = [
+    'causantic-context',
+    'causantic-explain',
+    'causantic-debug',
+    'causantic-summary',
+    'causantic-crossref',
+    'causantic-retro',
+  ];
   for (const name of removedSkills) {
     const removedDir = path.join(skillsDir, name);
     if (fs.existsSync(removedDir)) {

@@ -249,12 +249,30 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     // Session boost: current session gets additional 1.2x
     const sessionBoost = currentSessionId && chunk.sessionId === currentSessionId ? 1.2 : 1.0;
 
-    item.score *= timeBoost * sessionBoost;
+    // Length penalty: logarithmic penalty for large, keyword-rich chunks
+    let lengthFactor = 1.0;
+    if (config.lengthPenalty.enabled) {
+      const chunkTokens = chunk.approxTokens || 500;
+      lengthFactor =
+        1 / (1 + Math.log2(Math.max(1, chunkTokens / config.lengthPenalty.referenceTokens)));
+    }
+
+    item.score *= timeBoost * sessionBoost * lengthFactor;
   }
   deduped.sort((a, b) => b.score - a.score);
 
   // 7.5. MMR reranking (diversity-aware ordering)
   const reordered = await reorderWithMMR(deduped, queryResult.embedding, mmrReranking);
+
+  // 7.6. Normalize scores for display (top result = 1.0)
+  if (reordered.length > 0) {
+    const maxScore = reordered[0].score;
+    if (maxScore > 0) {
+      for (const item of reordered) {
+        item.score = item.score / maxScore;
+      }
+    }
+  }
 
   // 8. Assemble within budget
   const assembled = assembleWithinBudget(reordered, maxTokens, sourceMap);

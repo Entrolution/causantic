@@ -76,6 +76,12 @@ export interface ExternalConfig {
     /** Half-life in hours for the decay function. Default: 48 */
     halfLifeHours?: number;
   };
+  lengthPenalty?: {
+    /** Enable length penalty. Default: true */
+    enabled?: boolean;
+    /** Reference token count for penalty calculation. Must be > 0. Default: 500 */
+    referenceTokens?: number;
+  };
 }
 
 /** Default external config values */
@@ -125,6 +131,10 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   recency: {
     decayFactor: 0.3,
     halfLifeHours: 48,
+  },
+  lengthPenalty: {
+    enabled: true,
+    referenceTokens: 500,
   },
 };
 
@@ -375,6 +385,13 @@ export function validateExternalConfig(config: ExternalConfig): string[] {
     }
   }
 
+  // Length penalty validation
+  if (config.lengthPenalty?.referenceTokens !== undefined) {
+    if (config.lengthPenalty.referenceTokens <= 0) {
+      errors.push('lengthPenalty.referenceTokens must be greater than 0');
+    }
+  }
+
   // Retrieval validation
   if (config.retrieval?.mmrLambda !== undefined) {
     if (config.retrieval.mmrLambda < 0 || config.retrieval.mmrLambda > 1) {
@@ -516,6 +533,13 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
     recency: {
       decayFactor: external.recency?.decayFactor ?? DEFAULT_CONFIG.recency.decayFactor,
       halfLifeHours: external.recency?.halfLifeHours ?? DEFAULT_CONFIG.recency.halfLifeHours,
+    },
+
+    // Length penalty
+    lengthPenalty: {
+      enabled: external.lengthPenalty?.enabled ?? DEFAULT_CONFIG.lengthPenalty.enabled,
+      referenceTokens:
+        external.lengthPenalty?.referenceTokens ?? DEFAULT_CONFIG.lengthPenalty.referenceTokens,
     },
   };
 }

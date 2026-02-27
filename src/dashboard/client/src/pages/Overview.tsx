@@ -2,9 +2,26 @@ import { useApi } from '../hooks/use-api';
 import { Spinner } from '../components/ui/spinner';
 import { StatCard } from '../components/stats/StatCard';
 import { TimeSeries } from '../components/stats/TimeSeries';
+import { ToolUsageChart } from '../components/stats/ToolUsageChart';
+import { SizeDistribution } from '../components/stats/SizeDistribution';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Boxes, GitBranch, Layers, Clock } from 'lucide-react';
+import { Boxes, GitBranch, Layers, Clock, Activity, Search, Wrench } from 'lucide-react';
+
+interface AnalyticsData {
+  toolUsage: Array<{ tool: string; count: number }>;
+  retrievalTimeSeries: Array<{ week: string; count: number }>;
+  topChunks: Array<{
+    chunkId: string;
+    count: number;
+    project: string;
+    tokens: number;
+    preview: string;
+  }>;
+  projectRetrievals: Array<{ project: string; retrievals: number; uniqueQueries: number }>;
+  sizeDistribution: Array<{ bucket: string; count: number }>;
+  totalRetrievals: number;
+}
 
 interface StatsData {
   chunks: number;
@@ -13,6 +30,7 @@ interface StatsData {
   sessions: number;
   projects: number;
   chunkTimeSeries: Array<{ week: string; count: number }>;
+  analytics: AnalyticsData;
 }
 
 interface ChunksData {
@@ -85,6 +103,129 @@ export function Overview() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Retrieval analytics — only shown when feedback data exists */}
+      {stats.analytics.totalRetrievals > 0 && (
+        <>
+          <h2 className="text-xl font-bold">Retrieval Analytics</h2>
+
+          {/* Analytics stat cards */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatCard
+              label="Total Retrievals"
+              value={stats.analytics.totalRetrievals}
+              icon={<Activity className="h-5 w-5" />}
+            />
+            <StatCard
+              label="Unique Queries"
+              value={stats.analytics.projectRetrievals.reduce((sum, p) => sum + p.uniqueQueries, 0)}
+              icon={<Search className="h-5 w-5" />}
+            />
+            <StatCard
+              label={
+                stats.analytics.toolUsage[0]?.tool
+                  ? `Top Tool: ${stats.analytics.toolUsage[0].tool}`
+                  : 'Top Tool'
+              }
+              value={stats.analytics.toolUsage[0]?.count ?? 0}
+              icon={<Wrench className="h-5 w-5" />}
+            />
+          </div>
+
+          {/* Charts row */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {stats.analytics.toolUsage.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Tool Usage</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ToolUsageChart data={stats.analytics.toolUsage} />
+                </CardContent>
+              </Card>
+            )}
+
+            {stats.analytics.retrievalTimeSeries.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Retrievals Over Time</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TimeSeries data={stats.analytics.retrievalTimeSeries} />
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Chunk size distribution */}
+          {stats.analytics.sizeDistribution.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Chunk Size Distribution</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <SizeDistribution data={stats.analytics.sizeDistribution} />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Top retrieved chunks table */}
+          {stats.analytics.topChunks.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Retrieved Chunks</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground w-8">
+                          #
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          Project
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                          Preview
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          Tokens
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                          Retrieved
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {stats.analytics.topChunks.map((chunk, i) => (
+                        <tr
+                          key={chunk.chunkId}
+                          className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
+                        >
+                          <td className="px-4 py-3 text-muted-foreground">{i + 1}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant="secondary">{chunk.project}</Badge>
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground truncate max-w-[300px]">
+                            {chunk.preview}
+                          </td>
+                          <td className="px-4 py-3 text-right text-muted-foreground">
+                            {chunk.tokens.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Badge variant="secondary">{chunk.count}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

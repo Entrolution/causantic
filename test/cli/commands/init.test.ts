@@ -7,9 +7,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
-import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 // ── Mock dependencies before importing the command ──────────────────────────
 
 vi.mock('node:fs');
@@ -492,17 +489,6 @@ describe('initCommand', () => {
     });
 
     it('skips when hooks already match the current install path', async () => {
-      // Build the exact command strings that init would generate
-      const cliEntry = path.resolve(
-        path.dirname(fileURLToPath(import.meta.url)),
-        '..',
-        '..',
-        '..',
-        'src',
-        'cli',
-        'index.js',
-      );
-      const nodeBin = process.execPath;
       const existingHooks = {
         PreCompact: [
           {
@@ -510,7 +496,7 @@ describe('initCommand', () => {
             hooks: [
               {
                 type: 'command',
-                command: `${nodeBin} ${cliEntry} hook pre-compact`,
+                command: `npx causantic hook pre-compact`,
                 timeout: 300,
                 async: true,
               },
@@ -523,7 +509,7 @@ describe('initCommand', () => {
             hooks: [
               {
                 type: 'command',
-                command: `${nodeBin} ${cliEntry} hook session-start`,
+                command: `npx causantic hook session-start`,
                 timeout: 60,
               },
             ],
@@ -535,7 +521,7 @@ describe('initCommand', () => {
             hooks: [
               {
                 type: 'command',
-                command: `${nodeBin} ${cliEntry} hook session-end`,
+                command: `npx causantic hook session-end`,
                 timeout: 300,
                 async: true,
               },
@@ -546,7 +532,7 @@ describe('initCommand', () => {
             hooks: [
               {
                 type: 'command',
-                command: `${nodeBin} ${cliEntry} hook claudemd-generator`,
+                command: `npx causantic hook claudemd-generator`,
                 timeout: 60,
                 async: true,
               },

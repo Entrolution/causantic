@@ -91,6 +91,10 @@ export const searchTool: ToolDefinition = {
         type: 'string',
         description: 'Filter to a specific agent (e.g., "researcher"). Omit to include all agents.',
       },
+      max_tokens: {
+        type: 'number',
+        description: 'Maximum tokens in response. Defaults to server config.',
+      },
     },
     required: ['query'],
   },
@@ -99,10 +103,11 @@ export const searchTool: ToolDefinition = {
     const project = args.project as string | undefined;
     const agent = args.agent as string | undefined;
     const config = getConfig();
+    const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
 
     const response = await searchContext({
       query,
-      maxTokens: config.mcpMaxResponseTokens,
+      maxTokens,
       projectFilter: project,
       agentFilter: agent,
     });
@@ -149,6 +154,10 @@ export const recallTool: ToolDefinition = {
         type: 'string',
         description: 'Filter to a specific agent (e.g., "researcher"). Omit to include all agents.',
       },
+      max_tokens: {
+        type: 'number',
+        description: 'Maximum tokens in response. Defaults to server config.',
+      },
     },
     required: ['query'],
   },
@@ -157,9 +166,10 @@ export const recallTool: ToolDefinition = {
     const project = args.project as string | undefined;
     const agent = args.agent as string | undefined;
     const config = getConfig();
+    const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
 
     const response = await recall(query, {
-      maxTokens: config.mcpMaxResponseTokens,
+      maxTokens,
       projectFilter: project,
       agentFilter: agent,
     });
@@ -205,6 +215,10 @@ export const predictTool: ToolDefinition = {
         type: 'string',
         description: 'Filter to a specific agent (e.g., "researcher"). Omit to include all agents.',
       },
+      max_tokens: {
+        type: 'number',
+        description: 'Maximum tokens in response. Defaults to server config.',
+      },
     },
     required: ['context'],
   },
@@ -213,9 +227,10 @@ export const predictTool: ToolDefinition = {
     const project = args.project as string | undefined;
     const agent = args.agent as string | undefined;
     const config = getConfig();
+    const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
 
     const response = await predict(context, {
-      maxTokens: config.mcpMaxResponseTokens,
+      maxTokens,
       projectFilter: project,
       agentFilter: agent,
     });
@@ -388,6 +403,10 @@ export const reconstructTool: ToolDefinition = {
         type: 'string',
         description: 'Filter to a specific agent (e.g., "researcher"). Omit to include all agents.',
       },
+      max_tokens: {
+        type: 'number',
+        description: 'Maximum tokens in response. Defaults to server config.',
+      },
     },
     required: ['project'],
   },
@@ -395,6 +414,7 @@ export const reconstructTool: ToolDefinition = {
     const project = args.project as string;
     const agent = args.agent as string | undefined;
     const config = getConfig();
+    const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
 
     try {
       const result = reconstructSession({
@@ -405,7 +425,7 @@ export const reconstructTool: ToolDefinition = {
         daysBack: args.days_back as number | undefined,
         previousSession: args.previous_session as boolean | undefined,
         currentSessionId: args.current_session_id as string | undefined,
-        maxTokens: config.mcpMaxResponseTokens,
+        maxTokens,
         keepNewest: (args.keep_newest as boolean | undefined) ?? true,
         agentFilter: agent,
       });

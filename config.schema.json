@@ -213,6 +213,24 @@
       },
       "additionalProperties": false
     },
+    "lengthPenalty": {
+      "type": "object",
+      "description": "Length penalty settings to favour focused chunks over large keyword-rich ones",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable logarithmic length penalty for scoring"
+        },
+        "referenceTokens": {
+          "type": "number",
+          "minimum": 1,
+          "default": 500,
+          "description": "Reference token count. Chunks at this size receive no penalty; larger chunks are penalised logarithmically."
+        }
+      },
+      "additionalProperties": false
+    },
     "recency": {
       "type": "object",
       "description": "Recency boost settings for time-decay scoring",

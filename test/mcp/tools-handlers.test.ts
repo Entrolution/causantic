@@ -209,6 +209,14 @@ describe('searchTool.handler', () => {
 
     expect(result).toBe('No relevant memory found.');
   });
+
+  it('uses max_tokens override when provided', async () => {
+    mockSearchContext.mockResolvedValue(sampleSearchResponse);
+
+    await searchTool.handler({ query: 'test', max_tokens: 500 });
+
+    expect(mockSearchContext).toHaveBeenCalledWith(expect.objectContaining({ maxTokens: 500 }));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -255,6 +263,14 @@ describe('recallTool.handler', () => {
 
     expect(result).toBe('No relevant memory found.');
   });
+
+  it('uses max_tokens override when provided', async () => {
+    mockRecall.mockResolvedValue(sampleResponse);
+
+    await recallTool.handler({ query: 'test', max_tokens: 800 });
+
+    expect(mockRecall).toHaveBeenCalledWith('test', expect.objectContaining({ maxTokens: 800 }));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -290,6 +306,14 @@ describe('predictTool.handler', () => {
     const result = await predictTool.handler({ context: 'blank slate' });
 
     expect(result).toBe('No predictions available based on current context.');
+  });
+
+  it('uses max_tokens override when provided', async () => {
+    mockPredict.mockResolvedValue(sampleResponse);
+
+    await predictTool.handler({ context: 'test', max_tokens: 1000 });
+
+    expect(mockPredict).toHaveBeenCalledWith('test', expect.objectContaining({ maxTokens: 1000 }));
   });
 
   it('returns "Potentially relevant context..." header for non-empty results', async () => {
@@ -641,6 +665,17 @@ describe('reconstructTool.handler', () => {
 
     expect(mockReconstructSession).toHaveBeenCalledWith(
       expect.objectContaining({ keepNewest: true }),
+    );
+  });
+
+  it('uses max_tokens override when provided', async () => {
+    mockReconstructSession.mockReturnValue(sampleReconstructResult);
+    mockFormatReconstruction.mockReturnValue('output');
+
+    await reconstructTool.handler({ project: 'my-app', max_tokens: 1500 });
+
+    expect(mockReconstructSession).toHaveBeenCalledWith(
+      expect.objectContaining({ maxTokens: 1500 }),
     );
   });
 

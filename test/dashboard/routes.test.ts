@@ -17,6 +17,7 @@ import {
 import { createApp } from '../../src/dashboard/server.js';
 import { insertChunk } from '../../src/storage/chunk-store.js';
 import { createEdge } from '../../src/storage/edge-store.js';
+import { getDb } from '../../src/storage/db.js';
 
 let db: Database.Database;
 let server: Server;
@@ -994,5 +995,131 @@ describe('GET /api/timeline — limit parameter', () => {
     const res2 = await get('/api/timeline');
     const data2 = await res2.json();
     expect(data2.chunks).toHaveLength(3);
+  });
+});
+
+describe('GET /api/stats — analytics', () => {
+  it('returns empty analytics when no feedback exists', async () => {
+    const res = await get('/api/stats');
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.analytics).toBeDefined();
+    expect(data.analytics.totalRetrievals).toBe(0);
+    expect(data.analytics.toolUsage).toEqual([]);
+    expect(data.analytics.retrievalTimeSeries).toEqual([]);
+    expect(data.analytics.topChunks).toEqual([]);
+    expect(data.analytics.projectRetrievals).toEqual([]);
+    // sizeDistribution depends on chunks, not feedback — empty db means empty
+    expect(data.analytics.sizeDistribution).toEqual([]);
+  });
+
+  it('returns analytics with feedback data', async () => {
+    insertChunk(
+      makeChunk({
+        id: 'af-1',
+        sessionSlug: 'project-a',
+        content: 'First chunk content for analytics test',
+      }),
+    );
+    insertChunk(
+      makeChunk({
+        id: 'af-2',
+        sessionId: 'sess-2',
+        sessionSlug: 'project-b',
+        content: 'Second chunk content for analytics',
+        startTime: '2024-02-01T00:00:00Z',
+      }),
+    );
+
+    const testDb = getDb();
+    testDb
+      .prepare(
+        'INSERT INTO retrieval_feedback (chunk_id, query_hash, tool_name, returned_at) VALUES (?, ?, ?, ?)',
+      )
+      .run('af-1', 'hash-1', 'search', '2024-01-15T10:00:00Z');
+    testDb
+      .prepare(
+        'INSERT INTO retrieval_feedback (chunk_id, query_hash, tool_name, returned_at) VALUES (?, ?, ?, ?)',
+      )
+      .run('af-1', 'hash-2', 'recall', '2024-01-20T10:00:00Z');
+    testDb
+      .prepare(
+        'INSERT INTO retrieval_feedback (chunk_id, query_hash, tool_name, returned_at) VALUES (?, ?, ?, ?)',
+      )
+      .run('af-2', 'hash-1', 'search', '2024-02-01T10:00:00Z');
+
+    const res = await get('/api/stats');
+    const data = await res.json();
+
+    expect(data.analytics.totalRetrievals).toBe(3);
+
+    // Tool usage
+    expect(data.analytics.toolUsage).toHaveLength(2);
+    const searchTool = data.analytics.toolUsage.find((t: any) => t.tool === 'search');
+    expect(searchTool.count).toBe(2);
+
+    // Top chunks
+    expect(data.analytics.topChunks.length).toBeGreaterThanOrEqual(1);
+    expect(data.analytics.topChunks[0].chunkId).toBe('af-1');
+    expect(data.analytics.topChunks[0].count).toBe(2);
+    expect(data.analytics.topChunks[0].project).toBe('project-a');
+
+    // Project retrievals
+    expect(data.analytics.projectRetrievals).toHaveLength(2);
+
+    // Retrieval time series
+    expect(data.analytics.retrievalTimeSeries.length).toBeGreaterThanOrEqual(1);
+
+    // Size distribution (2 chunks inserted, both have approxTokens=10 → bucket 0-200)
+    expect(data.analytics.sizeDistribution.length).toBeGreaterThanOrEqual(1);
+    expect(data.analytics.sizeDistribution[0].bucket).toBe('0-200');
+    expect(data.analytics.sizeDistribution[0].count).toBe(2);
+  });
+});
+
+describe('GET /api/projects — retrieval counts', () => {
+  it('returns zero retrieval counts when no feedback exists', async () => {
+    insertChunk(makeChunk({ id: 'pr-1', sessionSlug: 'project-a' }));
+
+    const res = await get('/api/projects');
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.projects).toHaveLength(1);
+    expect(data.projects[0].retrievals).toBe(0);
+    expect(data.projects[0].uniqueQueries).toBe(0);
+  });
+
+  it('includes retrieval counts per project', async () => {
+    insertChunk(makeChunk({ id: 'pr-a1', sessionSlug: 'project-a' }));
+    insertChunk(
+      makeChunk({
+        id: 'pr-b1',
+        sessionId: 'sess-2',
+        sessionSlug: 'project-b',
+        startTime: '2024-02-01T00:00:00Z',
+      }),
+    );
+
+    const testDb = getDb();
+    testDb
+      .prepare('INSERT INTO retrieval_feedback (chunk_id, query_hash, tool_name) VALUES (?, ?, ?)')
+      .run('pr-a1', 'q1', 'search');
+    testDb
+      .prepare('INSERT INTO retrieval_feedback (chunk_id, query_hash, tool_name) VALUES (?, ?, ?)')
+      .run('pr-a1', 'q2', 'recall');
+
+    const res = await get('/api/projects');
+    const data = await res.json();
+
+    expect(data.projects).toHaveLength(2);
+    const projA = data.projects.find((p: any) => p.slug === 'project-a');
+    const projB = data.projects.find((p: any) => p.slug === 'project-b');
+
+    expect(projA.retrievals).toBe(2);
+    expect(projA.uniqueQueries).toBe(2);
+    expect(projB.retrievals).toBe(0);
+    expect(projB.uniqueQueries).toBe(0);
   });
 });
