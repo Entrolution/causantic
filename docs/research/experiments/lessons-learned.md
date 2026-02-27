@@ -244,6 +244,49 @@ This separation of concerns led to the current architecture:
 
 Each mechanism does what it's best at. The v0.2 architecture tried to make the graph do semantic ranking via sum-product path weights — conflating structural and semantic concerns.
 
+## Transition Matrices at Query Boundaries (v0.8.1)
+
+### What We Tried
+
+Use cluster-level transition matrices (bigram/trigram) from the causal graph to predict which clusters should be returned at retrieval time. The hypothesis: if session A ended in clusters X,Y and session B started in clusters Y,Z, a transition matrix could learn X→Z and Y→Z patterns useful for prediction.
+
+A preliminary scan over the full graph showed 61x lift (45% bigram accuracy vs 0.74% random), suggesting strong signal. We designed a controlled experiment isolating signal at actual query boundaries:
+
+- **Experiment A**: Cross-session prediction — at each cross-session edge, predict the next session's initial clusters from the previous session's final clusters.
+- **Experiment B**: Retrieval feedback chain — predict which clusters will be retrieved next based on recent retrieval history.
+- **Baselines**: Random, most-popular, recency (predict same clusters), plus global/within-chain/cross-session bigrams, project-conditioned bigram, and trigram.
+
+### What Happened
+
+The preliminary 61x lift was entirely within-session workflow signal:
+
+| Approach | P@5 | Lift@5 |
+|----------|-----|--------|
+| Random | 3.7% | 1.0x |
+| Most popular | 8.4% | 2.3x |
+| Recency | 22.1% | 6.0x |
+| **Global bigram** | **31.6%** | **8.5x** |
+| Within-chain bigram | 31.6% | 8.5x |
+| **Cross-session bigram** | **4.2%** | **1.1x** |
+
+The cross-session bigram matrix contained only 3 source clusters and 3 cells — too sparse to learn anything. The global bigram's 8.5x lift was identical to the within-chain bigram, confirming it was entirely driven by within-chain edges (74.7% of forward edges).
+
+### Why It Failed
+
+Two compounding problems:
+
+1. **Sparsity at boundaries**: Cross-session edges are only 4.2% of forward edges. The transition matrix has insufficient data to learn meaningful patterns at actual query boundaries.
+
+2. **Recency is tautological**: Recency (6.0x lift) is the strongest viable baseline — but it's useless in practice because if you're querying memory, you already have the recent context. Returning the same clusters is circular.
+
+### The Conclusion
+
+Transition matrices do not provide useful signal at query boundaries. The approach works within sessions (where sequential chunks naturally revisit the same topics) but this is not where retrieval help is needed. At actual query boundaries — where retrieval would add value — the signal is too sparse to learn from.
+
+This confirms the architectural separation: the graph's value is **structural ordering** (chain walking), not **predictive ranking** (transition matrices). Semantic discovery remains the job of vector search and BM25.
+
+Script: `scripts/experiments/transition-boundary-experiment.ts`
+
 ## Takeaways
 
 1. **Question assumptions**: Wall-clock time seems natural but is wrong
@@ -254,3 +297,4 @@ Each mechanism does what it's best at. The v0.2 architecture tried to make the g
 6. **Measure before theorizing**: Sum-product traversal was theoretically elegant but contributed 2% of results
 7. **Separate concerns**: The graph's value is structural ordering, not semantic ranking
 8. **Simple beats complex**: 1-to-1 sequential edges outperform m×n all-pairs with sum-product traversal
+9. **Distinguish within-session from cross-session signal**: A metric that looks great on the full graph may be entirely driven by trivial within-session patterns that don't help at retrieval time

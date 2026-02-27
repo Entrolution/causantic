@@ -79,6 +79,10 @@ vi.mock('../../src/config/loader.js', () => ({
       decayFactor: 0.3,
       halfLifeHours: 48,
     },
+    lengthPenalty: {
+      enabled: true,
+      referenceTokens: 500,
+    },
   }),
 }));
 
@@ -381,6 +385,55 @@ describe('search-assembler', () => {
       // Recent chunk gets meaningful time-decay boost; ancient chunk gets ~1.0x
       // So recent should have higher weight
       expect(recent!.weight).toBeGreaterThan(ancient!.weight);
+    });
+
+    it('normalizes scores so top result has weight 1.0', async () => {
+      mockChunks.set('c1', makeChunk('c1', { approxTokens: 50 }));
+      mockChunks.set('c2', makeChunk('c2', { approxTokens: 50 }));
+
+      mockVectorResults = [
+        { id: 'c1', distance: 0.1 },
+        { id: 'c2', distance: 0.3 },
+      ];
+
+      const result = await searchContext({ query: 'test' });
+
+      expect(result.chunks.length).toBe(2);
+      // Top result should be normalized to 1.0
+      expect(result.chunks[0].weight).toBeCloseTo(1.0, 1);
+      // Second result should be < 1.0
+      expect(result.chunks[1].weight).toBeLessThan(1.0);
+      expect(result.chunks[1].weight).toBeGreaterThan(0);
+    });
+
+    it('applies length penalty — smaller chunks score higher than large ones', async () => {
+      const now = new Date();
+      const sameTime = now.toISOString();
+
+      // Small focused chunk (50 tokens) vs large chunk (2000 tokens)
+      mockChunks.set(
+        'small',
+        makeChunk('small', { approxTokens: 50, startTime: sameTime }),
+      );
+      mockChunks.set(
+        'large',
+        makeChunk('large', { approxTokens: 2000, startTime: sameTime }),
+      );
+
+      // Equal base scores
+      mockVectorResults = [
+        { id: 'small', distance: 0.2 },
+        { id: 'large', distance: 0.2 },
+      ];
+
+      const result = await searchContext({ query: 'test' });
+
+      const smallChunk = result.chunks.find((c) => c.id === 'small');
+      const largeChunk = result.chunks.find((c) => c.id === 'large');
+      expect(smallChunk).toBeDefined();
+      expect(largeChunk).toBeDefined();
+      // Small chunk should rank higher due to length penalty on large chunk
+      expect(smallChunk!.weight).toBeGreaterThan(largeChunk!.weight);
     });
 
     it('gracefully handles keyword search failure', async () => {

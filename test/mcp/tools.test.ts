@@ -11,6 +11,7 @@ import {
   recallTool,
   predictTool,
   listProjectsTool,
+  reconstructTool,
   statsTool,
   forgetTool,
 } from '../../src/mcp/tools.js';
@@ -57,6 +58,11 @@ describe('mcp-tools', () => {
     it('has query property with string type', () => {
       expect(searchTool.inputSchema.properties.query.type).toBe('string');
     });
+
+    it('has optional max_tokens parameter with number type', () => {
+      expect(searchTool.inputSchema.properties.max_tokens.type).toBe('number');
+      expect(searchTool.inputSchema.required).not.toContain('max_tokens');
+    });
   });
 
   describe('recallTool', () => {
@@ -76,6 +82,11 @@ describe('mcp-tools', () => {
     it('has query property with string type', () => {
       expect(recallTool.inputSchema.properties.query.type).toBe('string');
     });
+
+    it('has optional max_tokens parameter with number type', () => {
+      expect(recallTool.inputSchema.properties.max_tokens.type).toBe('number');
+      expect(recallTool.inputSchema.required).not.toContain('max_tokens');
+    });
   });
 
   describe('predictTool', () => {
@@ -94,6 +105,22 @@ describe('mcp-tools', () => {
 
     it('has context property with string type', () => {
       expect(predictTool.inputSchema.properties.context.type).toBe('string');
+    });
+
+    it('has optional max_tokens parameter with number type', () => {
+      expect(predictTool.inputSchema.properties.max_tokens.type).toBe('number');
+      expect(predictTool.inputSchema.required).not.toContain('max_tokens');
+    });
+  });
+
+  describe('reconstructTool', () => {
+    it('has correct name', () => {
+      expect(reconstructTool.name).toBe('reconstruct');
+    });
+
+    it('has optional max_tokens parameter with number type', () => {
+      expect(reconstructTool.inputSchema.properties.max_tokens.type).toBe('number');
+      expect(reconstructTool.inputSchema.required).not.toContain('max_tokens');
     });
   });
 

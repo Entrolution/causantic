@@ -12,7 +12,7 @@ describe('session-start', () => {
       const defaults: SessionStartOptions = {
         maxTokens: 2000,
         includeRecent: 3,
-        includeCrossProject: 2,
+        includeCrossProject: 0,
         enableRetry: true,
         maxRetries: 3,
         gracefulDegradation: true,
@@ -20,7 +20,7 @@ describe('session-start', () => {
 
       expect(defaults.maxTokens).toBe(2000);
       expect(defaults.includeRecent).toBe(3);
-      expect(defaults.includeCrossProject).toBe(2);
+      expect(defaults.includeCrossProject).toBe(0);
       expect(defaults.enableRetry).toBe(true);
     });
 

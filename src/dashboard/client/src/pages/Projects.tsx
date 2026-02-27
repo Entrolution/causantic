@@ -9,6 +9,8 @@ interface ProjectInfo {
   firstSeen: string;
   lastSeen: string;
   path?: string;
+  retrievals: number;
+  uniqueQueries: number;
 }
 
 interface ProjectsResponse {
@@ -45,6 +47,12 @@ export function Projects() {
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                       Last Seen
                     </th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                      Retrievals
+                    </th>
+                    <th className="px-4 py-3 text-right font-medium text-muted-foreground">
+                      Queries
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -71,6 +79,12 @@ export function Projects() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {new Date(project.lastSeen).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Badge variant="secondary">{project.retrievals}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Badge variant="secondary">{project.uniqueQueries}</Badge>
                       </td>
                     </tr>
                   ))}

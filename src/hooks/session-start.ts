@@ -75,7 +75,7 @@ function internalHandleSessionStart(
   const {
     maxTokens = config.claudeMdBudgetTokens,
     includeRecent = 3,
-    includeCrossProject = 2,
+    includeCrossProject = 0,
   } = options;
 
   // Get clusters with descriptions (SQL-level filter)

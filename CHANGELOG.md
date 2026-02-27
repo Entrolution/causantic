@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-02-27
+
+### Added
+
+- **Dashboard retrieval analytics**: New analytics section on the Overview page surfaces retrieval feedback data that was previously collected but never visualized. Addresses 4 observability gaps identified in the system audit:
+  - **Tool call frequency**: Horizontal bar chart showing MCP tool usage breakdown (search, recall, predict, etc.)
+  - **Retrieval volume over time**: Weekly time series of retrieval activity, reusing the existing `TimeSeries` D3 component
+  - **Top retrieved chunks**: Table of the 10 most-retrieved chunks with project, preview, token count, and retrieval count — surfaces dominant-chunk problems
+  - **Chunk size distribution**: Vertical bar chart of chunk token-count buckets (0-200, 201-500, 501-1K, 1K-2K, 2K-5K, 5K+) for validating length penalty tuning
+  - **Per-project retrieval quality**: Projects page now shows Retrievals and Unique Queries columns alongside existing chunk counts
+  - **Stat cards**: Total Retrievals, Unique Queries, and Top Tool summary cards
+- **`ToolUsageChart` component** (`src/dashboard/client/src/components/stats/ToolUsageChart.tsx`): D3 horizontal bar chart for tool usage data
+- **`SizeDistribution` component** (`src/dashboard/client/src/components/stats/SizeDistribution.tsx`): D3 vertical bar chart for chunk size buckets
+
+### Changed
+
+- **`GET /api/stats`**: Response now includes an `analytics` object with `toolUsage`, `retrievalTimeSeries`, `topChunks`, `projectRetrievals`, `sizeDistribution`, and `totalRetrievals`. Gracefully returns empty arrays and 0 when no feedback data exists.
+- **`GET /api/projects`**: Each project now includes `retrievals` and `uniqueQueries` fields (default 0).
+- **SECURITY.md**: Updated supported versions to `>= 0.9.0`.
+
+### Tests
+
+- 4 new route tests: empty analytics, populated analytics with feedback data, zero retrieval counts on projects, per-project retrieval counts.
+- 2031 total tests passing.
+
 ## [0.8.2] - 2026-02-25
 
 ### Fixed

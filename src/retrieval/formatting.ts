@@ -18,7 +18,7 @@ function formatChunkHeader(chunk: StoredChunk): { date: string; agentPart: strin
  */
 export function formatSearchChunk(chunk: StoredChunk, content: string, weight: number): string {
   const { date, agentPart } = formatChunkHeader(chunk);
-  const relevance = (weight * 100).toFixed(0);
+  const relevance = (Math.min(weight, 1.0) * 100).toFixed(0);
   return `[Session: ${chunk.sessionSlug}${agentPart} | Date: ${date} | Relevance: ${relevance}%]\n${content}`;
 }
 

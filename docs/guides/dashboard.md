@@ -24,6 +24,7 @@ Collection-wide statistics at a glance:
 - Graph connectivity metrics
 - Per-project breakdown
 - Recent ingestion activity
+- **Retrieval analytics** (shown when feedback data exists): tool call frequency chart, retrieval volume over time, chunk size distribution, top retrieved chunks table, and summary stat cards (total retrievals, unique queries, top tool)
 
 ### Search
 
@@ -58,6 +59,7 @@ Per-project views:
 
 - Sessions per project with time ranges
 - Chunk distribution across sessions
+- Retrieval counts and unique query counts per project
 - Project-specific graph statistics
 
 ## API Routes
@@ -66,11 +68,11 @@ The dashboard exposes a REST API that powers the UI. These routes can also be us
 
 | Route                                   | Description                                        |
 | --------------------------------------- | -------------------------------------------------- |
-| `GET /api/stats`                        | Collection statistics (chunks, edges, clusters)    |
+| `GET /api/stats`                        | Collection statistics and retrieval analytics       |
 | `GET /api/chunks`                       | List chunks with pagination                        |
 | `GET /api/edges`                        | List edges with filtering                          |
 | `GET /api/clusters`                     | List clusters with member counts                   |
-| `GET /api/projects`                     | List projects with chunk counts                    |
+| `GET /api/projects`                     | List projects with chunk and retrieval counts      |
 | `GET /api/graph`                        | Graph data for visualization (nodes + edges)       |
 | `GET /api/graph/neighborhood`           | Neighborhood subgraph around a specific chunk      |
 | `GET /api/search?q=<query>`             | Search memory with retrieval pipeline              |

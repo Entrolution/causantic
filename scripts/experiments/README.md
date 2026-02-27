@@ -14,3 +14,4 @@ Research experiments and parameter sweeps.
 | `sweep-min-weight.ts` | Minimum weight sweep | `npm run min-weight-sweep` |
 | `sweep-depth.ts` | Depth sweep | `npm run depth-sweep` |
 | `cross-project-experiment.ts` | Cross-project experiment | `npm run cross-project` |
+| `transition-boundary-experiment.ts` | Transition matrix at query boundaries (rejected) | `npx tsx scripts/experiments/transition-boundary-experiment.ts` |

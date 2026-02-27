@@ -66,6 +66,14 @@ export interface MemoryConfig {
     halfLifeHours: number;
   };
 
+  /** Length penalty configuration to favour focused chunks over large keyword-rich ones */
+  lengthPenalty: {
+    /** Enable length penalty. Default: true */
+    enabled: boolean;
+    /** Reference token count for penalty calculation. Default: 500 */
+    referenceTokens: number;
+  };
+
   // Clustering (incremental)
   /** Ratio of new chunks that triggers a full recluster. Default: 0.3 (30%). */
   incrementalClusterThreshold: number;
@@ -123,6 +131,12 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   recency: {
     decayFactor: 0.3,
     halfLifeHours: 48,
+  },
+
+  // Length penalty
+  lengthPenalty: {
+    enabled: true,
+    referenceTokens: 500,
   },
 
   // Clustering (incremental)
