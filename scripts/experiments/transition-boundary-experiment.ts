@@ -219,8 +219,7 @@ function predictFromBigram(
   for (const ctx of contextClusters) {
     const row = normalized.get(ctx);
     if (!row) continue;
-    for (const [target, prob] of row.targets)
-      scores.set(target, (scores.get(target) ?? 0) + prob);
+    for (const [target, prob] of row.targets) scores.set(target, (scores.get(target) ?? 0) + prob);
   }
   return [...scores.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -528,11 +527,19 @@ function main(): void {
   const globalNorm = normalizeMatrix(globalMat);
   console.log(`Global:         ${globalMat.counts.size} rows, ${matrixCells(globalMat)} cells`);
 
-  const crossMat = buildTransitionMatrix(forwardEdges, primary, (e) => e.referenceType === 'cross-session');
+  const crossMat = buildTransitionMatrix(
+    forwardEdges,
+    primary,
+    (e) => e.referenceType === 'cross-session',
+  );
   const crossNorm = normalizeMatrix(crossMat);
   console.log(`Cross-session:  ${crossMat.counts.size} rows, ${matrixCells(crossMat)} cells`);
 
-  const withinMat = buildTransitionMatrix(forwardEdges, primary, (e) => e.referenceType === 'within-chain');
+  const withinMat = buildTransitionMatrix(
+    forwardEdges,
+    primary,
+    (e) => e.referenceType === 'within-chain',
+  );
   const withinNorm = normalizeMatrix(withinMat);
   console.log(`Within-chain:   ${withinMat.counts.size} rows, ${matrixCells(withinMat)} cells`);
 
@@ -675,11 +682,19 @@ function main(): void {
         },
         {
           name: 'Global bigram',
-          metrics: evaluate(fbPairs, (ctx, k) => predictFromBigram(ctx, globalNorm, k), totalClusters),
+          metrics: evaluate(
+            fbPairs,
+            (ctx, k) => predictFromBigram(ctx, globalNorm, k),
+            totalClusters,
+          ),
         },
         {
           name: 'Cross-session bigram',
-          metrics: evaluate(fbPairs, (ctx, k) => predictFromBigram(ctx, crossNorm, k), totalClusters),
+          metrics: evaluate(
+            fbPairs,
+            (ctx, k) => predictFromBigram(ctx, crossNorm, k),
+            totalClusters,
+          ),
         },
         {
           name: 'Trigram',
@@ -721,9 +736,12 @@ function main(): void {
 
   console.log('\nEdge types (forward):');
   const typeCounts = new Map<string, number>();
-  for (const e of forwardEdges) typeCounts.set(e.referenceType ?? 'null', (typeCounts.get(e.referenceType ?? 'null') ?? 0) + 1);
+  for (const e of forwardEdges)
+    typeCounts.set(e.referenceType ?? 'null', (typeCounts.get(e.referenceType ?? 'null') ?? 0) + 1);
   for (const [t, n] of [...typeCounts.entries()].sort((a, b) => b[1] - a[1]))
-    console.log(`  ${t.padEnd(20)} ${n.toLocaleString().padStart(8)} (${((n / forwardEdges.length) * 100).toFixed(1)}%)`);
+    console.log(
+      `  ${t.padEnd(20)} ${n.toLocaleString().padStart(8)} (${((n / forwardEdges.length) * 100).toFixed(1)}%)`,
+    );
 
   console.log(
     `\nCoverage: ${assignments.size}/${chunkMeta.size} clustered (${((assignments.size / chunkMeta.size) * 100).toFixed(0)}%), ${totalClusters} clusters`,

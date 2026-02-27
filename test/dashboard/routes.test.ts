@@ -1015,7 +1015,13 @@ describe('GET /api/stats — analytics', () => {
   });
 
   it('returns analytics with feedback data', async () => {
-    insertChunk(makeChunk({ id: 'af-1', sessionSlug: 'project-a', content: 'First chunk content for analytics test' }));
+    insertChunk(
+      makeChunk({
+        id: 'af-1',
+        sessionSlug: 'project-a',
+        content: 'First chunk content for analytics test',
+      }),
+    );
     insertChunk(
       makeChunk({
         id: 'af-2',

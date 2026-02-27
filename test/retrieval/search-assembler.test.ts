@@ -411,14 +411,8 @@ describe('search-assembler', () => {
       const sameTime = now.toISOString();
 
       // Small focused chunk (50 tokens) vs large chunk (2000 tokens)
-      mockChunks.set(
-        'small',
-        makeChunk('small', { approxTokens: 50, startTime: sameTime }),
-      );
-      mockChunks.set(
-        'large',
-        makeChunk('large', { approxTokens: 2000, startTime: sameTime }),
-      );
+      mockChunks.set('small', makeChunk('small', { approxTokens: 50, startTime: sameTime }));
+      mockChunks.set('large', makeChunk('large', { approxTokens: 2000, startTime: sameTime }));
 
       // Equal base scores
       mockVectorResults = [

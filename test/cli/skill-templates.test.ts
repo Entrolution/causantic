@@ -47,7 +47,13 @@ describe('skill-templates', () => {
     });
 
     it('does not include removed skills', () => {
-      const removed = ['causantic-explain', 'causantic-debug', 'causantic-summary', 'causantic-crossref', 'causantic-retro'];
+      const removed = [
+        'causantic-explain',
+        'causantic-debug',
+        'causantic-summary',
+        'causantic-crossref',
+        'causantic-retro',
+      ];
       for (const name of removed) {
         expect(CAUSANTIC_SKILLS.find((s) => s.dirName === name)).toBeUndefined();
       }
@@ -171,12 +177,10 @@ describe('skill-templates', () => {
       expect(skill.content).toContain('previous_session');
     });
 
-
     it('causantic-cleanup does not have argument-hint', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-cleanup')!;
       expect(skill.content).not.toContain('argument-hint:');
     });
-
 
     it('causantic-predict documents context as required parameter', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-predict')!;

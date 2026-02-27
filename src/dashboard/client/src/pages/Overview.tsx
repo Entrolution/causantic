@@ -119,10 +119,7 @@ export function Overview() {
             />
             <StatCard
               label="Unique Queries"
-              value={stats.analytics.projectRetrievals.reduce(
-                (sum, p) => sum + p.uniqueQueries,
-                0,
-              )}
+              value={stats.analytics.projectRetrievals.reduce((sum, p) => sum + p.uniqueQueries, 0)}
               icon={<Search className="h-5 w-5" />}
             />
             <StatCard

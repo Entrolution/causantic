@@ -215,9 +215,7 @@ describe('searchTool.handler', () => {
 
     await searchTool.handler({ query: 'test', max_tokens: 500 });
 
-    expect(mockSearchContext).toHaveBeenCalledWith(
-      expect.objectContaining({ maxTokens: 500 }),
-    );
+    expect(mockSearchContext).toHaveBeenCalledWith(expect.objectContaining({ maxTokens: 500 }));
   });
 });
 
