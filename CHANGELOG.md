@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-03-04
+
+### Added
+
+- **Budget-aware MMR selection**: The MMR greedy selection loop now tracks a running token budget. Candidates that would exceed the remaining budget are excluded from consideration at each step, preventing large chunks from consuming diversity slots when they can't fit in the response. Below the MMR threshold (< 10 candidates), budget filtering still applies.
+- **Budget-aware chain formatting**: Chain output assembly now iterates through chunks in order and only includes those that fit within the remaining token budget. Chunks that would exceed the budget are dropped entirely — no partial chunks are returned. Step numbering adjusts to reflect included chunks only.
+- **Oversized chunk filtering**: Chunks individually larger than the query's `maxTokens` are now excluded a priori from both search and chain pipelines:
+  - **Search**: Filtered out before MMR reranking so they don't waste diversity slots.
+  - **Chains**: Traversed through for graph connectivity (the chain doesn't break) but excluded from the path output, token count, and median score calculation. Oversized seeds are similarly traversed but not included in chain output.
+
+### Changed
+
+- **Length penalty token extraction**: The `chunkTokens` variable used for the length penalty is now computed unconditionally (outside the `lengthPenalty.enabled` guard) and reused for the size filter and MMR budget map, eliminating redundant `getChunkById` lookups.
+
 ## [0.9.1] - 2026-03-04
 
 ### Fixed

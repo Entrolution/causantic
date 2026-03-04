@@ -187,8 +187,19 @@ async function walkAllPaths(
         continue;
       }
 
-      const nodeScore = await scoreMemo(nextId);
       const chunkTokens = chunk.approxTokens || 100;
+
+      // Oversized chunk (exceeds total budget on its own): pass through without
+      // adding to path. The chain doesn't break — we continue traversing — but
+      // this node won't appear in the output or affect the median score.
+      if (chunkTokens > tokenBudget) {
+        await dfs(nextId, depth + 1, 0);
+        anyChildEmitted = true;
+        pathVisited.delete(nextId);
+        continue;
+      }
+
+      const nodeScore = await scoreMemo(nextId);
 
       // Token budget: emit current path, don't extend
       if (pathTokens + chunkTokens > tokenBudget && pathChunkIds.length > 0) {
@@ -223,16 +234,18 @@ async function walkAllPaths(
     }
   }
 
-  // Initialize with seed
-  const seedScore = await scoreMemo(seedId);
+  // Initialize with seed (oversized seeds are traversed but excluded from path)
   const seedTokens = seedChunk.approxTokens || 100;
 
   pathVisited.add(seedId);
-  pathChunkIds.push(seedId);
-  pathChunks.push(seedChunk);
-  pathScores.push(seedScore);
-  pathScore = seedScore;
-  pathTokens = seedTokens;
+  if (seedTokens <= tokenBudget) {
+    const seedScore = await scoreMemo(seedId);
+    pathChunkIds.push(seedId);
+    pathChunks.push(seedChunk);
+    pathScores.push(seedScore);
+    pathScore = seedScore;
+    pathTokens = seedTokens;
+  }
 
   await dfs(seedId, 1, 0);
 

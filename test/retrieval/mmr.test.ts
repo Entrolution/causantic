@@ -203,4 +203,73 @@ describe('reorderWithMMR', () => {
       expect(r.source).toBe(original?.source);
     }
   });
+
+  describe('budget-aware selection', () => {
+    it('excludes candidates that exceed remaining budget', async () => {
+      // 12 candidates: first 3 are large (500 each), rest are small (100 each)
+      const candidates: RankedItem[] = [];
+      const tokenCounts = new Map<string, number>();
+      for (let i = 0; i < 12; i++) {
+        candidates.push(makeItem(`c${i}`, 1.0 - i * 0.05));
+        mockEmbeddings.set(`c${i}`, makeEmbedding([1, 0.01 * i]));
+        tokenCounts.set(`c${i}`, i < 3 ? 500 : 100);
+      }
+
+      const result = await reorderWithMMR(candidates, queryEmbedding, defaultConfig, {
+        tokenBudget: 1000,
+        chunkTokenCounts: tokenCounts,
+      });
+
+      // Total budget: 1000. Large chunks (500 each) take at most 2 slots.
+      // Remaining budget goes to small chunks (100 each).
+      const totalTokens = result.reduce((s, r) => s + (tokenCounts.get(r.chunkId) ?? 0), 0);
+      expect(totalTokens).toBeLessThanOrEqual(1000);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result.length).toBeLessThan(12);
+    });
+
+    it('stops when no candidate fits remaining budget', async () => {
+      const candidates = Array.from({ length: 12 }, (_, i) => makeItem(`c${i}`, 1.0 - i * 0.05));
+      const tokenCounts = new Map<string, number>();
+      for (const c of candidates) {
+        mockEmbeddings.set(c.chunkId, makeEmbedding([1, 0]));
+        tokenCounts.set(c.chunkId, 600); // Each chunk = 600 tokens
+      }
+
+      const result = await reorderWithMMR(candidates, queryEmbedding, defaultConfig, {
+        tokenBudget: 1000,
+        chunkTokenCounts: tokenCounts,
+      });
+
+      // Budget 1000, each chunk 600 → only 1 fits
+      expect(result).toHaveLength(1);
+    });
+
+    it('applies budget filtering below MMR threshold', async () => {
+      // 5 candidates (below threshold of 10) — MMR skipped but budget still applies
+      const candidates = Array.from({ length: 5 }, (_, i) => makeItem(`c${i}`, 1.0 - i * 0.1));
+      const tokenCounts = new Map<string, number>();
+      tokenCounts.set('c0', 300);
+      tokenCounts.set('c1', 300);
+      tokenCounts.set('c2', 300);
+      tokenCounts.set('c3', 100);
+      tokenCounts.set('c4', 100);
+
+      const result = await reorderWithMMR(candidates, queryEmbedding, defaultConfig, {
+        tokenBudget: 500,
+        chunkTokenCounts: tokenCounts,
+      });
+
+      // c0(300) fits, c1(300) doesn't (600 > 500), c2(300) doesn't,
+      // c3(100) fits (400 <= 500), c4(100) fits (500 <= 500)
+      expect(result).toHaveLength(3);
+      expect(result.map((r) => r.chunkId)).toEqual(['c0', 'c3', 'c4']);
+    });
+
+    it('without budget, below-threshold candidates returned unchanged', async () => {
+      const candidates = Array.from({ length: 5 }, (_, i) => makeItem(`c${i}`, 1.0 - i * 0.1));
+      const result = await reorderWithMMR(candidates, queryEmbedding, defaultConfig);
+      expect(result).toEqual(candidates);
+    });
+  });
 });

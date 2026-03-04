@@ -519,6 +519,111 @@ describe('chain-walker', () => {
     });
   });
 
+  describe('oversized chunk filtering', () => {
+    it('traverses through oversized mid-chain chunk without including it', async () => {
+      // A(100) → B(50000) → C(100), budget=20000
+      // B exceeds budget on its own — should be skipped but chain continues to C
+      mockChunks.set('A', makeChunk('A', { approxTokens: 100 }));
+      mockChunks.set('B', makeChunk('B', { approxTokens: 50000 }));
+      mockChunks.set('C', makeChunk('C', { approxTokens: 100 }));
+
+      mockForwardEdges.set('A', [makeEdge('A', 'B')]);
+      mockForwardEdges.set('B', [makeEdge('B', 'C')]);
+
+      const qEmb = unitVec(1, 0, 0);
+      mockEmbeddings.set('A', unitVec(0.9, 0.1, 0));
+      mockEmbeddings.set('B', unitVec(0.8, 0.2, 0));
+      mockEmbeddings.set('C', unitVec(0.7, 0.3, 0));
+
+      const chains = await walkChains(['A'], {
+        direction: 'forward',
+        tokenBudget: 20000,
+        queryEmbedding: qEmb,
+      });
+
+      expect(chains.length).toBe(1);
+      // B is skipped (oversized), but chain continues: A → C
+      expect(chains[0].chunkIds).toEqual(['A', 'C']);
+      expect(chains[0].tokenCount).toBe(200);
+      // Only 2 scores (A and C), B excluded from median
+      expect(chains[0].nodeScores.length).toBe(2);
+    });
+
+    it('skips oversized seed but continues DFS from it', async () => {
+      // Seed S(50000) → A(100) → B(100), budget=20000
+      // S exceeds budget — excluded from path, but DFS continues through it
+      mockChunks.set('S', makeChunk('S', { approxTokens: 50000 }));
+      mockChunks.set('A', makeChunk('A', { approxTokens: 100 }));
+      mockChunks.set('B', makeChunk('B', { approxTokens: 100 }));
+
+      mockForwardEdges.set('S', [makeEdge('S', 'A')]);
+      mockForwardEdges.set('A', [makeEdge('A', 'B')]);
+
+      const qEmb = unitVec(1, 0, 0);
+      mockEmbeddings.set('S', unitVec(0.9, 0.1, 0));
+      mockEmbeddings.set('A', unitVec(0.8, 0.2, 0));
+      mockEmbeddings.set('B', unitVec(0.7, 0.3, 0));
+
+      const chains = await walkChains(['S'], {
+        direction: 'forward',
+        tokenBudget: 20000,
+        queryEmbedding: qEmb,
+      });
+
+      expect(chains.length).toBe(1);
+      // S excluded, chain is just [A, B]
+      expect(chains[0].chunkIds).toEqual(['A', 'B']);
+      expect(chains[0].tokenCount).toBe(200);
+    });
+
+    it('oversized chunk does not affect median score', async () => {
+      // Without the fix, an oversized chunk at a branch point would break the chain.
+      // With the fix, it's traversed through and its score doesn't pollute the median.
+      // A(100) → B(50000) → C(100), A(100) → D(100)
+      mockChunks.set('A', makeChunk('A', { approxTokens: 100 }));
+      mockChunks.set('B', makeChunk('B', { approxTokens: 50000 }));
+      mockChunks.set('C', makeChunk('C', { approxTokens: 100 }));
+      mockChunks.set('D', makeChunk('D', { approxTokens: 100 }));
+
+      mockForwardEdges.set('A', [makeEdge('A', 'B'), makeEdge('A', 'D')]);
+      mockForwardEdges.set('B', [makeEdge('B', 'C')]);
+
+      const qEmb = unitVec(1, 0, 0);
+      mockEmbeddings.set('A', unitVec(0.9, 0.1, 0));
+      mockEmbeddings.set('B', unitVec(0.1, 0.9, 0)); // low similarity — would drag median down
+      mockEmbeddings.set('C', unitVec(0.85, 0.15, 0));
+      mockEmbeddings.set('D', unitVec(0.5, 0.5, 0));
+
+      const chains = await walkChains(['A'], {
+        direction: 'forward',
+        tokenBudget: 20000,
+        queryEmbedding: qEmb,
+      });
+
+      // Should have two chains: [A, C] (through oversized B) and [A, D]
+      const pathACchain = chains.find(
+        (c) => c.chunkIds.includes('A') && c.chunkIds.includes('C'),
+      );
+      expect(pathACchain).toBeDefined();
+      // B's low score should NOT be in nodeScores
+      expect(pathACchain!.nodeScores.length).toBe(2);
+    });
+
+    it('returns no candidates when only node is oversized seed with no reachable children', async () => {
+      mockChunks.set('S', makeChunk('S', { approxTokens: 50000 }));
+      mockEmbeddings.set('S', unitVec(1, 0, 0));
+
+      const chains = await walkChains(['S'], {
+        direction: 'forward',
+        tokenBudget: 20000,
+        queryEmbedding: unitVec(1, 0, 0),
+      });
+
+      // Oversized orphan seed: nothing usable
+      expect(chains.length).toBe(0);
+    });
+  });
+
   describe('multi-path edge exploration', () => {
     it('explores both branches at a branching point', async () => {
       // A has two edges: A→B (weight 0.7) and A→C (weight 1.0)

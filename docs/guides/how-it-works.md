@@ -58,19 +58,21 @@ The `search` tool finds semantically similar context:
 2. **Parallel search**: Run vector search and BM25 keyword search simultaneously
 3. **RRF fusion**: Merge both ranked lists using Reciprocal Rank Fusion (k=60)
 4. **Cluster expansion**: Expand results through HDBSCAN cluster siblings
-5. **Rank and deduplicate**: Recency boost, deduplication
-6. **MMR reranking**: Reorder candidates using Maximal Marginal Relevance to balance relevance with diversity
-7. **Token budgeting**: Fit within response limits
+5. **Rank and deduplicate**: Recency boost, length penalty, deduplication
+6. **Size filter**: Exclude chunks individually larger than the response budget
+7. **MMR reranking**: Budget-aware Maximal Marginal Relevance — balances relevance with diversity while tracking remaining token budget so large chunks don't consume diversity slots they can't fill
+8. **Token budgeting**: Assemble within response limits (no partial chunks)
 
 ### Recall/Predict (episodic)
 
 The `recall` and `predict` tools reconstruct narrative chains:
 
 1. **Seed discovery**: Same as search (embed → vector + keyword → RRF → cluster expand) to find top 5 seeds
-2. **Multi-path chain walking**: For each seed, DFS with backtracking explores all reachable paths (backward for recall, forward for predict). At branching points (agent transitions, cross-session links), all branches are explored and emitted as candidates
-3. **Chain scoring**: Each candidate chain scored by median per-node cosine similarity to the query
+2. **Multi-path chain walking**: For each seed, DFS with backtracking explores all reachable paths (backward for recall, forward for predict). Oversized chunks (larger than the token budget) are traversed through for graph connectivity but excluded from path output and scoring. At branching points (agent transitions, cross-session links), all branches are explored and emitted as candidates
+3. **Chain scoring**: Each candidate chain scored by median per-node cosine similarity to the query (oversized chunks excluded from median)
 4. **Best chain selection**: Highest median score among candidates with ≥ 2 chunks
-5. **Fallback**: If no qualifying chain found, fall back to search-style results
+5. **Budget-aware formatting**: Iterate through the selected chain, accepting only chunks that fit within the remaining token budget — no partial chunks
+6. **Fallback**: If no qualifying chain found, fall back to search-style results
 
 ### Hybrid Search
 
@@ -94,6 +96,8 @@ MMR(c) = λ × relevance − (1−λ) × max_similarity(c, already_selected)
 ```
 
 The first pick is always the top relevance hit. As selected items saturate a semantic neighbourhood, candidates from different topics become competitive — including cluster siblings that cover the same topic from a different angle. This benefits all search results, not just cluster expansion: even without clusters, MMR prevents near-duplicate vector hits from monopolising the token budget.
+
+MMR is also budget-aware: it tracks remaining token budget during selection and excludes candidates that would exceed it. This prevents large chunks from winning a diversity slot only to be truncated or dropped during final assembly.
 
 Controlled by `retrieval.mmrLambda` (default: 0.7). See [Configuration Reference](../reference/configuration.md#retrieval).
 

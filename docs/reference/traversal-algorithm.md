@@ -36,9 +36,10 @@ function walkAllPaths(seedId, options):
     pathVisited = Set()                         // Per-path, not global
     pathState = { chunkIds: [], scores: [], tokens: 0 }
 
-    // Initialize with seed
+    // Initialize with seed (oversized seeds traversed but excluded from path)
     pathVisited.add(seedId)
-    pushToPath(seedId)
+    if seedChunk.tokens <= tokenBudget:
+        pushToPath(seedId)
 
     dfs(seedId, depth=1, consecutiveSkips=0)
     return candidates
@@ -63,6 +64,12 @@ function dfs(currentId, depth, consecutiveSkips):
         if agentFilter and chunk.agentId != agentFilter:
             if consecutiveSkips + 1 <= maxSkippedConsecutive:
                 dfs(edge.nextId, depth + 1, consecutiveSkips + 1)
+            pathVisited.delete(edge.nextId)
+            continue
+
+        // Oversized chunk: pass through without adding to path
+        if chunk.tokens > tokenBudget:
+            dfs(edge.nextId, depth + 1, 0)      // Continue traversal
             pathVisited.delete(edge.nextId)
             continue
 
@@ -109,6 +116,14 @@ Path state (`chunkIds`, `chunks`, `nodeScores`, token count) uses push/pop with 
 
 When `agentFilter` is set and a non-matching chunk is encountered, the chunk is skipped (not added to output) but its edges are explored. `consecutiveSkips` is passed as a parameter to recursion — each recursive frame gets its own count, reset to 0 when a matching chunk is found. This prevents cross-frame interference during backtracking.
 
+### Oversized chunk passthrough
+
+Chunks individually larger than the token budget are treated as transparent nodes: traversed for graph connectivity but excluded from the path output, token count, and median score. This prevents a single large chunk from breaking an otherwise viable chain. The same applies to oversized seeds — they serve as DFS starting points but don't appear in the output.
+
+### Budget-aware chain formatting
+
+After chain selection, the output assembly iterates through chunks in order and only includes those that fit within the remaining token budget. Chunks that would exceed the budget are dropped entirely — no partial chunks are returned. Step numbering (`[1/N]`) reflects included chunks only.
+
 ## Pipeline Integration
 
 The chain walker is part of the episodic retrieval pipeline:
@@ -122,12 +137,14 @@ Query
   │
   ├─ 4. walkChains(seedIds, { direction, tokenBudget, queryEmbedding })
   │     ├─ For each seed, DFS with backtracking explores all paths
+  │     ├─ Oversized chunks (> tokenBudget) passed through, not added to path
   │     ├─ Emit candidate at: dead end, depth limit, or token budget
   │     └─ Per-path visited set prevents cycles within a path
   │
   ├─ 5. selectBestChain(candidates) → highest median per-node similarity with ≥ 2 chunks
   │
-  ├─ 6. If chain found → reverse for chronological output (recall only)
+  ├─ 6. If chain found → budget-aware formatting (drop chunks exceeding remaining budget)
+  │     └─ Reverse for chronological output (recall only)
   └─ 7. Else → fall back to search-style ranked results
 ```
 

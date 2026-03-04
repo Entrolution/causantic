@@ -236,10 +236,14 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
   const { recency } = config;
   const now = Date.now();
   const ln2 = Math.LN2;
+  const chunkTokenMap = new Map<string, number>();
 
   for (const item of deduped) {
     const chunk = getChunkById(item.chunkId);
     if (!chunk) continue;
+
+    const chunkTokens = chunk.approxTokens || 500;
+    chunkTokenMap.set(item.chunkId, chunkTokens);
 
     // Time-decay boost: 1 + decayFactor * exp(-ageHours * ln2 / halfLifeHours)
     const ageMs = now - new Date(chunk.startTime).getTime();
@@ -252,7 +256,6 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     // Length penalty: logarithmic penalty for large, keyword-rich chunks
     let lengthFactor = 1.0;
     if (config.lengthPenalty.enabled) {
-      const chunkTokens = chunk.approxTokens || 500;
       lengthFactor =
         1 / (1 + Math.log2(Math.max(1, chunkTokens / config.lengthPenalty.referenceTokens)));
     }
@@ -261,8 +264,18 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
   }
   deduped.sort((a, b) => b.score - a.score);
 
-  // 7.5. MMR reranking (diversity-aware ordering)
-  const reordered = await reorderWithMMR(deduped, queryResult.embedding, mmrReranking);
+  // 7.1. Exclude oversized chunks (larger than the response budget).
+  // These can never be fully returned and would waste MMR diversity slots.
+  const sizeBounded = deduped.filter((item) => {
+    const tokens = chunkTokenMap.get(item.chunkId);
+    return tokens !== undefined && tokens <= maxTokens;
+  });
+
+  // 7.5. MMR reranking (diversity-aware, budget-aware ordering)
+  const reordered = await reorderWithMMR(sizeBounded, queryResult.embedding, mmrReranking, {
+    tokenBudget: maxTokens,
+    chunkTokenCounts: chunkTokenMap,
+  });
 
   // 7.6. Normalize scores for display (top result = 1.0)
   if (reordered.length > 0) {
