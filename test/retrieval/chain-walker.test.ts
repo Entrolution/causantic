@@ -601,9 +601,7 @@ describe('chain-walker', () => {
       });
 
       // Should have two chains: [A, C] (through oversized B) and [A, D]
-      const pathACchain = chains.find(
-        (c) => c.chunkIds.includes('A') && c.chunkIds.includes('C'),
-      );
+      const pathACchain = chains.find((c) => c.chunkIds.includes('A') && c.chunkIds.includes('C'));
       expect(pathACchain).toBeDefined();
       // B's low score should NOT be in nodeScores
       expect(pathACchain!.nodeScores.length).toBe(2);
