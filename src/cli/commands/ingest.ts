@@ -29,5 +29,8 @@ export const batchIngestCommand: Command = {
     const { batchIngestDirectory } = await import('../../ingest/batch-ingest.js');
     const result = await batchIngestDirectory(args[0], {});
     console.log(`Batch ingestion complete: ${result.successCount} sessions processed.`);
+    console.log('\nNext steps:');
+    console.log('  npx causantic maintenance run update-clusters');
+    console.log('  (generates topic clusters from ingested sessions)');
   },
 };

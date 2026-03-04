@@ -257,6 +257,9 @@ export function classifyError(error: unknown): string {
   ) {
     return 'embedder unavailable';
   }
+  if (msg.includes('node_module_version') || msg.includes('was compiled against')) {
+    return 'native module version mismatch — run: npm install -g causantic';
+  }
   return 'internal error';
 }
 

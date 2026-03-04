@@ -318,6 +318,10 @@ export const listSessionsTool: ToolDefinition = {
         type: 'number',
         description: 'Look back N days from now. Alternative to from/to.',
       },
+      limit: {
+        type: 'number',
+        description: 'Maximum number of sessions to display (default: 30).',
+      },
     },
     required: ['project'],
   },
@@ -326,6 +330,7 @@ export const listSessionsTool: ToolDefinition = {
     let from = args.from as string | undefined;
     let to = args.to as string | undefined;
     const daysBack = args.days_back as number | undefined;
+    const limit = (args.limit as number | undefined) ?? 30;
 
     if (daysBack !== null && daysBack !== undefined) {
       to = new Date().toISOString();
@@ -338,7 +343,11 @@ export const listSessionsTool: ToolDefinition = {
       return `No sessions found for project "${project}".`;
     }
 
-    const lines = sessions.map((s) => {
+    const totalCount = sessions.length;
+    const truncated = totalCount > limit;
+    const displaySessions = truncated ? sessions.slice(0, limit) : sessions;
+
+    const lines = displaySessions.map((s) => {
       const start = new Date(s.firstChunkTime).toLocaleDateString('en-US', {
         month: 'short',
         day: 'numeric',
@@ -352,7 +361,11 @@ export const listSessionsTool: ToolDefinition = {
       return `- ${s.sessionId.slice(0, 8)} (${start} – ${end}, ${s.chunkCount} chunks, ${s.totalTokens} tokens)`;
     });
 
-    return `Sessions for "${project}" (${sessions.length} total):\n${lines.join('\n')}`;
+    let output = `Sessions for "${project}" (${totalCount} total):\n${lines.join('\n')}`;
+    if (truncated) {
+      output += `\n(showing ${limit} of ${totalCount} sessions — use 'from'/'to' to narrow)`;
+    }
+    return output;
   },
 };
 

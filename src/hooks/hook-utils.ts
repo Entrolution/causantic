@@ -477,6 +477,11 @@ export async function ingestionHookCli(
 export function isTransientError(error: Error): boolean {
   const message = error.message.toLowerCase();
 
+  // Native module version mismatch — not transient, requires reinstall
+  if (message.includes('node_module_version') || message.includes('was compiled against')) {
+    return false;
+  }
+
   // Network/connectivity errors
   if (
     message.includes('econnreset') ||

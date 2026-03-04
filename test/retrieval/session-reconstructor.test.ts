@@ -171,7 +171,8 @@ describe('applyTokenBudget', () => {
       makeChunk({ id: 'c2', approxTokens: 100, startTime: '2024-01-15T11:00:00Z' }),
       makeChunk({ id: 'c3', approxTokens: 100, startTime: '2024-01-15T12:00:00Z' }),
     ];
-    const { kept, truncated } = applyTokenBudget(chunks, 200, true);
+    // Budget: 50 fixed overhead + 2×(100+5) per-chunk = 260
+    const { kept, truncated } = applyTokenBudget(chunks, 260, true);
     expect(kept).toHaveLength(2);
     expect(kept[0].id).toBe('c2'); // Kept newer
     expect(kept[1].id).toBe('c3');
@@ -184,7 +185,8 @@ describe('applyTokenBudget', () => {
       makeChunk({ id: 'c2', approxTokens: 100, startTime: '2024-01-15T11:00:00Z' }),
       makeChunk({ id: 'c3', approxTokens: 100, startTime: '2024-01-15T12:00:00Z' }),
     ];
-    const { kept, truncated } = applyTokenBudget(chunks, 200, false);
+    // Budget: 50 fixed overhead + 2×(100+5) per-chunk = 260
+    const { kept, truncated } = applyTokenBudget(chunks, 260, false);
     expect(kept).toHaveLength(2);
     expect(kept[0].id).toBe('c1'); // Kept older
     expect(kept[1].id).toBe('c2');
@@ -211,7 +213,8 @@ describe('applyTokenBudget', () => {
       makeChunk({ id: 'c3', approxTokens: 50 }),
       makeChunk({ id: 'c4', approxTokens: 50 }),
     ];
-    const { kept } = applyTokenBudget(chunks, 150, true);
+    // Budget: 50 fixed overhead + 3×(50+5) per-chunk = 215
+    const { kept } = applyTokenBudget(chunks, 215, true);
     expect(kept).toHaveLength(3);
     expect(kept[0].id).toBe('c2');
     expect(kept[1].id).toBe('c3');
@@ -630,11 +633,12 @@ describe('reconstructSession (integration)', () => {
       }),
     );
 
+    // Budget: 50 fixed overhead + 1×(100+5) per-chunk = 155
     const result = reconstructSession({
       project: 'proj',
       from: '2024-01-15T00:00:00Z',
       to: '2024-01-16T00:00:00Z',
-      maxTokens: 100,
+      maxTokens: 155,
     });
 
     expect(result.chunks).toHaveLength(1);
@@ -668,11 +672,12 @@ describe('reconstructSession (integration)', () => {
       }),
     );
 
+    // Budget: 50 fixed overhead + 1×(100+5) per-chunk = 155
     const result = reconstructSession({
       project: 'proj',
       from: '2024-01-15T00:00:00Z',
       to: '2024-01-16T00:00:00Z',
-      maxTokens: 100,
+      maxTokens: 155,
       keepNewest: false,
     });
 

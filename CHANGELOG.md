@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-03-04
+
+### Fixed
+
+- **Token budget overhead**: Search and reconstruction assemblers now reserve space for formatting overhead (per-chunk headers, separators, response diagnostics) before chunk assembly, preventing responses from exceeding stated token budgets by 5-15%.
+- **Node version mismatch detection**: Hook runner now detects `NODE_MODULE_VERSION` errors and surfaces actionable guidance ("run: npm install -g causantic") instead of the generic "internal error" message. These errors are also excluded from transient error retries.
+
+### Changed
+
+- **Skill template memory queries**: Roadmap skill reduced from 10 parallel queries at 8K tokens each (80K total) to 4 sequential queries at 4K (16K cap). Cleanup skill reduced from 4 parallel queries at 8K (32K) to 3 sequential queries at 4K (12K cap) with a 2K summarization step before passing to subagents. Both changes address "prompt is too long" failures.
+- **`list-sessions` truncation**: Added `limit` parameter (default 30) to the `list-sessions` MCP tool. When results exceed the limit, displays the most recent sessions with a truncation notice.
+- **`batch-ingest` post-run guidance**: Output now includes a "Next steps" section recommending `npx causantic maintenance run update-clusters` to generate topic clusters from ingested sessions.
+
 ## [0.9.0] - 2026-02-27
 
 ### Added

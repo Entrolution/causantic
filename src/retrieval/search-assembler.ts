@@ -289,7 +289,16 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
 }
 
 /**
- * Assemble text within token budget.
+ * Formatting overhead constants.
+ *
+ * Per-chunk: header (~50 tokens from formatSearchChunk) + separator (~3 tokens) + margin.
+ * Fixed: response header (~20 tokens) + diagnostics (~100-500 tokens) added by tools.ts.
+ */
+const SEARCH_FIXED_OVERHEAD = 200;
+const SEARCH_PER_CHUNK_OVERHEAD = 55;
+
+/**
+ * Assemble text within token budget, reserving space for formatting overhead.
  */
 function assembleWithinBudget(
   ranked: RankedItem[],
@@ -306,6 +315,8 @@ function assembleWithinBudget(
     source?: 'vector' | 'keyword' | 'cluster';
   }>;
 } {
+  const effectiveBudget = Math.max(0, maxTokens - SEARCH_FIXED_OVERHEAD);
+
   const parts: string[] = [];
   const includedChunks: Array<{
     id: string;
@@ -314,20 +325,21 @@ function assembleWithinBudget(
     preview: string;
     source?: 'vector' | 'keyword' | 'cluster';
   }> = [];
-  let totalTokens = 0;
+  let budgetUsed = 0;
 
   for (const item of ranked) {
     const chunk = getChunkById(item.chunkId);
     if (!chunk) continue;
 
     const chunkTokens = chunk.approxTokens || approximateTokens(chunk.content);
+    const chunkCost = chunkTokens + SEARCH_PER_CHUNK_OVERHEAD;
 
-    if (totalTokens + chunkTokens > maxTokens) {
-      const remainingTokens = maxTokens - totalTokens;
+    if (budgetUsed + chunkCost > effectiveBudget) {
+      const remainingTokens = effectiveBudget - budgetUsed - SEARCH_PER_CHUNK_OVERHEAD;
       if (remainingTokens > 100) {
         const truncated = truncateChunk(chunk.content, remainingTokens);
         parts.push(formatSearchChunk(chunk, truncated, item.score));
-        totalTokens += approximateTokens(truncated);
+        budgetUsed += approximateTokens(truncated) + SEARCH_PER_CHUNK_OVERHEAD;
         includedChunks.push({
           id: chunk.id,
           sessionSlug: chunk.sessionSlug,
@@ -340,7 +352,7 @@ function assembleWithinBudget(
     }
 
     parts.push(formatSearchChunk(chunk, chunk.content, item.score));
-    totalTokens += chunkTokens;
+    budgetUsed += chunkCost;
     includedChunks.push({
       id: chunk.id,
       sessionSlug: chunk.sessionSlug,
@@ -352,7 +364,7 @@ function assembleWithinBudget(
 
   return {
     text: parts.join('\n\n---\n\n'),
-    tokenCount: totalTokens,
+    tokenCount: budgetUsed,
     includedChunks,
   };
 }
