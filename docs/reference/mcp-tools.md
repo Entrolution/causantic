@@ -80,7 +80,7 @@ Predict what context or topics might be relevant based on current discussion. Wa
 | `project` | `string` | No       | Filter to a specific project. Omit to search all. Use `list-projects` to see available projects. |
 | `agent`   | `string` | No       | Filter to a specific agent (e.g., `"researcher"`). Applies to seed selection; chain walking crosses agent boundaries. |
 
-**Response**: Plain text. Returns `"Potentially relevant context (N items):"` followed by assembled text, or `"No predictions available based on current context."` if no matches. Uses half the token budget of recall/search. Includes chain walk diagnostics when falling back to search.
+**Response**: Plain text. Returns `"Potentially relevant context (N items):"` followed by assembled text, or `"No predictions available based on current context."` if no matches. Includes chain walk diagnostics when falling back to search.
 
 ### list-projects
 
@@ -112,6 +112,7 @@ List sessions for a project with chunk counts, time ranges, and token totals. Us
 | `from`      | `string` | No       | Start date filter (ISO 8601).                                     |
 | `to`        | `string` | No       | End date filter (ISO 8601).                                       |
 | `days_back` | `number` | No       | Look back N days from now. Alternative to `from`/`to`.            |
+| `limit`     | `number` | No       | Maximum sessions to display (default: 30). Most recent shown when truncated. |
 
 **Response**: Plain text list of sessions with abbreviated IDs, timestamps, chunk counts, and token totals.
 
@@ -170,7 +171,7 @@ Show memory statistics including version, chunk/edge/cluster counts, and per-pro
 **Example**:
 
 ```
-Causantic v0.8.0
+Causantic v0.9.3
 
 Memory Statistics:
 - Chunks: 1234

@@ -18,6 +18,7 @@ These items were previously listed as future work and have since been implemente
 - **MMR Reranking** (v0.5.4): Maximal Marginal Relevance reranking in the search pipeline. Single `retrieval.mmrLambda` knob (default 0.7) controls relevance vs diversity. Cluster `boostFactor` removed — redundant with MMR.
 - **Multiple Embedding Models** (v0.7.0): Configurable via `embedding.model` (jina-small, nomic-v1.5, jina-code, bge-small). Changing model requires `npx causantic reindex` to re-embed all chunks. Model-specific clustering thresholds handled via calibration.
 - **Multi-Path Chain Walking** (v0.8.0): DFS with backtracking explores all paths from seed chunks, emitting each as a candidate chain. `selectBestChain()` picks the winner by highest median per-node cosine similarity. Bounded by `maxExpansionsPerSeed` (200) and `maxCandidatesPerSeed` (10). For linear chains, behavior identical to previous greedy single-path.
+- **Budget-Aware Retrieval** (v0.9.2): Token budget enforcement at multiple pipeline stages — oversized chunk filtering (pre-MMR and chain passthrough), budget-aware MMR selection (greedy loop tracks remaining budget), and budget-aware chain formatting (drop chunks exceeding remaining budget, no partial chunks).
 
 ## High Priority
 
