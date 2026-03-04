@@ -329,6 +329,75 @@ describe('chain-assembler', () => {
     });
   });
 
+  describe('budget-aware chain formatting', () => {
+    it('drops chunks that exceed remaining token budget', async () => {
+      // Backward chain: [C, B_large, A] — reversed for output: [A, B_large, C]
+      const chain: Chain = {
+        chunkIds: ['C', 'B', 'A'],
+        chunks: [
+          makeChunk('C', { approxTokens: 100 }),
+          makeChunk('B', { approxTokens: 5000 }),
+          makeChunk('A', { approxTokens: 100 }),
+        ],
+        nodeScores: [0.8, 0.8, 0.8],
+        score: 2.4,
+        tokenCount: 5200,
+        medianScore: 0.8,
+      };
+      mockChains = [chain];
+      mockBestChain = chain;
+
+      const result = await recallContext({ query: 'test', maxTokens: 500 });
+
+      expect(result.mode).toBe('chain');
+      // After reversal: [A(100), B(5000), C(100)]
+      // Budget: A fits (100 <= 500), B doesn't (5000 > 400), C fits (100 <= 400)
+      expect(result.chunks.length).toBe(2);
+      expect(result.chunks[0].id).toBe('A');
+      expect(result.chunks[1].id).toBe('C');
+      expect(result.tokenCount).toBe(200);
+    });
+
+    it('includes all chunks when budget is sufficient', async () => {
+      const chain = makeChain(['A', 'B', 'C'], 2.0);
+      mockChains = [chain];
+      mockBestChain = chain;
+
+      const result = await recallContext({ query: 'test', maxTokens: 10000 });
+
+      expect(result.mode).toBe('chain');
+      expect(result.chunks.length).toBe(3);
+      expect(result.tokenCount).toBe(300);
+    });
+
+    it('step numbering reflects included chunks only', async () => {
+      // Chain with a large middle chunk that gets dropped
+      const chain: Chain = {
+        chunkIds: ['A', 'B', 'C'],
+        chunks: [
+          makeChunk('A', { approxTokens: 100 }),
+          makeChunk('B', { approxTokens: 5000 }),
+          makeChunk('C', { approxTokens: 100 }),
+        ],
+        nodeScores: [0.8, 0.8, 0.8],
+        score: 2.4,
+        tokenCount: 5200,
+        medianScore: 0.8,
+      };
+      mockChains = [chain];
+      mockBestChain = chain;
+
+      const result = await predictContext({ query: 'test', maxTokens: 500 });
+
+      expect(result.mode).toBe('chain');
+      expect(result.chunks.length).toBe(2);
+      // Text should show "1/2" and "2/2", not "1/3" and "3/3"
+      expect(result.text).toContain('[1/2 |');
+      expect(result.text).toContain('[2/2 |');
+      expect(result.text).not.toContain('[1/3 |');
+    });
+  });
+
   describe('chain formatting', () => {
     it('formats chain chunks with position indicators', async () => {
       const chain = makeChain(['A', 'B'], 1.5);

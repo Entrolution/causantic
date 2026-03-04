@@ -270,7 +270,14 @@ These diagnostics help distinguish between "memory is empty" and "memory exists 
 
 ## Token Limits
 
-Response sizes are controlled by `tokens.mcpMaxResponse` in the configuration (default: 20000 tokens). The `predict` tool uses half this budget. Long responses are truncated to fit within the budget.
+Response sizes are controlled by `tokens.mcpMaxResponse` in the configuration (default: 20000 tokens). The `predict` tool uses half this budget.
+
+Budget enforcement is applied at multiple stages:
+
+1. **Pre-filter**: Chunks individually larger than the token budget are excluded before ranking.
+2. **MMR selection**: The diversity reranking loop tracks remaining budget and skips candidates that would exceed it.
+3. **Chain formatting**: Chain output assembly drops chunks that would exceed the remaining budget — no partial chunks are returned.
+4. **Final assembly**: Search results are assembled within the budget with overhead accounting for per-chunk formatting.
 
 ## Error Handling
 

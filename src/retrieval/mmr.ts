@@ -17,6 +17,14 @@ export interface MMRConfig {
   lambda: number;
 }
 
+/** Optional token budget for budget-aware MMR selection. */
+export interface MMRBudgetOptions {
+  /** Total token budget for selected results. */
+  tokenBudget: number;
+  /** Token count per chunk ID. */
+  chunkTokenCounts: Map<string, number>;
+}
+
 /** Minimum candidate count to trigger MMR. Below this, diversity doesn't matter. */
 const MMR_THRESHOLD = 10;
 
@@ -29,14 +37,21 @@ const MMR_THRESHOLD = 10;
  * Short-circuits when fewer than 10 candidates (too few for diversity to matter).
  * Candidates without embeddings are treated as novel (diversity = 0).
  * Original RRF scores are preserved — only order changes.
+ *
+ * When `budget` is provided, candidates that would exceed the remaining token
+ * budget are excluded from consideration at each step. This prevents large chunks
+ * from consuming diversity slots when they can't fit in the response.
  */
 export async function reorderWithMMR(
   candidates: RankedItem[],
   queryEmbedding: number[],
   config: MMRConfig,
+  budget?: MMRBudgetOptions,
 ): Promise<RankedItem[]> {
   if (candidates.length < MMR_THRESHOLD) {
-    return candidates;
+    if (!budget) return candidates;
+    // Still apply budget filtering even without MMR reranking
+    return applyBudgetFilter(candidates, budget);
   }
 
   const { lambda } = config;
@@ -60,6 +75,7 @@ export async function reorderWithMMR(
   const selected: RankedItem[] = [];
   const selectedEmbeddings: number[][] = [];
   const remaining = new Set(candidates.map((_, i) => i));
+  let budgetRemaining = budget?.tokenBudget ?? Infinity;
 
   while (remaining.size > 0) {
     let bestIdx = -1;
@@ -67,6 +83,13 @@ export async function reorderWithMMR(
 
     for (const idx of remaining) {
       const c = candidates[idx];
+
+      // Skip candidates that exceed remaining budget
+      if (budget) {
+        const tokens = budget.chunkTokenCounts.get(c.chunkId) ?? 0;
+        if (tokens > budgetRemaining) continue;
+      }
+
       const rel = normalizedScores.get(c.chunkId)!;
 
       // Compute max similarity to already-selected items
@@ -87,9 +110,16 @@ export async function reorderWithMMR(
       }
     }
 
+    // No candidate fits remaining budget
+    if (bestIdx === -1) break;
+
     remaining.delete(bestIdx);
     const picked = candidates[bestIdx];
     selected.push(picked);
+
+    if (budget) {
+      budgetRemaining -= budget.chunkTokenCounts.get(picked.chunkId) ?? 0;
+    }
 
     const pickedEmb = embeddings.get(picked.chunkId);
     if (pickedEmb) {
@@ -98,4 +128,18 @@ export async function reorderWithMMR(
   }
 
   return selected;
+}
+
+/** Budget-only filter for below-threshold candidate lists (no MMR reranking). */
+function applyBudgetFilter(candidates: RankedItem[], budget: MMRBudgetOptions): RankedItem[] {
+  const result: RankedItem[] = [];
+  let remaining = budget.tokenBudget;
+  for (const c of candidates) {
+    const tokens = budget.chunkTokenCounts.get(c.chunkId) ?? 0;
+    if (tokens <= remaining) {
+      result.push(c);
+      remaining -= tokens;
+    }
+  }
+  return result;
 }

@@ -15,6 +15,7 @@ import { approximateTokens } from '../utils/token-counter.js';
 import { searchContext, type SearchRequest } from './search-assembler.js';
 import { walkChains, selectBestChain, type Chain } from './chain-walker.js';
 import { formatChainChunk } from './formatting.js';
+import type { StoredChunk } from '../storage/types.js';
 
 /**
  * Request for episodic retrieval.
@@ -183,8 +184,8 @@ async function runEpisodicPipeline(
     };
   }
 
-  // 4. Format chain as narrative
-  const formatted = formatChain(bestChain, direction);
+  // 4. Format chain as narrative (budget-aware: drops chunks that exceed remaining budget)
+  const formatted = formatChain(bestChain, direction, maxTokens);
 
   return {
     text: formatted.text,
@@ -205,10 +206,15 @@ async function runEpisodicPipeline(
 /**
  * Format a chain as ordered narrative.
  * Backward chains are reversed for chronological output (problem → solution).
+ *
+ * Budget-aware: iterates through chunks in order, accepting only those that fit
+ * within the remaining token budget. Chunks that would exceed the budget are
+ * dropped entirely (no partial chunks).
  */
 function formatChain(
   chain: Chain,
   direction: 'forward' | 'backward',
+  maxTokens: number,
 ): {
   text: string;
   tokenCount: number;
@@ -223,6 +229,19 @@ function formatChain(
   const orderedChunks = direction === 'backward' ? [...chain.chunks].reverse() : chain.chunks;
   const orderedIds = direction === 'backward' ? [...chain.chunkIds].reverse() : chain.chunkIds;
 
+  // First pass: select chunks that fit within budget
+  const included: Array<{ chunk: StoredChunk; id: string; chunkTokens: number }> = [];
+  let budgetRemaining = maxTokens;
+
+  for (let i = 0; i < orderedChunks.length; i++) {
+    const chunk = orderedChunks[i];
+    const chunkTokens = chunk.approxTokens || approximateTokens(chunk.content);
+    if (chunkTokens > budgetRemaining) continue;
+    included.push({ chunk, id: orderedIds[i], chunkTokens });
+    budgetRemaining -= chunkTokens;
+  }
+
+  // Second pass: format included chunks with correct step numbering
   const parts: string[] = [];
   const resultChunks: Array<{
     id: string;
@@ -232,14 +251,12 @@ function formatChain(
   }> = [];
   let totalTokens = 0;
 
-  for (let i = 0; i < orderedChunks.length; i++) {
-    const chunk = orderedChunks[i];
-    const chunkTokens = chunk.approxTokens || approximateTokens(chunk.content);
-
-    parts.push(formatChainChunk(chunk, chunk.content, i + 1, orderedChunks.length));
+  for (let i = 0; i < included.length; i++) {
+    const { chunk, id, chunkTokens } = included[i];
+    parts.push(formatChainChunk(chunk, chunk.content, i + 1, included.length));
     totalTokens += chunkTokens;
     resultChunks.push({
-      id: orderedIds[i],
+      id,
       sessionSlug: chunk.sessionSlug,
       weight: chain.medianScore,
       preview: chunk.content.slice(0, 100) + (chunk.content.length > 100 ? '...' : ''),
