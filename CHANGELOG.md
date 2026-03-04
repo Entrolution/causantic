@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-03-04
+
+### Fixed
+
+- **`predict` tool documentation**: Removed incorrect claim that predict uses half the token budget — it uses the same full `mcpMaxResponse` budget as search and recall.
+- **`list-sessions` missing `limit` parameter in docs**: Added the `limit` parameter (default 30, added in v0.9.1) to the MCP tools reference.
+- **`retrieval.feedbackWeight` undocumented**: Added the setting to the retrieval config table — previously only the env var was listed.
+- **`lengthPenalty` config section undocumented**: Added the `lengthPenalty` section (`enabled`, `referenceTokens`) to the configuration reference.
+- **Stale version in `stats` example**: Updated from v0.8.0 to current version.
+
+### Changed
+
+- **`future-work.md`**: Added budget-aware retrieval (v0.9.2) to the "Recently Implemented" section.
+
+### Tests
+
+- 2038 tests passing.
+
 ## [0.9.2] - 2026-03-04
 
 ### Added

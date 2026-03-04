@@ -81,6 +81,17 @@ Controls cluster-guided expansion during retrieval. These settings are internal 
 | `maxClusters` | `integer` | `3`     | Maximum clusters to expand from per query   |
 | `maxSiblings` | `integer` | `5`     | Maximum sibling chunks added per cluster    |
 
+## Length Penalty Settings
+
+### `lengthPenalty`
+
+Controls logarithmic length penalty for large chunks in search results, preventing keyword-rich chunks from dominating.
+
+| Property          | Type      | Default | Description                                                        |
+| ----------------- | --------- | ------- | ------------------------------------------------------------------ |
+| `enabled`         | `boolean` | `true`  | Enable length penalty in search scoring                            |
+| `referenceTokens` | `integer` | `500`   | Reference token count for the logarithmic penalty. Chunks above this size receive diminishing scores. |
+
 ## Recency Settings
 
 ### `recency`
@@ -107,7 +118,8 @@ Controls the search retrieval pipeline.
 
 | Property    | Type     | Default | Description                                                        |
 | ----------- | -------- | ------- | ------------------------------------------------------------------ |
-| `mmrLambda` | `number` | `0.7`   | MMR (Maximal Marginal Relevance) lambda parameter (0-1)            |
+| `mmrLambda`      | `number` | `0.7`   | MMR (Maximal Marginal Relevance) lambda parameter (0-1)            |
+| `feedbackWeight` | `number` | `0.1`   | Weight applied to implicit relevance feedback signals (0-1)        |
 
 MMR reranks search results to balance relevance with diversity. After RRF fusion and cluster expansion, candidates are reordered so that semantically redundant chunks yield to novel ones.
 
