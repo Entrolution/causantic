@@ -412,31 +412,29 @@ The lead agent has MCP access to Causantic tools — subagents do not. Gather al
 
 ### 1.5.1 Query Memory
 
-Run these queries directly (do NOT delegate to subagents):
+Run these queries **sequentially** (do NOT delegate to subagents, do NOT run in parallel):
 
-- \`search\` with query: "architecture decisions", \`max_tokens: 8000\`
-- \`search\` with query: "tech debt", \`max_tokens: 8000\`
-- \`search\` with query: "past cleanup findings", \`max_tokens: 8000\`
-- \`recall\` with query: "why was this designed this way", \`max_tokens: 8000\`
+1. \`search\` with query: "architecture decisions", \`max_tokens: 4000\`
+2. \`search\` with query: "tech debt", \`max_tokens: 4000\`
+3. \`search\` with query: "past cleanup findings", \`max_tokens: 4000\`
+
+After each query, discard any results that duplicate earlier findings. Stop querying early if accumulated memory exceeds the total cap of 12K tokens.
 
 ### 1.5.2 Assemble Memory Context
 
-Combine the results into a single \`memoryContext\` text block, capped at ~15K tokens total. Structure it as:
+Summarize memory into a concise bullet list (max 2K tokens) before passing to subagents. Structure it as:
 
 \`\`\`
 ## Memory Context (from Causantic)
 
 ### Architecture Decisions
-[results from search "architecture decisions"]
+[summarized results from search "architecture decisions"]
 
 ### Known Tech Debt
-[results from search "tech debt"]
+[summarized results from search "tech debt"]
 
 ### Past Cleanup Findings
-[results from search "past cleanup findings"]
-
-### Design Rationale
-[results from recall "why was this designed this way"]
+[summarized results from search "past cleanup findings"]
 \`\`\`
 
 If Causantic MCP tools are unavailable, skip this phase and note the gap.
@@ -1176,19 +1174,15 @@ If \`ROADMAP.md\` exists in the project root (updating an existing roadmap):
 
 ### 1.3 Query Causantic Memory
 
-Run all memory queries directly in the lead agent context. Do not delegate memory queries to subagents — they cannot access MCP tools.
+Run memory queries **sequentially** in the lead agent context. Do not delegate memory queries to subagents — they cannot access MCP tools. Do NOT run these queries in parallel.
+
+After each query, discard any results that duplicate earlier findings. Stop querying early if accumulated memory exceeds the total cap of 16K tokens.
 
 Use the causantic MCP tools to surface deferred and aspirational work:
-- \`search\` query: "deferred", \`max_tokens: 8000\`
-- \`search\` query: "aspirational", \`max_tokens: 8000\`
-- \`search\` query: "someday", \`max_tokens: 8000\`
-- \`search\` query: "future work", \`max_tokens: 8000\`
-- \`search\` query: "TODO", \`max_tokens: 8000\`
-- \`search\` query: "roadmap", \`max_tokens: 8000\`
-- \`search\` query: "milestone", \`max_tokens: 8000\`
-- \`search\` query: "release plan", \`max_tokens: 8000\`
-- \`recall\` query: "features we want to build", \`max_tokens: 8000\`
-- \`predict\` context: "project roadmap and future work", \`max_tokens: 8000\`
+1. \`search\` query: "deferred TODO future work", \`max_tokens: 4000\`
+2. \`search\` query: "roadmap milestone release plan", \`max_tokens: 4000\`
+3. \`recall\` query: "features we want to build", \`max_tokens: 4000\`
+4. \`predict\` context: "project roadmap and future work", \`max_tokens: 4000\`
 - Tag each with source: "memory"
 
 If causantic MCP tools are unavailable or return nothing, note the gap and proceed with other sources.

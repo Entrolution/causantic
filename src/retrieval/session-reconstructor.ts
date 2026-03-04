@@ -109,7 +109,16 @@ export function resolveTimeWindow(req: ReconstructRequest): {
 }
 
 /**
- * Apply token budget to a list of chunks.
+ * Formatting overhead for reconstruction output.
+ *
+ * Fixed: result header (~25 tokens) + truncation notice + margin.
+ * Per-chunk: separator `---` (~2 tokens) + session/agent headers amortized (~3 tokens).
+ */
+const RECONSTRUCT_FIXED_OVERHEAD = 50;
+const RECONSTRUCT_PER_CHUNK_OVERHEAD = 5;
+
+/**
+ * Apply token budget to a list of chunks, reserving space for formatting overhead.
  * Returns the subset that fits within the budget.
  */
 export function applyTokenBudget(
@@ -117,24 +126,27 @@ export function applyTokenBudget(
   maxTokens: number,
   keepNewest: boolean,
 ): { kept: StoredChunk[]; truncated: boolean } {
-  let totalTokens = 0;
+  const effectiveBudget = Math.max(0, maxTokens - RECONSTRUCT_FIXED_OVERHEAD);
+
+  let totalCost = 0;
   for (const c of chunks) {
-    totalTokens += c.approxTokens;
+    totalCost += c.approxTokens + RECONSTRUCT_PER_CHUNK_OVERHEAD;
   }
 
-  if (totalTokens <= maxTokens) {
+  if (totalCost <= effectiveBudget) {
     return { kept: chunks, truncated: false };
   }
 
   // Walk from the preferred end and collect until budget exhausted
   const ordered = keepNewest ? [...chunks].reverse() : [...chunks];
   const kept: StoredChunk[] = [];
-  let budget = maxTokens;
+  let budget = effectiveBudget;
 
   for (const chunk of ordered) {
-    if (chunk.approxTokens > budget) break;
+    const chunkCost = chunk.approxTokens + RECONSTRUCT_PER_CHUNK_OVERHEAD;
+    if (chunkCost > budget) break;
     kept.push(chunk);
-    budget -= chunk.approxTokens;
+    budget -= chunkCost;
   }
 
   // Restore chronological order

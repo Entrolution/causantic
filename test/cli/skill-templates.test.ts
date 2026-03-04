@@ -204,10 +204,10 @@ describe('skill-templates', () => {
 
     it('causantic-cleanup references memory tools in Phase 1.5', () => {
       const skill = CAUSANTIC_SKILLS.find((s) => s.dirName === 'causantic-cleanup')!;
-      expect(skill.content).toContain('`recall`');
       expect(skill.content).toContain('`search`');
       expect(skill.content).toContain('Phase 1.5');
-      expect(skill.content).toContain('max_tokens: 8000');
+      expect(skill.content).toContain('max_tokens: 4000');
+      expect(skill.content).toContain('sequentially');
     });
 
     it('causantic-forget has argument-hint', () => {
