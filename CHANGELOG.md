@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.4] - 2026-03-04
+
+### Fixed
+
+- **Skill templates missing project scoping**: The `recall`, `search`, `predict`, `cleanup`, and `roadmap` skill templates now instruct Claude to always pass the `project` parameter scoped to the current project (derived from the working directory). Previously, these skills could pull in memories from unrelated projects. The `resume`, `reconstruct`, and `forget` skills already required `project`.
+
+### Tests
+
+- 2038 tests passing.
+
 ## [0.9.3] - 2026-03-04
 
 ### Fixed

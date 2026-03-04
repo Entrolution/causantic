@@ -55,11 +55,11 @@ Pass these to the \`recall\` MCP tool:
 
 ## Guidelines
 
+- **Always pass the \`project\` parameter** scoped to the current project (derive from the working directory) unless the user explicitly asks for cross-project results
 - \`recall\` walks causal chains to reconstruct narrative — use it when you need the story of how something happened
 - \`recall\` is semantic, NOT time-ordered — it returns whatever matches best regardless of recency
 - \`search\` ranks results by semantic relevance — use it for broad discovery ("what do I know about X?")
 - For temporal queries ("recently", "last session", "yesterday"), always use \`reconstruct\` or \`resume\`
-- Use the \`project\` parameter to scope results to the current project when relevant
 `,
   },
   {
@@ -99,6 +99,7 @@ Pass these to the \`search\` MCP tool:
 
 ## Guidelines
 
+- **Always pass the \`project\` parameter** scoped to the current project (derive from the working directory) unless the user explicitly asks for cross-project results
 - Returns ranked results by semantic relevance (vector + keyword fusion)
 - Use \`search\` for discovery, \`recall\` for narrative reconstruction
 - Combine with \`/causantic-recall\` when you need causal chain context (how things led to outcomes)
@@ -140,6 +141,7 @@ Pass these to the \`predict\` MCP tool:
 
 ## Guidelines
 
+- **Always pass the \`project\` parameter** scoped to the current project (derive from the working directory) unless the user explicitly asks for cross-project results
 - Always provide a concise summary of the current task as the \`context\` parameter
 - Use early in a task to front-load relevant context
 - Especially useful when starting unfamiliar work — past sessions may have covered it
@@ -412,11 +414,11 @@ The lead agent has MCP access to Causantic tools — subagents do not. Gather al
 
 ### 1.5.1 Query Memory
 
-Run these queries **sequentially** (do NOT delegate to subagents, do NOT run in parallel):
+Run these queries **sequentially** (do NOT delegate to subagents, do NOT run in parallel). **Always pass \`project\` scoped to the current project** (derive from the working directory) to avoid pulling in memories from other projects.
 
-1. \`search\` with query: "architecture decisions", \`max_tokens: 4000\`
-2. \`search\` with query: "tech debt", \`max_tokens: 4000\`
-3. \`search\` with query: "past cleanup findings", \`max_tokens: 4000\`
+1. \`search\` with query: "architecture decisions", \`project: "<current-project>"\`, \`max_tokens: 4000\`
+2. \`search\` with query: "tech debt", \`project: "<current-project>"\`, \`max_tokens: 4000\`
+3. \`search\` with query: "past cleanup findings", \`project: "<current-project>"\`, \`max_tokens: 4000\`
 
 After each query, discard any results that duplicate earlier findings. Stop querying early if accumulated memory exceeds the total cap of 12K tokens.
 
@@ -1178,11 +1180,11 @@ Run memory queries **sequentially** in the lead agent context. Do not delegate m
 
 After each query, discard any results that duplicate earlier findings. Stop querying early if accumulated memory exceeds the total cap of 16K tokens.
 
-Use the causantic MCP tools to surface deferred and aspirational work:
-1. \`search\` query: "deferred TODO future work", \`max_tokens: 4000\`
-2. \`search\` query: "roadmap milestone release plan", \`max_tokens: 4000\`
-3. \`recall\` query: "features we want to build", \`max_tokens: 4000\`
-4. \`predict\` context: "project roadmap and future work", \`max_tokens: 4000\`
+Use the causantic MCP tools to surface deferred and aspirational work. **Always pass \`project\` scoped to the current project** (derive from the working directory) to avoid pulling in memories from other projects.
+1. \`search\` query: "deferred TODO future work", \`project: "<current-project>"\`, \`max_tokens: 4000\`
+2. \`search\` query: "roadmap milestone release plan", \`project: "<current-project>"\`, \`max_tokens: 4000\`
+3. \`recall\` query: "features we want to build", \`project: "<current-project>"\`, \`max_tokens: 4000\`
+4. \`predict\` context: "project roadmap and future work", \`project: "<current-project>"\`, \`max_tokens: 4000\`
 - Tag each with source: "memory"
 
 If causantic MCP tools are unavailable or return nothing, note the gap and proceed with other sources.
