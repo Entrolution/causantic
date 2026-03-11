@@ -136,7 +136,7 @@ describe('runMigrations', () => {
       // Reset version to 0 to simulate a completely fresh database
       db.exec('DELETE FROM schema_version');
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(13);
+      expect(getSchemaVersion(db)).toBe(14);
       db.close();
     });
   });
@@ -148,7 +148,7 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(13);
+      expect(getSchemaVersion(db)).toBe(14);
       db.close();
     });
 
@@ -279,11 +279,11 @@ describe('runMigrations', () => {
     it('can run migrations multiple times without error', () => {
       const db = createV1Database();
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(13);
+      expect(getSchemaVersion(db)).toBe(14);
 
       // Run again — should be a no-op
       runMigrations(db);
-      expect(getSchemaVersion(db)).toBe(13);
+      expect(getSchemaVersion(db)).toBe(14);
       db.close();
     });
 
@@ -357,7 +357,7 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(13);
+      expect(getSchemaVersion(db)).toBe(14);
       expect(getColumnNames(db, 'chunks')).toContain('project_path');
       expect(getColumnNames(db, 'chunks')).toContain('team_name');
       expect(getColumnNames(db, 'chunks')).not.toContain('vector_clock');
@@ -394,7 +394,7 @@ describe('runMigrations', () => {
 
       runMigrations(db);
 
-      expect(getSchemaVersion(db)).toBe(13);
+      expect(getSchemaVersion(db)).toBe(14);
       expect(indexExists(db, 'idx_chunks_slug_start_time')).toBe(true);
       expect(indexExists(db, 'idx_chunks_agent_id')).toBe(true);
       expect(getColumnNames(db, 'chunks')).toContain('team_name');

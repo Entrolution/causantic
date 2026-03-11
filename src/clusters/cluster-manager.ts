@@ -3,7 +3,7 @@
  */
 
 import { HDBSCAN } from './hdbscan.js';
-import { vectorStore } from '../storage/vector-store.js';
+import { vectorStore, indexVectorStore } from '../storage/vector-store.js';
 import {
   upsertCluster,
   assignChunksToClusters,
@@ -12,6 +12,7 @@ import {
   getClusterChunkIds,
   computeMembershipHash,
 } from '../storage/cluster-store.js';
+import { getDb } from '../storage/db.js';
 import { angularDistance } from '../utils/angular-distance.js';
 import { getConfig } from '../config/memory-config.js';
 import { generateId } from '../storage/db.js';
@@ -19,6 +20,9 @@ import { predictLabels } from './hdbscan/incremental.js';
 import { saveModel, loadModel } from './hdbscan-model-store.js';
 import type { StoredCluster, ChunkClusterAssignment } from '../storage/types.js';
 import type { HDBSCANModel } from './hdbscan/types.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('cluster-manager');
 
 /**
  * Snapshot of an old cluster's label metadata and member set,
@@ -628,6 +632,154 @@ export class ClusterManager {
       largestCluster: largest,
       smallestCluster: smallest === Infinity ? 0 : smallest,
     };
+  }
+
+  /**
+   * Run HDBSCAN on index entry embeddings and create index entry clusters.
+   *
+   * Creates clusters in the `index_entry_clusters` table (parallel to `chunk_clusters`).
+   * Each cluster elects a representative (entry closest to centroid) for browsing.
+   */
+  async reclusterIndexEntries(
+    options: ClusteringOptions = {},
+  ): Promise<ClusteringResult> {
+    const startTime = Date.now();
+    const { minClusterSize = this.config.minClusterSize } = options;
+
+    // Ensure index_entry_clusters table exists
+    const db = getDb();
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS index_entry_clusters (
+        index_entry_id TEXT NOT NULL,
+        cluster_id TEXT NOT NULL,
+        distance REAL NOT NULL,
+        is_representative INTEGER DEFAULT 0,
+        PRIMARY KEY (index_entry_id, cluster_id)
+      )
+    `);
+    db.exec(
+      'CREATE INDEX IF NOT EXISTS idx_iec_cluster ON index_entry_clusters(cluster_id)',
+    );
+
+    // Clear existing index entry cluster assignments
+    db.exec('DELETE FROM index_entry_clusters');
+
+    // Get all index entry vectors
+    const vectors = await indexVectorStore.getAllVectors();
+
+    if (vectors.length === 0) {
+      return {
+        numClusters: 0,
+        assignedChunks: 0,
+        noiseChunks: 0,
+        noiseRatio: 0,
+        clusterSizes: [],
+        reassignedNoise: 0,
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    // Run HDBSCAN
+    const embeddings = vectors.map((v) => v.embedding);
+    const hdbscan = new HDBSCAN({
+      minClusterSize,
+      minSamples: minClusterSize,
+    });
+
+    const labels = hdbscan.fitSync(embeddings);
+
+    // Group by cluster
+    const clusterMembers = new Map<number, Array<{ id: string; embedding: number[] }>>();
+    for (let i = 0; i < labels.length; i++) {
+      const label = labels[i];
+      if (label < 0) continue;
+
+      if (!clusterMembers.has(label)) {
+        clusterMembers.set(label, []);
+      }
+      clusterMembers.get(label)!.push(vectors[i]);
+    }
+
+    // Create cluster assignments
+    const clusterSizes: number[] = [];
+    const insertStmt = db.prepare(
+      'INSERT OR REPLACE INTO index_entry_clusters (index_entry_id, cluster_id, distance, is_representative) VALUES (?, ?, ?, ?)',
+    );
+
+    const insertAll = db.transaction(() => {
+      for (const [_label, members] of clusterMembers) {
+        const centroid = computeCentroid(members.map((m) => m.embedding));
+        const clusterId = generateId();
+
+        // Find representative (closest to centroid)
+        const withDistances = members.map((m) => ({
+          ...m,
+          distance: angularDistance(m.embedding, centroid),
+        }));
+        withDistances.sort((a, b) => a.distance - b.distance);
+
+        for (const m of withDistances) {
+          const isRep = m.id === withDistances[0].id ? 1 : 0;
+          insertStmt.run(m.id, clusterId, m.distance, isRep);
+        }
+
+        clusterSizes.push(members.length);
+      }
+    });
+
+    insertAll();
+
+    const noiseCount = labels.filter((l: number) => l < 0).length;
+
+    log.info('Index entry clustering complete', {
+      numClusters: clusterMembers.size,
+      assigned: vectors.length - noiseCount,
+      noise: noiseCount,
+    });
+
+    return {
+      numClusters: clusterMembers.size,
+      assignedChunks: vectors.length - noiseCount,
+      noiseChunks: noiseCount,
+      noiseRatio: vectors.length > 0 ? noiseCount / vectors.length : 0,
+      clusterSizes: clusterSizes.sort((a, b) => b - a),
+      reassignedNoise: 0,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  /**
+   * Get index entry cluster representatives.
+   * Returns one representative entry ID per cluster (closest to centroid).
+   */
+  async getIndexEntryRepresentatives(): Promise<
+    Array<{ clusterId: string; indexEntryId: string; distance: number }>
+  > {
+    const db = getDb();
+
+    try {
+      const rows = db
+        .prepare(
+          `SELECT cluster_id, index_entry_id, distance
+           FROM index_entry_clusters
+           WHERE is_representative = 1
+           ORDER BY distance`,
+        )
+        .all() as Array<{
+        cluster_id: string;
+        index_entry_id: string;
+        distance: number;
+      }>;
+
+      return rows.map((r) => ({
+        clusterId: r.cluster_id,
+        indexEntryId: r.index_entry_id,
+        distance: r.distance,
+      }));
+    } catch {
+      // Table may not exist yet
+      return [];
+    }
   }
 
   /**

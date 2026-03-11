@@ -65,6 +65,26 @@ npx causantic maintenance run cleanup-vectors
 - If `vectors.maxCount` is configured, evicts the oldest vectors to stay under the limit
 - Removes empty clusters left behind after chunk deletion
 
+### backfill-index
+
+Generates semantic index entries for chunks that don't have them yet.
+
+```bash
+npx causantic maintenance run backfill-index
+```
+
+**Frequency**: Daily (30 minutes after `update-clusters`)
+
+**What it does**:
+
+- Finds chunks without corresponding index entries
+- Groups unindexed chunks by session
+- Generates descriptions via LLM (Haiku) or heuristic fallback
+- Embeds descriptions and stores in the index vector store
+- Respects `semanticIndex.batchRefreshLimit` (default: 500 per run)
+
+Skipped when `semanticIndex.enabled` is `false`.
+
 ### vacuum
 
 Optimizes the SQLite database.
@@ -112,6 +132,7 @@ Uses cron-style scheduling (assuming default `clusterHour` of 2):
 
 - `scan-projects`: Every hour
 - `update-clusters`: Daily at 2am
+- `backfill-index`: Daily at 2:30am
 - `cleanup-vectors`: Daily at 3am
 - `vacuum`: Sundays at 5am
 

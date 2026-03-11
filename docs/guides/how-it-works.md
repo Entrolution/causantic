@@ -24,6 +24,29 @@ Chunks are connected in a **sequential causal graph** — a linked list with bra
 
 All edges are stored as single `forward` rows — direction is inferred at query time (backward = follow edges where the chunk is the target).
 
+### Semantic Index
+
+Raw chunks vary widely in size (64–4096 tokens). Long, keyword-rich chunks dominate cosine similarity scores, which the system compensates for with length penalties and MMR budget caps. The **semantic index** introduces a normalised intermediate layer: each chunk gets an **index entry** — an LLM-compressed natural-language description (~100–150 tokens) that captures the chunk's key decisions, technologies, and outcomes. These fixed-size descriptions are what gets searched, with pointers back to the actual chunks.
+
+```
+┌────────────────────────────────────────────────────────┐
+│                  RETRIEVAL LAYERS                       │
+│                                                        │
+│  Query ─► Search Index Entries ─► Dereference to Chunks│
+│                  │                        │            │
+│       (~130 tok, normalised)     (raw 64-4096 tok)     │
+│       (uniform info density)     (full content)        │
+└────────────────────────────────────────────────────────┘
+```
+
+Each index entry stores:
+- **Description**: Natural language (~130 tokens), embedded in a separate vector namespace (`index_vectors`)
+- **Metadata columns**: Date, project, agent — stored as structured DB fields, not baked into description text
+- **Chunk references**: Links to 1+ chunk IDs via `index_entry_chunks` table
+- **Generation method**: `llm` (primary) or `heuristic` (offline fallback)
+
+When index entries exist, retrieval searches descriptions instead of raw chunks. Downstream pipeline (cluster expansion, MMR, budget assembly) still operates on chunk IDs after dereference. When no entries exist, the system falls back to direct chunk search automatically.
+
 ## Data Flow
 
 ```
@@ -42,32 +65,189 @@ All edges are stored as single `forward` rows — direction is inferred at query
    ├── Pre-compact hook fires
    ├── Ingest session content
    ├── Create chunks and edges
-   ├── Generate embeddings
+   ├── Generate chunk embeddings    ─► vectors (LanceDB)
+   ├── Generate index entries        ─► index_entries (SQLite)
+   ├── Embed index descriptions      ─► index_vectors (LanceDB)
    └── Update clusters
 ```
 
+### Ingestion with Semantic Index
+
+After chunks are stored and embedded, a non-blocking hook generates index entries:
+
+```
+Session JSONL
+    │
+    ▼
+┌─────────────────┐
+│ Parse & Chunk    │
+│ (ingest-session) │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐     ┌──────────────────┐
+│ Store chunks     │────►│ Embed chunks     │
+│ (chunk-store)    │     │ (vectors table)  │
+└────────┬────────┘     └──────────────────┘
+         │
+         ▼
+┌─────────────────────────────────────────┐
+│ Index Entry Hook (non-blocking)         │
+│                                         │
+│  ┌─────────────────┐   ┌─────────────┐ │
+│  │ LLM generation  │──►│ Heuristic   │ │
+│  │ (Haiku, batched │   │ (fallback)  │ │
+│  │  per session)   │   └─────────────┘ │
+│  └────────┬────────┘                    │
+│           ▼                             │
+│  ┌─────────────────┐                    │
+│  │ Insert entries   │                    │
+│  │ (index_entries + │                    │
+│  │  index_entry_    │                    │
+│  │  chunks)         │                    │
+│  └────────┬────────┘                    │
+│           ▼                             │
+│  ┌─────────────────┐                    │
+│  │ Embed descriptions│                   │
+│  │ (index_vectors)  │                    │
+│  └──────────────────┘                   │
+└─────────────────────────────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Create edges     │
+│ (causal graph)   │
+└─────────────────┘
+```
+
+LLM generation batches all chunks from a session into a single Haiku call (~0.05 cents). If the API key is unavailable, the heuristic fallback extracts the first meaningful content lines (~130 tokens). Failures in the hook are logged but never block ingestion.
+
 ## Retrieval Process
 
-Causantic has two retrieval modes:
+Causantic has two retrieval modes. Both share the same front end (embed query, parallel search, RRF fusion) but differ in what they search — index entries when available, raw chunks otherwise.
 
-### Search (discovery)
+### Search Pipeline (dual path)
 
-The `search` tool finds semantically similar context:
+The pipeline automatically selects the index-based or chunk-based search path at runtime:
 
-1. **Embed query**: Generate vector embedding for the query
-2. **Parallel search**: Run vector search and BM25 keyword search simultaneously
-3. **RRF fusion**: Merge both ranked lists using Reciprocal Rank Fusion (k=60)
-4. **Cluster expansion**: Expand results through HDBSCAN cluster siblings
-5. **Rank and deduplicate**: Recency boost, length penalty, deduplication
-6. **Size filter**: Exclude chunks individually larger than the response budget
-7. **MMR reranking**: Budget-aware Maximal Marginal Relevance — balances relevance with diversity while tracking remaining token budget so large chunks don't consume diversity slots they can't fill
-8. **Token budgeting**: Assemble within response limits (no partial chunks)
+```
+                          ┌───────────────┐
+                          │  Embed query   │
+                          └───────┬───────┘
+                                  │
+                     ┌────────────┴────────────┐
+                     │  Index entries exist?    │
+                     └────┬───────────────┬────┘
+                     yes  │               │  no
+                          ▼               ▼
+              ┌───────────────┐  ┌───────────────┐
+              │ INDEX PATH    │  │ CHUNK PATH    │
+              │               │  │ (fallback)    │
+              │ ┌───────────┐ │  │ ┌───────────┐ │
+              │ │ Vector    │ │  │ │ Vector    │ │
+              │ │ search    │ │  │ │ search    │ │
+              │ │ (index_   │ │  │ │ (vectors) │ │
+              │ │  vectors) │ │  │ └───────────┘ │
+              │ └───────────┘ │  │               │
+              │ ┌───────────┐ │  │ ┌───────────┐ │
+              │ │ Keyword   │ │  │ │ Keyword   │ │
+              │ │ search    │ │  │ │ search    │ │
+              │ │ (index_   │ │  │ │ (chunks_  │ │
+              │ │ entries_  │ │  │ │  fts)     │ │
+              │ │  fts)     │ │  │ └───────────┘ │
+              │ └───────────┘ │  │               │
+              │       │       │  │       │       │
+              │       ▼       │  │       ▼       │
+              │ ┌───────────┐ │  │ ┌───────────┐ │
+              │ │ RRF on    │ │  │ │ RRF on    │ │
+              │ │ index IDs │ │  │ │ chunk IDs │ │
+              │ └─────┬─────┘ │  │ └───────────┘ │
+              │       │       │  │               │
+              │       ▼       │  │               │
+              │ ┌───────────┐ │  │               │
+              │ │ Dereference│ │  │               │
+              │ │ to chunk  │ │  │               │
+              │ │ IDs       │ │  │               │
+              │ └───────────┘ │  │               │
+              └───────┬───────┘  └───────┬───────┘
+                      │                  │
+                      └────────┬─────────┘
+                               │
+                               ▼  chunk IDs + scores
+                      ┌───────────────┐
+                      │ Cluster       │
+                      │ expansion     │
+                      └───────┬───────┘
+                              │
+                      ┌───────┴───────┐
+                      │ Recency boost │
+                      │ + length      │  (length penalty
+                      │   penalty     │   disabled on
+                      └───────┬───────┘   index path)
+                              │
+                      ┌───────┴───────┐
+                      │ Size filter   │
+                      │ (oversized    │
+                      │  exclusion)   │
+                      └───────┬───────┘
+                              │
+                      ┌───────┴───────┐
+                      │ MMR reranking │
+                      │ (budget-aware)│
+                      └───────┬───────┘
+                              │
+                      ┌───────┴───────┐
+                      │ Assemble      │
+                      │ within budget │
+                      └───────────────┘
+```
+
+**Index path**: Vector search targets `index_vectors` (index entry embeddings). Keyword search targets `index_entries_fts` (FTS5 on descriptions). After RRF, a dereference step maps index entry IDs → chunk IDs via the `index_entry_chunks` table. The length penalty is disabled because index entries are normalised — there's no size-driven score distortion to correct for.
+
+**Chunk path** (fallback): The original pipeline — vector search on `vectors`, keyword search on `chunks_fts`, RRF directly on chunk IDs. Active when no index entries exist or when `semanticIndex.useForSearch` is disabled.
+
+Both paths converge at cluster expansion, which always operates on chunk IDs and their chunk-level cluster assignments.
 
 ### Recall/Predict (episodic)
 
 The `recall` and `predict` tools reconstruct narrative chains:
 
-1. **Seed discovery**: Same as search (embed → vector + keyword → RRF → cluster expand) to find top 5 seeds
+```
+                      ┌───────────────┐
+                      │  Embed query   │
+                      └───────┬───────┘
+                              │
+                      ┌───────┴───────┐
+                      │ Seed discovery │  (same dual-path
+                      │ (search        │   search as above,
+                      │  pipeline)     │   top 5 results
+                      └───────┬───────┘   become seeds)
+                              │
+                              ▼  5 seed chunk IDs
+                      ┌───────────────┐
+                      │ Multi-path    │  DFS with backtracking
+                      │ chain walking │  from each seed
+                      │               │  (backward=recall,
+                      │               │   forward=predict)
+                      └───────┬───────┘
+                              │
+                      ┌───────┴───────┐
+                      │ Chain scoring  │  median cosine
+                      │ + selection   │  similarity to query
+                      └───────┬───────┘
+                              │
+                      ┌───────┴───────┐
+                      │ Budget-aware  │  no partial chunks
+                      │ formatting    │
+                      └───────┬───────┘
+                              │
+                      ┌───────┴───────┐
+                      │ Fallback to   │  if no chain ≥ 2
+                      │ search results│  chunks qualifies
+                      └───────────────┘
+```
+
+1. **Seed discovery**: Uses the full search pipeline (index or chunk path) to find the top 5 seeds
 2. **Multi-path chain walking**: For each seed, DFS with backtracking explores all reachable paths (backward for recall, forward for predict). Oversized chunks (larger than the token budget) are traversed through for graph connectivity but excluded from path output and scoring. At branching points (agent transitions, cross-session links), all branches are explored and emitted as candidates
 3. **Chain scoring**: Each candidate chain scored by median per-node cosine similarity to the query (oversized chunks excluded from median)
 4. **Best chain selection**: Highest median score among candidates with ≥ 2 chunks
@@ -137,14 +317,81 @@ HDBSCAN groups similar chunks into **clusters**:
 - Optional: LLM-generated cluster descriptions
 - Used during retrieval for cluster-guided expansion (sibling chunks surface related context)
 
+### Index Entry Clustering
+
+Index entries are also clustered separately (stored in `index_entry_clusters`). Each cluster elects a **representative** — the entry closest to the centroid — providing a browsable "table of contents" of memory topics. Index entry clustering runs during the `update-clusters` maintenance task.
+
+## Deletion and Cleanup
+
+When chunks are deleted (via the `forget` tool or TTL maintenance), index entries are cascaded:
+
+```
+forget("auth bug")
+    │
+    ├── Delete chunks from SQLite
+    ├── Delete chunk vectors from LanceDB
+    └── Delete index entries for those chunks
+        │
+        ├── Remove rows from index_entry_chunks
+        ├── Find orphaned index entries (no remaining chunk refs)
+        ├── Delete orphaned entries from index_entries
+        └── Delete orphaned vectors from index_vectors
+```
+
+The cascade ensures no dangling index entries accumulate after chunk deletion.
+
+### Backfill Maintenance
+
+The `backfill-index` maintenance task generates index entries for chunks that were ingested before the semantic index was enabled, or where LLM generation failed at ingestion time:
+
+```
+backfill-index (runs every maintenance cycle)
+    │
+    ├── Find unindexed chunk IDs
+    ├── Group by session slug
+    ├── For each session batch:
+    │   ├── Generate entries (LLM primary, heuristic fallback)
+    │   ├── Insert into index_entries + index_entry_chunks
+    │   └── Embed descriptions into index_vectors
+    └── Report indexed/total/remaining counts
+```
+
+Controlled by `semanticIndex.batchRefreshLimit` (default: 500 per run).
+
 ## Storage
 
 Causantic uses two storage backends:
 
-- **SQLite**: Chunks, edges, clusters, metadata
-- **LanceDB**: Vector embeddings for similarity search
+- **SQLite**: Chunks, edges, clusters, index entries, metadata
+- **LanceDB**: Vector embeddings for similarity search (two namespaces: `vectors` for chunks, `index_vectors` for index entries)
 
 Default location: `~/.causantic/`
+
+### Schema Overview
+
+```
+┌───────────────────────────────────────────────────┐
+│                    SQLite                          │
+│                                                   │
+│  chunks ──────────── edges                        │
+│    │                                              │
+│    ├── chunk_clusters ── clusters                  │
+│    │                                              │
+│    └── index_entry_chunks ── index_entries         │
+│                                  │                │
+│                    index_entry_clusters            │
+│                                                   │
+│  chunks_fts (FTS5)    index_entries_fts (FTS5)    │
+│  ingestion_checkpoints    embedding_cache          │
+│  hdbscan_models                                   │
+└───────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│                   LanceDB                         │
+│                                                   │
+│  vectors         (chunk embeddings)               │
+│  index_vectors   (index entry embeddings)         │
+└───────────────────────────────────────────────────┘
+```
 
 ## See Also
 

@@ -28,6 +28,8 @@ export type {
   WeightedChunk,
   TraversalResult,
   VectorSearchResult,
+  IndexEntry,
+  IndexEntryInput,
 } from './types.js';
 
 // Chunk store
@@ -85,8 +87,25 @@ export {
 } from './cluster-store.js';
 
 // Vector store
-export { vectorStore } from './vector-store.js';
+export { vectorStore, indexVectorStore } from './vector-store.js';
 
 // Keyword store
 export { KeywordStore } from './keyword-store.js';
 export type { KeywordSearchResult } from './keyword-store.js';
+
+// Index entry store
+export {
+  insertIndexEntry,
+  insertIndexEntries,
+  getIndexEntryById,
+  getIndexEntriesByIds,
+  getIndexEntriesForChunk,
+  getIndexEntriesBySession,
+  getIndexEntryCount,
+  getIndexedChunkCount,
+  getUnindexedChunkIds,
+  deleteIndexEntry,
+  deleteIndexEntriesForChunks,
+  dereferenceToChunkIds,
+  searchIndexEntriesByKeyword,
+} from './index-entry-store.js';

@@ -49,6 +49,7 @@ import type { ChunkInput } from '../storage/types.js';
 import type { Chunk, Turn } from '../parser/types.js';
 import { createLogger } from '../utils/logger.js';
 import { resolveCanonicalProjectPath } from '../utils/project-path.js';
+import { generateIndexEntriesForChunks } from './index-entry-hook.js';
 
 const log = createLogger('ingest-session');
 
@@ -594,6 +595,21 @@ async function processMainSession(params: MainSessionParams): Promise<MainSessio
 
   await vectorStore.insertBatch(
     mainChunkIds.map((id, i) => ({ id, embedding: mainEmbeddings[i] })),
+  );
+
+  // Generate semantic index entries for the new chunks
+  await generateIndexEntriesForChunks(
+    mainChunks.map((c, i) => ({
+      id: mainChunkIds[i],
+      sessionSlug: projectSlug,
+      startTime: c.metadata.startTime,
+      content: c.text,
+      approxTokens: c.metadata.approxTokens,
+    })),
+    projectSlug,
+    mainEmbeddings,
+    mainChunkIds,
+    embeddingModel,
   );
 
   // Create main intra-session edges

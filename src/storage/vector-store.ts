@@ -67,6 +67,9 @@ import { angularDistance } from '../utils/angular-distance.js';
 import type { VectorSearchResult } from './types.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
 import { getModel } from '../models/model-registry.js';
+import { createLogger } from '../utils/logger.js';
+
+const vectorStoreLog = createLogger('vector-store');
 
 /**
  * In-memory vector index backed by SQLite for persistence.
@@ -92,6 +95,16 @@ export class VectorStore {
   private modelId: string = 'jina-small';
   /** Expected embedding dimensions for the current model. */
   private expectedDims: number = 512;
+
+  /** SQL table name for persistence. Default: 'vectors'. */
+  private readonly tableName: string;
+  /** Optional lookup table for resolving entity metadata (e.g. 'index_entries' for index vectors). */
+  private readonly metadataTable: string | null;
+
+  constructor(options?: { tableName?: string; metadataTable?: string | null }) {
+    this.tableName = options?.tableName ?? 'vectors';
+    this.metadataTable = options?.metadataTable ?? null;
+  }
 
   /**
    * Set the active model ID for this vector store.
@@ -124,7 +137,7 @@ export class VectorStore {
 
     // Ensure vectors table exists with TTL columns
     db.exec(`
-      CREATE TABLE IF NOT EXISTS vectors (
+      CREATE TABLE IF NOT EXISTS ${this.tableName} (
         id TEXT PRIMARY KEY,
         embedding BLOB NOT NULL,
         orphaned_at TEXT DEFAULT NULL,
@@ -134,27 +147,27 @@ export class VectorStore {
     `);
 
     // Migrate existing tables
-    const columns = db.prepare('PRAGMA table_info(vectors)').all() as { name: string }[];
+    const columns = db.prepare(`PRAGMA table_info(${this.tableName})`).all() as { name: string }[];
     const hasOrphanedAt = columns.some((c) => c.name === 'orphaned_at');
     const hasLastAccessed = columns.some((c) => c.name === 'last_accessed');
     const hasModelId = columns.some((c) => c.name === 'model_id');
 
     if (!hasOrphanedAt) {
-      db.exec('ALTER TABLE vectors ADD COLUMN orphaned_at TEXT DEFAULT NULL');
+      db.exec(`ALTER TABLE ${this.tableName} ADD COLUMN orphaned_at TEXT DEFAULT NULL`);
     }
     if (!hasLastAccessed) {
-      db.exec('ALTER TABLE vectors ADD COLUMN last_accessed TEXT DEFAULT CURRENT_TIMESTAMP');
-      db.exec('UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE last_accessed IS NULL');
+      db.exec(`ALTER TABLE ${this.tableName} ADD COLUMN last_accessed TEXT DEFAULT CURRENT_TIMESTAMP`);
+      db.exec(`UPDATE ${this.tableName} SET last_accessed = CURRENT_TIMESTAMP WHERE last_accessed IS NULL`);
     }
     if (!hasModelId) {
-      db.exec("ALTER TABLE vectors ADD COLUMN model_id TEXT DEFAULT 'jina-small'");
-      db.exec("UPDATE vectors SET model_id = 'jina-small' WHERE model_id IS NULL");
-      db.exec('CREATE INDEX IF NOT EXISTS idx_vectors_model ON vectors(model_id)');
+      db.exec(`ALTER TABLE ${this.tableName} ADD COLUMN model_id TEXT DEFAULT 'jina-small'`);
+      db.exec(`UPDATE ${this.tableName} SET model_id = 'jina-small' WHERE model_id IS NULL`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_${this.tableName}_model ON ${this.tableName}(model_id)`);
     }
 
     // Load only vectors matching the active model_id
     const rows = db
-      .prepare('SELECT id, embedding FROM vectors WHERE model_id = ?')
+      .prepare(`SELECT id, embedding FROM ${this.tableName} WHERE model_id = ?`)
       .all(this.modelId) as {
       id: string;
       embedding: Buffer;
@@ -165,43 +178,42 @@ export class VectorStore {
       this.vectors.set(row.id, embedding);
     }
 
-    // Populate chunk→project index from chunks table
+    // Populate metadata indexes (project, agent, team)
+    const metaTable = this.metadataTable ?? 'chunks';
     try {
-      const chunkRows = db
-        .prepare("SELECT id, session_slug FROM chunks WHERE session_slug != ''")
+      const projectRows = db
+        .prepare(`SELECT id, session_slug FROM ${metaTable} WHERE session_slug != ''`)
         .all() as Array<{ id: string; session_slug: string }>;
 
-      for (const row of chunkRows) {
+      for (const row of projectRows) {
         this.chunkProjectIndex.set(row.id, row.session_slug);
       }
     } catch {
-      // chunks table may not exist yet (e.g., during migrations)
+      // metadata table may not exist yet (e.g., during migrations)
     }
 
-    // Populate chunk→agent index
     try {
       const agentRows = db
-        .prepare('SELECT id, agent_id FROM chunks WHERE agent_id IS NOT NULL')
+        .prepare(`SELECT id, agent_id FROM ${metaTable} WHERE agent_id IS NOT NULL`)
         .all() as Array<{ id: string; agent_id: string }>;
 
       for (const row of agentRows) {
         this.chunkAgentIndex.set(row.id, row.agent_id);
       }
     } catch {
-      // chunks table may not exist yet
+      // metadata table may not exist yet
     }
 
-    // Populate chunk→team index
     try {
       const teamRows = db
-        .prepare('SELECT id, team_name FROM chunks WHERE team_name IS NOT NULL')
+        .prepare(`SELECT id, team_name FROM ${metaTable} WHERE team_name IS NOT NULL`)
         .all() as Array<{ id: string; team_name: string }>;
 
       for (const row of teamRows) {
         this.chunkTeamIndex.set(row.id, row.team_name);
       }
     } catch {
-      // chunks table may not exist yet
+      // metadata table may not exist yet
     }
 
     this.loaded = true;
@@ -224,15 +236,16 @@ export class VectorStore {
     const blob = serializeEmbedding(embedding);
 
     db.prepare(
-      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed, model_id) VALUES (?, ?, NULL, CURRENT_TIMESTAMP, ?)',
+      `INSERT OR REPLACE INTO ${this.tableName} (id, embedding, orphaned_at, last_accessed, model_id) VALUES (?, ?, NULL, CURRENT_TIMESTAMP, ?)`,
     ).run(id, blob, this.modelId);
 
     this.vectors.set(id, embedding);
 
     // Update project, agent, and team indexes
+    const metaTable = this.metadataTable ?? 'chunks';
     try {
       const row = db
-        .prepare('SELECT session_slug, agent_id, team_name FROM chunks WHERE id = ?')
+        .prepare(`SELECT session_slug, agent_id, team_name FROM ${metaTable} WHERE id = ?`)
         .get(id) as
         | { session_slug: string; agent_id: string | null; team_name: string | null }
         | undefined;
@@ -246,7 +259,7 @@ export class VectorStore {
         this.chunkTeamIndex.set(id, row.team_name);
       }
     } catch {
-      // chunks table may not exist
+      // metadata table may not exist
     }
   }
 
@@ -268,7 +281,7 @@ export class VectorStore {
 
     const db = getDb();
     const stmt = db.prepare(
-      'INSERT OR REPLACE INTO vectors (id, embedding, orphaned_at, last_accessed, model_id) VALUES (?, ?, NULL, CURRENT_TIMESTAMP, ?)',
+      `INSERT OR REPLACE INTO ${this.tableName} (id, embedding, orphaned_at, last_accessed, model_id) VALUES (?, ?, NULL, CURRENT_TIMESTAMP, ?)`,
     );
 
     const modelId = this.modelId;
@@ -283,13 +296,14 @@ export class VectorStore {
     insertMany(items);
 
     // Update project, agent, and team indexes for batch
+    const metaTable = this.metadataTable ?? 'chunks';
     try {
       const ids = items.map((i) => i.id);
       if (ids.length > 0) {
         const placeholders = sqlPlaceholders(ids.length);
         const rows = db
           .prepare(
-            `SELECT id, session_slug, agent_id, team_name FROM chunks WHERE id IN (${placeholders}) AND session_slug != ''`,
+            `SELECT id, session_slug, agent_id, team_name FROM ${metaTable} WHERE id IN (${placeholders}) AND session_slug != ''`,
           )
           .all(...ids) as Array<{
           id: string;
@@ -308,7 +322,7 @@ export class VectorStore {
         }
       }
     } catch {
-      // chunks table may not exist
+      // metadata table may not exist
     }
   }
 
@@ -444,7 +458,7 @@ export class VectorStore {
     await this.load();
 
     const db = getDb();
-    const result = db.prepare('DELETE FROM vectors WHERE id = ?').run(id);
+    const result = db.prepare(`DELETE FROM ${this.tableName} WHERE id = ?`).run(id);
 
     this.vectors.delete(id);
     return result.changes > 0;
@@ -460,7 +474,7 @@ export class VectorStore {
 
     const db = getDb();
     const placeholders = sqlPlaceholders(ids.length);
-    const result = db.prepare(`DELETE FROM vectors WHERE id IN (${placeholders})`).run(...ids);
+    const result = db.prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`).run(...ids);
 
     for (const id of ids) {
       this.vectors.delete(id);
@@ -491,7 +505,7 @@ export class VectorStore {
    */
   async clear(): Promise<void> {
     const db = getDb();
-    db.exec('DELETE FROM vectors');
+    db.exec(`DELETE FROM ${this.tableName}`);
     this.vectors.clear();
   }
 
@@ -552,7 +566,7 @@ export class VectorStore {
     const db = getDb();
     const placeholders = sqlPlaceholders(ids.length);
     db.prepare(
-      `UPDATE vectors SET last_accessed = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
+      `UPDATE ${this.tableName} SET last_accessed = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
     ).run(...ids);
   }
 
@@ -573,7 +587,7 @@ export class VectorStore {
     const expiredRows = db
       .prepare(
         `
-      SELECT id FROM vectors
+      SELECT id FROM ${this.tableName}
       WHERE last_accessed < datetime('now', '-' || ? || ' days')
     `,
       )
@@ -591,7 +605,7 @@ export class VectorStore {
 
     // Delete vectors
     const result = db
-      .prepare(`DELETE FROM vectors WHERE id IN (${placeholders})`)
+      .prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`)
       .run(...expiredIds);
 
     // Remove empty clusters (no remaining members after chunk deletion)
@@ -602,6 +616,39 @@ export class VectorStore {
       )
     `,
     ).run();
+
+    // Clean up index entries that referenced the deleted chunks
+    try {
+      const placeholdersForCleanup = sqlPlaceholders(expiredIds.length);
+      // Remove reverse-lookup rows
+      db.prepare(
+        `DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholdersForCleanup})`,
+      ).run(...expiredIds);
+
+      // Delete orphaned index entries (no remaining chunk references)
+      const orphaned = db.prepare(
+        `SELECT id FROM index_entries WHERE id NOT IN (
+          SELECT DISTINCT index_entry_id FROM index_entry_chunks
+        )`,
+      ).all() as Array<{ id: string }>;
+
+      if (orphaned.length > 0) {
+        const orphanIds = orphaned.map((r) => r.id);
+        const orphanPlaceholders = sqlPlaceholders(orphanIds.length);
+        db.prepare(
+          `DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`,
+        ).run(...orphanIds);
+
+        // Remove from index vector store (if this is the chunk vector store)
+        if (this.tableName === 'vectors') {
+          db.prepare(
+            `DELETE FROM index_vectors WHERE id IN (${orphanPlaceholders})`,
+          ).run(...orphanIds);
+        }
+      }
+    } catch {
+      // index_entry_chunks table may not exist yet
+    }
 
     // Remove from memory
     for (const id of expiredIds) {
@@ -634,7 +681,7 @@ export class VectorStore {
     const toEvict = db
       .prepare(
         `
-      SELECT id FROM vectors
+      SELECT id FROM ${this.tableName}
       ORDER BY last_accessed ASC
       LIMIT ?
     `,
@@ -650,7 +697,7 @@ export class VectorStore {
     db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...evictIds);
 
     // Delete vectors
-    const result = db.prepare(`DELETE FROM vectors WHERE id IN (${placeholders})`).run(...evictIds);
+    const result = db.prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`).run(...evictIds);
 
     // Remove empty clusters
     db.prepare(
@@ -660,6 +707,36 @@ export class VectorStore {
       )
     `,
     ).run();
+
+    // Clean up index entries that referenced the deleted chunks
+    try {
+      const placeholdersForCleanup = sqlPlaceholders(evictIds.length);
+      db.prepare(
+        `DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholdersForCleanup})`,
+      ).run(...evictIds);
+
+      const orphaned = db.prepare(
+        `SELECT id FROM index_entries WHERE id NOT IN (
+          SELECT DISTINCT index_entry_id FROM index_entry_chunks
+        )`,
+      ).all() as Array<{ id: string }>;
+
+      if (orphaned.length > 0) {
+        const orphanIds = orphaned.map((r) => r.id);
+        const orphanPlaceholders = sqlPlaceholders(orphanIds.length);
+        db.prepare(
+          `DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`,
+        ).run(...orphanIds);
+
+        if (this.tableName === 'vectors') {
+          db.prepare(
+            `DELETE FROM index_vectors WHERE id IN (${orphanPlaceholders})`,
+          ).run(...orphanIds);
+        }
+      }
+    } catch {
+      // index_entry_chunks table may not exist yet
+    }
 
     // Remove from memory
     for (const id of evictIds) {
@@ -672,9 +749,20 @@ export class VectorStore {
 }
 
 /**
- * Singleton vector store instance.
+ * Singleton vector store instance for chunk embeddings.
  *
- * Use this for all vector operations to ensure consistent state.
+ * Use this for all chunk vector operations to ensure consistent state.
  * The instance lazy-loads vectors from SQLite on first operation.
  */
 export const vectorStore = new VectorStore();
+
+/**
+ * Singleton vector store instance for index entry embeddings.
+ *
+ * Stores embeddings in the `index_vectors` table and looks up metadata
+ * from the `index_entries` table for project/agent/team filtering.
+ */
+export const indexVectorStore = new VectorStore({
+  tableName: 'index_vectors',
+  metadataTable: 'index_entries',
+});

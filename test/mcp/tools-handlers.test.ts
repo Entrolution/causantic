@@ -42,6 +42,10 @@ vi.mock('../../src/storage/vector-store.js', () => ({
   },
 }));
 
+vi.mock('../../src/storage/index-entry-store.js', () => ({
+  deleteIndexEntriesForChunks: vi.fn(async () => 0),
+}));
+
 vi.mock('../../src/retrieval/session-reconstructor.js', () => ({
   reconstructSession: vi.fn(),
   formatReconstruction: vi.fn(),

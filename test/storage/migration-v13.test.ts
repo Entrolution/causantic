@@ -172,17 +172,17 @@ describe('migration v13', () => {
     const db = createV12Database();
     runMigrations(db);
 
-    expect(getSchemaVersion(db)).toBe(13);
+    expect(getSchemaVersion(db)).toBe(14);
     db.close();
   });
 
   it('is idempotent', () => {
     const db = createV12Database();
     runMigrations(db);
-    expect(getSchemaVersion(db)).toBe(13);
+    expect(getSchemaVersion(db)).toBe(14);
 
     runMigrations(db);
-    expect(getSchemaVersion(db)).toBe(13);
+    expect(getSchemaVersion(db)).toBe(14);
     db.close();
   });
 

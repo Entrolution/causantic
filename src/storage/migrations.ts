@@ -79,6 +79,9 @@ export function runMigrations(database: Database.Database): void {
   if (currentVersion < 13) {
     migrateToV13(database);
   }
+  if (currentVersion < 14) {
+    migrateToV14(database);
+  }
 }
 
 /**
@@ -535,6 +538,90 @@ function migrateToV13(database: Database.Database): void {
   );
 
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (13)');
+}
+
+/**
+ * Migrate from v13 to v14 (add semantic index tables for normalised search layer).
+ */
+function migrateToV14(database: Database.Database): void {
+  // Index entries table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS index_entries (
+      id TEXT PRIMARY KEY,
+      chunk_ids TEXT NOT NULL,
+      session_slug TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      description TEXT NOT NULL,
+      approx_tokens INTEGER DEFAULT 0,
+      agent_id TEXT,
+      team_name TEXT,
+      generation_method TEXT NOT NULL DEFAULT 'heuristic',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  database.exec('CREATE INDEX IF NOT EXISTS idx_index_entries_slug ON index_entries(session_slug)');
+  database.exec(
+    'CREATE INDEX IF NOT EXISTS idx_index_entries_method ON index_entries(generation_method)',
+  );
+
+  // FTS on descriptions
+  try {
+    database.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS index_entries_fts USING fts5(
+        description,
+        content='index_entries',
+        content_rowid='rowid',
+        tokenize='porter unicode61'
+      )
+    `);
+  } catch (error) {
+    const message = errorMessage(error);
+    if (!message.includes('already exists')) {
+      // FTS5 not available — skip (keyword search on index entries will be unavailable)
+      database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (14)');
+      return;
+    }
+  }
+
+  // Triggers to keep FTS in sync
+  try {
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS index_entries_ai AFTER INSERT ON index_entries BEGIN
+        INSERT INTO index_entries_fts(rowid, description) VALUES (new.rowid, new.description);
+      END
+    `);
+
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS index_entries_ad AFTER DELETE ON index_entries BEGIN
+        INSERT INTO index_entries_fts(index_entries_fts, rowid, description) VALUES('delete', old.rowid, old.description);
+      END
+    `);
+
+    database.exec(`
+      CREATE TRIGGER IF NOT EXISTS index_entries_au AFTER UPDATE OF description ON index_entries BEGIN
+        INSERT INTO index_entries_fts(index_entries_fts, rowid, description) VALUES('delete', old.rowid, old.description);
+        INSERT INTO index_entries_fts(rowid, description) VALUES (new.rowid, new.description);
+      END
+    `);
+  } catch {
+    // Triggers may already exist
+  }
+
+  // Reverse lookup: chunk → index entries
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS index_entry_chunks (
+      index_entry_id TEXT NOT NULL,
+      chunk_id TEXT NOT NULL,
+      PRIMARY KEY (index_entry_id, chunk_id)
+    )
+  `);
+
+  database.exec(
+    'CREATE INDEX IF NOT EXISTS idx_iec_chunk ON index_entry_chunks(chunk_id)',
+  );
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (14)');
 }
 
 /**

@@ -81,6 +81,28 @@ Controls cluster-guided expansion during retrieval. These settings are internal 
 | `maxClusters` | `integer` | `3`     | Maximum clusters to expand from per query   |
 | `maxSiblings` | `integer` | `5`     | Maximum sibling chunks added per cluster    |
 
+## Semantic Index Settings
+
+### `semanticIndex`
+
+Controls the semantic index layer, which generates normalised index entries for improved search quality.
+
+| Property                  | Type      | Default | Description                                                       |
+| ------------------------- | --------- | ------- | ----------------------------------------------------------------- |
+| `enabled`                 | `boolean` | `true`  | Enable semantic index generation during ingestion                 |
+| `targetDescriptionTokens` | `integer` | `130`   | Target token count for generated descriptions (50-500)            |
+| `batchRefreshLimit`       | `integer` | `500`   | Maximum entries to backfill per maintenance run                   |
+| `useForSearch`            | `boolean` | `true`  | Use index entries for search when available (falls back to chunk search if no entries exist) |
+
+**Environment variables**:
+
+| Setting                          | Environment Variable                           |
+| -------------------------------- | ---------------------------------------------- |
+| `semanticIndex.enabled`          | `CAUSANTIC_SEMANTIC_INDEX_ENABLED`             |
+| `semanticIndex.useForSearch`     | `CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH`      |
+
+When enabled, each chunk gets an LLM-generated description (~130 tokens) at ingestion time. These descriptions are embedded and searched instead of raw chunks, providing uniform information density. See [How It Works](../guides/how-it-works.md#semantic-index) for details.
+
 ## Length Penalty Settings
 
 ### `lengthPenalty`
@@ -229,6 +251,8 @@ All settings can be overridden via environment variables:
 | `maintenance.clusterHour`            | `CAUSANTIC_MAINTENANCE_CLUSTER_HOUR`              |
 | `retrieval.mmrLambda`                | `CAUSANTIC_RETRIEVAL_MMR_LAMBDA`                  |
 | `retrieval.feedbackWeight`           | `CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT`             |
+| `semanticIndex.enabled`             | `CAUSANTIC_SEMANTIC_INDEX_ENABLED`                |
+| `semanticIndex.useForSearch`        | `CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH`         |
 
 ## Example Configurations
 
