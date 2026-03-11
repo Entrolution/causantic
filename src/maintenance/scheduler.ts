@@ -20,6 +20,7 @@ import { scanProjects } from './tasks/scan-projects.js';
 import { updateClusters } from './tasks/update-clusters.js';
 import { vacuum } from './tasks/vacuum.js';
 import { cleanupVectors } from './tasks/cleanup-vectors.js';
+import { backfillIndex } from './tasks/backfill-index.js';
 import type { CronSchedule, MaintenanceResult, MaintenanceTask, TaskRun } from './types.js';
 
 export type { CronSchedule, MaintenanceResult, MaintenanceTask, TaskRun };
@@ -201,6 +202,26 @@ async function createVacuumHandler(): Promise<MaintenanceResult> {
   return vacuum({ getDb });
 }
 
+async function createBackfillIndexHandler(): Promise<MaintenanceResult> {
+  const config = loadConfig();
+  const batchLimit = config.semanticIndex?.batchRefreshLimit ?? 500;
+
+  if (config.semanticIndex?.enabled === false) {
+    return {
+      success: true,
+      duration: 0,
+      message: 'Semantic index disabled, skipping backfill',
+    };
+  }
+
+  const { indexRefresher } = await import('../index-entries/index-refresher.js');
+  return backfillIndex({
+    backfill: (opts) => indexRefresher.backfill(opts),
+    getBackfillStatus: () => indexRefresher.getBackfillStatus(),
+    batchLimit,
+  });
+}
+
 async function createCleanupVectorsHandler(): Promise<MaintenanceResult> {
   const { vectorStore } = await import('../storage/vector-store.js');
   const config = loadConfig();
@@ -238,6 +259,13 @@ function buildMaintenanceTasks(): MaintenanceTask[] {
       schedule: `0 ${h} * * *`,
       requiresApiKey: false,
       handler: createUpdateClustersHandler,
+    },
+    {
+      name: 'backfill-index',
+      description: 'Backfill semantic index entries for unindexed chunks',
+      schedule: `30 ${h} * * *`, // 30 minutes after clustering
+      requiresApiKey: false, // works with heuristic fallback
+      handler: createBackfillIndexHandler,
     },
     {
       name: 'cleanup-vectors',

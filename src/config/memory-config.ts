@@ -87,6 +87,19 @@ export interface MemoryConfig {
   dbPath: string;
   /** Path to LanceDB vector store directory */
   vectorStorePath: string;
+
+  // Semantic index
+  /** Configuration for the semantic index layer */
+  semanticIndex: {
+    /** Enable index entry generation. Default: true. */
+    enabled: boolean;
+    /** Target description length in tokens. Default: 130. */
+    targetDescriptionTokens: number;
+    /** Max entries per maintenance backfill run. Default: 500. */
+    batchRefreshLimit: number;
+    /** Use index entries for search when available. Default: true. */
+    useForSearch: boolean;
+  };
 }
 
 /**
@@ -148,6 +161,14 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   // Storage - defaults to ~/.causantic/
   dbPath: '~/.causantic/memory.db',
   vectorStorePath: '~/.causantic/vectors',
+
+  // Semantic index
+  semanticIndex: {
+    enabled: true,
+    targetDescriptionTokens: 130,
+    batchRefreshLimit: 500,
+    useForSearch: true,
+  },
 };
 
 /**

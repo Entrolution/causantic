@@ -268,6 +268,13 @@ export function clearAllData(database?: Database.Database): void {
   d.exec('DELETE FROM edges');
   d.exec('DELETE FROM chunks');
   d.exec('DELETE FROM clusters');
+  // Clean up semantic index tables if they exist
+  try {
+    d.exec('DELETE FROM index_entry_chunks');
+    d.exec('DELETE FROM index_entries');
+  } catch {
+    // Tables may not exist yet
+  }
 }
 
 /**

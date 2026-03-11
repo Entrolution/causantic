@@ -40,6 +40,9 @@ test/fixtures/corpus/
 benchmark-results/
 causantic-benchmark/
 
+# Experiment reports
+*-report.json
+
 # Pack artifacts
 *.tgz
 

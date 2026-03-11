@@ -144,5 +144,53 @@ CREATE TABLE IF NOT EXISTS retrieval_feedback (
 CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_chunk ON retrieval_feedback(chunk_id);
 CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_returned ON retrieval_feedback(returned_at);
 
--- Insert initial version if not exists (v13 adds retrieval_feedback for relevance learning)
-INSERT OR IGNORE INTO schema_version (version) VALUES (13);
+-- Semantic index entries (normalised search layer)
+CREATE TABLE IF NOT EXISTS index_entries (
+  id TEXT PRIMARY KEY,
+  chunk_ids TEXT NOT NULL,        -- JSON array
+  session_slug TEXT NOT NULL,
+  start_time TEXT NOT NULL,
+  description TEXT NOT NULL,
+  approx_tokens INTEGER DEFAULT 0,
+  agent_id TEXT,
+  team_name TEXT,
+  generation_method TEXT NOT NULL DEFAULT 'heuristic',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_index_entries_slug ON index_entries(session_slug);
+CREATE INDEX IF NOT EXISTS idx_index_entries_method ON index_entries(generation_method);
+
+-- FTS on index entry descriptions
+CREATE VIRTUAL TABLE IF NOT EXISTS index_entries_fts USING fts5(
+  description,
+  content='index_entries',
+  content_rowid='rowid',
+  tokenize='porter unicode61'
+);
+
+-- Keep FTS in sync with index_entries table
+CREATE TRIGGER IF NOT EXISTS index_entries_ai AFTER INSERT ON index_entries BEGIN
+  INSERT INTO index_entries_fts(rowid, description) VALUES (new.rowid, new.description);
+END;
+
+CREATE TRIGGER IF NOT EXISTS index_entries_ad AFTER DELETE ON index_entries BEGIN
+  INSERT INTO index_entries_fts(index_entries_fts, rowid, description) VALUES('delete', old.rowid, old.description);
+END;
+
+CREATE TRIGGER IF NOT EXISTS index_entries_au AFTER UPDATE OF description ON index_entries BEGIN
+  INSERT INTO index_entries_fts(index_entries_fts, rowid, description) VALUES('delete', old.rowid, old.description);
+  INSERT INTO index_entries_fts(rowid, description) VALUES (new.rowid, new.description);
+END;
+
+-- Reverse lookup: chunk → index entries
+CREATE TABLE IF NOT EXISTS index_entry_chunks (
+  index_entry_id TEXT NOT NULL,
+  chunk_id TEXT NOT NULL,
+  PRIMARY KEY (index_entry_id, chunk_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_iec_chunk ON index_entry_chunks(chunk_id);
+
+-- Insert initial version if not exists (v14 adds semantic index tables)
+INSERT OR IGNORE INTO schema_version (version) VALUES (14);

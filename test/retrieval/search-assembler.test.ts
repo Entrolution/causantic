@@ -25,6 +25,19 @@ vi.mock('../../src/storage/vector-store.js', () => ({
     get: async () => null,
     setModelId: () => {},
   },
+  indexVectorStore: {
+    search: async () => [],
+    searchByProject: async () => [],
+    get: async () => null,
+    setModelId: () => {},
+    getChunkAgent: () => undefined,
+  },
+}));
+
+vi.mock('../../src/storage/index-entry-store.js', () => ({
+  getIndexEntryCount: () => 0, // fallback to chunk-based search in tests
+  dereferenceToChunkIds: () => [],
+  searchIndexEntriesByKeyword: () => [],
 }));
 
 vi.mock('../../src/storage/keyword-store.js', () => {
@@ -82,6 +95,12 @@ vi.mock('../../src/config/loader.js', () => ({
     lengthPenalty: {
       enabled: true,
       referenceTokens: 500,
+    },
+    semanticIndex: {
+      enabled: true,
+      useForSearch: true,
+      targetDescriptionTokens: 130,
+      batchRefreshLimit: 500,
     },
   }),
 }));

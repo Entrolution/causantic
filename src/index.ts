@@ -26,6 +26,9 @@ export * from './retrieval/index.js';
 // Clustering
 export * from './clusters/index.js';
 
+// Semantic Index
+export * from './index-entries/index.js';
+
 // Maintenance
 export * from './maintenance/index.js';
 

@@ -14,6 +14,7 @@ import {
   invalidateProjectsCache,
 } from '../storage/chunk-store.js';
 import { vectorStore } from '../storage/vector-store.js';
+import { deleteIndexEntriesForChunks } from '../storage/index-entry-store.js';
 import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
 import { formatDateRange, formatChunkPreview, buildChunkMap, getMemoryStats } from './services.js';
@@ -654,9 +655,10 @@ export const forgetTool: ToolDefinition = {
 
       const deleted = deleteChunks(targetIds);
       await vectorStore.deleteBatch(targetIds);
+      await deleteIndexEntriesForChunks(targetIds);
       invalidateProjectsCache();
 
-      return `Deleted ${deleted} chunk(s) from project "${project}" (vectors and related edges/clusters also removed).${preview}`;
+      return `Deleted ${deleted} chunk(s) from project "${project}" (vectors, index entries, and related edges/clusters also removed).${preview}`;
     }
 
     // Non-semantic deletion path (existing behavior)
@@ -672,9 +674,10 @@ export const forgetTool: ToolDefinition = {
 
     const deleted = deleteChunks(ids);
     await vectorStore.deleteBatch(ids);
+    await deleteIndexEntriesForChunks(ids);
     invalidateProjectsCache();
 
-    return `Deleted ${deleted} chunk(s) from project "${project}" (vectors and related edges/clusters also removed).`;
+    return `Deleted ${deleted} chunk(s) from project "${project}" (vectors, index entries, and related edges/clusters also removed).`;
   },
 };
 

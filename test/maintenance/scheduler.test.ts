@@ -46,6 +46,9 @@ vi.mock('../../src/maintenance/tasks/vacuum.js', () => ({
 vi.mock('../../src/maintenance/tasks/cleanup-vectors.js', () => ({
   cleanupVectors: vi.fn(),
 }));
+vi.mock('../../src/maintenance/tasks/backfill-index.js', () => ({
+  backfillIndex: vi.fn(),
+}));
 
 import {
   MAINTENANCE_TASKS,
@@ -58,13 +61,13 @@ import {
 } from '../../src/maintenance/scheduler.js';
 
 describe('MAINTENANCE_TASKS', () => {
-  it('has exactly 4 tasks', () => {
-    expect(MAINTENANCE_TASKS).toHaveLength(4);
+  it('has exactly 5 tasks', () => {
+    expect(MAINTENANCE_TASKS).toHaveLength(5);
   });
 
   it('contains all expected task names', () => {
     const names = MAINTENANCE_TASKS.map((t) => t.name);
-    expect(names).toEqual(['scan-projects', 'update-clusters', 'cleanup-vectors', 'vacuum']);
+    expect(names).toEqual(['scan-projects', 'update-clusters', 'backfill-index', 'cleanup-vectors', 'vacuum']);
   });
 
   it('all tasks have required fields: name, description, schedule, handler', () => {
@@ -184,10 +187,10 @@ describe('runTask', () => {
 });
 
 describe('getStatus', () => {
-  it('returns status for all 4 tasks', () => {
+  it('returns status for all 5 tasks', () => {
     const status = getStatus();
 
-    expect(status).toHaveLength(4);
+    expect(status).toHaveLength(5);
   });
 
   it('each status entry has required fields', () => {
@@ -255,7 +258,7 @@ describe('runDaemon', () => {
 });
 
 describe('runAllTasks', () => {
-  it('runs all 4 tasks and returns results map', async () => {
+  it('runs all 5 tasks and returns results map', async () => {
     // Replace all handlers with simple stubs
     const originals = MAINTENANCE_TASKS.map((t) => t.handler);
     for (const task of MAINTENANCE_TASKS) {
@@ -269,7 +272,7 @@ describe('runAllTasks', () => {
     try {
       const results = await runAllTasks();
 
-      expect(results.size).toBe(4);
+      expect(results.size).toBe(5);
       for (const task of MAINTENANCE_TASKS) {
         const result = results.get(task.name);
         expect(result).toBeDefined();
@@ -305,11 +308,11 @@ describe('runAllTasks', () => {
     try {
       const results = await runAllTasks();
 
-      expect(results.size).toBe(4);
+      expect(results.size).toBe(5);
       expect(results.get('update-clusters')!.success).toBe(false);
       expect(results.get('scan-projects')!.success).toBe(true);
       expect(results.get('vacuum')!.success).toBe(true);
-      expect(callOrder).toHaveLength(4);
+      expect(callOrder).toHaveLength(5);
     } finally {
       MAINTENANCE_TASKS.forEach((t, i) => {
         t.handler = originals[i];

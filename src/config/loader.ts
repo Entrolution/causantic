@@ -82,6 +82,16 @@ export interface ExternalConfig {
     /** Reference token count for penalty calculation. Must be > 0. Default: 500 */
     referenceTokens?: number;
   };
+  semanticIndex?: {
+    /** Enable semantic index generation. Default: true. */
+    enabled?: boolean;
+    /** Target description length in tokens. Default: 130. */
+    targetDescriptionTokens?: number;
+    /** Max entries to backfill per maintenance run. Default: 500. */
+    batchRefreshLimit?: number;
+    /** Use index entries for search when available. Default: true. */
+    useForSearch?: boolean;
+  };
 }
 
 /** Default external config values */
@@ -135,6 +145,12 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   lengthPenalty: {
     enabled: true,
     referenceTokens: 500,
+  },
+  semanticIndex: {
+    enabled: true,
+    targetDescriptionTokens: 130,
+    batchRefreshLimit: 500,
+    useForSearch: true,
   },
 };
 
@@ -292,6 +308,16 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.CAUSANTIC_RECENCY_HALF_LIFE_HOURS) {
     config.recency = config.recency ?? {};
     config.recency.halfLifeHours = parseFloat(process.env.CAUSANTIC_RECENCY_HALF_LIFE_HOURS);
+  }
+
+  // Semantic Index
+  if (process.env.CAUSANTIC_SEMANTIC_INDEX_ENABLED) {
+    config.semanticIndex = config.semanticIndex ?? {};
+    config.semanticIndex.enabled = process.env.CAUSANTIC_SEMANTIC_INDEX_ENABLED === 'true';
+  }
+  if (process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH) {
+    config.semanticIndex = config.semanticIndex ?? {};
+    config.semanticIndex.useForSearch = process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH === 'true';
   }
 
   return config;
@@ -540,6 +566,19 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
       enabled: external.lengthPenalty?.enabled ?? DEFAULT_CONFIG.lengthPenalty.enabled,
       referenceTokens:
         external.lengthPenalty?.referenceTokens ?? DEFAULT_CONFIG.lengthPenalty.referenceTokens,
+    },
+
+    // Semantic index
+    semanticIndex: {
+      enabled: external.semanticIndex?.enabled ?? DEFAULT_CONFIG.semanticIndex.enabled,
+      targetDescriptionTokens:
+        external.semanticIndex?.targetDescriptionTokens ??
+        DEFAULT_CONFIG.semanticIndex.targetDescriptionTokens,
+      batchRefreshLimit:
+        external.semanticIndex?.batchRefreshLimit ??
+        DEFAULT_CONFIG.semanticIndex.batchRefreshLimit,
+      useForSearch:
+        external.semanticIndex?.useForSearch ?? DEFAULT_CONFIG.semanticIndex.useForSearch,
     },
   };
 }

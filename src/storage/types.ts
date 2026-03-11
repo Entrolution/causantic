@@ -285,3 +285,57 @@ export interface VectorSearchResult {
   /** Angular distance (0 = identical, 2 = opposite) */
   distance: number;
 }
+
+// ─── Semantic Index ────────────────────────────────────────────────────────────
+
+/**
+ * A semantic index entry stored in the database.
+ *
+ * Index entries are LLM-compressed, normalised-length descriptions of chunks.
+ * They serve as the search layer: queries match against index entries, then
+ * dereference to the underlying chunks for full content.
+ */
+export interface IndexEntry {
+  /** Unique identifier (UUID format) */
+  id: string;
+  /** Chunk IDs this entry covers (usually [singleId], supports N:1 grouping) */
+  chunkIds: string[];
+  /** Project slug (from session) */
+  sessionSlug: string;
+  /** ISO timestamp from earliest linked chunk */
+  startTime: string;
+  /** Natural language description (~100-150 tokens) */
+  description: string;
+  /** Approximate token count of the description */
+  approxTokens: number;
+  /** Agent ID for sub-agent entries, null for main session */
+  agentId: string | null;
+  /** Team name for agent team sessions */
+  teamName: string | null;
+  /** How the description was generated */
+  generationMethod: 'heuristic' | 'llm' | 'jeopardy';
+  /** ISO timestamp when entry was created */
+  createdAt: string;
+}
+
+/**
+ * Input for creating a new index entry.
+ */
+export interface IndexEntryInput {
+  /** Chunk IDs this entry covers */
+  chunkIds: string[];
+  /** Project slug */
+  sessionSlug: string;
+  /** ISO start timestamp */
+  startTime: string;
+  /** Natural language description */
+  description: string;
+  /** Approximate token count */
+  approxTokens: number;
+  /** Agent ID (optional) */
+  agentId?: string | null;
+  /** Team name (optional) */
+  teamName?: string | null;
+  /** Generation method */
+  generationMethod: 'heuristic' | 'llm' | 'jeopardy';
+}
