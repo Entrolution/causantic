@@ -131,8 +131,26 @@ export function createTestDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_chunk ON retrieval_feedback(chunk_id);
     CREATE INDEX IF NOT EXISTS idx_retrieval_feedback_returned ON retrieval_feedback(returned_at);
 
+    -- Session states for session continuity
+    CREATE TABLE IF NOT EXISTS session_states (
+      session_id TEXT PRIMARY KEY,
+      session_slug TEXT NOT NULL,
+      project_path TEXT,
+      ended_at TEXT NOT NULL,
+      files_touched TEXT NOT NULL,
+      errors TEXT NOT NULL,
+      outcomes TEXT NOT NULL,
+      tasks TEXT NOT NULL,
+      summary TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_session_states_slug ON session_states(session_slug);
+    CREATE INDEX IF NOT EXISTS idx_session_states_ended ON session_states(ended_at);
+    CREATE INDEX IF NOT EXISTS idx_session_states_slug_ended ON session_states(session_slug, ended_at);
+
     -- Set schema version
-    INSERT OR REPLACE INTO schema_version (version) VALUES (13);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (15);
   `);
 
   // Create FTS5 table and sync triggers (separate exec for virtual table)

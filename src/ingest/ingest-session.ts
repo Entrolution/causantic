@@ -50,6 +50,8 @@ import type { Chunk, Turn } from '../parser/types.js';
 import { createLogger } from '../utils/logger.js';
 import { resolveCanonicalProjectPath } from '../utils/project-path.js';
 import { generateIndexEntriesForChunks } from './index-entry-hook.js';
+import { extractSessionState } from './session-state.js';
+import { upsertSessionState } from '../storage/session-state-store.js';
 
 const log = createLogger('ingest-session');
 
@@ -417,6 +419,9 @@ export async function ingestSession(
         totalCacheHits += mainResult?.cacheHits ?? 0;
         totalCacheMisses += mainResult?.cacheMisses ?? 0;
 
+        // Extract and store session state
+        saveSessionState(turns, info.sessionId, projectSlug, projectPath);
+
         return {
           sessionId: info.sessionId,
           sessionSlug: projectSlug,
@@ -482,6 +487,9 @@ export async function ingestSession(
     totalEdgeCount += mainResult?.edgeCount ?? 0;
     totalCacheHits += mainResult?.cacheHits ?? 0;
     totalCacheMisses += mainResult?.cacheMisses ?? 0;
+
+    // Extract and store session state
+    saveSessionState(turns, info.sessionId, projectSlug, projectPath);
 
     return {
       sessionId: info.sessionId,
@@ -852,4 +860,25 @@ export function chunkToInput(chunk: Chunk): ChunkInput {
     toolUseCount: chunk.metadata.toolUseCount,
     approxTokens: chunk.metadata.approxTokens,
   };
+}
+
+/**
+ * Extract and persist session state from the full turn list.
+ * Non-critical — errors are logged but don't fail ingestion.
+ */
+function saveSessionState(
+  turns: Turn[],
+  sessionId: string,
+  projectSlug: string,
+  projectPath: string,
+): void {
+  try {
+    const state = extractSessionState(turns);
+    const endedAt = turns.length > 0
+      ? turns[turns.length - 1].startTime
+      : new Date().toISOString();
+    upsertSessionState(sessionId, projectSlug, projectPath || null, endedAt, state);
+  } catch (error) {
+    log.warn('Failed to extract session state', { sessionId, error: String(error) });
+  }
 }

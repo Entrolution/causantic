@@ -82,6 +82,9 @@ export function runMigrations(database: Database.Database): void {
   if (currentVersion < 14) {
     migrateToV14(database);
   }
+  if (currentVersion < 15) {
+    migrateToV15(database);
+  }
 }
 
 /**
@@ -622,6 +625,38 @@ function migrateToV14(database: Database.Database): void {
   );
 
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (14)');
+}
+
+/**
+ * Migrate from v14 to v15 (add session_states table for session continuity).
+ */
+function migrateToV15(database: Database.Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS session_states (
+      session_id TEXT PRIMARY KEY,
+      session_slug TEXT NOT NULL,
+      project_path TEXT,
+      ended_at TEXT NOT NULL,
+      files_touched TEXT NOT NULL,
+      errors TEXT NOT NULL,
+      outcomes TEXT NOT NULL,
+      tasks TEXT NOT NULL,
+      summary TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  database.exec(
+    'CREATE INDEX IF NOT EXISTS idx_session_states_slug ON session_states(session_slug)',
+  );
+  database.exec(
+    'CREATE INDEX IF NOT EXISTS idx_session_states_ended ON session_states(ended_at)',
+  );
+  database.exec(
+    'CREATE INDEX IF NOT EXISTS idx_session_states_slug_ended ON session_states(session_slug, ended_at)',
+  );
+
+  database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (15)');
 }
 
 /**

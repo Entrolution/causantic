@@ -15,7 +15,11 @@ import {
 } from '../storage/chunk-store.js';
 import { vectorStore } from '../storage/vector-store.js';
 import { deleteIndexEntriesForChunks } from '../storage/index-entry-store.js';
-import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
+import {
+  reconstructSession,
+  formatReconstruction,
+  buildBriefing,
+} from '../retrieval/session-reconstructor.js';
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
 import { formatDateRange, formatChunkPreview, buildChunkMap, getMemoryStats } from './services.js';
 import { errorMessage } from '../utils/errors.js';
@@ -378,13 +382,18 @@ export const listSessionsTool: ToolDefinition = {
 export const reconstructTool: ToolDefinition = {
   name: 'reconstruct',
   description:
-    'Rebuild session context for a project. Call with just project to get the most recent history up to the token budget. Optionally specify a time range with from/to, days_back, session_id, or previous_session.',
+    'Rebuild session context for a project. Call with just project to get the most recent history up to the token budget. Optionally specify a time range with from/to, days_back, session_id, or previous_session. Use mode=briefing for a structured startup summary combining session state and project structure.',
   inputSchema: {
     type: 'object',
     properties: {
       project: {
         type: 'string',
         description: 'Project slug (required). Use list-projects to discover available projects.',
+      },
+      mode: {
+        type: 'string',
+        description:
+          'Reconstruction mode: "timeline" (default) for chronological chunks, "briefing" for structured session summary with files, outcomes, and project structure.',
       },
       session_id: {
         type: 'string',
@@ -429,10 +438,38 @@ export const reconstructTool: ToolDefinition = {
   handler: async (args) => {
     const project = args.project as string;
     const agent = args.agent as string | undefined;
+    const mode = (args.mode as string | undefined) ?? 'timeline';
     const config = getConfig();
     const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
 
     try {
+      // Briefing mode: structured session summary
+      if (mode === 'briefing') {
+        let repoMapText: string | undefined;
+
+        // Include repo map if enabled and we can determine project path
+        if (config.repomap.enabled) {
+          try {
+            const result = await buildRepoMap(process.cwd(), {
+              maxTokens: Math.min(config.repomap.maxTokens, Math.floor(maxTokens * 0.4)),
+            });
+            repoMapText = result.text;
+            cachedRepoMapGraph = result.graph;
+          } catch {
+            // Non-critical — briefing works without repo map
+          }
+        }
+
+        const briefing = buildBriefing({
+          project,
+          repoMapText,
+          maxTokens,
+        });
+
+        return briefing.text;
+      }
+
+      // Timeline mode (default)
       const result = reconstructSession({
         project,
         sessionId: args.session_id as string | undefined,

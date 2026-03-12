@@ -25,3 +25,16 @@ export type { RankedItem, RRFSource } from './rrf.js';
 // Cluster expansion
 export { expandViaClusters } from './cluster-expander.js';
 export type { ClusterExpansionConfig } from './cluster-expander.js';
+
+// Session reconstructor
+export {
+  reconstructSession,
+  formatReconstruction,
+  buildBriefing,
+} from './session-reconstructor.js';
+export type {
+  ReconstructRequest,
+  ReconstructResult,
+  BriefingRequest,
+  BriefingResult,
+} from './session-reconstructor.js';

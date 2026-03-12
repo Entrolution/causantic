@@ -275,6 +275,12 @@ export function clearAllData(database?: Database.Database): void {
   } catch {
     // Tables may not exist yet
   }
+  // Clean up session states if table exists
+  try {
+    d.exec('DELETE FROM session_states');
+  } catch {
+    // Table may not exist yet
+  }
 }
 
 /**

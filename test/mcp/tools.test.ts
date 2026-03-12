@@ -122,6 +122,11 @@ describe('mcp-tools', () => {
       expect(reconstructTool.inputSchema.properties.max_tokens.type).toBe('number');
       expect(reconstructTool.inputSchema.required).not.toContain('max_tokens');
     });
+
+    it('has optional mode parameter with string type', () => {
+      expect(reconstructTool.inputSchema.properties.mode.type).toBe('string');
+      expect(reconstructTool.inputSchema.required).not.toContain('mode');
+    });
   });
 
   describe('listProjectsTool', () => {

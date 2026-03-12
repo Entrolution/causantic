@@ -12,8 +12,11 @@ import {
   getPreviousSession,
   ESTIMATED_AVG_TOKENS_PER_CHUNK,
 } from '../storage/chunk-store.js';
+import { getRecentSessionStates } from '../storage/session-state-store.js';
+import type { StoredSessionState } from '../storage/session-state-store.js';
 import type { SessionInfo } from '../storage/chunk-store.js';
 import type { StoredChunk } from '../storage/types.js';
+import { approximateTokens } from '../utils/token-counter.js';
 
 /**
  * Request to reconstruct session context.
@@ -330,4 +333,169 @@ export function reconstructSession(req: ReconstructRequest): ReconstructResult {
   const { kept, truncated } = applyTokenBudget(rawChunks, maxTokens, keepNewest);
 
   return buildResult(kept, truncated, window.to, window.from);
+}
+
+/**
+ * Request for a session briefing.
+ */
+export interface BriefingRequest {
+  /** Project slug (required). */
+  project: string;
+  /** Optional repo map text to include. */
+  repoMapText?: string;
+  /** Maximum sessions to include. Default: 3. */
+  maxSessions?: number;
+  /** Token budget. Defaults to mcpMaxResponseTokens. */
+  maxTokens?: number;
+}
+
+/**
+ * Result of a session briefing.
+ */
+export interface BriefingResult {
+  /** Formatted briefing text. */
+  text: string;
+  /** Approximate token count. */
+  tokenCount: number;
+  /** Number of session states included. */
+  sessionCount: number;
+  /** Whether repo map was included. */
+  hasRepoMap: boolean;
+}
+
+/**
+ * Format a single session state for display in a briefing.
+ */
+function formatSessionStateForBriefing(state: StoredSessionState): string {
+  const lines: string[] = [];
+
+  const endDate = new Date(state.endedAt);
+  const dateStr = endDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  }) + ', ' + endDate.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+  lines.push(`### Session ${state.sessionId.slice(0, 8)} (${dateStr})`);
+
+  // Summary if available
+  if (state.summary) {
+    lines.push(state.summary);
+  }
+
+  // Files touched (show top 10)
+  if (state.filesTouched.length > 0) {
+    lines.push('');
+    const displayFiles = state.filesTouched.slice(0, 10);
+    lines.push(`**Files touched** (${state.filesTouched.length}):`);
+    for (const f of displayFiles) {
+      lines.push(`- ${f}`);
+    }
+    if (state.filesTouched.length > 10) {
+      lines.push(`- ...and ${state.filesTouched.length - 10} more`);
+    }
+  }
+
+  // Outcomes
+  if (state.outcomes.length > 0) {
+    lines.push('');
+    lines.push(`**Outcomes:** ${state.outcomes.join(', ')}`);
+  }
+
+  // Errors (show top 3)
+  if (state.errors.length > 0) {
+    lines.push('');
+    lines.push(`**Errors** (${state.errors.length}):`);
+    for (const err of state.errors.slice(0, 3)) {
+      lines.push(`- \`${err.tool}\`: ${err.message}`);
+      if (err.resolution) {
+        lines.push(`  Resolution: ${err.resolution}`);
+      }
+    }
+    if (state.errors.length > 3) {
+      lines.push(`- ...and ${state.errors.length - 3} more`);
+    }
+  }
+
+  // Tasks
+  if (state.tasks.length > 0) {
+    lines.push('');
+    lines.push('**Tasks:**');
+    for (const task of state.tasks) {
+      const statusIcon = task.status === 'completed' ? '[x]' : '[ ]';
+      lines.push(`- ${statusIcon} ${task.description} (${task.status})`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Build a structured session briefing for resuming work.
+ *
+ * Combines:
+ * - Recent session states (files touched, errors, outcomes, tasks)
+ * - Optional repo map text
+ *
+ * Designed for use at session start via the reconstruct tool's briefing mode.
+ */
+export function buildBriefing(req: BriefingRequest): BriefingResult {
+  const config = getConfig();
+  const maxTokens = req.maxTokens ?? config.mcpMaxResponseTokens;
+  const maxSessions = req.maxSessions ?? 3;
+
+  const sections: string[] = [];
+  let hasRepoMap = false;
+
+  // 1. Repo map section (if provided)
+  if (req.repoMapText && req.repoMapText.length > 0) {
+    const repoMapTokens = approximateTokens(req.repoMapText);
+    const repoMapBudget = Math.floor(maxTokens * 0.4);
+    sections.push('## Project Structure\n');
+    // Truncate repo map if it exceeds budget
+    if (repoMapTokens > repoMapBudget) {
+      const charBudget = Math.floor(repoMapBudget * 3.5);
+      sections.push(req.repoMapText.slice(0, charBudget) + '\n...(truncated)');
+    } else {
+      sections.push(req.repoMapText);
+    }
+    hasRepoMap = true;
+  }
+
+  // 2. Recent session states
+  let sessionStates: StoredSessionState[] = [];
+  try {
+    sessionStates = getRecentSessionStates(req.project, maxSessions);
+  } catch {
+    // Table may not exist yet
+  }
+
+  if (sessionStates.length > 0) {
+    sections.push('\n## Recent Sessions\n');
+    // Show in chronological order (store returns DESC)
+    const chronological = [...sessionStates].reverse();
+    for (const state of chronological) {
+      sections.push(formatSessionStateForBriefing(state));
+    }
+  }
+
+  // Build final text
+  let text: string;
+  if (sections.length === 0) {
+    text = `No session history or project structure available for "${req.project}".`;
+  } else {
+    const header = `# Session Briefing: ${req.project}\n\n`;
+    text = header + sections.join('\n');
+  }
+
+  const tokenCount = approximateTokens(text);
+
+  return {
+    text,
+    tokenCount,
+    sessionCount: sessionStates.length,
+    hasRepoMap,
+  };
 }
