@@ -40,7 +40,7 @@ function makeEmbedding(direction: number[], dims = 8): number[] {
 
 // --- Tests ---
 
-import { reorderWithMMR, type MMRConfig } from '../../src/retrieval/mmr.js';
+import { reorderWithMMR, computeEffectiveLambda, type MMRConfig } from '../../src/retrieval/mmr.js';
 
 describe('reorderWithMMR', () => {
   const defaultConfig: MMRConfig = { lambda: 0.7 };
@@ -271,5 +271,104 @@ describe('reorderWithMMR', () => {
       const result = await reorderWithMMR(candidates, queryEmbedding, defaultConfig);
       expect(result).toEqual(candidates);
     });
+  });
+});
+
+describe('computeEffectiveLambda', () => {
+  function makeCandidates(n: number): RankedItem[] {
+    return Array.from({ length: n }, (_, i) => makeItem(`c${i}`, 1.0 - i * 0.01));
+  }
+
+  function makeTokenCounts(candidates: RankedItem[], tokenSize: number): Map<string, number> {
+    const map = new Map<string, number>();
+    for (const c of candidates) map.set(c.chunkId, tokenSize);
+    return map;
+  }
+
+  it('returns baseLambda when no budget provided', () => {
+    const candidates = makeCandidates(20);
+    expect(computeEffectiveLambda(0.7, candidates)).toBe(0.7);
+  });
+
+  it('returns baseLambda when estimated slots >= threshold (15)', () => {
+    const candidates = makeCandidates(20);
+    // 20000 budget / 1000 tokens per chunk = 20 slots >= 15
+    const result = computeEffectiveLambda(0.7, candidates, {
+      tokenBudget: 20000,
+      chunkTokenCounts: makeTokenCounts(candidates, 1000),
+    });
+    expect(result).toBe(0.7);
+  });
+
+  it('increases lambda toward 1.0 when slots are tight', () => {
+    const candidates = makeCandidates(20);
+    // 20000 budget / 3000 tokens per chunk ≈ 6.67 slots < 15
+    const result = computeEffectiveLambda(0.7, candidates, {
+      tokenBudget: 20000,
+      chunkTokenCounts: makeTokenCounts(candidates, 3000),
+    });
+    expect(result).toBeGreaterThan(0.7);
+    expect(result).toBeLessThan(1.0);
+  });
+
+  it('approaches 1.0 (pure relevance) when very few slots available', () => {
+    const candidates = makeCandidates(20);
+    // 20000 budget / 10000 tokens per chunk = 2 slots → very tight
+    const result = computeEffectiveLambda(0.7, candidates, {
+      tokenBudget: 20000,
+      chunkTokenCounts: makeTokenCounts(candidates, 10000),
+    });
+    expect(result).toBeGreaterThan(0.9);
+  });
+
+  it('returns 1.0 when zero slots available', () => {
+    const candidates = makeCandidates(20);
+    // Budget too small for even one chunk
+    const result = computeEffectiveLambda(0.7, candidates, {
+      tokenBudget: 100,
+      chunkTokenCounts: makeTokenCounts(candidates, 5000),
+    });
+    // estimatedSlots ≈ 0.02, tightness ≈ 1.0, lambda ≈ 1.0
+    expect(result).toBeCloseTo(1.0, 1);
+  });
+
+  it('returns baseLambda when no token counts available', () => {
+    const candidates = makeCandidates(20);
+    const result = computeEffectiveLambda(0.7, candidates, {
+      tokenBudget: 20000,
+      chunkTokenCounts: new Map(), // empty
+    });
+    expect(result).toBe(0.7);
+  });
+
+  it('uses median chunk size, not mean', () => {
+    const candidates = makeCandidates(20);
+    const tokenCounts = new Map<string, number>();
+    // 19 small chunks + 1 huge outlier
+    for (let i = 0; i < 19; i++) tokenCounts.set(`c${i}`, 1000);
+    tokenCounts.set('c19', 50000);
+    // Median = 1000, so estimatedSlots = 20000/1000 = 20 >= 15 → baseLambda
+    // If mean were used: mean ≈ 3450, slots ≈ 5.8 → lambda would increase
+    const result = computeEffectiveLambda(0.7, candidates, {
+      tokenBudget: 20000,
+      chunkTokenCounts: tokenCounts,
+    });
+    expect(result).toBe(0.7);
+  });
+
+  it('works with realistic causantic chunk sizes (3-4K median)', () => {
+    const candidates = makeCandidates(50);
+    const tokenCounts = new Map<string, number>();
+    // Simulate real distribution: median around 3500
+    for (let i = 0; i < 50; i++) {
+      tokenCounts.set(`c${i}`, 2000 + (i % 10) * 300); // 2000-4700
+    }
+    const result = computeEffectiveLambda(0.7, candidates, {
+      tokenBudget: 20000,
+      chunkTokenCounts: tokenCounts,
+    });
+    // Median ≈ 3500, slots ≈ 5.7 → lambda should increase
+    expect(result).toBeGreaterThan(0.7);
+    expect(result).toBeLessThan(1.0);
   });
 });

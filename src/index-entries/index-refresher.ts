@@ -167,15 +167,12 @@ export class IndexRefresher {
         sessionIndex++;
         options?.onProgress?.(sessionIndex, totalSessions);
 
-        // Rate limit
-        if (client) {
-          await this.rateLimiter.wait();
-        }
-
-        // Generate entries
+        // Generate entries (rate limiting happens per sub-batch inside generateLLMEntries)
         let entries;
         if (client) {
-          entries = await generateLLMEntries(sessionChunks, sessionSlug);
+          entries = await generateLLMEntries(sessionChunks, sessionSlug, {
+            onBeforeBatch: () => this.rateLimiter.wait(),
+          });
         } else {
           entries = sessionChunks.map((chunk) =>
             generateHeuristicEntry(chunk, sessionSlug),

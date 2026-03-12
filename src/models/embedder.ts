@@ -128,7 +128,7 @@ export class Embedder {
 
     const start = performance.now();
     const output = await this.pipe(prefixed, {
-      pooling: 'mean',
+      pooling: this.config.pooling,
       normalize: true,
     });
     const inferenceMs = performance.now() - start;
@@ -187,7 +187,7 @@ export class Embedder {
 
       const start = performance.now();
       const output = await this.pipe(prefixed, {
-        pooling: 'mean',
+        pooling: this.config!.pooling,
         normalize: true,
       });
       const inferenceMs = performance.now() - start;

@@ -54,7 +54,7 @@ export async function reorderWithMMR(
     return applyBudgetFilter(candidates, budget);
   }
 
-  const { lambda } = config;
+  const { lambda: baseLambda } = config;
 
   // Fetch embeddings for all candidates
   const embeddings = new Map<string, number[]>();
@@ -71,6 +71,11 @@ export async function reorderWithMMR(
   for (const c of candidates) {
     normalizedScores.set(c.chunkId, maxScore > 0 ? c.score / maxScore : 0);
   }
+
+  // Budget-adaptive lambda: when few chunks fit the budget, diversity
+  // reordering risks pushing relevant results past the cutoff.
+  // Estimate available slots and fade diversity as slots shrink.
+  const lambda = computeEffectiveLambda(baseLambda, candidates, budget);
 
   const selected: RankedItem[] = [];
   const selectedEmbeddings: number[][] = [];
@@ -128,6 +133,42 @@ export async function reorderWithMMR(
   }
 
   return selected;
+}
+
+/**
+ * Estimate available slots and scale lambda toward 1.0 (pure relevance)
+ * when budget is tight. With only 5-10 slots, diversity reordering is
+ * counterproductive — it pushes relevant results past the budget cutoff.
+ *
+ * Threshold of 15 slots: below this, lambda ramps from base value to 1.0.
+ * At 5 slots: lambda ≈ 0.93 (with base 0.7). At 15+: unchanged.
+ */
+const SLOT_THRESHOLD = 15;
+
+export function computeEffectiveLambda(
+  baseLambda: number,
+  candidates: RankedItem[],
+  budget?: MMRBudgetOptions,
+): number {
+  if (!budget) return baseLambda;
+
+  // Estimate median chunk size from the candidates
+  const tokenSizes: number[] = [];
+  for (const c of candidates) {
+    const tokens = budget.chunkTokenCounts.get(c.chunkId);
+    if (tokens !== undefined && tokens > 0) tokenSizes.push(tokens);
+  }
+  if (tokenSizes.length === 0) return baseLambda;
+
+  tokenSizes.sort((a, b) => a - b);
+  const median = tokenSizes[Math.floor(tokenSizes.length / 2)];
+  const estimatedSlots = budget.tokenBudget / median;
+
+  if (estimatedSlots >= SLOT_THRESHOLD) return baseLambda;
+
+  // Linear ramp: 0 slots → lambda=1.0, SLOT_THRESHOLD slots → baseLambda
+  const tightness = Math.max(0, 1 - estimatedSlots / SLOT_THRESHOLD);
+  return baseLambda + (1 - baseLambda) * tightness;
 }
 
 /** Budget-only filter for below-threshold candidate lists (no MMR reranking). */
