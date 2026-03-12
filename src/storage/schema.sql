@@ -192,5 +192,23 @@ CREATE TABLE IF NOT EXISTS index_entry_chunks (
 
 CREATE INDEX IF NOT EXISTS idx_iec_chunk ON index_entry_chunks(chunk_id);
 
--- Insert initial version if not exists (v14 adds semantic index tables)
-INSERT OR IGNORE INTO schema_version (version) VALUES (14);
+-- Session states for session continuity (structured session snapshots)
+CREATE TABLE IF NOT EXISTS session_states (
+  session_id TEXT PRIMARY KEY,
+  session_slug TEXT NOT NULL,
+  project_path TEXT,
+  ended_at TEXT NOT NULL,
+  files_touched TEXT NOT NULL,     -- JSON: string[]
+  errors TEXT NOT NULL,             -- JSON: {tool, message, resolution?}[]
+  outcomes TEXT NOT NULL,           -- JSON: string[]
+  tasks TEXT NOT NULL,              -- JSON: {description, status}[]
+  summary TEXT,                     -- LLM-generated session summary
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_states_slug ON session_states(session_slug);
+CREATE INDEX IF NOT EXISTS idx_session_states_ended ON session_states(ended_at);
+CREATE INDEX IF NOT EXISTS idx_session_states_slug_ended ON session_states(session_slug, ended_at);
+
+-- Insert initial version if not exists (v15 adds session_states table)
+INSERT OR IGNORE INTO schema_version (version) VALUES (15);

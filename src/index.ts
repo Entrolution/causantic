@@ -17,6 +17,8 @@ export * from './storage/archive.js';
 // Ingestion
 export { ingestSession } from './ingest/ingest-session.js';
 export type { IngestResult, IngestOptions } from './ingest/ingest-session.js';
+export { extractSessionState } from './ingest/session-state.js';
+export type { SessionState, SessionError, SessionTask } from './ingest/session-state.js';
 export { batchIngest } from './ingest/batch-ingest.js';
 export type { BatchIngestOptions, BatchIngestResult } from './ingest/batch-ingest.js';
 
@@ -28,6 +30,9 @@ export * from './clusters/index.js';
 
 // Semantic Index
 export * from './index-entries/index.js';
+
+// Repo Map
+export * from './repomap/index.js';
 
 // Maintenance
 export * from './maintenance/index.js';

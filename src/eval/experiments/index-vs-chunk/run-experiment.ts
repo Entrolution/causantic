@@ -32,7 +32,6 @@ import { KeywordStore } from '../../../storage/keyword-store.js';
 import { fuseRRF, type RankedItem } from '../../../retrieval/rrf.js';
 import { generateSearchQueries, type ChunkForQueryGen } from './query-generator.js';
 import type {
-  BenchmarkQuery,
   QueryResult,
   PathMetrics,
   IndexVsChunkReport,
@@ -274,7 +273,7 @@ async function runBenchmark(): Promise<IndexVsChunkReport> {
   console.log('=== Index vs Chunk Retrieval Benchmark ===\n');
 
   // Check prerequisites
-  const db = getDb();
+  const _db = getDb();
   const entryCount = getIndexEntryCount();
   console.log(`Index entries: ${entryCount}`);
   if (entryCount === 0) {

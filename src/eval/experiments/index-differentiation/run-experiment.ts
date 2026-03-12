@@ -25,7 +25,7 @@ import {
   getIndexEntryCount,
 } from '../../../storage/index-entry-store.js';
 import { getChunkById } from '../../../storage/chunk-store.js';
-import type { IndexEntry, StoredCluster } from '../../../storage/types.js';
+import type { IndexEntry } from '../../../storage/types.js';
 import type { ClusterForAnalysis } from './similarity-analysis.js';
 import { runSimilarityAnalysis } from './similarity-analysis.js';
 import { runDiscriminationTest } from './discrimination-test.js';

@@ -12,9 +12,10 @@
  */
 
 import { approximateTokens } from '../utils/token-counter.js';
-import { searchContext, type SearchRequest } from './search-assembler.js';
+import { searchContext, getEmbedder, type SearchRequest } from './search-assembler.js';
 import { walkChains, selectBestChain, type Chain } from './chain-walker.js';
 import { formatChainChunk } from './formatting.js';
+import { loadConfig, toRuntimeConfig } from '../config/loader.js';
 import type { StoredChunk } from '../storage/types.js';
 
 /**
@@ -141,11 +142,29 @@ async function runEpisodicPipeline(
     };
   }
 
-  // 2. Walk chains from seeds
+  // 2. Ensure query embedding for chain scoring
+  // In keyword-primary mode, searchContext may return an empty embedding.
+  // Lazily embed the query — a single embedding call is cheap.
+  let queryEmbedding = searchResult.queryEmbedding;
+  if (queryEmbedding.length === 0) {
+    try {
+      const runtimeConfig = toRuntimeConfig(loadConfig());
+      const embedder = await getEmbedder(runtimeConfig.embeddingModel);
+      const result = await embedder.embed(query, true);
+      queryEmbedding = result.embedding;
+    } catch {
+      // If embedding fails (e.g. model not available), chain walking will
+      // score all nodes as 0 and selectBestChain may not qualify a chain,
+      // falling back to search results. This is acceptable degradation.
+      queryEmbedding = [];
+    }
+  }
+
+  // Walk chains from seeds
   const chains = await walkChains(searchResult.seedIds, {
     direction,
     tokenBudget: maxTokens,
-    queryEmbedding: searchResult.queryEmbedding,
+    queryEmbedding,
     agentFilter,
   });
 

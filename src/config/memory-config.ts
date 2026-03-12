@@ -78,9 +78,17 @@ export interface MemoryConfig {
   /** Ratio of new chunks that triggers a full recluster. Default: 0.3 (30%). */
   incrementalClusterThreshold: number;
 
+  // Retrieval strategy
+  /** Primary retrieval method. 'keyword' = FTS5 only, 'hybrid' = BM25+vector+RRF. Default: 'keyword'. */
+  retrievalPrimary: 'keyword' | 'vector' | 'hybrid';
+  /** Use vector search to enrich keyword results when primary is 'keyword'. Default: false. */
+  vectorEnrichment: boolean;
+
   // Embedding
   /** Embedding model ID (from model registry). Default: 'jina-small'. */
   embeddingModel: string;
+  /** Embed chunks eagerly during ingestion. When false, chunks stored without vectors. Default: false. */
+  embeddingEager: boolean;
 
   // Storage
   /** Path to SQLite database file */
@@ -99,6 +107,17 @@ export interface MemoryConfig {
     batchRefreshLimit: number;
     /** Use index entries for search when available. Default: true. */
     useForSearch: boolean;
+  };
+
+  // Repo map
+  /** Configuration for the structural repo map */
+  repomap: {
+    /** Enable repo map generation. Default: true. */
+    enabled: boolean;
+    /** Maximum tokens for the repo map output. Default: 1024. */
+    maxTokens: number;
+    /** Supported language extensions. Default: TS/JS only. */
+    languages: string[];
   };
 }
 
@@ -155,19 +174,36 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   // Clustering (incremental)
   incrementalClusterThreshold: 0.3,
 
+  // Retrieval strategy
+  retrievalPrimary: 'keyword',
+  vectorEnrichment: false,
+
   // Embedding
   embeddingModel: 'jina-small',
+  embeddingEager: false,
 
   // Storage - defaults to ~/.causantic/
   dbPath: '~/.causantic/memory.db',
   vectorStorePath: '~/.causantic/vectors',
 
-  // Semantic index
+  // Semantic index (opt-in — requires eager embedding)
   semanticIndex: {
-    enabled: true,
+    enabled: false,
     targetDescriptionTokens: 130,
     batchRefreshLimit: 500,
     useForSearch: true,
+  },
+
+  // Repo map
+  repomap: {
+    enabled: true,
+    maxTokens: 1024,
+    languages: [
+      'typescript', 'javascript', 'python', 'java', 'c', 'cpp',
+      'rust', 'go', 'ruby', 'c-sharp', 'php', 'bash',
+      'scala', 'kotlin', 'swift', 'haskell', 'lua', 'dart',
+      'zig', 'elixir', 'perl', 'r',
+    ],
   },
 };
 

@@ -13,7 +13,7 @@ No cloud. No data leaves your machine. Runs entirely on your hardware with optio
 
 <p align="center">
 <strong>Long-term episodic memory for Claude Code</strong><br/>
-<sub>Local-first · Hybrid BM25 + vector search · Causal chain walking</sub>
+<sub>Local-first · Keyword-first retrieval · Causal chain walking · Structural repo map</sub>
 </p>
 
 ## Quick Start
@@ -38,14 +38,15 @@ Developers using Claude Code who want their AI assistant to **remember across se
 
 ## Why Causantic?
 
-Most AI memory systems use vector embeddings for similarity search. Causantic does too — but adds a **causal graph** that tracks _relationships_ between memory chunks, **BM25 keyword search** for exact matches, and **HDBSCAN clustering** for topic expansion. The result:
+Most AI memory systems use vector embeddings for similarity search. Causantic takes a different approach — **keyword-first (BM25) retrieval** as the default, a **causal graph** that tracks _relationships_ between memory chunks, a **structural repo map** for code orientation, and **session state capture** for instant resumption. Vector search and HDBSCAN clustering are available as optional enrichment.
 
 |                                      | Vector Search Only | Causantic                                         |
 | ------------------------------------ | ------------------ | ------------------------------------------------- |
-| **Finds similar content**            | Yes                | Yes                                               |
-| **Finds lexically relevant content** | No                 | Yes (BM25 keyword search)                         |
+| **Finds lexically relevant content** | No                 | Yes (BM25 keyword search — default)               |
+| **Finds similar content**            | Yes                | Yes (optional vector enrichment)                  |
 | **Finds related context**            | No                 | Yes (causal edges)                                |
-| **Finds topically related context**  | No                 | Yes (cluster expansion)                           |
+| **Structural code orientation**      | No                 | Yes (repo map — definitions, references, ranking) |
+| **Session continuity**               | No                 | Yes (session state capture + briefing mode)        |
 | **Temporal awareness**               | Wall-clock decay   | Episodic chain walking                            |
 | **Context augmentation**             | 1×                 | **2.46×** (chain walking adds episodic narrative) |
 | **Handles project switches**         | Breaks continuity  | Preserves causality                               |
@@ -53,14 +54,14 @@ Most AI memory systems use vector embeddings for similarity search. Causantic do
 
 ### How It Compares
 
-| System        |  Local-First  |  Temporal Decay   |  Graph Structure   | Self-Benchmarking |
-| ------------- | :-----------: | :---------------: | :----------------: | :---------------: |
-| **Causantic** |    **Yes**    | **Chain walking** |  **Causal graph**  |      **Yes**      |
-| Mem0          |  No (Cloud)   |       None        |    Paid add-on     |        No         |
-| Cognee        | Self-hostable |       None        | Triplet extraction |        No         |
-| Letta/MemGPT  | Self-hostable |   Summarization   |        None        |        No         |
-| Zep           |  Enterprise   |    Bi-temporal    |    Temporal KG     |        No         |
-| GraphRAG      | Self-hostable |   Static corpus   |    Hierarchical    |        No         |
+| System        |  Local-First  |  Temporal Decay   |  Graph Structure   | Structural Map | Self-Benchmarking |
+| ------------- | :-----------: | :---------------: | :----------------: | :------------: | :---------------: |
+| **Causantic** |    **Yes**    | **Chain walking** |  **Causal graph**  |   **Yes**      |      **Yes**      |
+| Mem0          |  No (Cloud)   |       None        |    Paid add-on     |      No        |        No         |
+| Cognee        | Self-hostable |       None        | Triplet extraction |      No        |        No         |
+| Letta/MemGPT  | Self-hostable |   Summarization   |        None        |      No        |        No         |
+| Zep           |  Enterprise   |    Bi-temporal    |    Temporal KG     |      No        |        No         |
+| GraphRAG      | Self-hostable |   Static corpus   |    Hierarchical    |      No        |        No         |
 
 See [Landscape Analysis](docs/research/approach/landscape-analysis.md) for detailed per-system analysis.
 
@@ -69,16 +70,19 @@ See [Landscape Analysis](docs/research/approach/landscape-analysis.md) for detai
 **1. Local-First with Encryption**
 All data stays on your machine. Optional per-chunk encryption (ChaCha20-Poly1305) with keys stored in your system keychain. No cloud dependency.
 
-**2. Hybrid BM25 + Vector Search**
-Vector search finds chunks that _look similar_. BM25 keyword search finds chunks with _exact lexical matches_ — function names, error codes, CLI flags. Both run in parallel and fuse via Reciprocal Rank Fusion (RRF).
+**2. Keyword-First Retrieval**
+BM25 keyword search (FTS5) is the default retrieval method — fast, precise, and excellent for function names, error codes, and specific terms. Vector search is available as optional enrichment for semantic similarity. Both can fuse via Reciprocal Rank Fusion (RRF) when hybrid mode is enabled.
 
-**3. Causal Graph with Multi-Path Chain Walking**
-Chunks are connected in a sequential linked list — intra-turn chunks chained sequentially, inter-turn edges linking last→first, cross-session edges bridging sessions. The `recall` tool walks this graph backward to reconstruct episodic narratives; `predict` walks forward. At branching points (agent transitions, cross-session links), multi-path DFS explores all alternatives and selects the best chain by median cosine similarity, producing ordered narratives where each chunk adds new information.
+**3. Structural Repo Map**
+Codebase analysis extracts definitions, references, and cross-file relationships. Produces a compact structural summary (~1K tokens) ranked by importance. Gives Claude Code instant orientation without reading individual files. **22 languages**: 12 via tree-sitter (TS, JS, Python, Java, C, C++, Rust, Go, Ruby, C#, PHP, Bash) and 10 via regex fallback (Scala, Kotlin, Swift, Haskell, Lua, Dart, Zig, Elixir, Perl, R).
 
-**4. HDBSCAN Cluster-Guided Expansion**
-Topic clusters group semantically related chunks. During retrieval, results expand through cluster siblings — surfacing context that neither vector nor keyword search found independently. Native TypeScript implementation (130× faster than hdbscan-ts).
+**4. Session Continuity**
+Structured session state capture (files touched, errors, outcomes, tasks, LLM summary) enables instant resumption. The `reconstruct` tool's briefing mode combines session state with the repo map for a complete startup context.
 
-**5. Self-Benchmarking Suite**
+**5. Causal Graph with Multi-Path Chain Walking**
+Chunks are connected in a sequential linked list — intra-turn chunks chained sequentially, inter-turn edges linking last→first, cross-session edges bridging sessions. The `recall` tool walks this graph backward to reconstruct episodic narratives (augmented with session summaries); `predict` walks forward. Multi-path DFS explores alternatives and selects the best chain by median cosine similarity.
+
+**6. Self-Benchmarking Suite**
 Measure how well your memory system is working with built-in benchmarks. Health, retrieval quality, chain quality, and latency — scored and tracked over time with specific tuning recommendations.
 
 ## Architecture
@@ -103,45 +107,54 @@ Measure how well your memory system is working with built-in benchmarks. Health,
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Ingestion Pipeline                            │
 │  ┌──────────┐  ┌──────────┐  ┌────────────┐  ┌──────────────┐   │
-│  │  Parser  │→ │ Chunker  │→ │ Embedder   │→ │ Edge Creator │   │
+│  │  Parser  │→ │ Chunker  │→ │ Edge       │→ │ Session      │   │
+│  │          │  │          │  │ Creator    │  │ State        │   │
 │  └──────────┘  └──────────┘  └────────────┘  └──────────────┘   │
+│  ┌──────────────┐  (optional: embedding when embeddingEager=true)│
+│  │  Embedder   │                                                 │
+│  └──────────────┘                                                │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Storage Layer                              │
-│  ┌──────────────┐  ┌──────────────┐                        │
-│  │   SQLite     │  │   LanceDB    │                        │
-│  │ (chunks,     │  │ (embeddings) │                        │
-│  │  edges, FTS5)│  │              │                        │
-│  └──────────────┘  └──────────────┘                        │
+│  ┌──────────────┐  ┌──────────────┐                              │
+│  │   SQLite     │  │   LanceDB    │                              │
+│  │ (chunks,     │  │ (embeddings) │  ← optional                  │
+│  │  edges, FTS5,│  │              │                              │
+│  │  sessions)   │  │              │                              │
+│  └──────────────┘  └──────────────┘                              │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Retrieval System                              │
-│  ┌──────────┐ ┌──────────┐                                      │
-│  │ Vector   │ │ Keyword  │  (parallel)                          │
-│  │ Search   │ │ (BM25)   │                                      │
-│  └────┬─────┘ └────┬─────┘                                      │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                         │
+│  │ Keyword  │ │ Vector   │ │ Repo Map │                         │
+│  │ (BM25)   │ │ (opt-in) │ │ (AST)    │                         │
+│  └────┬─────┘ └────┬─────┘ └──────────┘                         │
 │       └──────┬──────┘                                            │
 │              ▼                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │  RRF Fusion  │→ │ Cluster      │→ │ Chain Walker         │   │
-│  │              │  │ Expansion    │  │ + Context Assembly    │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
+│  ┌──────────────┐  ┌──────────────────────┐                      │
+│  │ MMR Rerank   │→ │ Chain Walker         │                      │
+│  │              │  │ + Context Assembly    │                      │
+│  └──────────────┘  └──────────────────────┘                      │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       MCP Server                                 │
-│  ┌────────┐ ┌────────┐ ┌─────────┐ ┌───────────┐ ┌───────────┐ │
-│  │ search │ │ recall │ │ predict │ │list-      │ │list-      │ │
-│  │        │ │        │ │         │ │projects   │ │sessions   │ │
-│  └────────┘ └────────┘ └─────────┘ └───────────┘ └───────────┘ │
-│  ┌─────────────┐ ┌─────────────┐ ┌───────┐ ┌────────┐          │
-│  │ reconstruct │ │ hook-status │ │ stats │ │ forget │          │
-│  └─────────────┘ └─────────────┘ └───────┘ └────────┘          │
+│  ┌────────┐ ┌────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐   │
+│  │ search │ │ recall │ │ predict │ │ repomap │ │list-      │   │
+│  │        │ │        │ │         │ │         │ │projects   │   │
+│  └────────┘ └────────┘ └─────────┘ └─────────┘ └───────────┘   │
+│  ┌───────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────┐       │
+│  │list-      │ │ reconstruct │ │ hook-status │ │ stats │       │
+│  │sessions   │ │             │ │             │ │       │       │
+│  └───────────┘ └─────────────┘ └─────────────┘ └───────┘       │
+│  ┌────────┐                                                     │
+│  │ forget │                                                     │
+│  └────────┘                                                     │
 └─────────────────────────────┬───────────────────────────────────┘
                               │
                               ▼
@@ -156,19 +169,20 @@ Measure how well your memory system is working with built-in benchmarks. Health,
 
 ## MCP Tools
 
-The MCP server exposes nine tools:
+The MCP server exposes ten tools:
 
-| Tool            | Description                                                                                                                           |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `search`        | Semantic discovery — "what do I know about X?" Vector + keyword + RRF + cluster expansion.                                            |
-| `recall`        | Episodic memory — "how did we solve X?" Seeds → backward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
-| `predict`       | Forward episodic — "what's likely next?" Seeds → forward chain walk → ordered narrative. Includes chain walk diagnostics on fallback. |
-| `list-projects` | Discover available projects with chunk counts and date ranges.                                                                        |
-| `list-sessions` | Browse sessions for a project with time filtering.                                                                                    |
-| `reconstruct`   | Rebuild session context chronologically — "what did I work on yesterday?" Call with just `project` for recent history.                 |
-| `hook-status`   | Check when hooks last ran and whether they succeeded.                                                                                 |
-| `stats`         | Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns.                                                       |
-| `forget`        | Delete chunks by project, time range, session, or semantic query. Defaults to dry-run preview.                                        |
+| Tool            | Description                                                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search`        | Memory discovery — "what do I know about X?" Keyword-first (BM25) with optional vector enrichment.                                                      |
+| `recall`        | Episodic memory — "how did we solve X?" Seeds → backward chain walk → ordered narrative. Augmented with session summaries.                               |
+| `predict`       | Forward episodic — "what's likely next?" Seeds → forward chain walk → ordered narrative.                                                                 |
+| `repomap`       | Structural codebase summary — files, definitions, cross-file relationships. Compact orientation without reading files.                                   |
+| `list-projects` | Discover available projects with chunk counts and date ranges.                                                                                           |
+| `list-sessions` | Browse sessions for a project with time filtering.                                                                                                       |
+| `reconstruct`   | Rebuild session context — chronological timeline or structured briefing (session state + repo map). Call with just `project` for recent history.          |
+| `hook-status`   | Check when hooks last ran and whether they succeeded.                                                                                                    |
+| `stats`         | Memory statistics — version, chunk/edge/cluster counts, per-project breakdowns.                                                                          |
+| `forget`        | Delete chunks by project, time range, session, or semantic query. Defaults to dry-run preview.                                                           |
 
 ### Claude Code Integration
 
@@ -302,8 +316,8 @@ The name reflects how the causal graph's value is **structural ordering** — wh
 
 ## Limitations
 
-- **First-call latency**: The embedding model downloads on first use (~500MB). Subsequent calls are fast (~80ms).
-- **Initial ingestion time**: Large session histories take time to parse, embed, and cluster. This is a one-time cost.
+- **First-call latency**: When embedding is enabled, the model downloads on first use (~500MB). Subsequent calls are fast (~80ms). With keyword-only mode (default), there is no model download.
+- **Initial ingestion time**: Large session histories take time to parse and index. Embedding (when enabled) adds to this cost.
 - **Edge quality dependency**: Chain walking depends on connected edges. Sparse or orphaned chunks fall back to ranked search results.
 - **Collection size effects**: Benchmark scores improve as more sessions are ingested. Small collections (<100 chunks) won't benefit much from chain walking or clustering.
 - **Claude Code 5.1+ required**: Hooks use `async` mode which requires Claude Code 5.1 or later. The parser assumes Claude Code session format (JSONL transcripts). Not a general-purpose memory system.

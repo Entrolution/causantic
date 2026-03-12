@@ -15,12 +15,19 @@ import {
 } from '../storage/chunk-store.js';
 import { vectorStore } from '../storage/vector-store.js';
 import { deleteIndexEntriesForChunks } from '../storage/index-entry-store.js';
-import { reconstructSession, formatReconstruction } from '../retrieval/session-reconstructor.js';
+import {
+  reconstructSession,
+  formatReconstruction,
+  buildBriefing,
+} from '../retrieval/session-reconstructor.js';
+import { searchSessionSummaries } from '../storage/session-state-store.js';
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
 import { formatDateRange, formatChunkPreview, buildChunkMap, getMemoryStats } from './services.js';
 import { errorMessage } from '../utils/errors.js';
+import { buildRepoMap } from '../repomap/index.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 import type { SearchResponse } from '../retrieval/search-assembler.js';
+import type { DependencyGraph } from '../repomap/index.js';
 
 /**
  * Tool definition for MCP.
@@ -75,7 +82,7 @@ function formatSearchResponse(response: SearchResponse): string {
 export const searchTool: ToolDefinition = {
   name: 'search',
   description:
-    'Search memory semantically to discover relevant past context. Returns ranked results by relevance. Use this for broad discovery — "what do I know about X?"',
+    'Search memory to discover relevant past context. Uses keyword-first (BM25) retrieval by default with optional vector enrichment. Returns ranked results by relevance. Use this for broad discovery — "what do I know about X?"',
   inputSchema: {
     type: 'object',
     properties: {
@@ -138,7 +145,7 @@ export const searchTool: ToolDefinition = {
 export const recallTool: ToolDefinition = {
   name: 'recall',
   description:
-    'Recall episodic memory — walk backward through causal chains to reconstruct narrative context. Use for "how did we solve the auth bug?" or "what led to this decision?" Returns ordered narrative (problem → solution).',
+    'Recall episodic memory — walk backward through causal chains to reconstruct narrative context. Also searches session summaries for supplementary context. Use for "how did we solve the auth bug?" or "what led to this decision?" Returns ordered narrative (problem → solution).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -169,6 +176,24 @@ export const recallTool: ToolDefinition = {
     const config = getConfig();
     const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
 
+    // Search session summaries for supplementary context
+    let summarySection = '';
+    try {
+      const summaries = searchSessionSummaries(query, project);
+      if (summaries.length > 0) {
+        const lines = summaries.map((s) => {
+          const date = new Date(s.endedAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          });
+          return `- [${date}] ${s.summary}`;
+        });
+        summarySection = `**Session summaries matching "${query}":**\n${lines.join('\n')}\n\n---\n\n`;
+      }
+    } catch {
+      // Non-critical — proceed without summaries
+    }
+
     const response = await recall(query, {
       maxTokens,
       projectFilter: project,
@@ -189,7 +214,7 @@ export const recallTool: ToolDefinition = {
       }
     }
 
-    return result;
+    return summarySection + result;
   },
 };
 
@@ -376,13 +401,18 @@ export const listSessionsTool: ToolDefinition = {
 export const reconstructTool: ToolDefinition = {
   name: 'reconstruct',
   description:
-    'Rebuild session context for a project. Call with just project to get the most recent history up to the token budget. Optionally specify a time range with from/to, days_back, session_id, or previous_session.',
+    'Rebuild session context for a project. Call with just project to get the most recent history up to the token budget. Optionally specify a time range with from/to, days_back, session_id, or previous_session. Use mode=briefing for a structured startup summary combining session state and project structure.',
   inputSchema: {
     type: 'object',
     properties: {
       project: {
         type: 'string',
         description: 'Project slug (required). Use list-projects to discover available projects.',
+      },
+      mode: {
+        type: 'string',
+        description:
+          'Reconstruction mode: "timeline" (default) for chronological chunks, "briefing" for structured session summary with files, outcomes, and project structure.',
       },
       session_id: {
         type: 'string',
@@ -427,10 +457,38 @@ export const reconstructTool: ToolDefinition = {
   handler: async (args) => {
     const project = args.project as string;
     const agent = args.agent as string | undefined;
+    const mode = (args.mode as string | undefined) ?? 'timeline';
     const config = getConfig();
     const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
 
     try {
+      // Briefing mode: structured session summary
+      if (mode === 'briefing') {
+        let repoMapText: string | undefined;
+
+        // Include repo map if enabled and we can determine project path
+        if (config.repomap.enabled) {
+          try {
+            const result = await buildRepoMap(process.cwd(), {
+              maxTokens: Math.min(config.repomap.maxTokens, Math.floor(maxTokens * 0.4)),
+            });
+            repoMapText = result.text;
+            _cachedRepoMapGraph = result.graph;
+          } catch {
+            // Non-critical — briefing works without repo map
+          }
+        }
+
+        const briefing = buildBriefing({
+          project,
+          repoMapText,
+          maxTokens,
+        });
+
+        return briefing.text;
+      }
+
+      // Timeline mode (default)
       const result = reconstructSession({
         project,
         sessionId: args.session_id as string | undefined,
@@ -682,6 +740,70 @@ export const forgetTool: ToolDefinition = {
 };
 
 /**
+ * Cache for repo map graphs to enable symbol lookup in search.
+ */
+// Reserved for future symbol lookup in search
+let _cachedRepoMapGraph: DependencyGraph | null = null;
+
+/**
+ * Repo map tool: structural codebase summary.
+ */
+export const repomapTool: ToolDefinition = {
+  name: 'repomap',
+  description:
+    'Get a compact structural summary of a project — files, definitions, and cross-file relationships. Shows what is defined where without reading individual files. Use at session start for orientation, or on-demand when you need to locate symbols.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description:
+          'Absolute path to the project root directory. Defaults to the current working directory if omitted.',
+      },
+      focus_files: {
+        type: 'string',
+        description:
+          'Comma-separated list of relative file paths to boost to the top of the output.',
+      },
+      max_tokens: {
+        type: 'number',
+        description: 'Maximum tokens in response. Default: 1024.',
+      },
+    },
+    required: [],
+  },
+  handler: async (args) => {
+    const config = getConfig();
+
+    if (!config.repomap.enabled) {
+      return 'Repo map is disabled in configuration.';
+    }
+
+    const projectPath = (args.project as string | undefined) ?? process.cwd();
+    const maxTokens = (args.max_tokens as number | undefined) ?? config.repomap.maxTokens;
+    const focusFilesRaw = args.focus_files as string | undefined;
+    const focusFiles = focusFilesRaw
+      ? focusFilesRaw.split(',').map((f) => f.trim())
+      : undefined;
+
+    try {
+      const result = await buildRepoMap(projectPath, {
+        maxTokens,
+        focusFiles,
+      });
+
+      // Cache the graph for symbol lookup in search
+      _cachedRepoMapGraph = result.graph;
+
+      const header = `Repo map: ${result.fileCount} files, ${result.definitionCount} definitions, ${result.edgeCount} cross-file references (${Math.round(result.durationMs)}ms, ${result.parsedCount} re-parsed)\n\n`;
+      return header + result.text;
+    } catch (error) {
+      return `Error building repo map: ${errorMessage(error)}`;
+    }
+  },
+};
+
+/**
  * All available tools.
  */
 export const tools: ToolDefinition[] = [
@@ -694,6 +816,7 @@ export const tools: ToolDefinition[] = [
   hookStatusTool,
   statsTool,
   forgetTool,
+  repomapTool,
 ];
 
 /**

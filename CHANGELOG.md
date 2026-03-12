@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-03-12
+
+### Added
+
+- **Structural repo map** (`src/repomap/`): Tree-sitter-powered codebase analysis that extracts definitions, references, and cross-file relationships. Produces a compact structural summary (~1K tokens) ranked by importance. New `repomap` MCP tool provides on-demand orientation. **22 languages supported**: 12 via tree-sitter (TypeScript, JavaScript, Python, Java, C, C++, Rust, Go, Ruby, C#, PHP, Bash) and 10 via regex fallback (Scala, Kotlin, Swift, Haskell, Lua, Dart, Zig, Elixir, Perl, R). Cached per-file by mtime for fast incremental updates (<100ms). 10 MCP tools total (was 9).
+- **Session state capture** (`src/ingest/session-state.ts`): Structured extraction of files touched, errors, outcomes, tasks, and optional LLM summary during ingestion. Stored in new `session_states` table (migration v15).
+- **Briefing mode for `reconstruct`**: New `mode: "briefing"` combines session state (files, outcomes, tasks) with the structural repo map for a complete startup context (~2K tokens).
+- **Summary-augmented recall**: The `recall` tool now searches session summaries by keyword before chain walking. Matching summaries appear as supplementary context alongside chain results, improving answers to "why did we choose X?" queries.
+- **`searchSessionSummaries()`** in session-state-store: Keyword search over session summaries with stop-word filtering and project scoping.
+
+### Changed
+
+- **Keyword-first retrieval** (default): BM25 keyword search (FTS5) is now the primary retrieval method. Vector search demoted to optional enrichment (`vectorEnrichment` config toggle, off by default). Cluster expansion only active in hybrid mode.
+- **Embedding is optional**: New `embeddingEager` config (default: `false`) — ingestion no longer requires embedding. Chunks are stored with edges and FTS indexing; embedding happens only when explicitly enabled. Reduces startup latency and memory usage.
+- **Semantic index disabled by default**: `semanticIndex.enabled` changed from `true` to `false`. The index entry system remains available as opt-in.
+- **Lazy query embedding in chain walker**: When keyword-primary mode returns no query embedding, the chain assembler embeds the query on demand (single call). Chain walking degrades gracefully when stored embeddings are missing.
+- **MCP tool descriptions**: Updated `search` (keyword-first), `recall` (summary-augmented), `reconstruct` (briefing mode) descriptions.
+- **Skill templates**: Updated `recall` (summary context), `search` (keyword-first), `resume` (briefing mode) skill templates.
+- **README**: Updated architecture diagram, Key Differentiators, MCP tools table, and comparison table to reflect the new approach.
+- **Config**: New fields in `MemoryConfig` — `retrievalPrimary`, `vectorEnrichment`, `embeddingEager`, `repomap`. New env vars: `CAUSANTIC_RETRIEVAL_PRIMARY`, `CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT`, `CAUSANTIC_EMBEDDING_EAGER`.
+
+### Tests
+
+- 2327 tests passing.
+
 ## [0.9.4] - 2026-03-04
 
 ### Fixed

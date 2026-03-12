@@ -81,6 +81,7 @@ describe('embedding model config', () => {
       expect(validateExternalConfig({ embedding: { model: 'nomic-v1.5' } })).toEqual([]);
       expect(validateExternalConfig({ embedding: { model: 'jina-code' } })).toEqual([]);
       expect(validateExternalConfig({ embedding: { model: 'bge-small' } })).toEqual([]);
+      expect(validateExternalConfig({ embedding: { model: 'arctic-embed-m' } })).toEqual([]);
     });
 
     it('rejects unknown model ID', () => {

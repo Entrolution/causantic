@@ -109,3 +109,15 @@ export {
   dereferenceToChunkIds,
   searchIndexEntriesByKeyword,
 } from './index-entry-store.js';
+
+// Session state store
+export {
+  upsertSessionState,
+  getSessionState,
+  getRecentSessionStates,
+  getSessionStatesByTimeRange,
+  deleteSessionState,
+  deleteSessionStatesForProject,
+  countSessionStates,
+} from './session-state-store.js';
+export type { StoredSessionState } from './session-state-store.js';

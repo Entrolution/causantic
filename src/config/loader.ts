@@ -59,6 +59,8 @@ export interface ExternalConfig {
     device?: string;
     /** Embedding model ID from model registry. Default: 'jina-small'. */
     model?: string;
+    /** Embed chunks eagerly during ingestion. Default: false. */
+    eager?: boolean;
   };
   maintenance?: {
     /** Hour of day (0-23) to run reclustering. Default: 2. */
@@ -69,6 +71,10 @@ export interface ExternalConfig {
     mmrLambda?: number;
     /** Feedback weight for cluster expansion scoring. Default: 0.1 */
     feedbackWeight?: number;
+    /** Primary retrieval method. Default: 'keyword'. */
+    primary?: 'keyword' | 'vector' | 'hybrid';
+    /** Use vector search to enrich keyword results when primary is 'keyword'. Default: false. */
+    vectorEnrichment?: boolean;
   };
   recency?: {
     /** Amplitude of the time-decay boost (multiplied by exp decay). Default: 0.3 */
@@ -130,6 +136,7 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   embedding: {
     device: 'auto',
     model: 'jina-small',
+    eager: false,
   },
   maintenance: {
     clusterHour: 2,
@@ -137,6 +144,8 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   retrieval: {
     mmrLambda: 0.7,
     feedbackWeight: 0.1,
+    primary: 'keyword',
+    vectorEnrichment: false,
   },
   recency: {
     decayFactor: 0.3,
@@ -147,7 +156,7 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
     referenceTokens: 500,
   },
   semanticIndex: {
-    enabled: true,
+    enabled: false,
     targetDescriptionTokens: 130,
     batchRefreshLimit: 500,
     useForSearch: true,
@@ -289,6 +298,10 @@ function loadEnvConfig(): ExternalConfig {
     config.embedding = config.embedding ?? {};
     config.embedding.model = process.env.CAUSANTIC_EMBEDDING_MODEL;
   }
+  if (process.env.CAUSANTIC_EMBEDDING_EAGER) {
+    config.embedding = config.embedding ?? {};
+    config.embedding.eager = process.env.CAUSANTIC_EMBEDDING_EAGER === 'true';
+  }
 
   // Retrieval
   if (process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA) {
@@ -298,6 +311,18 @@ function loadEnvConfig(): ExternalConfig {
   if (process.env.CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT) {
     config.retrieval = config.retrieval ?? {};
     config.retrieval.feedbackWeight = parseFloat(process.env.CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT);
+  }
+  if (process.env.CAUSANTIC_RETRIEVAL_PRIMARY) {
+    config.retrieval = config.retrieval ?? {};
+    config.retrieval.primary = process.env.CAUSANTIC_RETRIEVAL_PRIMARY as
+      | 'keyword'
+      | 'vector'
+      | 'hybrid';
+  }
+  if (process.env.CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT) {
+    config.retrieval = config.retrieval ?? {};
+    config.retrieval.vectorEnrichment =
+      process.env.CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT === 'true';
   }
 
   // Recency
@@ -419,6 +444,11 @@ export function validateExternalConfig(config: ExternalConfig): string[] {
   }
 
   // Retrieval validation
+  if (config.retrieval?.primary !== undefined) {
+    if (!['keyword', 'vector', 'hybrid'].includes(config.retrieval.primary)) {
+      errors.push("retrieval.primary must be 'keyword', 'vector', or 'hybrid'");
+    }
+  }
   if (config.retrieval?.mmrLambda !== undefined) {
     if (config.retrieval.mmrLambda < 0 || config.retrieval.mmrLambda > 1) {
       errors.push('retrieval.mmrLambda must be between 0 and 1 (inclusive)');
@@ -546,8 +576,13 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
     refreshRateLimitPerMin:
       external.llm.refreshRateLimitPerMin ?? DEFAULT_CONFIG.refreshRateLimitPerMin,
 
+    // Retrieval strategy
+    retrievalPrimary: external.retrieval?.primary ?? DEFAULT_CONFIG.retrievalPrimary,
+    vectorEnrichment: external.retrieval?.vectorEnrichment ?? DEFAULT_CONFIG.vectorEnrichment,
+
     // Embedding
     embeddingModel: external.embedding?.model ?? DEFAULT_CONFIG.embeddingModel,
+    embeddingEager: external.embedding?.eager ?? DEFAULT_CONFIG.embeddingEager,
 
     // Retrieval
     mmrReranking: {
@@ -567,6 +602,9 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
       referenceTokens:
         external.lengthPenalty?.referenceTokens ?? DEFAULT_CONFIG.lengthPenalty.referenceTokens,
     },
+
+    // Repo map (uses DEFAULT_CONFIG defaults — no external config mapping yet)
+    repomap: DEFAULT_CONFIG.repomap,
 
     // Semantic index
     semanticIndex: {

@@ -10,7 +10,6 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createSecretStore } from '../../../utils/secret-store.js';
-import { approximateTokens } from '../../../utils/token-counter.js';
 import { Embedder } from '../../../models/embedder.js';
 import { getModel } from '../../../models/model-registry.js';
 import { getConfig } from '../../../config/memory-config.js';

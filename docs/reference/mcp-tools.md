@@ -82,6 +82,35 @@ Predict what context or topics might be relevant based on current discussion. Wa
 
 **Response**: Plain text. Returns `"Potentially relevant context (N items):"` followed by assembled text, or `"No predictions available based on current context."` if no matches. Includes chain walk diagnostics when falling back to search.
 
+### repomap
+
+Get a compact structural summary of a project — files, definitions, and cross-file relationships. Uses tree-sitter AST parsing for 12 languages (TypeScript, JavaScript, Python, Java, C, C++, Rust, Go, Ruby, C#, PHP, Bash) and regex-based extraction for 10 more (Scala, Kotlin, Swift, Haskell, Lua, Dart, Zig, Elixir, Perl, R). Results are cached per-file by mtime; incremental updates complete in <100ms.
+
+**Parameters**:
+
+| Name          | Type     | Required | Description                                                                 |
+| ------------- | -------- | -------- | --------------------------------------------------------------------------- |
+| `project`     | `string` | No       | Absolute path to the project root. Defaults to current working directory.   |
+| `focus_files` | `string` | No       | Comma-separated file paths to boost to the top of the output.               |
+| `max_tokens`  | `number` | No       | Maximum tokens for the output. Default: from config (`repomap.maxTokens`).  |
+
+**Response**: Plain text. Returns a header with file/definition/edge counts and timing, followed by the rendered structural summary. Returns `"Repo map is disabled in configuration."` if `repomap.enabled` is `false`.
+
+**Example**:
+
+```
+Repo map: 45 files, 312 definitions, 89 cross-file references (230ms, 12 re-parsed)
+
+src/retrieval/search-assembler.ts
+│ fn assembleSearch (L42)
+│ fn scoreChunk (L98)
+│ interface SearchResponse (L12)
+src/retrieval/chain-walker.ts
+│ class ChainWalker (L15)
+│ fn walkBackward (L45)
+...
+```
+
 ### list-projects
 
 List all projects in memory with chunk counts and date ranges. Use to discover available project names for filtering other tools.
@@ -245,6 +274,7 @@ Returns `"No chunks match the given filters."` if no chunks match (filter-based)
 | Broad discovery — "what do I know about X?"     | `search`                                                             |
 | Episodic narrative — "how did we solve X?"      | `recall`                                                             |
 | Proactively surfacing relevant past context     | `predict`                                                            |
+| Code orientation — "what's defined where?"      | `repomap`                                                            |
 | Discovering what projects exist in memory       | `list-projects`                                                      |
 | Browsing sessions before diving into one        | `list-sessions`                                                      |
 | "What did I work on yesterday/last session?"    | `reconstruct`                                                        |

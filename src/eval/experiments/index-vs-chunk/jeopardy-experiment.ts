@@ -66,7 +66,7 @@ async function run() {
 
   console.log('=== Jeopardy vs Summary Index Entry Comparison ===\n');
 
-  const db = getDb();
+  const _db = getDb();
   const externalConfig = loadConfig();
   const config = toRuntimeConfig(externalConfig);
 

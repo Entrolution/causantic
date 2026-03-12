@@ -38,6 +38,8 @@ export interface GenerateOptions {
   maxChunkTokens?: number;
   /** Target description length (unused for jeopardy, kept for API compat). */
   targetDescriptionTokens?: number;
+  /** Called before each sub-batch API call for rate limiting. */
+  onBeforeBatch?: () => Promise<void>;
 }
 
 /** Parsed output for a single chunk from the LLM response. */
@@ -85,6 +87,11 @@ export async function generateLLMEntries(
   for (let batchStart = 0; batchStart < chunks.length; batchStart += MAX_CHUNKS_PER_BATCH) {
     const batchChunks = chunks.slice(batchStart, batchStart + MAX_CHUNKS_PER_BATCH);
 
+    // Rate limit before each sub-batch API call
+    if (options?.onBeforeBatch) {
+      await options.onBeforeBatch();
+    }
+
     // Truncate chunk content for prompt
     const truncatedChunks = batchChunks.map((chunk, i) => {
       const maxChars = maxChunkTokens * 4;
@@ -98,11 +105,7 @@ export async function generateLLMEntries(
     const prompt = buildGenerationPrompt(truncatedChunks);
 
     try {
-      const response = await client.messages.create({
-        model,
-        max_tokens: Math.min(4096, Math.max(400, batchChunks.length * 400)),
-        messages: [{ role: 'user', content: prompt }],
-      });
+      const response = await callWithRetry(client, model, prompt, batchChunks.length);
 
       const text = response.content[0].type === 'text' ? response.content[0].text : '';
       const entriesByChunk = parseGenerationResponse(text, batchChunks.length);
@@ -337,6 +340,44 @@ export function parseGenerationResponse(text: string, expectedCount: number): Ma
   }
 
   return results;
+}
+
+/** Max retries for rate-limited or transient API errors. */
+const MAX_RETRIES = 3;
+
+/**
+ * Call the API with exponential backoff on rate limit (429) and server errors (5xx).
+ */
+async function callWithRetry(
+  client: Anthropic,
+  model: string,
+  prompt: string,
+  batchSize: number,
+): Promise<Anthropic.Message> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await client.messages.create({
+        model,
+        max_tokens: Math.min(4096, Math.max(400, batchSize * 400)),
+        messages: [{ role: 'user', content: prompt }],
+      });
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      const isRetryable = status === 429 || (status !== undefined && status >= 500);
+
+      if (!isRetryable || attempt === MAX_RETRIES) {
+        throw error;
+      }
+
+      // Exponential backoff: 2s, 8s, 32s
+      const backoffMs = 2000 * Math.pow(4, attempt);
+      log.info(`API ${status} on attempt ${attempt + 1}, retrying in ${backoffMs / 1000}s`);
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    }
+  }
+
+  // Unreachable, but TypeScript needs it
+  throw new Error('Retry loop exited unexpectedly');
 }
 
 /**

@@ -11,6 +11,8 @@ export interface ModelConfig {
   dims: number;
   /** Context window in tokens. */
   contextTokens: number;
+  /** Pooling strategy: 'mean' (default) or 'cls'. */
+  pooling: 'mean' | 'cls';
   /** Whether the model uses task prefixes (e.g. nomic). */
   usesPrefix: boolean;
   /** Prefix for document embedding (if usesPrefix). */
@@ -27,16 +29,32 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     hfId: 'nomic-ai/nomic-embed-text-v1.5',
     dims: 768,
     contextTokens: 8192,
+    pooling: 'mean',
+
     usesPrefix: true,
     documentPrefix: 'search_document: ',
     queryPrefix: 'search_query: ',
     notes: 'Matryoshka dimensions (768/512/384/256/128). Needs task prefixes.',
+  },
+  'arctic-embed-m': {
+    id: 'arctic-embed-m',
+    hfId: 'Snowflake/snowflake-arctic-embed-m-v1.5',
+    dims: 768,
+    contextTokens: 512,
+    pooling: 'cls',
+
+    usesPrefix: true,
+    documentPrefix: '',
+    queryPrefix: 'Represent this sentence for searching relevant passages: ',
+    notes: 'BertModel, CLS pooling. Matryoshka (768/256). MTEB retrieval 55.1. 512 token context.',
   },
   'jina-code': {
     id: 'jina-code',
     hfId: 'jinaai/jina-embeddings-v2-base-code',
     dims: 768,
     contextTokens: 8192,
+    pooling: 'mean',
+
     usesPrefix: false,
     documentPrefix: '',
     queryPrefix: '',
@@ -47,6 +65,8 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     hfId: 'Xenova/jina-embeddings-v2-small-en',
     dims: 512,
     contextTokens: 8192,
+    pooling: 'mean',
+
     usesPrefix: false,
     documentPrefix: '',
     queryPrefix: '',
@@ -57,6 +77,8 @@ export const MODEL_REGISTRY: Record<string, ModelConfig> = {
     hfId: 'Xenova/bge-small-en-v1.5',
     dims: 384,
     contextTokens: 512,
+    pooling: 'cls',
+
     usesPrefix: false,
     documentPrefix: '',
     queryPrefix: '',

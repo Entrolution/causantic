@@ -122,6 +122,11 @@ describe('mcp-tools', () => {
       expect(reconstructTool.inputSchema.properties.max_tokens.type).toBe('number');
       expect(reconstructTool.inputSchema.required).not.toContain('max_tokens');
     });
+
+    it('has optional mode parameter with string type', () => {
+      expect(reconstructTool.inputSchema.properties.mode.type).toBe('string');
+      expect(reconstructTool.inputSchema.required).not.toContain('mode');
+    });
   });
 
   describe('listProjectsTool', () => {
@@ -219,8 +224,8 @@ describe('mcp-tools', () => {
   });
 
   describe('tools array', () => {
-    it('contains all seven tools', () => {
-      expect(tools.length).toBe(9);
+    it('contains all tools', () => {
+      expect(tools.length).toBe(10);
     });
 
     it('contains search tool', () => {
@@ -367,7 +372,7 @@ describe('mcp-tools', () => {
         inputSchema: t.inputSchema,
       }));
 
-      expect(toolList.length).toBe(9);
+      expect(toolList.length).toBe(10);
       expect(toolList[0]).not.toHaveProperty('handler'); // Handler not included
       expect(toolList[0]).toHaveProperty('name');
       expect(toolList[0]).toHaveProperty('description');
