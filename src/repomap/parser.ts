@@ -5,7 +5,7 @@
  * - Definitions: classes, functions, methods, interfaces, type aliases, exports
  * - References: imports, identifiers used in code
  *
- * Phase 1a: TypeScript, TSX, JavaScript, JSX only.
+ * Supported languages: TypeScript, JavaScript, Python, Java, C, C++.
  */
 
 import { readFileSync } from 'fs';
@@ -41,12 +41,28 @@ export interface Tag {
 
 /** Map from file extension to tree-sitter language name. */
 const EXTENSION_TO_LANGUAGE: Record<string, string> = {
+  // TypeScript / JavaScript
   '.ts': 'typescript',
   '.mts': 'typescript',
   '.tsx': 'tsx',
   '.js': 'javascript',
   '.mjs': 'javascript',
   '.jsx': 'javascript',
+  // Python
+  '.py': 'python',
+  '.pyi': 'python',
+  // Java
+  '.java': 'java',
+  // C (parsed with C++ grammar — no standalone tree-sitter-c.wasm in @vscode/tree-sitter-wasm)
+  '.c': 'cpp',
+  '.h': 'cpp',
+  // C++
+  '.cpp': 'cpp',
+  '.cc': 'cpp',
+  '.cxx': 'cpp',
+  '.hpp': 'cpp',
+  '.hh': 'cpp',
+  '.hxx': 'cpp',
 };
 
 // Lazy-loaded tree-sitter module and languages
@@ -112,9 +128,12 @@ async function loadLanguage(languageName: string): Promise<TSLanguage> {
   return language;
 }
 
-/** Node types that define symbols in TypeScript/JavaScript. */
-const DEFINITION_TYPES = new Set([
-  // Declarations
+// ---------------------------------------------------------------------------
+// Per-language definition node types
+// ---------------------------------------------------------------------------
+
+/** TypeScript / JavaScript / TSX definition types. */
+const DEFINITION_TYPES_TS = new Set([
   'class_declaration',
   'abstract_class_declaration',
   'function_declaration',
@@ -124,19 +143,72 @@ const DEFINITION_TYPES = new Set([
   'type_alias_declaration',
   'enum_declaration',
   'variable_declarator',
-  // Exports with names
   'export_statement',
 ]);
 
+/** Python definition types. */
+const DEFINITION_TYPES_PYTHON = new Set([
+  'class_definition',
+  'function_definition',
+  'decorated_definition',
+]);
+
+/** Java definition types. */
+const DEFINITION_TYPES_JAVA = new Set([
+  'class_declaration',
+  'interface_declaration',
+  'method_declaration',
+  'enum_declaration',
+  'constructor_declaration',
+  'annotation_type_declaration',
+]);
+
+/** C++ definition types (also used for C files — C grammar not available as standalone WASM). */
+const DEFINITION_TYPES_CPP = new Set([
+  'function_definition',
+  'struct_specifier',
+  'class_specifier',
+  'enum_specifier',
+  'type_definition',
+  'namespace_definition',
+  'template_declaration',
+  'preproc_function_def',
+]);
+
+/** Lookup definition types by language. */
+const DEFINITION_TYPES_BY_LANGUAGE: Record<string, Set<string>> = {
+  typescript: DEFINITION_TYPES_TS,
+  tsx: DEFINITION_TYPES_TS,
+  javascript: DEFINITION_TYPES_TS,
+  python: DEFINITION_TYPES_PYTHON,
+  java: DEFINITION_TYPES_JAVA,
+  cpp: DEFINITION_TYPES_CPP,
+};
+
+/** Import node types by language (for reference extraction). */
+const IMPORT_TYPES_BY_LANGUAGE: Record<string, Set<string>> = {
+  typescript: new Set(['import_specifier']),
+  tsx: new Set(['import_specifier']),
+  javascript: new Set(['import_specifier']),
+  python: new Set(['dotted_name', 'aliased_import']),
+  java: new Set(['import_declaration']),
+  cpp: new Set(),
+};
+
+// ---------------------------------------------------------------------------
+// Name extraction
+// ---------------------------------------------------------------------------
+
 /**
  * Extract the name from a definition node.
+ * Language-aware: handles different node structures per language.
  */
-function extractDefinitionName(node: TSNode): string | null {
-  // Most declarations have a 'name' field
+function extractDefinitionName(node: TSNode, languageName: string): string | null {
+  // Most declarations have a 'name' field — try it first
   const nameNode = node.childForFieldName('name');
   if (nameNode) return nameNode.text;
 
-  // For variable_declarator, the name is the first child
+  // TS/JS: variable_declarator — name is the first child
   if (node.type === 'variable_declarator') {
     const first = node.firstChild;
     if (first && (first.type === 'identifier' || first.type === 'type_identifier')) {
@@ -144,14 +216,104 @@ function extractDefinitionName(node: TSNode): string | null {
     }
   }
 
+  // Python: decorated_definition — unwrap to the inner definition
+  if (node.type === 'decorated_definition') {
+    const def = node.childForFieldName('definition');
+    if (def) return extractDefinitionName(def, languageName);
+  }
+
+  // C/C++: function_definition — declarator → function_declarator → declarator (identifier)
+  if (node.type === 'function_definition') {
+    const declarator = node.childForFieldName('declarator');
+    if (declarator) return extractFunctionDeclaratorName(declarator);
+  }
+
+  // C/C++: type_definition — declarator field holds the alias name
+  if (node.type === 'type_definition') {
+    const declarator = node.childForFieldName('declarator');
+    if (declarator) {
+      if (declarator.type === 'type_identifier' || declarator.type === 'identifier') {
+        return declarator.text;
+      }
+      return extractFunctionDeclaratorName(declarator);
+    }
+  }
+
+  // C/C++: struct_specifier, enum_specifier, class_specifier — name field (type_identifier)
+  if (
+    node.type === 'struct_specifier' ||
+    node.type === 'enum_specifier' ||
+    node.type === 'class_specifier'
+  ) {
+    // Some anonymous structs/enums don't have a name
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i)!;
+      if (child.type === 'type_identifier') return child.text;
+    }
+  }
+
+  // C++: template_declaration — unwrap to the inner definition (skip keywords/punctuation)
+  if (node.type === 'template_declaration') {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i)!;
+      if (child.isNamed && child.type !== 'template_parameter_list') {
+        return extractDefinitionName(child, languageName);
+      }
+    }
+  }
+
+  // C: preproc_function_def — name field
+  if (node.type === 'preproc_function_def') {
+    const macroName = node.childForFieldName('name');
+    if (macroName) return macroName.text;
+  }
+
+  // Java: constructor_declaration — name field
+  if (node.type === 'constructor_declaration') {
+    const ctorName = node.childForFieldName('name');
+    if (ctorName) return ctorName.text;
+  }
+
   return null;
 }
+
+/**
+ * Recursively extract the identifier name from a C/C++ function declarator chain.
+ * Handles: function_declarator → declarator → identifier,
+ *          pointer_declarator → declarator → identifier, etc.
+ */
+function extractFunctionDeclaratorName(node: TSNode): string | null {
+  if (node.type === 'identifier' || node.type === 'field_identifier' || node.type === 'type_identifier') {
+    return node.text;
+  }
+  // Handle qualified identifiers in C++ (namespace::name)
+  if (node.type === 'qualified_identifier') {
+    const nameChild = node.childForFieldName('name');
+    if (nameChild) return nameChild.text;
+  }
+  const declarator = node.childForFieldName('declarator');
+  if (declarator) return extractFunctionDeclaratorName(declarator);
+  // Recurse into named children (parenthesized_declarator, pointer_declarator, etc.)
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i)!;
+    if (child.isNamed) {
+      const name = extractFunctionDeclaratorName(child);
+      if (name) return name;
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Type categorization
+// ---------------------------------------------------------------------------
 
 /**
  * Get the definition type from a tree-sitter node type.
  */
 function getDefinitionType(nodeType: string): Tag['type'] {
   switch (nodeType) {
+    // TS/JS
     case 'class_declaration':
     case 'abstract_class_declaration':
       return 'class';
@@ -170,10 +332,54 @@ function getDefinitionType(nodeType: string): Tag['type'] {
       return 'variable';
     case 'export_statement':
       return 'export';
+
+    // Python
+    case 'class_definition':
+      return 'class';
+    case 'function_definition':
+      return 'function';
+    case 'decorated_definition':
+      return 'function'; // Will be overridden if inner def is a class
+
+    // Java
+    case 'method_declaration':
+    case 'constructor_declaration':
+      return 'method';
+    case 'annotation_type_declaration':
+      return 'interface';
+
+    // C / C++
+    case 'struct_specifier':
+    case 'class_specifier':
+      return 'class';
+    case 'enum_specifier':
+      return 'enum';
+    case 'type_definition':
+      return 'type';
+    case 'namespace_definition':
+      return 'class';
+    case 'template_declaration':
+      return 'class';
+    case 'preproc_function_def':
+      return 'function';
+
     default:
       return 'variable';
   }
 }
+
+/**
+ * Refine the type for Python decorated definitions based on the inner node.
+ */
+function getDecoratedDefinitionType(node: TSNode): Tag['type'] {
+  const def = node.childForFieldName('definition');
+  if (def) return getDefinitionType(def.type);
+  return 'function';
+}
+
+// ---------------------------------------------------------------------------
+// Variable interest filter (TS/JS only)
+// ---------------------------------------------------------------------------
 
 /**
  * Check if a variable declarator is "interesting" (arrow function, class expression, etc.)
@@ -196,6 +402,10 @@ function isInterestingVariable(node: TSNode): boolean {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Main parse function
+// ---------------------------------------------------------------------------
+
 /**
  * Parse a source file and extract tags (definitions + references).
  *
@@ -207,6 +417,9 @@ export async function parseFile(filePath: string, relativePath: string): Promise
   const ext = filePath.slice(filePath.lastIndexOf('.'));
   const languageName = EXTENSION_TO_LANGUAGE[ext];
   if (!languageName) return [];
+
+  const defTypes = DEFINITION_TYPES_BY_LANGUAGE[languageName];
+  if (!defTypes) return [];
 
   await ensureInit();
   const language = await loadLanguage(languageName);
@@ -229,6 +442,8 @@ export async function parseFile(filePath: string, relativePath: string): Promise
 
   const tags: Tag[] = [];
   const definedNames = new Set<string>();
+  const isTS =
+    languageName === 'typescript' || languageName === 'tsx' || languageName === 'javascript';
 
   // Walk the tree to extract definitions
   const cursor = tree.walk();
@@ -236,13 +451,13 @@ export async function parseFile(filePath: string, relativePath: string): Promise
     const node = cursor.currentNode;
 
     // Extract definitions
-    if (DEFINITION_TYPES.has(node.type)) {
-      // For export_statement, look at the child declaration
+    if (defTypes.has(node.type)) {
+      // TS/JS: export_statement — look at the child declaration
       if (node.type === 'export_statement') {
         const declaration = node.childForFieldName('declaration');
         if (declaration) {
-          if (DEFINITION_TYPES.has(declaration.type)) {
-            const name = extractDefinitionName(declaration);
+          if (defTypes.has(declaration.type)) {
+            const name = extractDefinitionName(declaration, languageName);
             if (name && name.length > 1) {
               tags.push({
                 name,
@@ -261,7 +476,7 @@ export async function parseFile(filePath: string, relativePath: string): Promise
             for (let i = 0; i < declaration.childCount; i++) {
               const child = declaration.child(i)!;
               if (child.type === 'variable_declarator' && isInterestingVariable(child)) {
-                const name = extractDefinitionName(child);
+                const name = extractDefinitionName(child, languageName);
                 if (name && name.length > 1) {
                   tags.push({
                     name,
@@ -280,12 +495,54 @@ export async function parseFile(filePath: string, relativePath: string): Promise
         return;
       }
 
-      // Skip boring variable declarations (primitives, simple assignments)
+      // Python: decorated_definition — unwrap
+      if (node.type === 'decorated_definition') {
+        const name = extractDefinitionName(node, languageName);
+        if (name && name.length > 1) {
+          tags.push({
+            name,
+            kind: 'def',
+            line: node.startPosition.row + 1,
+            file: relativePath,
+            type: getDecoratedDefinitionType(node),
+          });
+          definedNames.add(name);
+        }
+        // Don't recurse into the decorated definition — we extracted the inner name
+        return;
+      }
+
+      // C++: template_declaration — unwrap
+      if (node.type === 'template_declaration') {
+        const name = extractDefinitionName(node, languageName);
+        if (name && name.length > 1) {
+          // Determine type from inner declaration
+          let innerType: Tag['type'] = 'class';
+          for (let i = 0; i < node.childCount; i++) {
+            const child = node.child(i)!;
+            if (child.isNamed && child.type !== 'template_parameter_list') {
+              innerType = getDefinitionType(child.type);
+              break;
+            }
+          }
+          tags.push({
+            name,
+            kind: 'def',
+            line: node.startPosition.row + 1,
+            file: relativePath,
+            type: innerType,
+          });
+          definedNames.add(name);
+        }
+        return;
+      }
+
+      // TS/JS: skip boring variable declarations (primitives, simple assignments)
       if (node.type === 'variable_declarator' && !isInterestingVariable(node)) {
         return;
       }
 
-      const name = extractDefinitionName(node);
+      const name = extractDefinitionName(node, languageName);
       if (name && name.length > 1) {
         tags.push({
           name,
@@ -298,8 +555,8 @@ export async function parseFile(filePath: string, relativePath: string): Promise
       }
     }
 
-    // Extract import references
-    if (node.type === 'import_specifier') {
+    // Extract import references (TS/JS)
+    if (isTS && node.type === 'import_specifier') {
       const nameNode = node.childForFieldName('name');
       const name = nameNode?.text ?? node.firstChild?.text;
       if (name && name.length > 1) {
@@ -310,6 +567,38 @@ export async function parseFile(filePath: string, relativePath: string): Promise
           file: relativePath,
           type: 'import',
         });
+      }
+    }
+
+    // Extract import references (Python)
+    if (languageName === 'python') {
+      // from X import name1, name2 — capture the imported names
+      if (node.type === 'import_from_statement') {
+        for (let i = 0; i < node.childCount; i++) {
+          const child = node.child(i)!;
+          if (child.type === 'dotted_name' && i > 1) {
+            // Imported name (after 'from X import')
+            const name = child.text;
+            if (name && name.length > 1) {
+              tags.push({ name, kind: 'ref', line: child.startPosition.row + 1, file: relativePath, type: 'import' });
+            }
+          }
+          if (child.type === 'aliased_import') {
+            const nameChild = child.childForFieldName('name');
+            if (nameChild && nameChild.text.length > 1) {
+              tags.push({ name: nameChild.text, kind: 'ref', line: nameChild.startPosition.row + 1, file: relativePath, type: 'import' });
+            }
+          }
+        }
+      }
+    }
+
+    // Extract import references (Java)
+    if (languageName === 'java' && node.type === 'import_declaration') {
+      // import com.example.ClassName; — capture the last identifier
+      const lastChild = findLastIdentifier(node);
+      if (lastChild && lastChild.length > 1) {
+        tags.push({ name: lastChild, kind: 'ref', line: node.startPosition.row + 1, file: relativePath, type: 'import' });
       }
     }
 
@@ -325,8 +614,7 @@ export async function parseFile(filePath: string, relativePath: string): Promise
   visitNode();
 
   // Second pass: collect identifier references (type references, call expressions)
-  // These are references to symbols that are defined elsewhere
-  collectReferences(tree.rootNode, relativePath, definedNames, tags);
+  collectReferences(tree.rootNode, relativePath, definedNames, tags, languageName);
 
   tree.delete();
   parser.delete();
@@ -335,87 +623,107 @@ export async function parseFile(filePath: string, relativePath: string): Promise
 }
 
 /**
+ * Find the last identifier in a node's children (for Java import declarations).
+ */
+function findLastIdentifier(node: TSNode): string | null {
+  let last: string | null = null;
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i)!;
+    if (child.type === 'identifier') {
+      last = child.text;
+    }
+    // Java scoped identifiers: com.example.ClassName
+    if (child.type === 'scoped_identifier') {
+      const nameChild = child.childForFieldName('name');
+      if (nameChild) last = nameChild.text;
+    }
+  }
+  return last;
+}
+
+// ---------------------------------------------------------------------------
+// Reference collection
+// ---------------------------------------------------------------------------
+
+/**
  * Collect reference identifiers from the AST.
- * We look for type_identifier and identifier nodes in specific contexts
- * that indicate cross-file references.
+ * Looks for type references, call expressions, and constructor invocations.
  */
 function collectReferences(
   rootNode: TSNode,
   relativePath: string,
   localNames: Set<string>,
   tags: Tag[],
+  languageName: string,
 ): void {
   const seenRefs = new Set<string>();
 
+  function addRef(name: string, line: number): void {
+    if (name.length > 1 && !seenRefs.has(name)) {
+      seenRefs.add(name);
+      tags.push({ name, kind: 'ref', line, file: relativePath, type: 'identifier' });
+    }
+  }
+
   function walk(node: TSNode): void {
-    // Type references (e.g., `: MyType`, `<MyType>`, `implements MyInterface`)
+    // Type references (TS/JS/Java/C/C++: type_identifier)
     if (node.type === 'type_identifier') {
-      const name = node.text;
-      if (name.length > 1 && !seenRefs.has(name)) {
-        seenRefs.add(name);
-        tags.push({
-          name,
-          kind: 'ref',
-          line: node.startPosition.row + 1,
-          file: relativePath,
-          type: 'identifier',
-        });
-      }
+      addRef(node.text, node.startPosition.row + 1);
     }
 
-    // Call expressions: the function being called
+    // Call expressions (TS/JS/C/C++)
     if (node.type === 'call_expression') {
       const fn = node.childForFieldName('function');
       if (fn) {
-        // Direct calls: foo()
         if (fn.type === 'identifier') {
-          const name = fn.text;
-          if (name.length > 1 && !seenRefs.has(name) && !localNames.has(name)) {
-            seenRefs.add(name);
-            tags.push({
-              name,
-              kind: 'ref',
-              line: fn.startPosition.row + 1,
-              file: relativePath,
-              type: 'identifier',
-            });
-          }
+          if (!localNames.has(fn.text)) addRef(fn.text, fn.startPosition.row + 1);
         }
-        // Member calls: obj.method() — capture the object
-        if (fn.type === 'member_expression') {
-          const obj = fn.childForFieldName('object');
-          if (obj && obj.type === 'identifier') {
-            const name = obj.text;
-            if (name.length > 1 && !seenRefs.has(name) && !localNames.has(name)) {
-              seenRefs.add(name);
-              tags.push({
-                name,
-                kind: 'ref',
-                line: obj.startPosition.row + 1,
-                file: relativePath,
-                type: 'identifier',
-              });
-            }
+        if (fn.type === 'member_expression' || fn.type === 'field_expression') {
+          const obj = fn.childForFieldName('object') ?? fn.childForFieldName('argument');
+          if (obj && obj.type === 'identifier' && !localNames.has(obj.text)) {
+            addRef(obj.text, obj.startPosition.row + 1);
           }
         }
       }
     }
 
-    // new expressions: new Foo()
+    // Python calls
+    if (node.type === 'call') {
+      const fn = node.childForFieldName('function');
+      if (fn) {
+        if (fn.type === 'identifier' && !localNames.has(fn.text)) {
+          addRef(fn.text, fn.startPosition.row + 1);
+        }
+        if (fn.type === 'attribute') {
+          const obj = fn.childForFieldName('object');
+          if (obj && obj.type === 'identifier' && !localNames.has(obj.text)) {
+            addRef(obj.text, obj.startPosition.row + 1);
+          }
+        }
+      }
+    }
+
+    // Java: method invocations
+    if (node.type === 'method_invocation') {
+      const obj = node.childForFieldName('object');
+      if (obj && obj.type === 'identifier' && !localNames.has(obj.text)) {
+        addRef(obj.text, obj.startPosition.row + 1);
+      }
+    }
+
+    // Java: object creation (new ClassName())
+    if (node.type === 'object_creation_expression') {
+      const typeNode = node.childForFieldName('type');
+      if (typeNode && typeNode.type === 'type_identifier') {
+        addRef(typeNode.text, typeNode.startPosition.row + 1);
+      }
+    }
+
+    // TS/JS/C++: new expressions
     if (node.type === 'new_expression') {
       const constructor = node.childForFieldName('constructor');
       if (constructor && constructor.type === 'identifier') {
-        const name = constructor.text;
-        if (name.length > 1 && !seenRefs.has(name)) {
-          seenRefs.add(name);
-          tags.push({
-            name,
-            kind: 'ref',
-            line: constructor.startPosition.row + 1,
-            file: relativePath,
-            type: 'identifier',
-          });
-        }
+        addRef(constructor.text, constructor.startPosition.row + 1);
       }
     }
 
@@ -427,6 +735,10 @@ function collectReferences(
 
   walk(rootNode);
 }
+
+// ---------------------------------------------------------------------------
+// Public utilities
+// ---------------------------------------------------------------------------
 
 /**
  * Get the language name for a file extension.

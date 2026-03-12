@@ -7,8 +7,19 @@
 import { readdirSync, statSync, readFileSync, existsSync } from 'fs';
 import { join, relative, extname } from 'path';
 
-/** Supported language extensions for Phase 1a (TypeScript + JavaScript). */
-const SUPPORTED_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs']);
+/** Supported language extensions. */
+const SUPPORTED_EXTENSIONS = new Set([
+  // TypeScript / JavaScript
+  '.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs',
+  // Python
+  '.py', '.pyi',
+  // Java
+  '.java',
+  // C
+  '.c', '.h',
+  // C++
+  '.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx',
+]);
 
 /** Directories always skipped regardless of gitignore. */
 const ALWAYS_SKIP = new Set([
