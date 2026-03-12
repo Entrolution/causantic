@@ -52,6 +52,7 @@ import { resolveCanonicalProjectPath } from '../utils/project-path.js';
 import { generateIndexEntriesForChunks } from './index-entry-hook.js';
 import { extractSessionState } from './session-state.js';
 import { upsertSessionState } from '../storage/session-state-store.js';
+import { loadConfig, toRuntimeConfig } from '../config/loader.js';
 
 const log = createLogger('ingest-session');
 
@@ -234,11 +235,16 @@ export async function ingestSession(
     });
   }
 
-  // Set up embedding — single embedder, sequential inference
-  const embedder = options.embedder ?? new Embedder();
-  const needsDispose = !options.embedder;
+  // Determine whether to embed chunks during ingestion
+  const runtimeConfig = toRuntimeConfig(loadConfig());
+  const shouldEmbed = runtimeConfig.embeddingEager;
+
+  // Set up embedding — single embedder, sequential inference (only when eager)
+  const embedder = shouldEmbed ? (options.embedder ?? new Embedder()) : null;
+  const needsDispose = shouldEmbed && !options.embedder;
 
   const embedAllFn = async (texts: string[]): Promise<number[][]> => {
+    if (!embedder) return texts.map(() => []);
     const results: number[][] = [];
     for (const t of texts) {
       const r = await embedder.embed(t, false);
@@ -253,7 +259,10 @@ export async function ingestSession(
 
   try {
     // Load model if using a local embedder (pool workers load their own)
-    if (embedder && (!embedder.currentModel || embedder.currentModel.id !== embeddingModel)) {
+    if (
+      embedder &&
+      (!embedder.currentModel || embedder.currentModel.id !== embeddingModel)
+    ) {
       await embedder.load(getModel(embeddingModel), { device: embeddingDevice });
     }
 
@@ -315,6 +324,7 @@ export async function ingestSession(
             embedAllFn,
             embeddingModel,
             useEmbeddingCache,
+            shouldEmbed,
           );
           if (!result) continue;
 
@@ -354,23 +364,25 @@ export async function ingestSession(
             }));
             const subChunkIds = insertChunks(subChunkInputs);
 
-            // Embed
-            const {
-              embeddings: subEmbeddings,
-              cacheHits: ch,
-              cacheMisses: cm,
-            } = await embedChunksWithCache(
-              subChunks,
-              embedAllFn,
-              embeddingModel,
-              useEmbeddingCache,
-            );
-            totalCacheHits += ch;
-            totalCacheMisses += cm;
+            // Embed (only when eager embedding is enabled)
+            if (shouldEmbed) {
+              const {
+                embeddings: subEmbeddings,
+                cacheHits: ch,
+                cacheMisses: cm,
+              } = await embedChunksWithCache(
+                subChunks,
+                embedAllFn,
+                embeddingModel,
+                useEmbeddingCache,
+              );
+              totalCacheHits += ch;
+              totalCacheMisses += cm;
 
-            await vectorStore.insertBatch(
-              subChunkIds.map((id, i) => ({ id, embedding: subEmbeddings[i] })),
-            );
+              await vectorStore.insertBatch(
+                subChunkIds.map((id, i) => ({ id, embedding: subEmbeddings[i] })),
+              );
+            }
 
             // Create within-chain edges
             const subTransitions = detectCausalTransitions(subChunks);
@@ -412,6 +424,7 @@ export async function ingestSession(
           fileMtime,
           subAgentData,
           team: { topology, agentData: teamAgentData },
+          shouldEmbed,
         });
 
         totalChunkCount += mainResult?.chunkCount ?? 0;
@@ -452,6 +465,7 @@ export async function ingestSession(
           embedAllFn,
           embeddingModel,
           useEmbeddingCache,
+          shouldEmbed,
         );
         if (!result) continue;
 
@@ -481,6 +495,7 @@ export async function ingestSession(
       fileMtime,
       subAgentData,
       team: null,
+      shouldEmbed,
     });
 
     totalChunkCount += mainResult?.chunkCount ?? 0;
@@ -536,6 +551,8 @@ interface MainSessionParams {
     topology: TeamTopology;
     agentData: Map<string, { turns: Turn[]; chunks: ChunkInput[] }>;
   } | null;
+  /** Whether to embed chunks and store vectors. Default: true for backward compat. */
+  shouldEmbed?: boolean;
 }
 
 /** Result from processMainSession. */
@@ -573,6 +590,7 @@ async function processMainSession(params: MainSessionParams): Promise<MainSessio
     fileMtime,
     subAgentData,
     team,
+    shouldEmbed = true,
   } = params;
 
   // Chunk main session (only new turns)
@@ -594,31 +612,39 @@ async function processMainSession(params: MainSessionParams): Promise<MainSessio
   }));
   const mainChunkIds = insertChunks(mainChunkInputs);
 
-  // Embed main chunks
-  const {
-    embeddings: mainEmbeddings,
-    cacheHits,
-    cacheMisses,
-  } = await embedChunksWithCache(mainChunks, embedAllFn, embeddingModel, useEmbeddingCache);
+  // Embed main chunks (only when eager embedding is enabled)
+  let cacheHits = 0;
+  let cacheMisses = 0;
 
-  await vectorStore.insertBatch(
-    mainChunkIds.map((id, i) => ({ id, embedding: mainEmbeddings[i] })),
-  );
+  if (shouldEmbed) {
+    const embedResult = await embedChunksWithCache(
+      mainChunks,
+      embedAllFn,
+      embeddingModel,
+      useEmbeddingCache,
+    );
+    cacheHits = embedResult.cacheHits;
+    cacheMisses = embedResult.cacheMisses;
 
-  // Generate semantic index entries for the new chunks
-  await generateIndexEntriesForChunks(
-    mainChunks.map((c, i) => ({
-      id: mainChunkIds[i],
-      sessionSlug: projectSlug,
-      startTime: c.metadata.startTime,
-      content: c.text,
-      approxTokens: c.metadata.approxTokens,
-    })),
-    projectSlug,
-    mainEmbeddings,
-    mainChunkIds,
-    embeddingModel,
-  );
+    await vectorStore.insertBatch(
+      mainChunkIds.map((id, i) => ({ id, embedding: embedResult.embeddings[i] })),
+    );
+
+    // Generate semantic index entries for the new chunks
+    await generateIndexEntriesForChunks(
+      mainChunks.map((c, i) => ({
+        id: mainChunkIds[i],
+        sessionSlug: projectSlug,
+        startTime: c.metadata.startTime,
+        content: c.text,
+        approxTokens: c.metadata.approxTokens,
+      })),
+      projectSlug,
+      embedResult.embeddings,
+      mainChunkIds,
+      embeddingModel,
+    );
+  }
 
   // Create main intra-session edges
   const mainTransitions = detectCausalTransitions(mainChunks);
@@ -723,6 +749,7 @@ async function processSubAgent(
   embedAllFn: (texts: string[]) => Promise<number[][]>,
   embeddingModel: string,
   useEmbeddingCache: boolean,
+  shouldEmbed = true,
 ): Promise<{
   turns: Turn[];
   chunks: Chunk[];
@@ -748,13 +775,23 @@ async function processSubAgent(
   const subChunkInputs = subChunks.map((chunk) => ({ ...chunkToInput(chunk), projectPath }));
   const subChunkIds = insertChunks(subChunkInputs);
 
-  const {
-    embeddings: subEmbeddings,
-    cacheHits,
-    cacheMisses,
-  } = await embedChunksWithCache(subChunks, embedAllFn, embeddingModel, useEmbeddingCache);
+  let cacheHits = 0;
+  let cacheMisses = 0;
 
-  await vectorStore.insertBatch(subChunkIds.map((id, i) => ({ id, embedding: subEmbeddings[i] })));
+  if (shouldEmbed) {
+    const embedResult = await embedChunksWithCache(
+      subChunks,
+      embedAllFn,
+      embeddingModel,
+      useEmbeddingCache,
+    );
+    cacheHits = embedResult.cacheHits;
+    cacheMisses = embedResult.cacheMisses;
+
+    await vectorStore.insertBatch(
+      subChunkIds.map((id, i) => ({ id, embedding: embedResult.embeddings[i] })),
+    );
+  }
 
   const subTransitions = detectCausalTransitions(subChunks);
   const subEdgeResult = await createEdgesFromTransitions(subTransitions, subChunkIds);
