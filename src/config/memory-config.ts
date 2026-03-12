@@ -198,7 +198,7 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   repomap: {
     enabled: true,
     maxTokens: 1024,
-    languages: ['typescript', 'javascript', 'python', 'java', 'c', 'cpp'],
+    languages: ['typescript', 'javascript', 'python', 'java', 'c', 'cpp', 'rust', 'go', 'ruby', 'c-sharp', 'php', 'bash'],
   },
 };
 

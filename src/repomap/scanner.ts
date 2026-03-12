@@ -19,6 +19,18 @@ const SUPPORTED_EXTENSIONS = new Set([
   '.c', '.h',
   // C++
   '.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx',
+  // Rust
+  '.rs',
+  // Go
+  '.go',
+  // Ruby
+  '.rb',
+  // C#
+  '.cs',
+  // PHP
+  '.php',
+  // Bash / Shell
+  '.sh', '.bash',
 ]);
 
 /** Directories always skipped regardless of gitignore. */

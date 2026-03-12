@@ -238,6 +238,215 @@ void process(geometry::Shape* shape) {
 }
 `,
     );
+
+    // Rust fixture
+    writeFileSync(
+      join(FIXTURES_DIR, 'sample.rs'),
+      `
+use std::collections::HashMap;
+use crate::module::{Foo, Bar};
+
+pub struct Point {
+    x: f64,
+    y: f64,
+}
+
+pub enum Color {
+    Red,
+    Green,
+    Blue,
+}
+
+pub trait Drawable {
+    fn draw(&self);
+}
+
+impl Drawable for Point {
+    fn draw(&self) {}
+}
+
+pub fn calculate(a: i32, b: i32) -> i32 {
+    a + b
+}
+
+type Callback = fn(i32) -> bool;
+
+pub const MAX_SIZE: usize = 100;
+
+pub static GLOBAL: &str = "hello";
+
+mod inner {
+    pub struct Inner;
+}
+
+macro_rules! my_macro {
+    () => {};
+}
+`,
+    );
+
+    // Go fixture
+    writeFileSync(
+      join(FIXTURES_DIR, 'sample.go'),
+      `
+package main
+
+import (
+    "fmt"
+    "strings"
+)
+
+type Point struct {
+    X float64
+    Y float64
+}
+
+type Shape interface {
+    Area() float64
+}
+
+type Color int
+
+const MaxSize = 100
+
+var GlobalState = make(map[string]int)
+
+func (p Point) Area() float64 {
+    return 0.0
+}
+
+func Calculate(a, b int) int {
+    return a + b
+}
+
+func main() {
+    fmt.Println("hello")
+}
+
+type Callback func(int) bool
+`,
+    );
+
+    // Ruby fixture
+    writeFileSync(
+      join(FIXTURES_DIR, 'sample.rb'),
+      `
+require 'json'
+
+module MyModule
+  class MyClass < Base
+    def initialize(name)
+      @name = name
+    end
+    def greet
+      puts "Hello"
+    end
+    def self.create(name)
+      new(name)
+    end
+  end
+end
+
+def standalone_function(x)
+  x * 2
+end
+
+class AnotherClass
+end
+`,
+    );
+
+    // C# fixture
+    writeFileSync(
+      join(FIXTURES_DIR, 'sample.cs'),
+      `
+using System;
+using System.Collections.Generic;
+
+namespace MyApp {
+    public class MyClass : Base {
+        public string Name { get; set; }
+        public MyClass(string name) { Name = name; }
+        public void Greet() { Console.WriteLine(Name); }
+    }
+
+    public interface IDrawable {
+        void Draw();
+    }
+
+    public struct Point {
+        public double X;
+        public double Y;
+    }
+
+    public enum Color { Red, Green, Blue }
+
+    public delegate void Callback(int value);
+}
+`,
+    );
+
+    // PHP fixture
+    writeFileSync(
+      join(FIXTURES_DIR, 'sample.php'),
+      `<?php
+namespace App\\Models;
+
+use App\\Base\\Model;
+
+class User extends Model {
+    public function getName(): string {
+        return "";
+    }
+    public static function create(): self {
+        return new self();
+    }
+}
+
+interface Repository {
+    public function find(int $id): ?Model;
+}
+
+trait HasTimestamps {
+    public function getCreatedAt() {
+        return null;
+    }
+}
+
+enum Color: string {
+    case Red = 'red';
+    case Blue = 'blue';
+}
+
+function helper(int $x): int {
+    return $x * 2;
+}
+`,
+    );
+
+    // Bash fixture
+    writeFileSync(
+      join(FIXTURES_DIR, 'sample.sh'),
+      `#!/bin/bash
+
+source ./helpers.sh
+
+function setup_env() {
+    export PATH="/usr/local/bin:$PATH"
+}
+
+cleanup() {
+    rm -rf "$TEMP_DIR"
+}
+
+main() {
+    setup_env
+    cleanup
+}
+
+main "$@"
+`,
+    );
   });
 
   afterAll(() => {
@@ -471,10 +680,219 @@ void process(geometry::Shape* shape) {
     expect(fnDefs.some((d) => d.name === 'process')).toBe(true);
   });
 
+  // --- Rust tests ---
+
+  it('extracts struct definitions from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const classDefs = tags.filter((t) => t.kind === 'def' && t.type === 'class');
+    expect(classDefs.some((d) => d.name === 'Point')).toBe(true);
+  });
+
+  it('extracts enum definitions from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const enums = tags.filter((t) => t.kind === 'def' && t.type === 'enum');
+    expect(enums.some((d) => d.name === 'Color')).toBe(true);
+  });
+
+  it('extracts trait definitions from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const traits = tags.filter((t) => t.kind === 'def' && t.type === 'interface');
+    expect(traits.some((d) => d.name === 'Drawable')).toBe(true);
+  });
+
+  it('extracts function definitions from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const fns = tags.filter((t) => t.kind === 'def' && t.type === 'function');
+    expect(fns.some((d) => d.name === 'calculate')).toBe(true);
+  });
+
+  it('extracts type alias definitions from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const types = tags.filter((t) => t.kind === 'def' && t.type === 'type');
+    expect(types.some((d) => d.name === 'Callback')).toBe(true);
+  });
+
+  it('extracts const and static from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const vars = tags.filter((t) => t.kind === 'def' && t.type === 'variable');
+    expect(vars.some((d) => d.name === 'MAX_SIZE')).toBe(true);
+    expect(vars.some((d) => d.name === 'GLOBAL')).toBe(true);
+  });
+
+  it('extracts mod definitions from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const mods = tags.filter((t) => t.kind === 'def' && t.name === 'inner');
+    expect(mods.length).toBeGreaterThan(0);
+  });
+
+  it('extracts macro definitions from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const macros = tags.filter((t) => t.kind === 'def' && t.name === 'my_macro');
+    expect(macros.length).toBeGreaterThan(0);
+  });
+
+  it('extracts use imports from Rust', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rs'), 'sample.rs');
+    const imports = tags.filter((t) => t.kind === 'ref' && t.type === 'import');
+    expect(imports.some((d) => d.name === 'HashMap')).toBe(true);
+    expect(imports.some((d) => d.name === 'Foo')).toBe(true);
+    expect(imports.some((d) => d.name === 'Bar')).toBe(true);
+  });
+
+  // --- Go tests ---
+
+  it('extracts struct type definitions from Go', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.go'), 'sample.go');
+    const classDefs = tags.filter((t) => t.kind === 'def' && t.type === 'class');
+    expect(classDefs.some((d) => d.name === 'Point')).toBe(true);
+  });
+
+  it('extracts interface type definitions from Go', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.go'), 'sample.go');
+    const ifaces = tags.filter((t) => t.kind === 'def' && t.type === 'interface');
+    expect(ifaces.some((d) => d.name === 'Shape')).toBe(true);
+  });
+
+  it('extracts type alias definitions from Go', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.go'), 'sample.go');
+    const types = tags.filter((t) => t.kind === 'def' && t.type === 'type');
+    expect(types.some((d) => d.name === 'Color')).toBe(true);
+    expect(types.some((d) => d.name === 'Callback')).toBe(true);
+  });
+
+  it('extracts function declarations from Go', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.go'), 'sample.go');
+    const fns = tags.filter((t) => t.kind === 'def' && t.type === 'function');
+    expect(fns.some((d) => d.name === 'Calculate')).toBe(true);
+    expect(fns.some((d) => d.name === 'main')).toBe(true);
+  });
+
+  it('extracts method declarations from Go', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.go'), 'sample.go');
+    const methods = tags.filter((t) => t.kind === 'def' && t.type === 'method');
+    expect(methods.some((d) => d.name === 'Area')).toBe(true);
+  });
+
+  it('extracts const/var from Go', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.go'), 'sample.go');
+    const vars = tags.filter((t) => t.kind === 'def' && t.type === 'variable');
+    expect(vars.some((d) => d.name === 'MaxSize')).toBe(true);
+    expect(vars.some((d) => d.name === 'GlobalState')).toBe(true);
+  });
+
+  it('extracts import references from Go', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.go'), 'sample.go');
+    const imports = tags.filter((t) => t.kind === 'ref' && t.type === 'import');
+    expect(imports.some((d) => d.name === 'fmt')).toBe(true);
+    expect(imports.some((d) => d.name === 'strings')).toBe(true);
+  });
+
+  // --- Ruby tests ---
+
+  it('extracts class definitions from Ruby', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rb'), 'sample.rb');
+    const classDefs = tags.filter((t) => t.kind === 'def' && t.type === 'class');
+    expect(classDefs.some((d) => d.name === 'MyClass')).toBe(true);
+    expect(classDefs.some((d) => d.name === 'AnotherClass')).toBe(true);
+    expect(classDefs.some((d) => d.name === 'MyModule')).toBe(true);
+  });
+
+  it('extracts method definitions from Ruby', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.rb'), 'sample.rb');
+    const methods = tags.filter((t) => t.kind === 'def' && t.type === 'method');
+    expect(methods.some((d) => d.name === 'initialize')).toBe(true);
+    expect(methods.some((d) => d.name === 'greet')).toBe(true);
+    expect(methods.some((d) => d.name === 'standalone_function')).toBe(true);
+  });
+
+  // --- C# tests ---
+
+  it('extracts class definitions from C#', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.cs'), 'sample.cs');
+    const classDefs = tags.filter((t) => t.kind === 'def' && t.type === 'class');
+    expect(classDefs.some((d) => d.name === 'MyClass')).toBe(true);
+    expect(classDefs.some((d) => d.name === 'Point')).toBe(true);
+    expect(classDefs.some((d) => d.name === 'MyApp')).toBe(true);
+  });
+
+  it('extracts interface definitions from C#', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.cs'), 'sample.cs');
+    const ifaces = tags.filter((t) => t.kind === 'def' && t.type === 'interface');
+    expect(ifaces.some((d) => d.name === 'IDrawable')).toBe(true);
+  });
+
+  it('extracts enum definitions from C#', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.cs'), 'sample.cs');
+    const enums = tags.filter((t) => t.kind === 'def' && t.type === 'enum');
+    expect(enums.some((d) => d.name === 'Color')).toBe(true);
+  });
+
+  it('extracts method definitions from C#', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.cs'), 'sample.cs');
+    const methods = tags.filter((t) => t.kind === 'def' && t.type === 'method');
+    expect(methods.some((d) => d.name === 'Greet')).toBe(true);
+  });
+
+  it('extracts delegate definitions from C#', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.cs'), 'sample.cs');
+    const types = tags.filter((t) => t.kind === 'def' && t.type === 'type');
+    expect(types.some((d) => d.name === 'Callback')).toBe(true);
+  });
+
+  it('extracts using imports from C#', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.cs'), 'sample.cs');
+    const imports = tags.filter((t) => t.kind === 'ref' && t.type === 'import');
+    expect(imports.some((d) => d.name === 'System')).toBe(true);
+    expect(imports.some((d) => d.name === 'Generic')).toBe(true);
+  });
+
+  // --- PHP tests ---
+
+  it('extracts class definitions from PHP', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.php'), 'sample.php');
+    const classDefs = tags.filter((t) => t.kind === 'def' && t.type === 'class');
+    expect(classDefs.some((d) => d.name === 'User')).toBe(true);
+    expect(classDefs.some((d) => d.name === 'HasTimestamps')).toBe(true);
+  });
+
+  it('extracts interface definitions from PHP', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.php'), 'sample.php');
+    const ifaces = tags.filter((t) => t.kind === 'def' && t.type === 'interface');
+    expect(ifaces.some((d) => d.name === 'Repository')).toBe(true);
+  });
+
+  it('extracts enum definitions from PHP', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.php'), 'sample.php');
+    const enums = tags.filter((t) => t.kind === 'def' && t.type === 'enum');
+    expect(enums.some((d) => d.name === 'Color')).toBe(true);
+  });
+
+  it('extracts function definitions from PHP', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.php'), 'sample.php');
+    const fns = tags.filter((t) => t.kind === 'def' && t.type === 'function');
+    expect(fns.some((d) => d.name === 'helper')).toBe(true);
+  });
+
+  it('extracts use imports from PHP', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.php'), 'sample.php');
+    const imports = tags.filter((t) => t.kind === 'ref' && t.type === 'import');
+    expect(imports.some((d) => d.name === 'Model')).toBe(true);
+  });
+
+  // --- Bash tests ---
+
+  it('extracts function definitions from Bash', async () => {
+    const tags = await parseFile(join(FIXTURES_DIR, 'sample.sh'), 'sample.sh');
+    const fns = tags.filter((t) => t.kind === 'def' && t.type === 'function');
+    expect(fns.some((d) => d.name === 'setup_env')).toBe(true);
+    expect(fns.some((d) => d.name === 'cleanup')).toBe(true);
+    expect(fns.some((d) => d.name === 'main')).toBe(true);
+  });
+
   // --- Common edge cases ---
 
   it('returns empty array for truly unsupported extensions', async () => {
-    const tags = await parseFile('/fake/path.rs', 'path.rs');
+    const tags = await parseFile('/fake/path.zig', 'path.zig');
     expect(tags).toEqual([]);
   });
 
@@ -520,10 +938,35 @@ describe('isSupportedExtension', () => {
     expect(isSupportedExtension('.hxx')).toBe(true);
   });
 
+  it('recognizes Rust', () => {
+    expect(isSupportedExtension('.rs')).toBe(true);
+  });
+
+  it('recognizes Go', () => {
+    expect(isSupportedExtension('.go')).toBe(true);
+  });
+
+  it('recognizes Ruby', () => {
+    expect(isSupportedExtension('.rb')).toBe(true);
+  });
+
+  it('recognizes C#', () => {
+    expect(isSupportedExtension('.cs')).toBe(true);
+  });
+
+  it('recognizes PHP', () => {
+    expect(isSupportedExtension('.php')).toBe(true);
+  });
+
+  it('recognizes Bash', () => {
+    expect(isSupportedExtension('.sh')).toBe(true);
+    expect(isSupportedExtension('.bash')).toBe(true);
+  });
+
   it('rejects unsupported extensions', () => {
-    expect(isSupportedExtension('.rs')).toBe(false);
-    expect(isSupportedExtension('.go')).toBe(false);
-    expect(isSupportedExtension('.rb')).toBe(false);
+    expect(isSupportedExtension('.zig')).toBe(false);
+    expect(isSupportedExtension('.swift')).toBe(false);
+    expect(isSupportedExtension('.scala')).toBe(false);
   });
 });
 
@@ -554,7 +997,32 @@ describe('getLanguageForExtension', () => {
     expect(getLanguageForExtension('.hpp')).toBe('cpp');
   });
 
+  it('maps Rust extensions', () => {
+    expect(getLanguageForExtension('.rs')).toBe('rust');
+  });
+
+  it('maps Go extensions', () => {
+    expect(getLanguageForExtension('.go')).toBe('go');
+  });
+
+  it('maps Ruby extensions', () => {
+    expect(getLanguageForExtension('.rb')).toBe('ruby');
+  });
+
+  it('maps C# extensions', () => {
+    expect(getLanguageForExtension('.cs')).toBe('c-sharp');
+  });
+
+  it('maps PHP extensions', () => {
+    expect(getLanguageForExtension('.php')).toBe('php');
+  });
+
+  it('maps Bash extensions', () => {
+    expect(getLanguageForExtension('.sh')).toBe('bash');
+    expect(getLanguageForExtension('.bash')).toBe('bash');
+  });
+
   it('returns undefined for unsupported', () => {
-    expect(getLanguageForExtension('.rs')).toBeUndefined();
+    expect(getLanguageForExtension('.zig')).toBeUndefined();
   });
 });

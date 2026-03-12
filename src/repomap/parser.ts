@@ -5,7 +5,8 @@
  * - Definitions: classes, functions, methods, interfaces, type aliases, exports
  * - References: imports, identifiers used in code
  *
- * Supported languages: TypeScript, JavaScript, Python, Java, C, C++.
+ * Supported languages: TypeScript, JavaScript, Python, Java, C, C++,
+ * Rust, Go, Ruby, C#, PHP, Bash.
  */
 
 import { readFileSync } from 'fs';
@@ -63,6 +64,19 @@ const EXTENSION_TO_LANGUAGE: Record<string, string> = {
   '.hpp': 'cpp',
   '.hh': 'cpp',
   '.hxx': 'cpp',
+  // Rust
+  '.rs': 'rust',
+  // Go
+  '.go': 'go',
+  // Ruby
+  '.rb': 'ruby',
+  // C#
+  '.cs': 'c-sharp',
+  // PHP
+  '.php': 'php',
+  // Bash / Shell
+  '.sh': 'bash',
+  '.bash': 'bash',
 };
 
 // Lazy-loaded tree-sitter module and languages
@@ -175,6 +189,64 @@ const DEFINITION_TYPES_CPP = new Set([
   'preproc_function_def',
 ]);
 
+/** Rust definition types. */
+const DEFINITION_TYPES_RUST = new Set([
+  'struct_item',
+  'enum_item',
+  'trait_item',
+  'impl_item',
+  'function_item',
+  'type_item',
+  'const_item',
+  'static_item',
+  'mod_item',
+  'macro_definition',
+]);
+
+/** Go definition types. */
+const DEFINITION_TYPES_GO = new Set([
+  'type_declaration',
+  'function_declaration',
+  'method_declaration',
+  'const_declaration',
+  'var_declaration',
+]);
+
+/** Ruby definition types. */
+const DEFINITION_TYPES_RUBY = new Set([
+  'class',
+  'module',
+  'method',
+  'singleton_method',
+]);
+
+/** C# definition types. */
+const DEFINITION_TYPES_CSHARP = new Set([
+  'class_declaration',
+  'interface_declaration',
+  'struct_declaration',
+  'enum_declaration',
+  'method_declaration',
+  'constructor_declaration',
+  'namespace_declaration',
+  'delegate_declaration',
+]);
+
+/** PHP definition types. */
+const DEFINITION_TYPES_PHP = new Set([
+  'class_declaration',
+  'interface_declaration',
+  'trait_declaration',
+  'enum_declaration',
+  'function_definition',
+  'method_declaration',
+]);
+
+/** Bash definition types. */
+const DEFINITION_TYPES_BASH = new Set([
+  'function_definition',
+]);
+
 /** Lookup definition types by language. */
 const DEFINITION_TYPES_BY_LANGUAGE: Record<string, Set<string>> = {
   typescript: DEFINITION_TYPES_TS,
@@ -183,16 +255,12 @@ const DEFINITION_TYPES_BY_LANGUAGE: Record<string, Set<string>> = {
   python: DEFINITION_TYPES_PYTHON,
   java: DEFINITION_TYPES_JAVA,
   cpp: DEFINITION_TYPES_CPP,
-};
-
-/** Import node types by language (for reference extraction). */
-const IMPORT_TYPES_BY_LANGUAGE: Record<string, Set<string>> = {
-  typescript: new Set(['import_specifier']),
-  tsx: new Set(['import_specifier']),
-  javascript: new Set(['import_specifier']),
-  python: new Set(['dotted_name', 'aliased_import']),
-  java: new Set(['import_declaration']),
-  cpp: new Set(),
+  rust: DEFINITION_TYPES_RUST,
+  go: DEFINITION_TYPES_GO,
+  ruby: DEFINITION_TYPES_RUBY,
+  'c-sharp': DEFINITION_TYPES_CSHARP,
+  php: DEFINITION_TYPES_PHP,
+  bash: DEFINITION_TYPES_BASH,
 };
 
 // ---------------------------------------------------------------------------
@@ -272,6 +340,45 @@ function extractDefinitionName(node: TSNode, languageName: string): string | nul
   if (node.type === 'constructor_declaration') {
     const ctorName = node.childForFieldName('name');
     if (ctorName) return ctorName.text;
+  }
+
+  // Go: type_declaration wraps type_spec — extract name from the inner spec
+  if (node.type === 'type_declaration') {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i)!;
+      if (child.type === 'type_spec') {
+        const specName = child.childForFieldName('name');
+        if (specName) return specName.text;
+      }
+    }
+  }
+
+  // Go: const_declaration / var_declaration — extract from const_spec / var_spec
+  if (node.type === 'const_declaration' || node.type === 'var_declaration') {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i)!;
+      if (child.type === 'const_spec' || child.type === 'var_spec') {
+        const specName = child.childForFieldName('name');
+        if (specName) return specName.text;
+        // Fallback: first identifier child
+        for (let j = 0; j < child.childCount; j++) {
+          const grandchild = child.child(j)!;
+          if (grandchild.type === 'identifier') return grandchild.text;
+        }
+      }
+    }
+  }
+
+  // Ruby: class/module — name field is a constant node
+  if (node.type === 'class' || node.type === 'module') {
+    const n = node.childForFieldName('name');
+    if (n) return n.text;
+  }
+
+  // Bash: function_definition — name field is a word node
+  if (node.type === 'function_definition') {
+    const n = node.childForFieldName('name');
+    if (n) return n.text;
   }
 
   return null;
@@ -362,6 +469,58 @@ function getDefinitionType(nodeType: string): Tag['type'] {
       return 'class';
     case 'preproc_function_def':
       return 'function';
+
+    // Rust
+    case 'struct_item':
+      return 'class';
+    case 'enum_item':
+      return 'enum';
+    case 'trait_item':
+      return 'interface';
+    case 'impl_item':
+      return 'class';
+    case 'function_item':
+      return 'function';
+    case 'type_item':
+      return 'type';
+    case 'const_item':
+    case 'static_item':
+      return 'variable';
+    case 'mod_item':
+      return 'class';
+    case 'macro_definition':
+      return 'function';
+
+    // Go (function_declaration, method_declaration, enum_declaration shared with TS/Java)
+    case 'type_declaration':
+      return 'type'; // refined in visitNode for struct/interface
+    case 'const_declaration':
+    case 'var_declaration':
+      return 'variable';
+
+    // Ruby
+    case 'class':
+      return 'class';
+    case 'module':
+      return 'class';
+    case 'method':
+    case 'singleton_method':
+      return 'method';
+
+    // C#
+    case 'struct_declaration':
+      return 'class';
+    case 'delegate_declaration':
+      return 'type';
+    case 'namespace_declaration':
+      return 'class';
+
+    // PHP
+    case 'trait_declaration':
+      return 'class';
+
+    // Bash
+    // function_definition already handled by C/C++ case above
 
     default:
       return 'variable';
@@ -542,6 +701,35 @@ export async function parseFile(filePath: string, relativePath: string): Promise
         return;
       }
 
+      // Go: type_declaration — refine type based on inner type_spec
+      if (node.type === 'type_declaration') {
+        const name = extractDefinitionName(node, languageName);
+        if (name && name.length > 1) {
+          let defType: Tag['type'] = 'type';
+          for (let i = 0; i < node.childCount; i++) {
+            const child = node.child(i)!;
+            if (child.type === 'type_spec') {
+              const typeField = child.childForFieldName('type');
+              if (typeField) {
+                if (typeField.type === 'struct_type') defType = 'class';
+                else if (typeField.type === 'interface_type') defType = 'interface';
+              }
+              break;
+            }
+          }
+          tags.push({ name, kind: 'def', line: node.startPosition.row + 1, file: relativePath, type: defType });
+          definedNames.add(name);
+        }
+        return;
+      }
+
+      // Rust: impl_item — extract trait and type names for references
+      if (node.type === 'impl_item') {
+        // Don't add impl as a definition (it's not a named symbol)
+        // but extract type references from it
+        return;
+      }
+
       const name = extractDefinitionName(node, languageName);
       if (name && name.length > 1) {
         tags.push({
@@ -602,6 +790,29 @@ export async function parseFile(filePath: string, relativePath: string): Promise
       }
     }
 
+    // Extract import references (Rust)
+    if (languageName === 'rust' && node.type === 'use_declaration') {
+      collectRustUseIdentifiers(node, relativePath, tags);
+    }
+
+    // Extract import references (Go)
+    if (languageName === 'go' && node.type === 'import_declaration') {
+      collectGoImportIdentifiers(node, relativePath, tags);
+    }
+
+    // Extract import references (C#)
+    if (languageName === 'c-sharp' && node.type === 'using_directive') {
+      const lastId = findLastNameInTree(node);
+      if (lastId && lastId.length > 1) {
+        tags.push({ name: lastId, kind: 'ref', line: node.startPosition.row + 1, file: relativePath, type: 'import' });
+      }
+    }
+
+    // Extract import references (PHP)
+    if (languageName === 'php' && node.type === 'namespace_use_declaration') {
+      collectPhpUseIdentifiers(node, relativePath, tags);
+    }
+
     // Recurse into children
     if (cursor.gotoFirstChild()) {
       do {
@@ -639,6 +850,126 @@ function findLastIdentifier(node: TSNode): string | null {
     }
   }
   return last;
+}
+
+/**
+ * Find the deepest last identifier in a node tree (for C# qualified_name chains).
+ */
+function findLastNameInTree(node: TSNode): string | null {
+  let last: string | null = null;
+  function walk(n: TSNode): void {
+    if (n.type === 'identifier') last = n.text;
+    for (let i = 0; i < n.childCount; i++) walk(n.child(i)!);
+  }
+  walk(node);
+  return last;
+}
+
+/**
+ * Collect identifiers from a Rust use declaration.
+ * Handles: use crate::module::{Foo, Bar}; use std::collections::HashMap;
+ */
+function collectRustUseIdentifiers(node: TSNode, relativePath: string, tags: Tag[]): void {
+  function walk(n: TSNode): void {
+    if (n.type === 'identifier' || n.type === 'type_identifier') {
+      const name = n.text;
+      if (name.length > 1) {
+        tags.push({ name, kind: 'ref', line: n.startPosition.row + 1, file: relativePath, type: 'import' });
+      }
+    }
+    if (n.type === 'use_list' || n.type === 'scoped_use_list' || n.type === 'scoped_identifier') {
+      for (let i = 0; i < n.childCount; i++) walk(n.child(i)!);
+    }
+  }
+  // Walk children but only the last identifier in a path is the import name
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i)!;
+    if (child.type === 'scoped_identifier') {
+      // use std::collections::HashMap → only HashMap
+      let deepest: TSNode = child;
+      while (deepest.childForFieldName('name')) {
+        const next = deepest.childForFieldName('name')!;
+        if (next.type === 'scoped_identifier') { deepest = next; continue; }
+        if (next.text.length > 1) {
+          tags.push({ name: next.text, kind: 'ref', line: next.startPosition.row + 1, file: relativePath, type: 'import' });
+        }
+        break;
+      }
+    }
+    if (child.type === 'scoped_use_list') {
+      // use crate::module::{Foo, Bar}
+      for (let j = 0; j < child.childCount; j++) {
+        const listChild = child.child(j)!;
+        if (listChild.type === 'use_list') {
+          for (let k = 0; k < listChild.childCount; k++) {
+            const item = listChild.child(k)!;
+            if (item.type === 'identifier' && item.text.length > 1) {
+              tags.push({ name: item.text, kind: 'ref', line: item.startPosition.row + 1, file: relativePath, type: 'import' });
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Collect imported package names from a Go import declaration.
+ * Go imports are strings like "fmt" — extract the last path component.
+ */
+function collectGoImportIdentifiers(node: TSNode, relativePath: string, tags: Tag[]): void {
+  function extractFromSpec(spec: TSNode): void {
+    for (let i = 0; i < spec.childCount; i++) {
+      const child = spec.child(i)!;
+      if (child.type === 'interpreted_string_literal') {
+        // Extract last path component: "github.com/pkg/errors" → "errors"
+        const content = child.text.replace(/"/g, '');
+        const parts = content.split('/');
+        const name = parts[parts.length - 1];
+        if (name && name.length > 1) {
+          tags.push({ name, kind: 'ref', line: child.startPosition.row + 1, file: relativePath, type: 'import' });
+        }
+      }
+    }
+  }
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i)!;
+    if (child.type === 'import_spec') extractFromSpec(child);
+    if (child.type === 'import_spec_list') {
+      for (let j = 0; j < child.childCount; j++) {
+        const spec = child.child(j)!;
+        if (spec.type === 'import_spec') extractFromSpec(spec);
+      }
+    }
+  }
+}
+
+/**
+ * Collect class/interface names from a PHP use declaration.
+ * use App\Base\Model → "Model"
+ */
+function collectPhpUseIdentifiers(node: TSNode, relativePath: string, tags: Tag[]): void {
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i)!;
+    if (child.type === 'namespace_use_clause') {
+      // Get the last name in the qualified_name
+      for (let j = 0; j < child.childCount; j++) {
+        const qn = child.child(j)!;
+        if (qn.type === 'qualified_name') {
+          // Last name child is the class name
+          let lastName: string | null = null;
+          let lastLine = 0;
+          for (let k = 0; k < qn.childCount; k++) {
+            const part = qn.child(k)!;
+            if (part.type === 'name') { lastName = part.text; lastLine = part.startPosition.row + 1; }
+          }
+          if (lastName && lastName.length > 1) {
+            tags.push({ name: lastName, kind: 'ref', line: lastLine, file: relativePath, type: 'import' });
+          }
+        }
+      }
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -724,6 +1055,38 @@ function collectReferences(
       const constructor = node.childForFieldName('constructor');
       if (constructor && constructor.type === 'identifier') {
         addRef(constructor.text, constructor.startPosition.row + 1);
+      }
+    }
+
+    // Rust: macro invocations (macro_name!)
+    if (node.type === 'macro_invocation') {
+      const macroNode = node.childForFieldName('macro');
+      if (macroNode && macroNode.type === 'identifier' && !localNames.has(macroNode.text)) {
+        addRef(macroNode.text, macroNode.startPosition.row + 1);
+      }
+    }
+
+    // Go: composite literals (Point{...})
+    if (node.type === 'composite_literal') {
+      const typeNode = node.childForFieldName('type');
+      if (typeNode && typeNode.type === 'type_identifier' && !localNames.has(typeNode.text)) {
+        addRef(typeNode.text, typeNode.startPosition.row + 1);
+      }
+    }
+
+    // Go: selector expressions (pkg.Function)
+    if (node.type === 'selector_expression') {
+      const operand = node.childForFieldName('operand');
+      if (operand && operand.type === 'identifier' && !localNames.has(operand.text)) {
+        addRef(operand.text, operand.startPosition.row + 1);
+      }
+    }
+
+    // C#: object_creation_expression (new ClassName())
+    if (node.type === 'object_creation_expression' && languageName === 'c-sharp') {
+      const typeNode = node.childForFieldName('type');
+      if (typeNode && typeNode.type === 'identifier') {
+        addRef(typeNode.text, typeNode.startPosition.row + 1);
       }
     }
 
