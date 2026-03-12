@@ -11,7 +11,6 @@ import { getChunksByIds } from '../storage/chunk-store.js';
 import {
   getUnindexedChunkIds,
   insertIndexEntries,
-  getIndexEntryCount,
   getIndexedChunkCount,
 } from '../storage/index-entry-store.js';
 import { getChunkCount } from '../storage/chunk-store.js';

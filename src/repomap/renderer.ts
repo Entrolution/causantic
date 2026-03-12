@@ -5,7 +5,6 @@
  * and key definitions with structural context.
  */
 
-import type { Tag } from './parser.js';
 import type { DependencyGraph, FileNode } from './graph.js';
 import { approximateTokens } from '../utils/token-counter.js';
 

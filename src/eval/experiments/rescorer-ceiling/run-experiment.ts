@@ -220,7 +220,7 @@ async function runAnalysis() {
   console.log(`how many would fit within the ${maxTokens}-token budget?\n`);
 
   for (const k of kValues) {
-    const { ranks, misses } = resultsByK.get(k)!;
+    const { ranks: _ranks, misses: _misses } = resultsByK.get(k)!;
     const total = queries.length;
 
     // Every found chunk would be promoted to position 1 by a perfect re-scorer

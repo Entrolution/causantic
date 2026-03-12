@@ -881,17 +881,6 @@ function findLastNameInTree(node: TSNode): string | null {
  * Handles: use crate::module::{Foo, Bar}; use std::collections::HashMap;
  */
 function collectRustUseIdentifiers(node: TSNode, relativePath: string, tags: Tag[]): void {
-  function walk(n: TSNode): void {
-    if (n.type === 'identifier' || n.type === 'type_identifier') {
-      const name = n.text;
-      if (name.length > 1) {
-        tags.push({ name, kind: 'ref', line: n.startPosition.row + 1, file: relativePath, type: 'import' });
-      }
-    }
-    if (n.type === 'use_list' || n.type === 'scoped_use_list' || n.type === 'scoped_identifier') {
-      for (let i = 0; i < n.childCount; i++) walk(n.child(i)!);
-    }
-  }
   // Walk children but only the last identifier in a path is the import name
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i)!;

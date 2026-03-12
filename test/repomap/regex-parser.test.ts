@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { parseFileRegex, isRegexSupportedExtension, getRegexLanguageForExtension } from '../../src/repomap/regex-parser.js';
+import { isRegexSupportedExtension, getRegexLanguageForExtension } from '../../src/repomap/regex-parser.js';
 import { parseFile, isSupportedExtension, getLanguageForExtension } from '../../src/repomap/parser.js';
 import { join } from 'path';
 import { writeFileSync, mkdirSync, rmSync } from 'fs';

@@ -24,7 +24,7 @@ import { searchSessionSummaries } from '../storage/session-state-store.js';
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
 import { formatDateRange, formatChunkPreview, buildChunkMap, getMemoryStats } from './services.js';
 import { errorMessage } from '../utils/errors.js';
-import { buildRepoMap, findSymbol } from '../repomap/index.js';
+import { buildRepoMap } from '../repomap/index.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 import type { SearchResponse } from '../retrieval/search-assembler.js';
 import type { DependencyGraph } from '../repomap/index.js';
@@ -473,7 +473,7 @@ export const reconstructTool: ToolDefinition = {
               maxTokens: Math.min(config.repomap.maxTokens, Math.floor(maxTokens * 0.4)),
             });
             repoMapText = result.text;
-            cachedRepoMapGraph = result.graph;
+            _cachedRepoMapGraph = result.graph;
           } catch {
             // Non-critical — briefing works without repo map
           }
@@ -742,7 +742,8 @@ export const forgetTool: ToolDefinition = {
 /**
  * Cache for repo map graphs to enable symbol lookup in search.
  */
-let cachedRepoMapGraph: DependencyGraph | null = null;
+// Reserved for future symbol lookup in search
+let _cachedRepoMapGraph: DependencyGraph | null = null;
 
 /**
  * Repo map tool: structural codebase summary.
@@ -792,7 +793,7 @@ export const repomapTool: ToolDefinition = {
       });
 
       // Cache the graph for symbol lookup in search
-      cachedRepoMapGraph = result.graph;
+      _cachedRepoMapGraph = result.graph;
 
       const header = `Repo map: ${result.fileCount} files, ${result.definitionCount} definitions, ${result.edgeCount} cross-file references (${Math.round(result.durationMs)}ms, ${result.parsedCount} re-parsed)\n\n`;
       return header + result.text;

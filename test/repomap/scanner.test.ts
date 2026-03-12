@@ -4,7 +4,6 @@
 
 import { describe, it, expect } from 'vitest';
 import { scanProject } from '../../src/repomap/scanner.js';
-import { join } from 'path';
 
 const PROJECT_ROOT = process.cwd();
 

@@ -67,10 +67,6 @@ import { angularDistance } from '../utils/angular-distance.js';
 import type { VectorSearchResult } from './types.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
 import { getModel } from '../models/model-registry.js';
-import { createLogger } from '../utils/logger.js';
-
-const vectorStoreLog = createLogger('vector-store');
-
 /**
  * In-memory vector index backed by SQLite for persistence.
  *

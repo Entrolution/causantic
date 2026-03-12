@@ -33,7 +33,6 @@ import { fuseRRF, type RankedItem } from '../../../retrieval/rrf.js';
 import { expandViaClusters } from '../../../retrieval/cluster-expander.js';
 import { reorderWithMMR } from '../../../retrieval/mmr.js';
 import { walkChains, selectBestChain } from '../../../retrieval/chain-walker.js';
-import { approximateTokens } from '../../../utils/token-counter.js';
 import { generateSearchQueries, type ChunkForQueryGen } from '../index-vs-chunk/query-generator.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────

@@ -15,11 +15,11 @@
  * @packageDocumentation
  */
 
-import { scanProject, type ScanOptions, type ScannedFile } from './scanner.js';
+import { scanProject, type ScanOptions } from './scanner.js';
 import { parseFile, type Tag } from './parser.js';
 import { buildGraph, type DependencyGraph } from './graph.js';
-import { renderMap, renderMinimalSummary, type RenderOptions } from './renderer.js';
-import { getProjectCache, type TagCache } from './cache.js';
+import { renderMap, type RenderOptions } from './renderer.js';
+import { getProjectCache } from './cache.js';
 
 export type { Tag } from './parser.js';
 export type { DependencyGraph, FileNode, FileEdge } from './graph.js';

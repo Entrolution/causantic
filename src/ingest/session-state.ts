@@ -94,7 +94,7 @@ function extractOutcomes(command: string): string[] {
 /**
  * Extract a brief resolution from assistant text blocks following an error.
  */
-function extractResolution(turn: Turn, exchangeIndex: number): string | undefined {
+function extractResolution(turn: Turn, _exchangeIndex: number): string | undefined {
   // Look at text blocks in the same turn after this tool exchange
   // The assistant's response after an error typically addresses it
   const textBlocks = turn.assistantBlocks.filter((b) => b.type === 'text');
