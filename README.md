@@ -74,7 +74,7 @@ All data stays on your machine. Optional per-chunk encryption (ChaCha20-Poly1305
 BM25 keyword search (FTS5) is the default retrieval method — fast, precise, and excellent for function names, error codes, and specific terms. Vector search is available as optional enrichment for semantic similarity. Both can fuse via Reciprocal Rank Fusion (RRF) when hybrid mode is enabled.
 
 **3. Structural Repo Map**
-Tree-sitter-powered codebase analysis extracts definitions, references, and cross-file relationships. Produces a compact structural summary (~1K tokens) ranked by importance. Gives Claude Code instant orientation without reading individual files.
+Codebase analysis extracts definitions, references, and cross-file relationships. Produces a compact structural summary (~1K tokens) ranked by importance. Gives Claude Code instant orientation without reading individual files. **22 languages**: 12 via tree-sitter (TS, JS, Python, Java, C, C++, Rust, Go, Ruby, C#, PHP, Bash) and 10 via regex fallback (Scala, Kotlin, Swift, Haskell, Lua, Dart, Zig, Elixir, Perl, R).
 
 **4. Session Continuity**
 Structured session state capture (files touched, errors, outcomes, tasks, LLM summary) enables instant resumption. The `reconstruct` tool's briefing mode combines session state with the repo map for a complete startup context.

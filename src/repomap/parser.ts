@@ -6,13 +6,20 @@
  * - References: imports, identifiers used in code
  *
  * Supported languages: TypeScript, JavaScript, Python, Java, C, C++,
- * Rust, Go, Ruby, C#, PHP, Bash.
+ * Rust, Go, Ruby, C#, PHP, Bash (tree-sitter).
+ * Fallback regex parsing: Scala, Kotlin, Swift, Haskell, Lua, Dart,
+ * Zig, Elixir, Perl, R.
  */
 
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import type { Node as TSNode, Language as TSLanguage, Tree as TSTree } from 'web-tree-sitter';
+import {
+  parseFileRegex,
+  isRegexSupportedExtension,
+  getRegexLanguageForExtension,
+} from './regex-parser.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -575,7 +582,11 @@ function isInterestingVariable(node: TSNode): boolean {
 export async function parseFile(filePath: string, relativePath: string): Promise<Tag[]> {
   const ext = filePath.slice(filePath.lastIndexOf('.'));
   const languageName = EXTENSION_TO_LANGUAGE[ext];
-  if (!languageName) return [];
+
+  // Fall back to regex parser for languages without tree-sitter grammars
+  if (!languageName) {
+    return parseFileRegex(filePath, relativePath);
+  }
 
   const defTypes = DEFINITION_TYPES_BY_LANGUAGE[languageName];
   if (!defTypes) return [];
@@ -1105,14 +1116,15 @@ function collectReferences(
 
 /**
  * Get the language name for a file extension.
+ * Checks tree-sitter languages first, then regex-based fallback languages.
  */
 export function getLanguageForExtension(ext: string): string | undefined {
-  return EXTENSION_TO_LANGUAGE[ext];
+  return EXTENSION_TO_LANGUAGE[ext] ?? getRegexLanguageForExtension(ext);
 }
 
 /**
- * Check if a file extension is supported.
+ * Check if a file extension is supported (tree-sitter or regex fallback).
  */
 export function isSupportedExtension(ext: string): boolean {
-  return ext in EXTENSION_TO_LANGUAGE;
+  return ext in EXTENSION_TO_LANGUAGE || isRegexSupportedExtension(ext);
 }

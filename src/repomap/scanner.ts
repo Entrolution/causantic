@@ -31,6 +31,17 @@ const SUPPORTED_EXTENSIONS = new Set([
   '.php',
   // Bash / Shell
   '.sh', '.bash',
+  // Regex-parsed languages (no tree-sitter WASM)
+  '.scala', '.sc',
+  '.kt', '.kts',
+  '.swift',
+  '.hs', '.lhs',
+  '.lua',
+  '.dart',
+  '.zig',
+  '.ex', '.exs',
+  '.pl', '.pm',
+  '.r', '.R',
 ]);
 
 /** Directories always skipped regardless of gitignore. */

@@ -964,9 +964,9 @@ describe('isSupportedExtension', () => {
   });
 
   it('rejects unsupported extensions', () => {
-    expect(isSupportedExtension('.zig')).toBe(false);
-    expect(isSupportedExtension('.swift')).toBe(false);
-    expect(isSupportedExtension('.scala')).toBe(false);
+    expect(isSupportedExtension('.txt')).toBe(false);
+    expect(isSupportedExtension('.md')).toBe(false);
+    expect(isSupportedExtension('.json')).toBe(false);
   });
 });
 
@@ -1023,6 +1023,6 @@ describe('getLanguageForExtension', () => {
   });
 
   it('returns undefined for unsupported', () => {
-    expect(getLanguageForExtension('.zig')).toBeUndefined();
+    expect(getLanguageForExtension('.txt')).toBeUndefined();
   });
 });

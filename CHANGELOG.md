@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Structural repo map** (`src/repomap/`): Tree-sitter-powered codebase analysis that extracts definitions, references, and cross-file relationships. Produces a compact structural summary (~1K tokens) ranked by importance. New `repomap` MCP tool provides on-demand orientation. Supports TypeScript and JavaScript; cached per-file by mtime for fast incremental updates (<100ms). 10 MCP tools total (was 9).
+- **Structural repo map** (`src/repomap/`): Tree-sitter-powered codebase analysis that extracts definitions, references, and cross-file relationships. Produces a compact structural summary (~1K tokens) ranked by importance. New `repomap` MCP tool provides on-demand orientation. **22 languages supported**: 12 via tree-sitter (TypeScript, JavaScript, Python, Java, C, C++, Rust, Go, Ruby, C#, PHP, Bash) and 10 via regex fallback (Scala, Kotlin, Swift, Haskell, Lua, Dart, Zig, Elixir, Perl, R). Cached per-file by mtime for fast incremental updates (<100ms). 10 MCP tools total (was 9).
 - **Session state capture** (`src/ingest/session-state.ts`): Structured extraction of files touched, errors, outcomes, tasks, and optional LLM summary during ingestion. Stored in new `session_states` table (migration v15).
 - **Briefing mode for `reconstruct`**: New `mode: "briefing"` combines session state (files, outcomes, tasks) with the structural repo map for a complete startup context (~2K tokens).
 - **Summary-augmented recall**: The `recall` tool now searches session summaries by keyword before chain walking. Matching summaries appear as supplementary context alongside chain results, improving answers to "why did we choose X?" queries.
@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
-- 2199 tests passing.
+- 2327 tests passing.
 
 ## [0.9.4] - 2026-03-04
 

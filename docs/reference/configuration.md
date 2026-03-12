@@ -89,7 +89,7 @@ Controls the semantic index layer, which generates normalised index entries for 
 
 | Property                  | Type      | Default | Description                                                       |
 | ------------------------- | --------- | ------- | ----------------------------------------------------------------- |
-| `enabled`                 | `boolean` | `true`  | Enable semantic index generation during ingestion                 |
+| `enabled`                 | `boolean` | `false` | Enable semantic index generation during ingestion                 |
 | `targetDescriptionTokens` | `integer` | `130`   | Target token count for generated descriptions (50-500)            |
 | `batchRefreshLimit`       | `integer` | `500`   | Maximum entries to backfill per maintenance run                   |
 | `useForSearch`            | `boolean` | `true`  | Use index entries for search when available (falls back to chunk search if no entries exist) |
@@ -209,6 +209,22 @@ Controls the maintenance schedule.
 | ------------- | --------- | ------- | ----------------------------------------------------------------------- |
 | `clusterHour` | `integer` | `2`     | Hour of day (0-23) to run reclustering. Cleanup tasks run 1-1.5h after. |
 
+## Repo Map Settings
+
+### `repomap`
+
+Controls the structural codebase map.
+
+| Property    | Type       | Default                                                | Description                                                                 |
+| ----------- | ---------- | ------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `enabled`   | `boolean`  | `true`                                                 | Enable repo map generation                                                  |
+| `maxTokens` | `integer`  | `1024`                                                 | Maximum tokens for the repo map output (256-8192)                           |
+| `languages` | `string[]` | 22 languages (see below)                               | Supported language identifiers for parsing                                  |
+
+**Default languages**: `typescript`, `javascript`, `python`, `java`, `c`, `cpp`, `rust`, `go`, `ruby`, `c-sharp`, `php`, `bash`, `scala`, `kotlin`, `swift`, `haskell`, `lua`, `dart`, `zig`, `elixir`, `perl`, `r`.
+
+The first 12 languages use tree-sitter AST parsing for accurate definition/reference extraction. The remaining 10 use regex-based line matching as a fallback — less precise but covers the majority of definitions.
+
 ## LLM Settings
 
 ### `llm`
@@ -251,8 +267,13 @@ All settings can be overridden via environment variables:
 | `maintenance.clusterHour`            | `CAUSANTIC_MAINTENANCE_CLUSTER_HOUR`              |
 | `retrieval.mmrLambda`                | `CAUSANTIC_RETRIEVAL_MMR_LAMBDA`                  |
 | `retrieval.feedbackWeight`           | `CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT`             |
+| `retrieval.primary`                  | `CAUSANTIC_RETRIEVAL_PRIMARY`                     |
+| `retrieval.vectorEnrichment`         | `CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT`           |
+| `embedding.eager`                    | `CAUSANTIC_EMBEDDING_EAGER`                       |
 | `semanticIndex.enabled`             | `CAUSANTIC_SEMANTIC_INDEX_ENABLED`                |
 | `semanticIndex.useForSearch`        | `CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH`         |
+| `repomap.enabled`                    | `CAUSANTIC_REPOMAP_ENABLED`                       |
+| `repomap.maxTokens`                  | `CAUSANTIC_REPOMAP_MAX_TOKENS`                    |
 
 ## Example Configurations
 
