@@ -100,6 +100,17 @@ export interface MemoryConfig {
     /** Use index entries for search when available. Default: true. */
     useForSearch: boolean;
   };
+
+  // Repo map
+  /** Configuration for the structural repo map */
+  repomap: {
+    /** Enable repo map generation. Default: true. */
+    enabled: boolean;
+    /** Maximum tokens for the repo map output. Default: 1024. */
+    maxTokens: number;
+    /** Supported language extensions. Default: TS/JS only. */
+    languages: string[];
+  };
 }
 
 /**
@@ -168,6 +179,13 @@ export const DEFAULT_CONFIG: MemoryConfig = {
     targetDescriptionTokens: 130,
     batchRefreshLimit: 500,
     useForSearch: true,
+  },
+
+  // Repo map
+  repomap: {
+    enabled: true,
+    maxTokens: 1024,
+    languages: ['typescript', 'javascript'],
   },
 };
 

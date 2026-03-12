@@ -19,8 +19,10 @@ import { reconstructSession, formatReconstruction } from '../retrieval/session-r
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
 import { formatDateRange, formatChunkPreview, buildChunkMap, getMemoryStats } from './services.js';
 import { errorMessage } from '../utils/errors.js';
+import { buildRepoMap, findSymbol } from '../repomap/index.js';
 import type { RetrievalResponse } from '../retrieval/context-assembler.js';
 import type { SearchResponse } from '../retrieval/search-assembler.js';
+import type { DependencyGraph } from '../repomap/index.js';
 
 /**
  * Tool definition for MCP.
@@ -682,6 +684,69 @@ export const forgetTool: ToolDefinition = {
 };
 
 /**
+ * Cache for repo map graphs to enable symbol lookup in search.
+ */
+let cachedRepoMapGraph: DependencyGraph | null = null;
+
+/**
+ * Repo map tool: structural codebase summary.
+ */
+export const repomapTool: ToolDefinition = {
+  name: 'repomap',
+  description:
+    'Get a compact structural summary of a project — files, definitions, and cross-file relationships. Shows what is defined where without reading individual files. Use at session start for orientation, or on-demand when you need to locate symbols.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      project: {
+        type: 'string',
+        description:
+          'Absolute path to the project root directory. Defaults to the current working directory if omitted.',
+      },
+      focus_files: {
+        type: 'string',
+        description:
+          'Comma-separated list of relative file paths to boost to the top of the output.',
+      },
+      max_tokens: {
+        type: 'number',
+        description: 'Maximum tokens in response. Default: 1024.',
+      },
+    },
+    required: [],
+  },
+  handler: async (args) => {
+    const config = getConfig();
+
+    if (!config.repomap.enabled) {
+      return 'Repo map is disabled in configuration.';
+    }
+
+    const projectPath = (args.project as string | undefined) ?? process.cwd();
+    const maxTokens = (args.max_tokens as number | undefined) ?? config.repomap.maxTokens;
+    const focusFilesRaw = args.focus_files as string | undefined;
+    const focusFiles = focusFilesRaw
+      ? focusFilesRaw.split(',').map((f) => f.trim())
+      : undefined;
+
+    try {
+      const result = await buildRepoMap(projectPath, {
+        maxTokens,
+        focusFiles,
+      });
+
+      // Cache the graph for symbol lookup in search
+      cachedRepoMapGraph = result.graph;
+
+      const header = `Repo map: ${result.fileCount} files, ${result.definitionCount} definitions, ${result.edgeCount} cross-file references (${Math.round(result.durationMs)}ms, ${result.parsedCount} re-parsed)\n\n`;
+      return header + result.text;
+    } catch (error) {
+      return `Error building repo map: ${errorMessage(error)}`;
+    }
+  },
+};
+
+/**
  * All available tools.
  */
 export const tools: ToolDefinition[] = [
@@ -694,6 +759,7 @@ export const tools: ToolDefinition[] = [
   hookStatusTool,
   statsTool,
   forgetTool,
+  repomapTool,
 ];
 
 /**

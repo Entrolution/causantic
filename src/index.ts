@@ -29,6 +29,9 @@ export * from './clusters/index.js';
 // Semantic Index
 export * from './index-entries/index.js';
 
+// Repo Map
+export * from './repomap/index.js';
+
 // Maintenance
 export * from './maintenance/index.js';
 
