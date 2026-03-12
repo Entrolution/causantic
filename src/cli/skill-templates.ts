@@ -57,8 +57,9 @@ Pass these to the \`recall\` MCP tool:
 
 - **Always pass the \`project\` parameter** scoped to the current project (derive from the working directory) unless the user explicitly asks for cross-project results
 - \`recall\` walks causal chains to reconstruct narrative — use it when you need the story of how something happened
+- \`recall\` also searches session summaries — if matching summaries are found, they appear as supplementary context before the chain walk results
 - \`recall\` is semantic, NOT time-ordered — it returns whatever matches best regardless of recency
-- \`search\` ranks results by semantic relevance — use it for broad discovery ("what do I know about X?")
+- \`search\` uses keyword-first (BM25) retrieval by default — good for exact matches on function names, error codes, etc.
 - For temporal queries ("recently", "last session", "yesterday"), always use \`reconstruct\` or \`resume\`
 `,
   },
@@ -100,7 +101,8 @@ Pass these to the \`search\` MCP tool:
 ## Guidelines
 
 - **Always pass the \`project\` parameter** scoped to the current project (derive from the working directory) unless the user explicitly asks for cross-project results
-- Returns ranked results by semantic relevance (vector + keyword fusion)
+- By default, search uses **keyword-first (BM25)** retrieval — great for exact matches on function names, error codes, and specific terms
+- Optional vector enrichment can be enabled in config for semantic similarity matching
 - Use \`search\` for discovery, \`recall\` for narrative reconstruction
 - Combine with \`/causantic-recall\` when you need causal chain context (how things led to outcomes)
 `,
@@ -170,21 +172,22 @@ Reconstruct context from the most recent session(s) to help the user pick up whe
 ## Workflow
 
 1. **Identify the project**: Derive from the current working directory (use \`list-projects\` if ambiguous)
-2. **Reconstruct the last session**: Use \`reconstruct\` with \`previous_session: true\` to get the most recent session before this one
-3. **Summarize for the user**:
+2. **Get a structured briefing**: Use \`reconstruct\` with \`mode: "briefing"\` for a structured summary combining session state (files touched, outcomes, tasks) with a structural repo map
+3. **If briefing mode is unavailable or more detail is needed**: Fall back to \`reconstruct\` with \`previous_session: true\` to get the most recent session before this one
+4. **Summarize for the user**:
    - What was being worked on (key topics/tasks)
    - What was completed vs in progress
    - Any explicit next steps or TODOs mentioned
    - Any open issues or blockers
-4. **If the user provided a topic**: Also run \`recall\` with that topic scoped to the project
+5. **If the user provided a topic**: Also run \`recall\` with that topic scoped to the project
 
 ## Interpreting User Intent
 
 | User says | Action |
 |-----------|--------|
-| (nothing) | \`reconstruct\` with \`previous_session: true\` |
+| (nothing) | \`reconstruct\` with \`mode: "briefing"\` (preferred) or \`previous_session: true\` |
 | "yesterday" / "last week" | \`reconstruct\` with appropriate \`days_back\` |
-| a topic name | \`reconstruct\` last session + \`recall\` with that topic |
+| a topic name | \`reconstruct\` with \`mode: "briefing"\` + \`recall\` with that topic |
 
 ## Output Format
 
@@ -1480,7 +1483,7 @@ Long-term memory is available via the \`causantic\` MCP server.
 - \`/causantic-predict <context>\` — Surface what came after similar past situations — walks forward through causal chains (what's likely relevant next?)
 
 **Session navigation:**
-- \`/causantic-resume\` — Resume interrupted work — start-of-session briefing
+- \`/causantic-resume\` — Resume interrupted work — structured briefing with session state and repo map
 - \`/causantic-reconstruct [time range]\` — Replay a past session chronologically, or get recent history
 - \`/causantic-list-projects\` — Discover available projects
 

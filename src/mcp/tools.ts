@@ -20,6 +20,7 @@ import {
   formatReconstruction,
   buildBriefing,
 } from '../retrieval/session-reconstructor.js';
+import { searchSessionSummaries } from '../storage/session-state-store.js';
 import { readHookStatus, formatHookStatusMcp } from '../hooks/hook-status.js';
 import { formatDateRange, formatChunkPreview, buildChunkMap, getMemoryStats } from './services.js';
 import { errorMessage } from '../utils/errors.js';
@@ -81,7 +82,7 @@ function formatSearchResponse(response: SearchResponse): string {
 export const searchTool: ToolDefinition = {
   name: 'search',
   description:
-    'Search memory semantically to discover relevant past context. Returns ranked results by relevance. Use this for broad discovery — "what do I know about X?"',
+    'Search memory to discover relevant past context. Uses keyword-first (BM25) retrieval by default with optional vector enrichment. Returns ranked results by relevance. Use this for broad discovery — "what do I know about X?"',
   inputSchema: {
     type: 'object',
     properties: {
@@ -144,7 +145,7 @@ export const searchTool: ToolDefinition = {
 export const recallTool: ToolDefinition = {
   name: 'recall',
   description:
-    'Recall episodic memory — walk backward through causal chains to reconstruct narrative context. Use for "how did we solve the auth bug?" or "what led to this decision?" Returns ordered narrative (problem → solution).',
+    'Recall episodic memory — walk backward through causal chains to reconstruct narrative context. Also searches session summaries for supplementary context. Use for "how did we solve the auth bug?" or "what led to this decision?" Returns ordered narrative (problem → solution).',
   inputSchema: {
     type: 'object',
     properties: {
@@ -175,6 +176,24 @@ export const recallTool: ToolDefinition = {
     const config = getConfig();
     const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
 
+    // Search session summaries for supplementary context
+    let summarySection = '';
+    try {
+      const summaries = searchSessionSummaries(query, project);
+      if (summaries.length > 0) {
+        const lines = summaries.map((s) => {
+          const date = new Date(s.endedAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          });
+          return `- [${date}] ${s.summary}`;
+        });
+        summarySection = `**Session summaries matching "${query}":**\n${lines.join('\n')}\n\n---\n\n`;
+      }
+    } catch {
+      // Non-critical — proceed without summaries
+    }
+
     const response = await recall(query, {
       maxTokens,
       projectFilter: project,
@@ -195,7 +214,7 @@ export const recallTool: ToolDefinition = {
       }
     }
 
-    return result;
+    return summarySection + result;
   },
 };
 

@@ -13,6 +13,7 @@ import {
   deleteSessionState,
   deleteSessionStatesForProject,
   countSessionStates,
+  searchSessionSummaries,
 } from '../../src/storage/session-state-store.js';
 import type { SessionState } from '../../src/ingest/session-state.js';
 
@@ -169,5 +170,73 @@ describe('countSessionStates', () => {
 
     expect(countSessionStates('proj-a')).toBe(1);
     expect(countSessionStates('proj-b')).toBe(1);
+  });
+});
+
+describe('searchSessionSummaries', () => {
+  it('finds summaries matching query words', () => {
+    upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed authentication bug in login flow');
+    upsertSessionState('sess-2', 'proj', null, '2025-01-01T11:00:00Z', sampleState, 'Refactored database connection pooling');
+
+    const results = searchSessionSummaries('authentication login');
+    expect(results).toHaveLength(1);
+    expect(results[0].sessionId).toBe('sess-1');
+  });
+
+  it('returns empty for stop-word-only queries', () => {
+    upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed a bug');
+
+    const results = searchSessionSummaries('the and for');
+    expect(results).toHaveLength(0);
+  });
+
+  it('returns empty for short-word-only queries', () => {
+    const results = searchSessionSummaries('is at');
+    expect(results).toHaveLength(0);
+  });
+
+  it('filters by project', () => {
+    upsertSessionState('sess-1', 'proj-a', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed authentication');
+    upsertSessionState('sess-2', 'proj-b', null, '2025-01-01T11:00:00Z', sampleState, 'Fixed authentication');
+
+    const results = searchSessionSummaries('authentication', 'proj-a');
+    expect(results).toHaveLength(1);
+    expect(results[0].sessionId).toBe('sess-1');
+  });
+
+  it('skips sessions without summaries', () => {
+    upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState);
+    upsertSessionState('sess-2', 'proj', null, '2025-01-01T11:00:00Z', sampleState, 'Fixed authentication');
+
+    const results = searchSessionSummaries('authentication');
+    expect(results).toHaveLength(1);
+    expect(results[0].sessionId).toBe('sess-2');
+  });
+
+  it('is case insensitive', () => {
+    upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed AUTHENTICATION Bug');
+
+    const results = searchSessionSummaries('authentication');
+    expect(results).toHaveLength(1);
+  });
+
+  it('respects limit', () => {
+    for (let i = 0; i < 10; i++) {
+      upsertSessionState(`sess-${i}`, 'proj', null, `2025-01-01T${String(i + 10).padStart(2, '0')}:00:00Z`, sampleState, `Fixed authentication issue ${i}`);
+    }
+
+    const results = searchSessionSummaries('authentication', undefined, 3);
+    expect(results).toHaveLength(3);
+  });
+
+  it('returns newest first', () => {
+    upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed authentication early');
+    upsertSessionState('sess-2', 'proj', null, '2025-01-01T14:00:00Z', sampleState, 'Fixed authentication later');
+    upsertSessionState('sess-3', 'proj', null, '2025-01-01T12:00:00Z', sampleState, 'Fixed authentication middle');
+
+    const results = searchSessionSummaries('authentication');
+    expect(results[0].sessionId).toBe('sess-2');
+    expect(results[1].sessionId).toBe('sess-3');
+    expect(results[2].sessionId).toBe('sess-1');
   });
 });

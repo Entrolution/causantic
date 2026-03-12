@@ -145,6 +145,48 @@ export function deleteSessionStatesForProject(project: string): number {
   return result.changes;
 }
 
+/** Common stop words excluded from summary search queries. */
+const STOP_WORDS = new Set([
+  'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was', 'were',
+  'been', 'have', 'has', 'had', 'not', 'but', 'what', 'how', 'why', 'when',
+  'where', 'who', 'which', 'did', 'does', 'will', 'can', 'could', 'would',
+  'should', 'about', 'into', 'over', 'after', 'before',
+]);
+
+/**
+ * Search session summaries by keyword matching.
+ * Returns sessions whose summaries contain any of the significant query words.
+ */
+export function searchSessionSummaries(
+  query: string,
+  project?: string,
+  limit: number = 5,
+): StoredSessionState[] {
+  const db = getDb();
+
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 3)
+    .filter((w) => !STOP_WORDS.has(w));
+
+  if (words.length === 0) return [];
+
+  const likeClauses = words.map(() => 'LOWER(summary) LIKE ?');
+  const params: (string | number)[] = words.map((w) => `%${w}%`);
+
+  let sql = `SELECT * FROM session_states WHERE summary IS NOT NULL AND (${likeClauses.join(' OR ')})`;
+  if (project) {
+    sql += ' AND session_slug = ?';
+    params.push(project);
+  }
+  sql += ' ORDER BY ended_at DESC LIMIT ?';
+  params.push(limit);
+
+  const rows = db.prepare(sql).all(...params) as DbSessionStateRow[];
+  return rows.map(rowToSessionState);
+}
+
 /**
  * Count session states for a project.
  */
