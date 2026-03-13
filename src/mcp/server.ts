@@ -13,8 +13,7 @@
 import { createInterface } from 'readline';
 import { tools, getTool } from './tools.js';
 import { getDb, closeDb } from '../storage/db.js';
-import { initRuntimeConfig } from '../config/memory-config.js';
-import { loadConfig, toRuntimeConfig } from '../config/loader.js';
+import { bootstrap } from '../config/bootstrap.js';
 import { disposeRetrieval } from '../retrieval/context-assembler.js';
 import { getChunkCount } from '../storage/chunk-store.js';
 import { getEdgeCount } from '../storage/edge-store.js';
@@ -179,7 +178,7 @@ export class McpServer {
     this.startTime = Date.now();
 
     // Initialize config and database
-    initRuntimeConfig(toRuntimeConfig(loadConfig()));
+    bootstrap();
     getDb();
 
     this.log({ level: 'info', event: 'server_started' });

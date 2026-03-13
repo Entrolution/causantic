@@ -59,9 +59,8 @@ export function createApp() {
 
 export async function startDashboard(port: number): Promise<void> {
   // Ensure config and database are initialized before starting
-  const { initRuntimeConfig } = await import('../config/memory-config.js');
-  const { loadConfig, toRuntimeConfig } = await import('../config/loader.js');
-  initRuntimeConfig(toRuntimeConfig(loadConfig()));
+  const { bootstrap } = await import('../config/bootstrap.js');
+  bootstrap();
 
   const { getDb } = await import('../storage/db.js');
   getDb();

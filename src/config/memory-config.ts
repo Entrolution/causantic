@@ -241,6 +241,14 @@ export function initRuntimeConfig(config: MemoryConfig): void {
 }
 
 /**
+ * Reset the runtime config cache (test-only).
+ * Reverts getConfig() to returning DEFAULT_CONFIG.
+ */
+export function resetRuntimeConfig(): void {
+  _runtimeConfig = null;
+}
+
+/**
  * Get configuration with overrides applied.
  * Returns the cached runtime config (from initRuntimeConfig) if available,
  * otherwise falls back to DEFAULT_CONFIG.

@@ -104,9 +104,9 @@ export async function offerBatchIngest(): Promise<void> {
   const { discoverSessions, batchIngest } = await import('../../../ingest/batch-ingest.js');
   const { Embedder } = await import('../../../models/embedder.js');
   const { getModel } = await import('../../../models/model-registry.js');
-  const { loadConfig, toRuntimeConfig } = await import('../../../config/loader.js');
+  const { bootstrap } = await import('../../../config/bootstrap.js');
 
-  const runtimeConfig = toRuntimeConfig(loadConfig());
+  const runtimeConfig = bootstrap();
   const sharedEmbedder = new Embedder();
   await sharedEmbedder.load(getModel(runtimeConfig.embeddingModel), {
     device: detectedDevice.device,

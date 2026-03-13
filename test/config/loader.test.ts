@@ -461,6 +461,80 @@ describe('loadConfig', () => {
       // Non-numeric values are skipped, default is preserved
       expect(config.clustering.threshold).toBe(0.1);
     });
+
+    it('ignores empty string env var (keeps default)', () => {
+      process.env.CAUSANTIC_CLUSTERING_THRESHOLD = '';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      // Empty string produces NaN for float → skipped
+      expect(config.clustering.threshold).toBe(0.1);
+    });
+
+    it('ignores empty string for integer env var (keeps default)', () => {
+      process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE = '';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.clustering.minClusterSize).toBe(4);
+    });
+  });
+
+  describe('validation-guarded env overrides', () => {
+    it('rejects clusterHour = -1', () => {
+      const errors = validateExternalConfig({ maintenance: { clusterHour: -1 } });
+      expect(errors).toContain('maintenance.clusterHour must be between 0 and 23 (inclusive)');
+    });
+
+    it('rejects clusterHour = 24', () => {
+      const errors = validateExternalConfig({ maintenance: { clusterHour: 24 } });
+      expect(errors).toContain('maintenance.clusterHour must be between 0 and 23 (inclusive)');
+    });
+
+    it('accepts clusterHour = 0', () => {
+      expect(validateExternalConfig({ maintenance: { clusterHour: 0 } })).toEqual([]);
+    });
+
+    it('accepts clusterHour = 12', () => {
+      expect(validateExternalConfig({ maintenance: { clusterHour: 12 } })).toEqual([]);
+    });
+
+    it('accepts clusterHour = 23', () => {
+      expect(validateExternalConfig({ maintenance: { clusterHour: 23 } })).toEqual([]);
+    });
+
+    it('rejects halfLifeHours = 0', () => {
+      const errors = validateExternalConfig({ recency: { halfLifeHours: 0 } });
+      expect(errors).toContain('recency.halfLifeHours must be greater than 0');
+    });
+
+    it('rejects halfLifeHours = -1', () => {
+      const errors = validateExternalConfig({ recency: { halfLifeHours: -1 } });
+      expect(errors).toContain('recency.halfLifeHours must be greater than 0');
+    });
+
+    it('accepts halfLifeHours = 48', () => {
+      expect(validateExternalConfig({ recency: { halfLifeHours: 48 } })).toEqual([]);
+    });
+
+    it('rejects decayFactor = -0.1', () => {
+      const errors = validateExternalConfig({ recency: { decayFactor: -0.1 } });
+      expect(errors).toContain('recency.decayFactor must be >= 0');
+    });
+
+    it('accepts decayFactor = 0', () => {
+      expect(validateExternalConfig({ recency: { decayFactor: 0 } })).toEqual([]);
+    });
+
+    it('accepts decayFactor = 0.95', () => {
+      expect(validateExternalConfig({ recency: { decayFactor: 0.95 } })).toEqual([]);
+    });
   });
 
   describe('CLI overrides (highest priority)', () => {
