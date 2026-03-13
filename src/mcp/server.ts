@@ -13,6 +13,8 @@
 import { createInterface } from 'readline';
 import { tools, getTool } from './tools.js';
 import { getDb, closeDb } from '../storage/db.js';
+import { initRuntimeConfig } from '../config/memory-config.js';
+import { loadConfig, toRuntimeConfig } from '../config/loader.js';
 import { disposeRetrieval } from '../retrieval/context-assembler.js';
 import { getChunkCount } from '../storage/chunk-store.js';
 import { getEdgeCount } from '../storage/edge-store.js';
@@ -82,7 +84,7 @@ interface McpRequest {
  */
 interface McpResponse {
   jsonrpc: '2.0';
-  id: string | number;
+  id: string | number | null;
   result?: unknown;
   error?: {
     code: number;
@@ -113,7 +115,7 @@ interface HealthStatus {
  * Create a standardized error response.
  */
 function createErrorResponse(
-  id: string | number,
+  id: string | number | null,
   code: number,
   message: string,
   data?: unknown,
@@ -176,7 +178,8 @@ export class McpServer {
     this.running = true;
     this.startTime = Date.now();
 
-    // Initialize database
+    // Initialize config and database
+    initRuntimeConfig(toRuntimeConfig(loadConfig()));
     getDb();
 
     this.log({ level: 'info', event: 'server_started' });
@@ -229,7 +232,7 @@ export class McpServer {
       } catch (error) {
         this.errorCount++;
         const errorResponse = createErrorResponse(
-          0,
+          null,
           ErrorCodes.PARSE_ERROR,
           'Parse error',
           errorMessage(error),
@@ -326,11 +329,22 @@ export class McpServer {
         case 'tools/list':
           return this.handleToolsList(id);
 
-        case 'tools/call':
-          return await this.handleToolsCall(
-            id,
-            params as { name: string; arguments: Record<string, unknown> },
-          );
+        case 'tools/call': {
+          const toolParams = params as
+            | { name: string; arguments?: Record<string, unknown> }
+            | undefined;
+          if (!toolParams || typeof toolParams.name !== 'string') {
+            return createErrorResponse(
+              id,
+              ErrorCodes.INVALID_PARAMS,
+              'tools/call requires params.name',
+            );
+          }
+          return await this.handleToolsCall(id, {
+            name: toolParams.name,
+            arguments: toolParams.arguments ?? {},
+          });
+        }
 
         case 'ping':
           return this.handlePing(id);

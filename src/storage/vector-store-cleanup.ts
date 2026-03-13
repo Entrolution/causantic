@@ -12,7 +12,7 @@
  */
 
 import type Database from 'better-sqlite3-multiple-ciphers';
-import { sqlPlaceholders } from './db.js';
+import { sqlPlaceholders, isTableNotFoundError } from './db.js';
 
 /**
  * Remove vectors and all related data (chunks, clusters, index entries) by ID.
@@ -30,7 +30,7 @@ import { sqlPlaceholders } from './db.js';
  */
 export function removeVectorsAndRelated(
   db: Database.Database,
-  tableName: string,
+  tableName: 'vectors' | 'index_vectors',
   ids: string[],
 ): number {
   const placeholders = sqlPlaceholders(ids.length);
@@ -78,8 +78,8 @@ export function removeVectorsAndRelated(
         );
       }
     }
-  } catch {
-    // index_entry_chunks table may not exist yet
+  } catch (e) {
+    if (!isTableNotFoundError(e)) throw e;
   }
 
   return result.changes;
@@ -95,7 +95,7 @@ export function removeVectorsAndRelated(
  */
 export function findExpiredVectorIds(
   db: Database.Database,
-  tableName: string,
+  tableName: 'vectors' | 'index_vectors',
   ttlDays: number,
 ): string[] {
   const expiredRows = db
@@ -120,7 +120,7 @@ export function findExpiredVectorIds(
  */
 export function findOldestVectorIds(
   db: Database.Database,
-  tableName: string,
+  tableName: 'vectors' | 'index_vectors',
   overage: number,
 ): string[] {
   const toEvict = db

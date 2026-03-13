@@ -1009,8 +1009,8 @@ describe('computeMembershipHash', () => {
   it('handles empty membership', () => {
     const hash = computeMembershipHash([]);
     expect(typeof hash).toBe('string');
-    // Empty input produces empty base64 string
-    expect(hash).toBe('');
+    // SHA-256 of empty string produces a deterministic 16-char hex prefix
+    expect(hash.length).toBe(16);
   });
 
   it('handles single member', () => {

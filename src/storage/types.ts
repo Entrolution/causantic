@@ -33,6 +33,9 @@ export type EdgeType = 'backward' | 'forward';
  * | `brief` | 0.9 | Parent spawning sub-agent (× depth penalty) |
  * | `debrief` | 0.9 | Sub-agent returning to parent (× depth penalty) |
  * | `cross-session` | 0.7 | Session continuation |
+ * | `team-spawn` | 0.9 | Team orchestrator spawning a team member |
+ * | `team-report` | 0.9 | Team member reporting back to orchestrator |
+ * | `peer-message` | 0.8 | Peer-to-peer message between team members |
  *
  * All within-chain edges use m×n all-pairs creation at D-T-D boundaries,
  * with topic-shift gating to omit edges across topic changes.
@@ -152,8 +155,7 @@ export interface StoredEdge {
  * Input for creating a new edge.
  *
  * When creating edges, you specify source, target, and type. The system
- * generates an ID and sets createdAt. Use `createOrBoostEdges()` to
- * increment linkCount if the same edge already exists.
+ * generates an ID and sets createdAt via `createEdges()`.
  */
 export interface EdgeInput {
   /** Source chunk ID */

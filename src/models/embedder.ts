@@ -99,6 +99,8 @@ export class Embedder {
         throw epError;
       }
     }
+
+    // Only set config after pipeline is successfully loaded
     this.config = config;
 
     const loadTimeMs = performance.now() - start;

@@ -234,13 +234,14 @@ export function detectDebriefPoints(
         const turn = mainTurns[i];
         if (extractSpawnedAgentIds(turn).includes(agentId)) {
           // Link to the next turn's chunks (all of them)
-          const nextChunkIds = chunkIdsByTurn.get(i + 1);
+          const nextTurnIndex = i + 1 < mainTurns.length ? mainTurns[i + 1].index : -1;
+          const nextChunkIds = nextTurnIndex >= 0 ? chunkIdsByTurn.get(nextTurnIndex) : undefined;
           if (nextChunkIds && nextChunkIds.length > 0) {
             debriefPoints.push({
               agentId,
               agentFinalChunkIds: finalChunkIds,
               parentChunkIds: [...nextChunkIds],
-              turnIndex: i + 1,
+              turnIndex: nextTurnIndex,
               spawnDepth,
             });
           }
@@ -281,7 +282,7 @@ function findDebriefTurn(turns: Turn[], agentId: string, _finalChunk: Chunk): nu
         // Only match if the result explicitly contains this agent's ID
         // (removed isTaskResult fallback - it's too broad and matches unrelated agents)
         if (exchange.result.includes(agentId)) {
-          return i;
+          return turn.index;
         }
       }
     }
@@ -291,7 +292,7 @@ function findDebriefTurn(turns: Turn[], agentId: string, _finalChunk: Chunk): nu
       if (msg.type === 'user' && msg.message?.content) {
         const content = msg.message.content;
         if (typeof content === 'string' && content.includes(agentId)) {
-          return i;
+          return turn.index;
         }
       }
     }
@@ -303,7 +304,7 @@ function findDebriefTurn(turns: Turn[], agentId: string, _finalChunk: Chunk): nu
     if (extractSpawnedAgentIds(turn).includes(agentId)) {
       // Return the next turn if it exists
       if (i + 1 < turns.length) {
-        return i + 1;
+        return turns[i + 1].index;
       }
     }
   }

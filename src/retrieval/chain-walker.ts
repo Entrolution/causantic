@@ -180,8 +180,9 @@ async function walkAllPaths(
       if (agentFilter && chunk.agentId !== agentFilter) {
         const newSkips = consecutiveSkips + 1;
         if (newSkips <= maxSkippedConsecutive) {
+          const before = candidates.length;
           await dfs(nextId, depth + 1, newSkips);
-          anyChildEmitted = true;
+          if (candidates.length > before) anyChildEmitted = true;
         }
         pathVisited.delete(nextId);
         continue;
@@ -193,8 +194,9 @@ async function walkAllPaths(
       // adding to path. The chain doesn't break — we continue traversing — but
       // this node won't appear in the output or affect the median score.
       if (chunkTokens > tokenBudget) {
+        const before = candidates.length;
         await dfs(nextId, depth + 1, 0);
-        anyChildEmitted = true;
+        if (candidates.length > before) anyChildEmitted = true;
         pathVisited.delete(nextId);
         continue;
       }

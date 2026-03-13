@@ -264,12 +264,24 @@ function applyEnvMappings(config: ExternalConfig, mappings: EnvMapping[]): void 
 
     const key = parts[parts.length - 1];
     switch (type) {
-      case 'int':
-        obj[key] = parseInt(value, 10);
+      case 'int': {
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed)) {
+          log.warn(`Invalid integer for ${env}: '${value}'`);
+          continue;
+        }
+        obj[key] = parsed;
         break;
-      case 'float':
-        obj[key] = parseFloat(value);
+      }
+      case 'float': {
+        const parsed = parseFloat(value);
+        if (isNaN(parsed)) {
+          log.warn(`Invalid float for ${env}: '${value}'`);
+          continue;
+        }
+        obj[key] = parsed;
         break;
+      }
       case 'boolean':
         obj[key] = value === 'true';
         break;
@@ -378,6 +390,25 @@ export function validateExternalConfig(config: ExternalConfig): string[] {
       errors.push(
         `embedding.model '${config.embedding.model}' is not a registered model. Available: ${validModels.join(', ')}`,
       );
+    }
+  }
+
+  // Maintenance validation
+  if (config.maintenance?.clusterHour !== undefined) {
+    if (config.maintenance.clusterHour < 0 || config.maintenance.clusterHour > 23) {
+      errors.push('maintenance.clusterHour must be between 0 and 23 (inclusive)');
+    }
+  }
+
+  // Recency validation
+  if (config.recency?.halfLifeHours !== undefined) {
+    if (config.recency.halfLifeHours <= 0) {
+      errors.push('recency.halfLifeHours must be greater than 0');
+    }
+  }
+  if (config.recency?.decayFactor !== undefined) {
+    if (config.recency.decayFactor < 0) {
+      errors.push('recency.decayFactor must be >= 0');
     }
   }
 

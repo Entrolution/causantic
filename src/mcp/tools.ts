@@ -351,7 +351,7 @@ export const listSessionsTool: ToolDefinition = {
     const daysBack = args.days_back as number | undefined;
     const limit = (args.limit as number | undefined) ?? 30;
 
-    if (daysBack !== null && daysBack !== undefined) {
+    if (daysBack !== undefined && daysBack > 0 && from === undefined && to === undefined) {
       to = new Date().toISOString();
       from = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString();
     }

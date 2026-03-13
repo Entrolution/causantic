@@ -20,7 +20,8 @@ import {
   getSessionsForProject,
   getChunksByTimeRange,
 } from '../storage/chunk-store.js';
-import { getConfig } from '../config/memory-config.js';
+import { getConfig, initRuntimeConfig } from '../config/memory-config.js';
+import { loadConfig, toRuntimeConfig } from '../config/loader.js';
 import { approximateTokens } from '../utils/token-counter.js';
 import { runStaleMaintenanceTasks } from '../maintenance/scheduler.js';
 import { executeHook, logHook, isTransientError, type HookMetrics } from './hook-utils.js';
@@ -193,6 +194,9 @@ export async function handleSessionStart(
 ): Promise<SessionStartResult> {
   const { enableRetry = true, maxRetries = 3, gracefulDegradation = true } = options;
 
+  // Ensure user config is loaded before getConfig() is used
+  initRuntimeConfig(toRuntimeConfig(loadConfig()));
+
   // Run stale maintenance tasks in background (prune, recluster)
   // Covers cases where scheduled cron times were missed (e.g. laptop asleep)
   runStaleMaintenanceTasks();
@@ -217,7 +221,7 @@ export async function handleSessionStart(
               retryOn: isTransientError,
             }
           : undefined,
-        fallback: gracefulDegradation ? undefined : undefined,
+        fallback: gracefulDegradation ? fallbackResult : undefined,
         project: basename(projectPath) || projectPath,
       },
     );
