@@ -342,7 +342,8 @@ function loadEnvConfig(): ExternalConfig {
   }
   if (process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH) {
     config.semanticIndex = config.semanticIndex ?? {};
-    config.semanticIndex.useForSearch = process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH === 'true';
+    config.semanticIndex.useForSearch =
+      process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH === 'true';
   }
 
   return config;
@@ -613,8 +614,7 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
         external.semanticIndex?.targetDescriptionTokens ??
         DEFAULT_CONFIG.semanticIndex.targetDescriptionTokens,
       batchRefreshLimit:
-        external.semanticIndex?.batchRefreshLimit ??
-        DEFAULT_CONFIG.semanticIndex.batchRefreshLimit,
+        external.semanticIndex?.batchRefreshLimit ?? DEFAULT_CONFIG.semanticIndex.batchRefreshLimit,
       useForSearch:
         external.semanticIndex?.useForSearch ?? DEFAULT_CONFIG.semanticIndex.useForSearch,
     },

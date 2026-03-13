@@ -3,7 +3,11 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { parseFile, isSupportedExtension, getLanguageForExtension } from '../../src/repomap/parser.js';
+import {
+  parseFile,
+  isSupportedExtension,
+  getLanguageForExtension,
+} from '../../src/repomap/parser.js';
 import { join } from 'path';
 import { writeFileSync, mkdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';

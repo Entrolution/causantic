@@ -156,9 +156,7 @@ describe('entity-extractor', () => {
       });
 
       it('preserves entities outside code blocks', () => {
-        const mentions = extractEntities(
-          '[User]\n@alice\n```\n@bob\n```\n@carol',
-        );
+        const mentions = extractEntities('[User]\n@alice\n```\n@bob\n```\n@carol');
         expect(findByName(mentions, 'alice')).toBeDefined();
         expect(findByName(mentions, 'bob')).toBeUndefined();
         expect(findByName(mentions, 'carol')).toBeDefined();
@@ -175,26 +173,20 @@ describe('entity-extractor', () => {
       });
 
       it('extracts from [Assistant] blocks', () => {
-        const mentions = extractEntities(
-          '[Assistant]\n@bob confirmed the fix',
-        );
+        const mentions = extractEntities('[Assistant]\n@bob confirmed the fix');
         expect(findByName(mentions, 'bob')).toBeDefined();
       });
     });
 
     describe('deduplication', () => {
       it('deduplicates same entity mentioned multiple times', () => {
-        const mentions = extractEntities(
-          '[User]\n@joel @joel @joel',
-        );
+        const mentions = extractEntities('[User]\n@joel @joel @joel');
         const joels = mentions.filter((m) => m.normalizedName === 'joel');
         expect(joels).toHaveLength(1);
       });
 
       it('keeps different entity types with same name', () => {
-        const mentions = extractEntities(
-          '[User]\n@alice posted in #alice',
-        );
+        const mentions = extractEntities('[User]\n@alice posted in #alice');
         const alices = mentions.filter((m) => m.normalizedName === 'alice');
         expect(alices).toHaveLength(2);
         expect(alices.map((a) => a.entityType).sort()).toEqual(['channel', 'person']);

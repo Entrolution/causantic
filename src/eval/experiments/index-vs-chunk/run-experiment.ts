@@ -31,11 +31,7 @@ import { loadConfig, toRuntimeConfig } from '../../../config/loader.js';
 import { KeywordStore } from '../../../storage/keyword-store.js';
 import { fuseRRF, type RankedItem } from '../../../retrieval/rrf.js';
 import { generateSearchQueries, type ChunkForQueryGen } from './query-generator.js';
-import type {
-  QueryResult,
-  PathMetrics,
-  IndexVsChunkReport,
-} from './types.js';
+import type { QueryResult, PathMetrics, IndexVsChunkReport } from './types.js';
 
 /** Seeded PRNG for reproducible sampling. */
 function createRng(seed: number) {
@@ -50,10 +46,7 @@ function createRng(seed: number) {
  * Sample chunks across diverse clusters.
  * Takes 1-2 chunks per cluster to ensure diversity.
  */
-function sampleChunks(
-  sampleSize: number,
-  seed: number,
-): ChunkForQueryGen[] {
+function sampleChunks(sampleSize: number, seed: number): ChunkForQueryGen[] {
   getDb(); // ensure init
 
   const clusters = getAllClusters();
@@ -102,7 +95,12 @@ async function searchViaIndex(
   queryEmbedding: number[],
   queryText: string,
   vectorSearchLimit: number,
-  hybridSearch: { keywordSearchLimit: number; vectorWeight: number; keywordWeight: number; rrfK: number },
+  hybridSearch: {
+    keywordSearchLimit: number;
+    vectorWeight: number;
+    keywordWeight: number;
+    rrfK: number;
+  },
 ): Promise<string[]> {
   const runtimeConfig = toRuntimeConfig(loadConfig());
   indexVectorStore.setModelId(runtimeConfig.embeddingModel);
@@ -118,10 +116,7 @@ async function searchViaIndex(
 
   let indexKeywordResults: Array<{ id: string; score: number }> = [];
   try {
-    indexKeywordResults = searchIndexEntriesByKeyword(
-      queryText,
-      hybridSearch.keywordSearchLimit,
-    );
+    indexKeywordResults = searchIndexEntriesByKeyword(queryText, hybridSearch.keywordSearchLimit);
   } catch {
     // FTS unavailable
   }
@@ -172,7 +167,12 @@ async function searchViaChunks(
   queryEmbedding: number[],
   queryText: string,
   vectorSearchLimit: number,
-  hybridSearch: { keywordSearchLimit: number; vectorWeight: number; keywordWeight: number; rrfK: number },
+  hybridSearch: {
+    keywordSearchLimit: number;
+    vectorWeight: number;
+    keywordWeight: number;
+    rrfK: number;
+  },
 ): Promise<string[]> {
   const runtimeConfig = toRuntimeConfig(loadConfig());
   vectorStore.setModelId(runtimeConfig.embeddingModel);
@@ -217,32 +217,21 @@ async function searchViaChunks(
 /**
  * Compute metrics from per-query results.
  */
-function computeMetrics(
-  results: QueryResult[],
-  path: 'index' | 'chunk',
-): PathMetrics {
+function computeMetrics(results: QueryResult[], path: 'index' | 'chunk'): PathMetrics {
   const ranks = results.map((r) => r[path].rank);
   const durations = results.map((r) => r[path].durationMs);
 
-  const recallAtK = (k: number) =>
-    ranks.filter((r) => r > 0 && r <= k).length / ranks.length;
+  const recallAtK = (k: number) => ranks.filter((r) => r > 0 && r <= k).length / ranks.length;
 
-  const mrr =
-    ranks
-      .filter((r) => r > 0)
-      .reduce((sum, r) => sum + 1 / r, 0) / ranks.length;
+  const mrr = ranks.filter((r) => r > 0).reduce((sum, r) => sum + 1 / r, 0) / ranks.length;
 
   const hitRate = ranks.filter((r) => r > 0).length / ranks.length;
 
   const sortedDurations = [...durations].sort((a, b) => a - b);
   const medianLatency =
-    sortedDurations.length > 0
-      ? sortedDurations[Math.floor(sortedDurations.length / 2)]
-      : 0;
+    sortedDurations.length > 0 ? sortedDurations[Math.floor(sortedDurations.length / 2)] : 0;
   const meanLatency =
-    durations.length > 0
-      ? durations.reduce((a, b) => a + b, 0) / durations.length
-      : 0;
+    durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
 
   return {
     recallAt5: recallAtK(5),
@@ -265,9 +254,7 @@ function fmt(n: number, d = 3): string {
 async function runBenchmark(): Promise<IndexVsChunkReport> {
   const args = process.argv.slice(2);
   const sampleSizeArg = args.find((a) => a.startsWith('--sample-size='));
-  const sampleSize = sampleSizeArg
-    ? parseInt(sampleSizeArg.split('=')[1], 10)
-    : 100;
+  const sampleSize = sampleSizeArg ? parseInt(sampleSizeArg.split('=')[1], 10) : 100;
   const seed = 42;
 
   console.log('=== Index vs Chunk Retrieval Benchmark ===\n');
@@ -287,15 +274,16 @@ async function runBenchmark(): Promise<IndexVsChunkReport> {
   // 1. Sample chunks
   console.log(`\nSampling ${sampleSize} chunks across clusters...`);
   const sampledChunks = sampleChunks(sampleSize, seed);
-  console.log(`  Sampled ${sampledChunks.length} chunks from ${new Set(sampledChunks.map((c) => c.clusterId)).size} clusters`);
+  console.log(
+    `  Sampled ${sampledChunks.length} chunks from ${new Set(sampledChunks.map((c) => c.clusterId)).size} clusters`,
+  );
 
   // 2. Generate search queries
   console.log('\nGenerating natural language search queries via LLM...');
-  const queries = await generateSearchQueries(
-    sampledChunks,
-    config.clusterRefreshModel,
+  const queries = await generateSearchQueries(sampledChunks, config.clusterRefreshModel);
+  console.log(
+    `  Generated ${queries.length} queries (${sampledChunks.length - queries.length} failed)`,
   );
-  console.log(`  Generated ${queries.length} queries (${sampledChunks.length - queries.length} failed)`);
 
   if (queries.length === 0) {
     console.log('No queries generated. Check API key.');
@@ -397,20 +385,16 @@ async function runBenchmark(): Promise<IndexVsChunkReport> {
 
   // Show examples where paths disagree
   const indexWins = perQuery.filter(
-    (q) =>
-      q.index.rank > 0 &&
-      (q.chunk.rank === 0 || q.index.rank < q.chunk.rank),
+    (q) => q.index.rank > 0 && (q.chunk.rank === 0 || q.index.rank < q.chunk.rank),
   );
   const chunkWins = perQuery.filter(
-    (q) =>
-      q.chunk.rank > 0 &&
-      (q.index.rank === 0 || q.chunk.rank < q.index.rank),
+    (q) => q.chunk.rank > 0 && (q.index.rank === 0 || q.chunk.rank < q.index.rank),
   );
-  const ties = perQuery.filter(
-    (q) => q.index.rank > 0 && q.index.rank === q.chunk.rank,
-  );
+  const ties = perQuery.filter((q) => q.index.rank > 0 && q.index.rank === q.chunk.rank);
 
-  console.log(`\n  Path comparison: Index wins ${indexWins.length}, Chunk wins ${chunkWins.length}, Ties ${ties.length}, Both miss ${perQuery.length - indexWins.length - chunkWins.length - ties.length}`);
+  console.log(
+    `\n  Path comparison: Index wins ${indexWins.length}, Chunk wins ${chunkWins.length}, Ties ${ties.length}, Both miss ${perQuery.length - indexWins.length - chunkWins.length - ties.length}`,
+  );
 
   if (indexWins.length > 0) {
     console.log('\n  Sample queries where INDEX path wins:');

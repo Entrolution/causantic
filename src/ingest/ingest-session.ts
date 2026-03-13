@@ -261,10 +261,7 @@ export async function ingestSession(
 
   try {
     // Load model if using a local embedder (pool workers load their own)
-    if (
-      embedder &&
-      (!embedder.currentModel || embedder.currentModel.id !== embeddingModel)
-    ) {
+    if (embedder && (!embedder.currentModel || embedder.currentModel.id !== embeddingModel)) {
       await embedder.load(getModel(embeddingModel), { device: embeddingDevice });
     }
 
@@ -944,9 +941,7 @@ function saveSessionState(
 ): void {
   try {
     const state = extractSessionState(turns);
-    const endedAt = turns.length > 0
-      ? turns[turns.length - 1].startTime
-      : new Date().toISOString();
+    const endedAt = turns.length > 0 ? turns[turns.length - 1].startTime : new Date().toISOString();
     upsertSessionState(sessionId, projectSlug, projectPath || null, endedAt, state);
   } catch (error) {
     log.warn('Failed to extract session state', { sessionId, error: String(error) });

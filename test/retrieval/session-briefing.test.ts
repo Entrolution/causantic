@@ -14,7 +14,11 @@ let db: Database.Database;
 const sampleState: SessionState = {
   filesTouched: ['/src/auth.ts', '/src/login.ts', '/src/middleware.ts'],
   errors: [
-    { tool: 'Bash', message: 'npm test failed: auth.test.ts', resolution: 'Fixed the import path.' },
+    {
+      tool: 'Bash',
+      message: 'npm test failed: auth.test.ts',
+      resolution: 'Fixed the import path.',
+    },
   ],
   outcomes: ['git commit', 'git push'],
   tasks: [
@@ -90,8 +94,12 @@ describe('buildBriefing', () => {
 
   it('includes summary when available', () => {
     upsertSessionState(
-      'sess-1', 'proj', null, '2025-01-01T12:00:00Z',
-      sampleState, 'Fixed the authentication bug in the login flow.',
+      'sess-1',
+      'proj',
+      null,
+      '2025-01-01T12:00:00Z',
+      sampleState,
+      'Fixed the authentication bug in the login flow.',
     );
 
     const result = buildBriefing({ project: 'proj' });

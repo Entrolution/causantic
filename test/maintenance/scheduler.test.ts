@@ -67,7 +67,13 @@ describe('MAINTENANCE_TASKS', () => {
 
   it('contains all expected task names', () => {
     const names = MAINTENANCE_TASKS.map((t) => t.name);
-    expect(names).toEqual(['scan-projects', 'update-clusters', 'backfill-index', 'cleanup-vectors', 'vacuum']);
+    expect(names).toEqual([
+      'scan-projects',
+      'update-clusters',
+      'backfill-index',
+      'cleanup-vectors',
+      'vacuum',
+    ]);
   });
 
   it('all tasks have required fields: name, description, schedule, handler', () => {

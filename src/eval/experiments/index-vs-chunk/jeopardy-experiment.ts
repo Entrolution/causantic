@@ -59,9 +59,7 @@ interface SampleEntry {
 async function run() {
   const args = process.argv.slice(2);
   const sampleSizeArg = args.find((a) => a.startsWith('--sample-size='));
-  const sampleSize = sampleSizeArg
-    ? parseInt(sampleSizeArg.split('=')[1], 10)
-    : 100;
+  const sampleSize = sampleSizeArg ? parseInt(sampleSizeArg.split('=')[1], 10) : 100;
   const seed = 42;
 
   console.log('=== Jeopardy vs Summary Index Entry Comparison ===\n');
@@ -95,7 +93,9 @@ async function run() {
       });
     }
   }
-  console.log(`  Sampled ${sampledChunks.length} chunks from ${new Set(sampledChunks.map((c) => c.clusterId)).size} clusters`);
+  console.log(
+    `  Sampled ${sampledChunks.length} chunks from ${new Set(sampledChunks.map((c) => c.clusterId)).size} clusters`,
+  );
 
   // 2. Load existing summary embeddings
   console.log('\nLoading existing summary entries...');
@@ -107,11 +107,17 @@ async function run() {
 
   for (const sc of sampledChunks) {
     const entries = getIndexEntriesForChunk(sc.id);
-    if (entries.length === 0) { skippedNoEntry++; continue; }
+    if (entries.length === 0) {
+      skippedNoEntry++;
+      continue;
+    }
 
     const entry = entries[0];
     const emb = indexEmbMap.get(entry.id);
-    if (!emb) { skippedNoEntry++; continue; }
+    if (!emb) {
+      skippedNoEntry++;
+      continue;
+    }
 
     sampleEntries.push({
       chunkId: sc.id,
@@ -125,7 +131,9 @@ async function run() {
       jeopardyQueries: [],
     });
   }
-  console.log(`  ${sampleEntries.length} chunks with existing summary entries (${skippedNoEntry} skipped)`);
+  console.log(
+    `  ${sampleEntries.length} chunks with existing summary entries (${skippedNoEntry} skipped)`,
+  );
 
   // 3. Generate Jeopardy entries
   console.log('\nGenerating Jeopardy-style entries via LLM...');
@@ -149,7 +157,9 @@ async function run() {
       totalQueries += queries.length;
     }
   }
-  console.log(`  Generated for ${jeopardyCount}/${sampleEntries.length} chunks (${totalQueries} total queries, avg ${fmt(totalQueries / jeopardyCount, 1)} per chunk)`);
+  console.log(
+    `  Generated for ${jeopardyCount}/${sampleEntries.length} chunks (${totalQueries} total queries, avg ${fmt(totalQueries / jeopardyCount, 1)} per chunk)`,
+  );
 
   // Filter to chunks that have both summary and jeopardy entries
   const validEntries = sampleEntries.filter((e) => e.jeopardyQueries.length > 0);
@@ -207,12 +217,20 @@ async function run() {
   }
 
   console.log(`  Summary index: ${summaryIndex.length} entries (1 per chunk)`);
-  console.log(`  Jeopardy index: ${jeopardyIndex.length} entries (${fmt(jeopardyIndex.length / validEntries.length, 1)} per chunk)`);
+  console.log(
+    `  Jeopardy index: ${jeopardyIndex.length} entries (${fmt(jeopardyIndex.length / validEntries.length, 1)} per chunk)`,
+  );
 
-  let summaryHitsAt1 = 0, summaryHitsAt3 = 0, summaryHitsAt5 = 0;
-  let jeopardyHitsAt1 = 0, jeopardyHitsAt3 = 0, jeopardyHitsAt5 = 0;
-  let summaryMRR = 0, jeopardyMRR = 0;
-  let summaryMeanSim = 0, jeopardyMeanSim = 0;
+  let summaryHitsAt1 = 0,
+    summaryHitsAt3 = 0,
+    summaryHitsAt5 = 0;
+  let jeopardyHitsAt1 = 0,
+    jeopardyHitsAt3 = 0,
+    jeopardyHitsAt5 = 0;
+  let summaryMRR = 0,
+    jeopardyMRR = 0;
+  let summaryMeanSim = 0,
+    jeopardyMeanSim = 0;
   let queryCount = 0;
 
   const perQuery: Array<{
@@ -302,12 +320,18 @@ async function run() {
   );
 
   // Head-to-head
-  const jeopardyWins = perQuery.filter((q) => q.jeopardyRank > 0 && (q.summaryRank === 0 || q.jeopardyRank < q.summaryRank));
-  const summaryWins = perQuery.filter((q) => q.summaryRank > 0 && (q.jeopardyRank === 0 || q.summaryRank < q.jeopardyRank));
+  const jeopardyWins = perQuery.filter(
+    (q) => q.jeopardyRank > 0 && (q.summaryRank === 0 || q.jeopardyRank < q.summaryRank),
+  );
+  const summaryWins = perQuery.filter(
+    (q) => q.summaryRank > 0 && (q.jeopardyRank === 0 || q.summaryRank < q.jeopardyRank),
+  );
   const ties = perQuery.filter((q) => q.summaryRank > 0 && q.summaryRank === q.jeopardyRank);
   const bothMiss = perQuery.filter((q) => q.summaryRank === 0 && q.jeopardyRank === 0);
 
-  console.log(`\n  Head-to-head: Jeopardy wins ${jeopardyWins.length}, Summary wins ${summaryWins.length}, Ties ${ties.length}, Both miss ${bothMiss.length}`);
+  console.log(
+    `\n  Head-to-head: Jeopardy wins ${jeopardyWins.length}, Summary wins ${summaryWins.length}, Ties ${ties.length}, Both miss ${bothMiss.length}`,
+  );
 
   if (jeopardyWins.length > 0) {
     console.log('\n  Sample queries where JEOPARDY wins:');
@@ -328,15 +352,23 @@ async function run() {
 
   // Summary
   const summary: string[] = [];
-  summary.push(`A/B test: ${queryCount} queries, ${validEntries.length} chunks (summary: 1 entry/chunk, jeopardy: ${fmt(jeopardyIndex.length / validEntries.length, 1)} entries/chunk)`);
+  summary.push(
+    `A/B test: ${queryCount} queries, ${validEntries.length} chunks (summary: 1 entry/chunk, jeopardy: ${fmt(jeopardyIndex.length / validEntries.length, 1)} entries/chunk)`,
+  );
 
   const mrrDelta = (jeopardyMRR - summaryMRR) / queryCount;
   if (mrrDelta > 0.02) {
-    summary.push(`Jeopardy BETTER: +${fmt(mrrDelta)} MRR, wins ${jeopardyWins.length} vs ${summaryWins.length}`);
+    summary.push(
+      `Jeopardy BETTER: +${fmt(mrrDelta)} MRR, wins ${jeopardyWins.length} vs ${summaryWins.length}`,
+    );
   } else if (mrrDelta < -0.02) {
-    summary.push(`Summary BETTER: ${fmt(mrrDelta)} MRR, wins ${summaryWins.length} vs ${jeopardyWins.length}`);
+    summary.push(
+      `Summary BETTER: ${fmt(mrrDelta)} MRR, wins ${summaryWins.length} vs ${jeopardyWins.length}`,
+    );
   } else {
-    summary.push(`Comparable: ${fmt(mrrDelta)} MRR delta, ${jeopardyWins.length} vs ${summaryWins.length} wins`);
+    summary.push(
+      `Comparable: ${fmt(mrrDelta)} MRR delta, ${jeopardyWins.length} vs ${summaryWins.length} wins`,
+    );
   }
 
   console.log('\n══ Summary ══\n');

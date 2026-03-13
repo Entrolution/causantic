@@ -6,8 +6,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { analyseCluster, runSimilarityAnalysis } from '../../src/eval/experiments/index-differentiation/similarity-analysis.js';
-import { testClusterDiscrimination, runDiscriminationTest } from '../../src/eval/experiments/index-differentiation/discrimination-test.js';
+import {
+  analyseCluster,
+  runSimilarityAnalysis,
+} from '../../src/eval/experiments/index-differentiation/similarity-analysis.js';
+import {
+  testClusterDiscrimination,
+  runDiscriminationTest,
+} from '../../src/eval/experiments/index-differentiation/discrimination-test.js';
 import type { ClusterForAnalysis } from '../../src/eval/experiments/index-differentiation/similarity-analysis.js';
 
 /**
@@ -48,8 +54,8 @@ describe('similarity-analysis', () => {
       // Chunks: wider angular spread
       const cluster = makeCluster(
         'homogenized',
-        [0.0, 0.05, 0.1],    // entries close together
-        [0.0, 0.5, 1.0],     // chunks far apart
+        [0.0, 0.05, 0.1], // entries close together
+        [0.0, 0.5, 1.0], // chunks far apart
         'Homogenized Cluster',
       );
 
@@ -66,8 +72,8 @@ describe('similarity-analysis', () => {
       // Chunks: close together
       const cluster = makeCluster(
         'differentiated',
-        [0.0, 0.8, 1.6],    // entries spread out
-        [0.0, 0.05, 0.1],   // chunks close together
+        [0.0, 0.8, 1.6], // entries spread out
+        [0.0, 0.05, 0.1], // chunks close together
         'Differentiated Cluster',
       );
 

@@ -623,9 +623,7 @@ function migrateToV14(database: Database.Database): void {
     )
   `);
 
-  database.exec(
-    'CREATE INDEX IF NOT EXISTS idx_iec_chunk ON index_entry_chunks(chunk_id)',
-  );
+  database.exec('CREATE INDEX IF NOT EXISTS idx_iec_chunk ON index_entry_chunks(chunk_id)');
 
   database.exec('INSERT OR REPLACE INTO schema_version (version) VALUES (14)');
 }
@@ -652,9 +650,7 @@ function migrateToV15(database: Database.Database): void {
   database.exec(
     'CREATE INDEX IF NOT EXISTS idx_session_states_slug ON session_states(session_slug)',
   );
-  database.exec(
-    'CREATE INDEX IF NOT EXISTS idx_session_states_ended ON session_states(ended_at)',
-  );
+  database.exec('CREATE INDEX IF NOT EXISTS idx_session_states_ended ON session_states(ended_at)');
   database.exec(
     'CREATE INDEX IF NOT EXISTS idx_session_states_slug_ended ON session_states(session_slug, ended_at)',
   );

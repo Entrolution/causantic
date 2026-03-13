@@ -115,9 +115,14 @@ function sampleChunks(sampleSize: number, seed: number): ChunkForQueryGen[] {
   return result;
 }
 
-function computeMetrics(
-  ranks: number[],
-): { recallAt1: number; recallAt5: number; recallAt10: number; recallAt20: number; mrr: number; hitRate: number } {
+function computeMetrics(ranks: number[]): {
+  recallAt1: number;
+  recallAt5: number;
+  recallAt10: number;
+  recallAt20: number;
+  mrr: number;
+  hitRate: number;
+} {
   const recallAtK = (k: number) => ranks.filter((r) => r > 0 && r <= k).length / ranks.length;
   const mrr = ranks.filter((r) => r > 0).reduce((sum, r) => sum + 1 / r, 0) / ranks.length;
   const hitRate = ranks.filter((r) => r > 0).length / ranks.length;
@@ -169,12 +174,16 @@ async function runBenchmark(): Promise<ComparisonReport> {
   // 1. Sample chunks
   console.log(`\nSampling ${sampleSize} chunks across clusters...`);
   const sampledChunks = sampleChunks(sampleSize, seed);
-  console.log(`  Sampled ${sampledChunks.length} chunks from ${new Set(sampledChunks.map((c) => c.clusterId)).size} clusters`);
+  console.log(
+    `  Sampled ${sampledChunks.length} chunks from ${new Set(sampledChunks.map((c) => c.clusterId)).size} clusters`,
+  );
 
   // 2. Generate search queries (once, model-independent)
   console.log('\nGenerating natural language search queries via LLM...');
   const queries = await generateSearchQueries(sampledChunks, config.clusterRefreshModel);
-  console.log(`  Generated ${queries.length} queries (${sampledChunks.length - queries.length} failed)`);
+  console.log(
+    `  Generated ${queries.length} queries (${sampledChunks.length - queries.length} failed)`,
+  );
 
   if (queries.length === 0) {
     console.error('No queries generated. Check API key.');
@@ -215,7 +224,9 @@ async function runBenchmark(): Promise<ComparisonReport> {
     // Load model
     const modelConfig = getModel(modelId);
     const loadStats = await embedder.load(modelConfig);
-    console.log(`  Loaded in ${fmt(loadStats.loadTimeMs, 0)}ms (${fmt(loadStats.heapUsedMB, 1)} MB heap)`);
+    console.log(
+      `  Loaded in ${fmt(loadStats.loadTimeMs, 0)}ms (${fmt(loadStats.heapUsedMB, 1)} MB heap)`,
+    );
     console.log(`  context: ${modelConfig.contextTokens} tokens, pooling: ${modelConfig.pooling}`);
 
     // Truncate corpus to model's context window (~4 chars/token).
@@ -237,7 +248,9 @@ async function runBenchmark(): Promise<ComparisonReport> {
       corpusEmbeddings.push(result.embedding);
     }
     const corpusEmbedMs = performance.now() - corpusStart;
-    console.log(`  Corpus embedded in ${fmt(corpusEmbedMs, 0)}ms (${fmt(corpusEmbedMs / corpusTexts.length, 1)}ms/chunk)`);
+    console.log(
+      `  Corpus embedded in ${fmt(corpusEmbedMs, 0)}ms (${fmt(corpusEmbedMs / corpusTexts.length, 1)}ms/chunk)`,
+    );
 
     // Embed queries and rank
     console.log(`  Running ${queries.length} queries...`);
@@ -279,7 +292,9 @@ async function runBenchmark(): Promise<ComparisonReport> {
     };
     allModelMetrics.push(modelMetrics);
 
-    console.log(`  Recall@1: ${fmt(metrics.recallAt1 * 100)}% | Recall@5: ${fmt(metrics.recallAt5 * 100)}% | MRR: ${fmt(metrics.mrr, 3)} | Hit@20: ${fmt(metrics.hitRate * 100)}%`);
+    console.log(
+      `  Recall@1: ${fmt(metrics.recallAt1 * 100)}% | Recall@5: ${fmt(metrics.recallAt5 * 100)}% | MRR: ${fmt(metrics.mrr, 3)} | Hit@20: ${fmt(metrics.hitRate * 100)}%`,
+    );
 
     await embedder.dispose();
   }

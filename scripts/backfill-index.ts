@@ -71,7 +71,9 @@ async function main() {
   console.log(`Starting index backfill (limit=${limit})...\n`);
 
   const status = indexRefresher.getBackfillStatus();
-  console.log(`Current status: ${status.indexed}/${status.total} indexed (${status.remaining} remaining)\n`);
+  console.log(
+    `Current status: ${status.indexed}/${status.total} indexed (${status.remaining} remaining)\n`,
+  );
 
   const result = await indexRefresher.backfill({
     limit,
@@ -91,12 +93,16 @@ async function main() {
   console.log(`  Duration: ${(result.durationMs / 1000).toFixed(1)}s`);
 
   const finalStatus = indexRefresher.getBackfillStatus();
-  console.log(`\nFinal status: ${finalStatus.indexed}/${finalStatus.total} indexed (${finalStatus.remaining} remaining)`);
+  console.log(
+    `\nFinal status: ${finalStatus.indexed}/${finalStatus.total} indexed (${finalStatus.remaining} remaining)`,
+  );
 
   // Show generation method breakdown
   const db = getDb();
   const methods = db
-    .prepare('SELECT generation_method, COUNT(*) as cnt FROM index_entries GROUP BY generation_method')
+    .prepare(
+      'SELECT generation_method, COUNT(*) as cnt FROM index_entries GROUP BY generation_method',
+    )
     .all() as Array<{ generation_method: string; cnt: number }>;
   console.log('\nGeneration methods:');
   for (const m of methods) {

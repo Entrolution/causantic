@@ -85,8 +85,7 @@ Respond with exactly ${chunks.length} queries, one per line, prefixed with the c
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const text =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
     const queries = parseResponse(text, chunks.length);
 
     return chunks
@@ -103,17 +102,12 @@ Respond with exactly ${chunks.length} queries, one per line, prefixed with the c
       })
       .filter((q): q is BenchmarkQuery => q !== null);
   } catch (error) {
-    console.warn(
-      `  Query generation batch failed: ${(error as Error).message}`,
-    );
+    console.warn(`  Query generation batch failed: ${(error as Error).message}`);
     return [];
   }
 }
 
-function parseResponse(
-  text: string,
-  expectedCount: number,
-): (string | null)[] {
+function parseResponse(text: string, expectedCount: number): (string | null)[] {
   const queries: (string | null)[] = new Array(expectedCount).fill(null);
   const lines = text.split('\n');
 

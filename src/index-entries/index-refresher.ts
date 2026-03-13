@@ -173,9 +173,7 @@ export class IndexRefresher {
             onBeforeBatch: () => this.rateLimiter.wait(),
           });
         } else {
-          entries = sessionChunks.map((chunk) =>
-            generateHeuristicEntry(chunk, sessionSlug),
-          );
+          entries = sessionChunks.map((chunk) => generateHeuristicEntry(chunk, sessionSlug));
         }
 
         // Filter out empty descriptions

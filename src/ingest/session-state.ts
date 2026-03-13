@@ -107,9 +107,7 @@ function extractResolution(turn: Turn, _exchangeIndex: number): string | undefin
   const text = lastText.text.trim();
   if (!text) return undefined;
 
-  return text.length > MAX_RESOLUTION_LENGTH
-    ? text.slice(0, MAX_RESOLUTION_LENGTH) + '...'
-    : text;
+  return text.length > MAX_RESOLUTION_LENGTH ? text.slice(0, MAX_RESOLUTION_LENGTH) + '...' : text;
 }
 
 /**
@@ -141,9 +139,10 @@ export function extractSessionState(turns: Turn[]): SessionState {
 
       // 2. Errors
       if (exchange.isError && exchange.result) {
-        const message = exchange.result.length > MAX_ERROR_MESSAGE_LENGTH
-          ? exchange.result.slice(0, MAX_ERROR_MESSAGE_LENGTH) + '...'
-          : exchange.result;
+        const message =
+          exchange.result.length > MAX_ERROR_MESSAGE_LENGTH
+            ? exchange.result.slice(0, MAX_ERROR_MESSAGE_LENGTH) + '...'
+            : exchange.result;
 
         errors.push({
           tool: exchange.toolName,
@@ -154,9 +153,7 @@ export function extractSessionState(turns: Turn[]): SessionState {
 
       // 3. Bash outcomes
       if (exchange.toolName === 'Bash' || exchange.toolName === 'bash') {
-        const command = typeof exchange.input.command === 'string'
-          ? exchange.input.command
-          : '';
+        const command = typeof exchange.input.command === 'string' ? exchange.input.command : '';
         for (const outcome of extractOutcomes(command)) {
           outcomeSet.add(outcome);
         }
@@ -164,23 +161,18 @@ export function extractSessionState(turns: Turn[]): SessionState {
 
       // 4. Tasks
       if (exchange.toolName === 'TaskCreate') {
-        const subject = typeof exchange.input.subject === 'string'
-          ? exchange.input.subject
-          : 'Unknown task';
+        const subject =
+          typeof exchange.input.subject === 'string' ? exchange.input.subject : 'Unknown task';
         const id = exchange.toolUseId;
         taskMap.set(id, { description: subject, status: 'pending' });
       }
 
       if (exchange.toolName === 'TaskUpdate') {
-        const taskId = typeof exchange.input.taskId === 'string'
-          ? exchange.input.taskId
-          : '';
-        const status = typeof exchange.input.status === 'string'
-          ? exchange.input.status
-          : undefined;
-        const subject = typeof exchange.input.subject === 'string'
-          ? exchange.input.subject
-          : undefined;
+        const taskId = typeof exchange.input.taskId === 'string' ? exchange.input.taskId : '';
+        const status =
+          typeof exchange.input.status === 'string' ? exchange.input.status : undefined;
+        const subject =
+          typeof exchange.input.subject === 'string' ? exchange.input.subject : undefined;
 
         // Update existing task or create placeholder
         const existing = taskMap.get(taskId);

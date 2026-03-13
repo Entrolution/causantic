@@ -782,9 +782,7 @@ export const repomapTool: ToolDefinition = {
     const projectPath = (args.project as string | undefined) ?? process.cwd();
     const maxTokens = (args.max_tokens as number | undefined) ?? config.repomap.maxTokens;
     const focusFilesRaw = args.focus_files as string | undefined;
-    const focusFiles = focusFilesRaw
-      ? focusFilesRaw.split(',').map((f) => f.trim())
-      : undefined;
+    const focusFiles = focusFilesRaw ? focusFilesRaw.split(',').map((f) => f.trim()) : undefined;
 
     try {
       const result = await buildRepoMap(projectPath, {

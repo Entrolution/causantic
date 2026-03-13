@@ -41,9 +41,7 @@ function buildRefinementPrompt(
       ? chunkContent.slice(0, maxContentChars) + '\n...[truncated]'
       : chunkContent;
 
-  const siblingList = siblingDescriptions
-    .map((d, i) => `  ${i + 1}. ${d}`)
-    .join('\n');
+  const siblingList = siblingDescriptions.map((d, i) => `  ${i + 1}. ${d}`).join('\n');
 
   return `You are refining a search index description for a memory system. The goal is to make this description MAXIMALLY DISTINGUISHABLE from similar entries in the same topic cluster.
 
@@ -119,9 +117,10 @@ export async function testClusterRefinement(
     embedding: number[];
   }> = [];
 
-  const entriesToRefine = cluster.entries.length > MAX_ENTRIES_PER_CLUSTER
-    ? cluster.entries.slice(0, MAX_ENTRIES_PER_CLUSTER)
-    : cluster.entries;
+  const entriesToRefine =
+    cluster.entries.length > MAX_ENTRIES_PER_CLUSTER
+      ? cluster.entries.slice(0, MAX_ENTRIES_PER_CLUSTER)
+      : cluster.entries;
 
   for (const entry of entriesToRefine) {
     const indexEntry = entryMap.get(entry.entryId);
@@ -155,8 +154,7 @@ export async function testClusterRefinement(
         messages: [{ role: 'user', content: prompt }],
       });
 
-      const text =
-        response.content[0].type === 'text' ? response.content[0].text.trim() : '';
+      const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
       if (!text) continue;
 
       const embedResult = await embedder.embed(text, false);
@@ -168,9 +166,7 @@ export async function testClusterRefinement(
         embedding: embedResult.embedding,
       });
     } catch (error) {
-      console.warn(
-        `  Refinement failed for ${entry.entryId}: ${(error as Error).message}`,
-      );
+      console.warn(`  Refinement failed for ${entry.entryId}: ${(error as Error).message}`);
     }
   }
 
@@ -197,8 +193,7 @@ export async function testClusterRefinement(
     refinedMRR: refinedDiscrimination.meanReciprocalRank,
     baselineHitRate: baselineResult.hitRate,
     refinedHitRate: refinedDiscrimination.hitRate,
-    compressionRatioDelta:
-      refinedSimilarity.compressionRatio - baselineSimilarity.compressionRatio,
+    compressionRatioDelta: refinedSimilarity.compressionRatio - baselineSimilarity.compressionRatio,
     sampleRefinements: refinedEntries.slice(0, 3).map((r) => ({
       entryId: r.entryId,
       original: r.original,

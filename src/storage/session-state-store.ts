@@ -66,12 +66,14 @@ export function upsertSessionState(
   summary?: string | null,
 ): void {
   const db = getDb();
-  db.prepare(`
+  db.prepare(
+    `
     INSERT OR REPLACE INTO session_states (
       session_id, session_slug, project_path, ended_at,
       files_touched, errors, outcomes, tasks, summary
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `,
+  ).run(
     sessionId,
     sessionSlug,
     projectPath,
@@ -99,14 +101,11 @@ export function getSessionState(sessionId: string): StoredSessionState | null {
 /**
  * Get recent session states for a project, ordered by ended_at descending.
  */
-export function getRecentSessionStates(
-  project: string,
-  limit: number = 5,
-): StoredSessionState[] {
+export function getRecentSessionStates(project: string, limit: number = 5): StoredSessionState[] {
   const db = getDb();
-  const rows = db.prepare(
-    'SELECT * FROM session_states WHERE session_slug = ? ORDER BY ended_at DESC LIMIT ?',
-  ).all(project, limit) as DbSessionStateRow[];
+  const rows = db
+    .prepare('SELECT * FROM session_states WHERE session_slug = ? ORDER BY ended_at DESC LIMIT ?')
+    .all(project, limit) as DbSessionStateRow[];
 
   return rows.map(rowToSessionState);
 }
@@ -120,9 +119,11 @@ export function getSessionStatesByTimeRange(
   to: string,
 ): StoredSessionState[] {
   const db = getDb();
-  const rows = db.prepare(
-    'SELECT * FROM session_states WHERE session_slug = ? AND ended_at >= ? AND ended_at <= ? ORDER BY ended_at ASC',
-  ).all(project, from, to) as DbSessionStateRow[];
+  const rows = db
+    .prepare(
+      'SELECT * FROM session_states WHERE session_slug = ? AND ended_at >= ? AND ended_at <= ? ORDER BY ended_at ASC',
+    )
+    .all(project, from, to) as DbSessionStateRow[];
 
   return rows.map(rowToSessionState);
 }
@@ -147,10 +148,41 @@ export function deleteSessionStatesForProject(project: string): number {
 
 /** Common stop words excluded from summary search queries. */
 const STOP_WORDS = new Set([
-  'the', 'and', 'for', 'that', 'this', 'with', 'from', 'are', 'was', 'were',
-  'been', 'have', 'has', 'had', 'not', 'but', 'what', 'how', 'why', 'when',
-  'where', 'who', 'which', 'did', 'does', 'will', 'can', 'could', 'would',
-  'should', 'about', 'into', 'over', 'after', 'before',
+  'the',
+  'and',
+  'for',
+  'that',
+  'this',
+  'with',
+  'from',
+  'are',
+  'was',
+  'were',
+  'been',
+  'have',
+  'has',
+  'had',
+  'not',
+  'but',
+  'what',
+  'how',
+  'why',
+  'when',
+  'where',
+  'who',
+  'which',
+  'did',
+  'does',
+  'will',
+  'can',
+  'could',
+  'would',
+  'should',
+  'about',
+  'into',
+  'over',
+  'after',
+  'before',
 ]);
 
 /**
@@ -194,10 +226,11 @@ export function countSessionStates(project?: string): number {
   const db = getDb();
   if (project) {
     return (
-      db.prepare('SELECT COUNT(*) as count FROM session_states WHERE session_slug = ?').get(project) as { count: number }
+      db
+        .prepare('SELECT COUNT(*) as count FROM session_states WHERE session_slug = ?')
+        .get(project) as { count: number }
     ).count;
   }
-  return (
-    db.prepare('SELECT COUNT(*) as count FROM session_states').get() as { count: number }
-  ).count;
+  return (db.prepare('SELECT COUNT(*) as count FROM session_states').get() as { count: number })
+    .count;
 }

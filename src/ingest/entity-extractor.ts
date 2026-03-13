@@ -20,26 +20,91 @@ export interface EntityMention {
 /** Words that look like names in "X said" patterns but aren't. */
 const BLOCKLIST = new Set([
   // Pronouns
-  'i', 'he', 'she', 'we', 'they', 'you', 'it',
-  'me', 'him', 'her', 'us', 'them',
-  'my', 'his', 'our', 'their', 'your', 'its',
+  'i',
+  'he',
+  'she',
+  'we',
+  'they',
+  'you',
+  'it',
+  'me',
+  'him',
+  'her',
+  'us',
+  'them',
+  'my',
+  'his',
+  'our',
+  'their',
+  'your',
+  'its',
   // Articles / determiners
-  'the', 'a', 'an', 'this', 'that', 'these', 'those',
+  'the',
+  'a',
+  'an',
+  'this',
+  'that',
+  'these',
+  'those',
   // Common sentence starters / conjunctions
-  'but', 'and', 'or', 'so', 'if', 'when', 'then', 'also',
-  'just', 'now', 'here', 'there', 'what', 'who', 'how', 'why',
-  'which', 'where', 'some', 'all', 'any', 'each', 'every',
-  'not', 'no', 'yes', 'maybe', 'perhaps',
+  'but',
+  'and',
+  'or',
+  'so',
+  'if',
+  'when',
+  'then',
+  'also',
+  'just',
+  'now',
+  'here',
+  'there',
+  'what',
+  'who',
+  'how',
+  'why',
+  'which',
+  'where',
+  'some',
+  'all',
+  'any',
+  'each',
+  'every',
+  'not',
+  'no',
+  'yes',
+  'maybe',
+  'perhaps',
   // Common words that appear capitalized at start of sentences
-  'however', 'therefore', 'meanwhile', 'otherwise', 'furthermore',
-  'additionally', 'finally', 'first', 'second', 'third', 'next', 'last',
+  'however',
+  'therefore',
+  'meanwhile',
+  'otherwise',
+  'furthermore',
+  'additionally',
+  'finally',
+  'first',
+  'second',
+  'third',
+  'next',
+  'last',
   // Tool/system words often capitalized
-  'error', 'warning', 'note', 'todo', 'fixme', 'hack',
-  'true', 'false', 'null', 'undefined', 'none',
+  'error',
+  'warning',
+  'note',
+  'todo',
+  'fixme',
+  'hack',
+  'true',
+  'false',
+  'null',
+  'undefined',
+  'none',
 ]);
 
 /** Meeting-related keywords. */
-const MEETING_KEYWORDS = /\b(standup|stand-up|retro|retrospective|1:1|one-on-one|sync|daily|weekly|sprint\s+review|sprint\s+planning|kick-?off|all-?hands)\b/gi;
+const MEETING_KEYWORDS =
+  /\b(standup|stand-up|retro|retrospective|1:1|one-on-one|sync|daily|weekly|sprint\s+review|sprint\s+planning|kick-?off|all-?hands)\b/gi;
 
 /** Email regex. */
 const EMAIL_PATTERN = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/g;
@@ -54,8 +119,10 @@ const AT_MENTION_PATTERN = /@([a-zA-Z][a-zA-Z0-9._-]{0,30})\b/g;
 const CHANNEL_PATTERN = /#([a-zA-Z][a-zA-Z0-9_-]{0,50})\b/g;
 
 /** "X said" / "with X" / "from X" patterns — capitalized proper nouns. */
-const CONTEXTUAL_NAME_PATTERN = /\b([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\s+(?:said|says|mentioned|asked|replied|suggested|noted|reported|confirmed|explained|wrote|responded)\b/g;
-const WITH_FROM_PATTERN = /\b(?:with|from|by|to|cc|cc'd|cced)\s+([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\b/g;
+const CONTEXTUAL_NAME_PATTERN =
+  /\b([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\s+(?:said|says|mentioned|asked|replied|suggested|noted|reported|confirmed|explained|wrote|responded)\b/g;
+const WITH_FROM_PATTERN =
+  /\b(?:with|from|by|to|cc|cc'd|cced)\s+([A-Z][a-z]{1,20}(?:\s+[A-Z][a-z]{1,20})?)\b/g;
 
 /**
  * Strip code blocks (triple-backtick fenced) from text.

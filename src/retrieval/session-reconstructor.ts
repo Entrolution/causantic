@@ -370,14 +370,17 @@ function formatSessionStateForBriefing(state: StoredSessionState): string {
   const lines: string[] = [];
 
   const endDate = new Date(state.endedAt);
-  const dateStr = endDate.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  }) + ', ' + endDate.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
+  const dateStr =
+    endDate.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    }) +
+    ', ' +
+    endDate.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
   lines.push(`### Session ${state.sessionId.slice(0, 8)} (${dateStr})`);
 
   // Summary if available

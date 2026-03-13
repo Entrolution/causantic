@@ -3,7 +3,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { parseGenerationResponse, buildGenerationPrompt } from '../../src/index-entries/index-generator.js';
+import {
+  parseGenerationResponse,
+  buildGenerationPrompt,
+} from '../../src/index-entries/index-generator.js';
 
 describe('parseGenerationResponse', () => {
   it('parses well-formed output with queries and summary', () => {

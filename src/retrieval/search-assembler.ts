@@ -277,7 +277,6 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     }
 
     // Skip cluster expansion for keyword-primary mode
-
   } else {
     // ── Hybrid/vector search path ────────────────────────────────────────
     // Configure vector store for current model
@@ -534,8 +533,7 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     // Time-decay boost
     const ageMs = now - new Date(chunk.startTime).getTime();
     const ageHours = Math.max(0, ageMs / (1000 * 60 * 60));
-    const timeBoost =
-      1 + recency.decayFactor * Math.exp((-ageHours * ln2) / recency.halfLifeHours);
+    const timeBoost = 1 + recency.decayFactor * Math.exp((-ageHours * ln2) / recency.halfLifeHours);
 
     // Session boost: current session gets additional 1.2x
     const sessionBoost = currentSessionId && chunk.sessionId === currentSessionId ? 1.2 : 1.0;

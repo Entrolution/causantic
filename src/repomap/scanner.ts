@@ -10,15 +10,27 @@ import { join, relative, extname } from 'path';
 /** Supported language extensions. */
 const SUPPORTED_EXTENSIONS = new Set([
   // TypeScript / JavaScript
-  '.ts', '.tsx', '.js', '.jsx', '.mts', '.mjs',
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.mts',
+  '.mjs',
   // Python
-  '.py', '.pyi',
+  '.py',
+  '.pyi',
   // Java
   '.java',
   // C
-  '.c', '.h',
+  '.c',
+  '.h',
   // C++
-  '.cpp', '.cc', '.cxx', '.hpp', '.hh', '.hxx',
+  '.cpp',
+  '.cc',
+  '.cxx',
+  '.hpp',
+  '.hh',
+  '.hxx',
   // Rust
   '.rs',
   // Go
@@ -30,18 +42,25 @@ const SUPPORTED_EXTENSIONS = new Set([
   // PHP
   '.php',
   // Bash / Shell
-  '.sh', '.bash',
+  '.sh',
+  '.bash',
   // Regex-parsed languages (no tree-sitter WASM)
-  '.scala', '.sc',
-  '.kt', '.kts',
+  '.scala',
+  '.sc',
+  '.kt',
+  '.kts',
   '.swift',
-  '.hs', '.lhs',
+  '.hs',
+  '.lhs',
   '.lua',
   '.dart',
   '.zig',
-  '.ex', '.exs',
-  '.pl', '.pm',
-  '.r', '.R',
+  '.ex',
+  '.exs',
+  '.pl',
+  '.pm',
+  '.r',
+  '.R',
 ]);
 
 /** Directories always skipped regardless of gitignore. */

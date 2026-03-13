@@ -51,7 +51,11 @@ const COMMENT_PREFIXES: Record<string, string[]> = {
 
 const PATTERNS: Record<string, PatternRule[]> = {
   scala: [
-    { regex: /(?:abstract\s+|sealed\s+|case\s+|final\s+)*class\s+(\w+)/, kind: 'def', type: 'class' },
+    {
+      regex: /(?:abstract\s+|sealed\s+|case\s+|final\s+)*class\s+(\w+)/,
+      kind: 'def',
+      type: 'class',
+    },
     { regex: /(?:case\s+)?object\s+(\w+)/, kind: 'def', type: 'class' },
     { regex: /trait\s+(\w+)/, kind: 'def', type: 'interface' },
     { regex: /def\s+(\w+)/, kind: 'def', type: 'function' },
@@ -60,7 +64,11 @@ const PATTERNS: Record<string, PatternRule[]> = {
   ],
 
   kotlin: [
-    { regex: /(?:data\s+|sealed\s+|abstract\s+|open\s+|inner\s+|enum\s+)*class\s+(\w+)/, kind: 'def', type: 'class' },
+    {
+      regex: /(?:data\s+|sealed\s+|abstract\s+|open\s+|inner\s+|enum\s+)*class\s+(\w+)/,
+      kind: 'def',
+      type: 'class',
+    },
     { regex: /(?:companion\s+)?object\s+(\w+)/, kind: 'def', type: 'class' },
     { regex: /interface\s+(\w+)/, kind: 'def', type: 'interface' },
     { regex: /fun\s+(?:<[^>]+>\s+)?(\w+)/, kind: 'def', type: 'function' },
@@ -69,11 +77,24 @@ const PATTERNS: Record<string, PatternRule[]> = {
   ],
 
   swift: [
-    { regex: /(?:public\s+|private\s+|internal\s+|open\s+|final\s+)*class\s+(\w+)/, kind: 'def', type: 'class' },
+    {
+      regex: /(?:public\s+|private\s+|internal\s+|open\s+|final\s+)*class\s+(\w+)/,
+      kind: 'def',
+      type: 'class',
+    },
     { regex: /(?:public\s+|private\s+|internal\s+)*struct\s+(\w+)/, kind: 'def', type: 'class' },
     { regex: /(?:public\s+|private\s+|internal\s+)*enum\s+(\w+)/, kind: 'def', type: 'enum' },
-    { regex: /(?:public\s+|private\s+|internal\s+)*protocol\s+(\w+)/, kind: 'def', type: 'interface' },
-    { regex: /(?:public\s+|private\s+|internal\s+|open\s+|override\s+|static\s+|class\s+)*func\s+(\w+)/, kind: 'def', type: 'function' },
+    {
+      regex: /(?:public\s+|private\s+|internal\s+)*protocol\s+(\w+)/,
+      kind: 'def',
+      type: 'interface',
+    },
+    {
+      regex:
+        /(?:public\s+|private\s+|internal\s+|open\s+|override\s+|static\s+|class\s+)*func\s+(\w+)/,
+      kind: 'def',
+      type: 'function',
+    },
     { regex: /typealias\s+(\w+)/, kind: 'def', type: 'type' },
     { regex: /(?:public\s+|private\s+|internal\s+)*extension\s+(\w+)/, kind: 'def', type: 'class' },
     { regex: /import\s+(\w+)/, kind: 'ref', type: 'import' },
@@ -95,7 +116,11 @@ const PATTERNS: Record<string, PatternRule[]> = {
   ],
 
   dart: [
-    { regex: /(?:abstract\s+|base\s+|sealed\s+|final\s+)*class\s+(\w+)/, kind: 'def', type: 'class' },
+    {
+      regex: /(?:abstract\s+|base\s+|sealed\s+|final\s+)*class\s+(\w+)/,
+      kind: 'def',
+      type: 'class',
+    },
     { regex: /mixin\s+(\w+)/, kind: 'def', type: 'class' },
     { regex: /enum\s+(\w+)/, kind: 'def', type: 'enum' },
     { regex: /extension\s+(\w+)\s+on\b/, kind: 'def', type: 'class' },

@@ -219,9 +219,7 @@ function generateHeuristicDescription(content: string): string {
 export function buildGenerationPrompt(
   chunks: Array<{ index: number; content: string; id: string }>,
 ): string {
-  const chunkTexts = chunks
-    .map((c) => `--- Chunk ${c.index} ---\n${c.content}`)
-    .join('\n\n');
+  const chunkTexts = chunks.map((c) => `--- Chunk ${c.index} ---\n${c.content}`).join('\n\n');
 
   return `You are building a search index for a memory system used by AI agents (Claude Opus, Sonnet) and human developers. For each conversation chunk below, produce:
 
@@ -267,7 +265,10 @@ SUMMARY: [summary]
  * - "0: - query" inline format
  * - "0: SKIP" for trivial chunks
  */
-export function parseGenerationResponse(text: string, expectedCount: number): Map<number, ParsedChunkEntries> {
+export function parseGenerationResponse(
+  text: string,
+  expectedCount: number,
+): Map<number, ParsedChunkEntries> {
   const results = new Map<number, ParsedChunkEntries>();
   const lines = text.split('\n');
 
@@ -281,7 +282,9 @@ export function parseGenerationResponse(text: string, expectedCount: number): Ma
 
   for (const line of lines) {
     // Match "0:", "Chunk 0:", "**Chunk 0:**", "## Chunk 0", etc. (header-only line)
-    const indexMatch = line.match(/^(?:\*{0,2})?(?:#{0,3}\s*)?(?:Chunk\s+)?(\d+)(?:\*{0,2})?:(?:\*{0,2})?\s*$/i);
+    const indexMatch = line.match(
+      /^(?:\*{0,2})?(?:#{0,3}\s*)?(?:Chunk\s+)?(\d+)(?:\*{0,2})?:(?:\*{0,2})?\s*$/i,
+    );
     if (indexMatch) {
       const idx = parseInt(indexMatch[1], 10);
       if (idx >= 0 && idx < expectedCount) {

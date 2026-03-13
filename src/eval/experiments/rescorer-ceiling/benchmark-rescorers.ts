@@ -112,9 +112,9 @@ function findRank(items: Array<{ chunkId: string }>, targetId: string): number {
 async function loadCrossEncoder(): Promise<TextClassificationPipeline> {
   console.log(`Loading cross-encoder: ${CROSS_ENCODER_MODEL}...`);
   const start = Date.now();
-  const pipe = await pipeline('text-classification', CROSS_ENCODER_MODEL, {
+  const pipe = (await pipeline('text-classification', CROSS_ENCODER_MODEL, {
     dtype: 'fp32',
-  }) as TextClassificationPipeline;
+  })) as TextClassificationPipeline;
   console.log(`  Loaded in ${Date.now() - start}ms`);
   return pipe;
 }
@@ -130,7 +130,9 @@ async function crossEncoderRescore(
     const truncated = c.content.slice(0, CROSS_ENCODER_MAX_CHARS);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await (pipe as any)({ text: query, text_pair: truncated }, { topk: 1 });
-    const score = Array.isArray(result) ? (result[0] as { score: number }).score : (result as { score: number }).score;
+    const score = Array.isArray(result)
+      ? (result[0] as { score: number }).score
+      : (result as { score: number }).score;
     scored.push({ chunkId: c.chunkId, score });
   }
 
@@ -139,26 +141,28 @@ async function crossEncoderRescore(
 
 // ── Approach 2: Query expansion ────────────────────────────────────────────
 
-async function expandQuery(
-  client: Anthropic,
-  query: string,
-  model: string,
-): Promise<string[]> {
+async function expandQuery(client: Anthropic, query: string, model: string): Promise<string[]> {
   const response = await client.messages.create({
     model,
     max_tokens: 300,
-    messages: [{
-      role: 'user',
-      content: `Generate ${QUERY_EXPANSION_COUNT} alternative search queries for finding the same information as: "${query}"
+    messages: [
+      {
+        role: 'user',
+        content: `Generate ${QUERY_EXPANSION_COUNT} alternative search queries for finding the same information as: "${query}"
 
 Each query should approach the topic from a different angle (synonyms, related concepts, specific details, broader framing).
 
 Return ONLY the queries, one per line, no numbering or bullets.`,
-    }],
+      },
+    ],
   });
 
   const text = response.content[0].type === 'text' ? response.content[0].text : '';
-  return text.split('\n').map((l) => l.trim()).filter((l) => l.length > 0).slice(0, QUERY_EXPANSION_COUNT);
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .slice(0, QUERY_EXPANSION_COUNT);
 }
 
 async function queryExpansionRescore(
@@ -199,22 +203,26 @@ async function llmRerank(
   // Take only top-N by vector score to keep prompt small
   const topCandidates = candidates.slice(0, LLM_RERANK_TOP_N);
 
-  const passages = topCandidates.map((c, i) => {
-    const snippet = c.content.slice(0, 400);
-    return `[${i}] ${snippet}`;
-  }).join('\n\n');
+  const passages = topCandidates
+    .map((c, i) => {
+      const snippet = c.content.slice(0, 400);
+      return `[${i}] ${snippet}`;
+    })
+    .join('\n\n');
 
   const response = await client.messages.create({
     model,
     max_tokens: 200,
-    messages: [{
-      role: 'user',
-      content: `Query: "${query}"
+    messages: [
+      {
+        role: 'user',
+        content: `Query: "${query}"
 
 Rank these passages by relevance to the query. Return ONLY the passage numbers in order from most to least relevant, comma-separated. Example: 3,0,7,1,5
 
 ${passages}`,
-    }],
+      },
+    ],
   });
 
   const text = response.content[0].type === 'text' ? response.content[0].text : '';
@@ -280,7 +288,9 @@ async function runBenchmark() {
       const store = createSecretStore();
       const storedKey = await store.get('anthropic-api-key');
       if (storedKey) process.env.ANTHROPIC_API_KEY = storedKey;
-    } catch { /* */ }
+    } catch {
+      /* */
+    }
   }
   const anthropic = new Anthropic();
 
@@ -388,7 +398,9 @@ async function runBenchmark() {
   // ── Baseline: vector score ordering ──────────────────────────────────────
 
   console.log('── Baseline (vector score) ──');
-  let baselineTop5 = 0, baselineTop10 = 0, baselineBudget = 0;
+  let baselineTop5 = 0,
+    baselineTop10 = 0,
+    baselineBudget = 0;
   const baselineRanks: number[] = [];
   for (const qd of benchmarkable) {
     const rank = findRank(qd.candidates, qd.targetId);
@@ -397,17 +409,27 @@ async function runBenchmark() {
     if (rank > 0 && rank <= 10) baselineTop10++;
     if (budgetSurvival(qd.candidates, qd.targetId, tokenMap, maxTokens)) baselineBudget++;
   }
-  const baselineMedianRank = [...baselineRanks].sort((a, b) => a - b)[Math.floor(baselineRanks.length / 2)];
-  console.log(`  Top-5: ${baselineTop5}/${benchmarkable.length} (${((baselineTop5 / benchmarkable.length) * 100).toFixed(0)}%)`);
-  console.log(`  Top-10: ${baselineTop10}/${benchmarkable.length} (${((baselineTop10 / benchmarkable.length) * 100).toFixed(0)}%)`);
-  console.log(`  Budget: ${baselineBudget}/${benchmarkable.length} (${((baselineBudget / benchmarkable.length) * 100).toFixed(0)}%)`);
+  const baselineMedianRank = [...baselineRanks].sort((a, b) => a - b)[
+    Math.floor(baselineRanks.length / 2)
+  ];
+  console.log(
+    `  Top-5: ${baselineTop5}/${benchmarkable.length} (${((baselineTop5 / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
+  console.log(
+    `  Top-10: ${baselineTop10}/${benchmarkable.length} (${((baselineTop10 / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
+  console.log(
+    `  Budget: ${baselineBudget}/${benchmarkable.length} (${((baselineBudget / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
   console.log(`  Median rank: ${baselineMedianRank}\n`);
 
   // ── Approach 1: Cross-encoder ────────────────────────────────────────────
 
   console.log('── Cross-encoder (ms-marco-MiniLM-L-6-v2) ──');
   const crossEncoder = await loadCrossEncoder();
-  let ceTop5 = 0, ceTop10 = 0, ceBudget = 0;
+  let ceTop5 = 0,
+    ceTop10 = 0,
+    ceBudget = 0;
   const ceRanks: number[] = [];
   const ceTimings: number[] = [];
 
@@ -427,9 +449,15 @@ async function runBenchmark() {
   }
   const ceMedianRank = [...ceRanks].sort((a, b) => a - b)[Math.floor(ceRanks.length / 2)];
   const ceMedianTime = [...ceTimings].sort((a, b) => a - b)[Math.floor(ceTimings.length / 2)];
-  console.log(`  Top-5: ${ceTop5}/${benchmarkable.length} (${((ceTop5 / benchmarkable.length) * 100).toFixed(0)}%)`);
-  console.log(`  Top-10: ${ceTop10}/${benchmarkable.length} (${((ceTop10 / benchmarkable.length) * 100).toFixed(0)}%)`);
-  console.log(`  Budget: ${ceBudget}/${benchmarkable.length} (${((ceBudget / benchmarkable.length) * 100).toFixed(0)}%)`);
+  console.log(
+    `  Top-5: ${ceTop5}/${benchmarkable.length} (${((ceTop5 / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
+  console.log(
+    `  Top-10: ${ceTop10}/${benchmarkable.length} (${((ceTop10 / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
+  console.log(
+    `  Budget: ${ceBudget}/${benchmarkable.length} (${((ceBudget / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
   console.log(`  Median rank: ${ceMedianRank}`);
   console.log(`  Median latency: ${ceMedianTime}ms\n`);
 
@@ -439,7 +467,9 @@ async function runBenchmark() {
   // ── Approach 2: Query expansion ──────────────────────────────────────────
 
   console.log('── Query expansion (5 reformulations) ──');
-  let qeTop5 = 0, qeTop10 = 0, qeBudget = 0;
+  let qeTop5 = 0,
+    qeTop10 = 0,
+    qeBudget = 0;
   const qeRanks: number[] = [];
   const qeTimings: number[] = [];
 
@@ -458,7 +488,12 @@ async function runBenchmark() {
     }
 
     // Re-score candidates
-    const reranked = await queryExpansionRescore(embedder, qd.embedding, expansionEmbeddings, qd.candidates);
+    const reranked = await queryExpansionRescore(
+      embedder,
+      qd.embedding,
+      expansionEmbeddings,
+      qd.candidates,
+    );
     qeTimings.push(Date.now() - start);
 
     const rank = findRank(reranked, qd.targetId);
@@ -471,23 +506,36 @@ async function runBenchmark() {
   }
   const qeMedianRank = [...qeRanks].sort((a, b) => a - b)[Math.floor(qeRanks.length / 2)];
   const qeMedianTime = [...qeTimings].sort((a, b) => a - b)[Math.floor(qeTimings.length / 2)];
-  console.log(`  Top-5: ${qeTop5}/${benchmarkable.length} (${((qeTop5 / benchmarkable.length) * 100).toFixed(0)}%)`);
-  console.log(`  Top-10: ${qeTop10}/${benchmarkable.length} (${((qeTop10 / benchmarkable.length) * 100).toFixed(0)}%)`);
-  console.log(`  Budget: ${qeBudget}/${benchmarkable.length} (${((qeBudget / benchmarkable.length) * 100).toFixed(0)}%)`);
+  console.log(
+    `  Top-5: ${qeTop5}/${benchmarkable.length} (${((qeTop5 / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
+  console.log(
+    `  Top-10: ${qeTop10}/${benchmarkable.length} (${((qeTop10 / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
+  console.log(
+    `  Budget: ${qeBudget}/${benchmarkable.length} (${((qeBudget / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
   console.log(`  Median rank: ${qeMedianRank}`);
   console.log(`  Median latency: ${qeMedianTime}ms\n`);
 
   // ── Approach 3: LLM reranker ─────────────────────────────────────────────
 
   console.log(`── LLM reranker (top-${LLM_RERANK_TOP_N} → Haiku) ──`);
-  let llmTop5 = 0, llmTop10 = 0, llmBudget = 0;
+  let llmTop5 = 0,
+    llmTop10 = 0,
+    llmBudget = 0;
   const llmRanks: number[] = [];
   const llmTimings: number[] = [];
 
   for (let i = 0; i < benchmarkable.length; i++) {
     const qd = benchmarkable[i];
     const start = Date.now();
-    const reranked = await llmRerank(anthropic, qd.query, qd.candidates, config.clusterRefreshModel);
+    const reranked = await llmRerank(
+      anthropic,
+      qd.query,
+      qd.candidates,
+      config.clusterRefreshModel,
+    );
     llmTimings.push(Date.now() - start);
 
     const rank = findRank(reranked, qd.targetId);
@@ -500,9 +548,15 @@ async function runBenchmark() {
   }
   const llmMedianRank = [...llmRanks].sort((a, b) => a - b)[Math.floor(llmRanks.length / 2)];
   const llmMedianTime = [...llmTimings].sort((a, b) => a - b)[Math.floor(llmTimings.length / 2)];
-  console.log(`  Top-5: ${llmTop5}/${benchmarkable.length} (${((llmTop5 / benchmarkable.length) * 100).toFixed(0)}%)`);
-  console.log(`  Top-10: ${llmTop10}/${benchmarkable.length} (${((llmTop10 / benchmarkable.length) * 100).toFixed(0)}%)`);
-  console.log(`  Budget: ${llmBudget}/${benchmarkable.length} (${((llmBudget / benchmarkable.length) * 100).toFixed(0)}%)`);
+  console.log(
+    `  Top-5: ${llmTop5}/${benchmarkable.length} (${((llmTop5 / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
+  console.log(
+    `  Top-10: ${llmTop10}/${benchmarkable.length} (${((llmTop10 / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
+  console.log(
+    `  Budget: ${llmBudget}/${benchmarkable.length} (${((llmBudget / benchmarkable.length) * 100).toFixed(0)}%)`,
+  );
   console.log(`  Median rank: ${llmMedianRank}`);
   console.log(`  Median latency: ${llmMedianTime}ms\n`);
 
@@ -511,16 +565,26 @@ async function runBenchmark() {
   const total = queryDataList.length;
   console.log('══ Summary ══\n');
   console.log(`Total queries: ${total}`);
-  console.log(`In candidate pool (K=${VECTOR_K}): ${inPool}/${total} (${((inPool / total) * 100).toFixed(0)}%)`);
+  console.log(
+    `In candidate pool (K=${VECTOR_K}): ${inPool}/${total} (${((inPool / total) * 100).toFixed(0)}%)`,
+  );
   console.log(`Benchmarkable: ${benchmarkable.length}\n`);
 
   console.log('  Approach                  Top-5   Top-10   Budget   Med.Rank   Med.Latency');
   console.log('  ──────────────────────────────────────────────────────────────────────────');
   const pct = (n: number) => `${((n / benchmarkable.length) * 100).toFixed(0)}%`.padStart(4);
-  console.log(`  Baseline (vector)         ${pct(baselineTop5)}    ${pct(baselineTop10)}     ${pct(baselineBudget)}       ${String(baselineMedianRank).padStart(4)}         0ms`);
-  console.log(`  Cross-encoder             ${pct(ceTop5)}    ${pct(ceTop10)}     ${pct(ceBudget)}       ${String(ceMedianRank).padStart(4)}     ${String(ceMedianTime).padStart(5)}ms`);
-  console.log(`  Query expansion           ${pct(qeTop5)}    ${pct(qeTop10)}     ${pct(qeBudget)}       ${String(qeMedianRank).padStart(4)}     ${String(qeMedianTime).padStart(5)}ms`);
-  console.log(`  LLM reranker              ${pct(llmTop5)}    ${pct(llmTop10)}     ${pct(llmBudget)}       ${String(llmMedianRank).padStart(4)}     ${String(llmMedianTime).padStart(5)}ms`);
+  console.log(
+    `  Baseline (vector)         ${pct(baselineTop5)}    ${pct(baselineTop10)}     ${pct(baselineBudget)}       ${String(baselineMedianRank).padStart(4)}         0ms`,
+  );
+  console.log(
+    `  Cross-encoder             ${pct(ceTop5)}    ${pct(ceTop10)}     ${pct(ceBudget)}       ${String(ceMedianRank).padStart(4)}     ${String(ceMedianTime).padStart(5)}ms`,
+  );
+  console.log(
+    `  Query expansion           ${pct(qeTop5)}    ${pct(qeTop10)}     ${pct(qeBudget)}       ${String(qeMedianRank).padStart(4)}     ${String(qeMedianTime).padStart(5)}ms`,
+  );
+  console.log(
+    `  LLM reranker              ${pct(llmTop5)}    ${pct(llmTop10)}     ${pct(llmBudget)}       ${String(llmMedianRank).padStart(4)}     ${String(llmMedianTime).padStart(5)}ms`,
+  );
 
   await embedder.dispose();
   console.log('\nDone.');
