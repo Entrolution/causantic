@@ -4,11 +4,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { bootstrap } from '../../src/config/bootstrap.js';
-import {
-  getConfig,
-  resetRuntimeConfig,
-  DEFAULT_CONFIG,
-} from '../../src/config/memory-config.js';
+import { getConfig, resetRuntimeConfig, DEFAULT_CONFIG } from '../../src/config/memory-config.js';
 
 describe('bootstrap', () => {
   beforeEach(() => {
