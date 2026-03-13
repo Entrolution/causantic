@@ -63,6 +63,8 @@ describe('loadConfig', () => {
       expect(config.vectors.ttlDays).toBe(90);
       expect(config.embedding.device).toBe('auto');
       expect(config.retrieval.mmrLambda).toBe(0.7);
+      expect(config.retrieval.primary).toBe('hybrid');
+      expect(config.retrieval.vectorEnrichment).toBe(false);
     });
 
     it('EXTERNAL_DEFAULTS has all required fields', () => {
@@ -479,6 +481,18 @@ describe('toRuntimeConfig', () => {
     const runtime = toRuntimeConfig(external);
 
     expect(runtime.mmrReranking.lambda).toBe(0.7);
+  });
+
+  it('defaults retrievalPrimary to hybrid', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.retrievalPrimary).toBe('hybrid');
   });
 
   it('preserves hybridSearch and clusterExpansion from DEFAULT_CONFIG', () => {

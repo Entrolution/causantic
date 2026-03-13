@@ -16,7 +16,7 @@ All tools return plain text responses via the MCP `content` array with `type: "t
 
 ### search
 
-Search memory semantically to discover relevant past context. Returns ranked results using hybrid BM25 + vector search with RRF fusion, cluster expansion, and MMR diversity reranking.
+Search memory to discover relevant past context. Uses hybrid (BM25 + vector) retrieval with entity boosting. Returns ranked results by relevance. For recent/latest session queries, use `reconstruct` instead.
 
 **Parameters**:
 
@@ -38,7 +38,7 @@ Found 5 relevant memory chunks (1200 tokens):
 
 ### recall
 
-Recall episodic memory by walking backward through causal chains to reconstruct narrative context. Seeds are found by semantic search; the causal graph unfolds them into ordered chains; chains are ranked by aggregate semantic relevance per token. Falls back to search results when no viable chain is found.
+Recall episodic memory by walking backward through causal chains to reconstruct narrative context. Seeds are found by semantic search; the causal graph unfolds them into ordered chains; chains are ranked by aggregate semantic relevance per token. Falls back to search results when no viable chain is found. For recent/latest session queries, use `reconstruct` instead.
 
 **Parameters**:
 
@@ -158,7 +158,7 @@ Returns `"No sessions found for project "[name]"."` if none match.
 
 ### reconstruct
 
-Rebuild session context for a project. Call with just `project` to get the most recent history up to the token budget (timeline mode). Optionally specify a time range with `from`/`to`, `days_back`, `session_id`, or `previous_session`.
+Use this for all recent/latest/last session queries. Rebuild session context for a project. Call with just `project` to get the most recent history up to the token budget (timeline mode). Optionally specify a time range with `from`/`to`, `days_back`, `session_id`, or `previous_session`.
 
 **Parameters**:
 
@@ -200,12 +200,13 @@ Show memory statistics including version, chunk/edge/cluster counts, and per-pro
 **Example**:
 
 ```
-Causantic v0.9.4
+Causantic v0.10.1
 
 Memory Statistics:
 - Chunks: 1234
 - Edges: 5678
 - Clusters: 42
+- Entities: 89
 
 Projects:
 - my-app: 800 chunks (Jan 2025 – Feb 2025)

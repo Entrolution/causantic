@@ -48,7 +48,7 @@ export interface RetrievalResponse {
     sessionSlug: string;
     weight: number;
     preview: string;
-    source?: 'vector' | 'keyword' | 'cluster';
+    source?: 'vector' | 'keyword' | 'cluster' | 'entity';
   }>;
   /** Total chunks considered */
   totalConsidered: number;

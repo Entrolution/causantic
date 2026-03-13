@@ -175,7 +175,7 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   incrementalClusterThreshold: 0.3,
 
   // Retrieval strategy
-  retrievalPrimary: 'keyword',
+  retrievalPrimary: 'hybrid',
   vectorEnrichment: false,
 
   // Embedding

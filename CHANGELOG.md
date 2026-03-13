@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-03-13
+
+### Added
+
+- **Entity extraction** (`src/ingest/entity-extractor.ts`): Deterministic regex-based extraction of people (@mentions, emails, "X said" patterns), channels (#channels), meetings (standup, retro, 1:1), and URLs from chunk content. Skips code blocks and `[Thinking]` blocks to reduce noise.
+- **Entity store** (`src/storage/entity-store.ts`): CRUD layer for entities, aliases, and chunk mentions. Supports alias resolution, re-ingestion safety (INSERT OR IGNORE), and per-entity chunk lookup capped at 100 most recent.
+- **Entity-aware retrieval**: Entity mentions in queries are matched against stored entities and injected as an RRF source (weight 1.5) in both keyword and hybrid search paths. Project-scoped — gracefully skips when no project filter is provided.
+- **Entity tables** (migration v16): Three new tables (`entities`, `entity_aliases`, `entity_mentions`) with cascade deletes and appropriate indexes.
+- **Entity count in stats**: The `stats` MCP tool now reports entity count.
+
+### Changed
+
+- **Hybrid retrieval default**: `retrieval.primary` changed from `'keyword'` to `'hybrid'`. Vector search is now always active at ~14ms cost (local jina-small), which covers narrative/thematic projects without per-project configuration. Backward compatible — `retrieval.primary: 'keyword'` in config still works.
+- **Temporal misrouting fix**: Updated `search` and `recall` tool descriptions to redirect recent/latest session queries to `reconstruct`. Updated `reconstruct` description to explicitly claim temporal queries.
+- **MCP tool descriptions**: `search` now mentions hybrid retrieval and entity boosting; `recall` and `reconstruct` include temporal routing guidance.
+
+### Fixed
+
+- **MCP integration test timeout**: Increased `beforeAll` hook timeout from 10s to 30s to accommodate heavy module imports (ONNX runtime, tree-sitter, LanceDB).
+
+### Tests
+
+- 2378 tests passing.
+
 ## [0.10.0] - 2026-03-12
 
 ### Added

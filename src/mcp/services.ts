@@ -9,6 +9,7 @@ import { getChunkCount, getChunksByIds, getDistinctProjects } from '../storage/c
 import { getDb } from '../storage/db.js';
 import { getEdgeCount } from '../storage/edge-store.js';
 import { getClusterCount } from '../storage/cluster-store.js';
+import { getEntityCount } from '../storage/entity-store.js';
 import { VERSION } from '../utils/version.js';
 import type { SimilarChunkResult } from '../retrieval/search-assembler.js';
 import type { StoredChunk } from '../storage/types.js';
@@ -67,6 +68,13 @@ export function getMemoryStats(): string {
   const clusters = getClusterCount();
   const projects = getDistinctProjects();
 
+  let entities = 0;
+  try {
+    entities = getEntityCount();
+  } catch {
+    // Entity tables may not exist yet
+  }
+
   const lines = [
     `Causantic v${VERSION}`,
     '',
@@ -74,6 +82,7 @@ export function getMemoryStats(): string {
     `- Chunks: ${chunks}`,
     `- Edges: ${edges}`,
     `- Clusters: ${clusters}`,
+    `- Entities: ${entities}`,
   ];
 
   if (projects.length > 0) {

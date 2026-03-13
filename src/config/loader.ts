@@ -71,7 +71,7 @@ export interface ExternalConfig {
     mmrLambda?: number;
     /** Feedback weight for cluster expansion scoring. Default: 0.1 */
     feedbackWeight?: number;
-    /** Primary retrieval method. Default: 'keyword'. */
+    /** Primary retrieval method. Default: 'hybrid'. */
     primary?: 'keyword' | 'vector' | 'hybrid';
     /** Use vector search to enrich keyword results when primary is 'keyword'. Default: false. */
     vectorEnrichment?: boolean;
@@ -144,7 +144,7 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   retrieval: {
     mmrLambda: 0.7,
     feedbackWeight: 0.1,
-    primary: 'keyword',
+    primary: 'hybrid',
     vectorEnrichment: false,
   },
   recency: {

@@ -83,6 +83,7 @@ const FIXTURE_CHUNKS: ChunkInput[] = [
   },
 ];
 
+// Module imports (ONNX runtime, tree-sitter, LanceDB) are heavy — extend hook timeout
 beforeAll(() => {
   db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
@@ -118,7 +119,7 @@ beforeAll(() => {
     referenceType: 'cross-session',
     initialWeight: 0.7,
   });
-});
+}, 30_000);
 
 afterAll(() => {
   resetDb();
