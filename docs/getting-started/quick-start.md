@@ -23,26 +23,9 @@ This creates:
 - A SQLite database at `~/.causantic/memory.db`
 - A vector store at `~/.causantic/vectors/`
 
-## Step 3: Configure Claude Code
+## Step 3: Test the Integration
 
-Add Causantic as an MCP server in your Claude Code configuration:
-
-**Claude Code**: `~/.claude.json`
-
-```json
-{
-  "mcpServers": {
-    "memory": {
-      "command": "npx",
-      "args": ["causantic", "serve"]
-    }
-  }
-}
-```
-
-## Step 4: Test the Integration
-
-Restart Claude Code and try:
+`npx causantic init` (Step 1) already configured MCP for you. Restart Claude Code and try:
 
 ```
 You: What did we work on last week in the auth module?
@@ -53,7 +36,7 @@ Claude: [Uses memory tools to recall relevant context]
 
 1. **Hooks** capture context at session start and before compaction
 2. **Ingestion** parses sessions into semantic chunks
-3. **Embeddings** enable similarity search
+3. **Hybrid retrieval** combines keyword search (BM25) with vector similarity via RRF — no upfront embedding required
 4. **Graph** tracks causal relationships between chunks
 5. **MCP Tools** let Claude query the memory
 

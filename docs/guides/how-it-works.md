@@ -9,7 +9,7 @@ This guide explains the architecture and design of Causantic.
 Causantic breaks Claude Code sessions into **chunks** - semantic units of conversation. Each chunk contains:
 
 - Content (conversation text)
-- Embeddings (vector representation)
+- Embeddings (vector representation, optional — generated when vector search is enabled)
 - Session metadata
 
 ### Causal Graph
@@ -65,9 +65,9 @@ When index entries exist, retrieval searches descriptions instead of raw chunks.
    ├── Pre-compact hook fires
    ├── Ingest session content
    ├── Create chunks and edges
-   ├── Generate chunk embeddings    ─► vectors (LanceDB)
+   ├── Generate chunk embeddings    ─► vectors (LanceDB)  [optional]
    ├── Generate index entries        ─► index_entries (SQLite)
-   ├── Embed index descriptions      ─► index_vectors (LanceDB)
+   ├── Embed index descriptions      ─► index_vectors (LanceDB)  [optional]
    └── Update clusters
 ```
 
@@ -409,5 +409,5 @@ Default location: `~/.causantic/`
 ## See Also
 
 - [Integration](integration.md) - Hooks and MCP setup
-- [Configuration](../getting-started/configuration.md) - Tune parameters
+- [Configuration](../reference/configuration.md) - Tune parameters
 - [Research](../research/README.md) - Detailed technical findings
