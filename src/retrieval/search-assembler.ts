@@ -27,6 +27,7 @@ import { extractEntities } from '../utils/entity-extractor.js';
 import { findEntitiesByAlias, getChunkIdsForEntity } from '../storage/entity-store.js';
 import { createLogger } from '../utils/logger.js';
 import { formatSearchChunk } from './formatting.js';
+import type { MemoryConfig } from '../config/memory-config.js';
 
 const log = createLogger('search-assembler');
 
@@ -113,6 +114,24 @@ function getKeywordStore(): KeywordStore {
   return sharedKeywordStore;
 }
 
+// ── Extracted pipeline stages ────────────────────────────────────────────────
+
+/**
+ * Filter items by agent when agent filtering is active but project filtering is not.
+ *
+ * When projectFilter is set, agent filtering is handled by the storage layer.
+ * This function handles the post-filter case where no project scope was provided.
+ */
+function filterByAgent<T extends { id: string }>(
+  items: T[],
+  agentFilter: string | undefined,
+  projectFilter: string | string[] | undefined,
+  getAgent: (id: string) => string | null | undefined,
+): T[] {
+  if (!agentFilter || projectFilter) return items;
+  return items.filter((item) => getAgent(item.id) === agentFilter);
+}
+
 /**
  * Extract entity mentions from the query and find matching chunks.
  * Returns ranked items suitable for RRF fusion.
@@ -142,360 +161,335 @@ function getEntityResults(query: string, projectFilter?: string | string[]): Ran
 }
 
 /**
- * Run the search pipeline.
- *
- * Keyword-primary mode: keyword → [optional vector enrichment] → recency → MMR → budget
- * Hybrid mode:          embed → [vector, keyword] → RRF → cluster expand → recency → MMR → budget
+ * Merge entity-boosted results into fused results via RRF.
  */
-export async function searchContext(request: SearchRequest): Promise<SearchResponse> {
-  const startTime = Date.now();
-  const externalConfig = loadConfig();
-  const config = toRuntimeConfig(externalConfig);
-
-  const {
-    query,
-    currentSessionId,
-    projectFilter,
-    maxTokens = config.mcpMaxResponseTokens,
-    vectorSearchLimit = 20,
-    skipClusters = false,
-    agentFilter,
-  } = request;
-
-  const { hybridSearch, clusterExpansion, mmrReranking, embeddingModel } = config;
-  const retrievalMode = config.retrievalPrimary;
-
-  let fusedResults: RankedItem[];
-  let queryEmbedding: number[] = [];
-  let useIndexSearch = false;
-
-  if (retrievalMode === 'keyword') {
-    // ── Keyword-primary search path ──────────────────────────────────────
-    // No embedding needed unless vector enrichment is enabled.
-
-    let keywordResults: Array<{ id: string; score: number }> = [];
-    try {
-      const keywordStore = getKeywordStore();
-      keywordResults = projectFilter
-        ? keywordStore.searchByProject(
-            query,
-            projectFilter,
-            hybridSearch.keywordSearchLimit,
-            agentFilter,
-          )
-        : keywordStore.search(query, hybridSearch.keywordSearchLimit);
-    } catch (error) {
-      log.warn('Keyword search failed', { error: (error as Error).message });
-    }
-
-    // Post-filter by agent when no project filter was used
-    if (agentFilter && !projectFilter) {
-      keywordResults = keywordResults.filter((r) => {
-        const chunk = getChunkById(r.id);
-        return chunk?.agentId === agentFilter;
-      });
-    }
-
-    fusedResults = keywordResults.map((r) => ({
-      chunkId: r.id,
-      score: r.score,
-      source: 'keyword' as const,
-    }));
-
-    // Optional vector enrichment: merge vector results via RRF
-    if (config.vectorEnrichment) {
-      try {
-        vectorStore.setModelId(embeddingModel);
-        const embedder = await getEmbedder(embeddingModel);
-        const queryResult = await embedder.embed(query, true);
-        queryEmbedding = queryResult.embedding;
-
-        let vectorResults = await (projectFilter
-          ? vectorStore.searchByProject(
-              queryResult.embedding,
-              projectFilter,
-              vectorSearchLimit,
-              agentFilter,
-            )
-          : vectorStore.search(queryResult.embedding, vectorSearchLimit));
-
-        if (agentFilter && !projectFilter) {
-          vectorResults = vectorResults.filter((s) => {
-            const chunk = getChunkById(s.id);
-            return chunk?.agentId === agentFilter;
-          });
-        }
-
-        if (vectorResults.length > 0) {
-          const vectorItems: RankedItem[] = vectorResults.map((s) => ({
-            chunkId: s.id,
-            score: Math.max(0, 1 - s.distance),
-            source: 'vector' as const,
-          }));
-
-          fusedResults = fuseRRF(
-            [
-              { items: fusedResults, weight: hybridSearch.keywordWeight },
-              { items: vectorItems, weight: hybridSearch.vectorWeight },
-            ],
-            hybridSearch.rrfK,
-          );
-        }
-      } catch (error) {
-        log.warn('Vector enrichment failed, using keyword results only', {
-          error: (error as Error).message,
-        });
-      }
-    }
-
-    // Entity boost: merge entity-matched chunks via RRF
-    try {
-      const entityItems = getEntityResults(query, projectFilter);
-      if (entityItems.length > 0) {
-        fusedResults = fuseRRF(
-          [
-            { items: fusedResults, weight: 1.0 },
-            { items: entityItems, weight: ENTITY_RRF_BOOST },
-          ],
-          hybridSearch.rrfK,
-        );
-      }
-    } catch (error) {
-      log.warn('Entity search failed', { error: (error as Error).message });
-    }
-
-    if (fusedResults.length === 0) {
-      return {
-        text: '',
-        tokenCount: 0,
-        chunks: [],
-        totalConsidered: 0,
-        durationMs: Date.now() - startTime,
-        queryEmbedding,
-        seedIds: [],
-      };
-    }
-
-    // Skip cluster expansion for keyword-primary mode
-  } else {
-    // ── Hybrid/vector search path ────────────────────────────────────────
-    // Configure vector store for current model
-    vectorStore.setModelId(embeddingModel);
-
-    // 1. Embed query
-    const embedder = await getEmbedder(embeddingModel);
-    const queryResult = await embedder.embed(query, true);
-    queryEmbedding = queryResult.embedding;
-
-    // Determine whether to use index-based search
-    useIndexSearch = config.semanticIndex.useForSearch && getIndexEntryCount() > 0;
-
-    if (useIndexSearch) {
-      // ── Index-based search path ──────────────────────────────────────
-      indexVectorStore.setModelId(embeddingModel);
-
-      const entryCount = getIndexEntryCount();
-      const indexedChunks = getIndexedChunkCount();
-      const entriesPerChunk = indexedChunks > 0 ? entryCount / indexedChunks : 1;
-      const indexSearchLimit = Math.ceil(vectorSearchLimit * entriesPerChunk);
-
-      const indexVectorPromise = projectFilter
-        ? indexVectorStore.searchByProject(
-            queryResult.embedding,
-            projectFilter,
-            indexSearchLimit,
-            agentFilter,
-          )
-        : indexVectorStore.search(queryResult.embedding, indexSearchLimit);
-
-      let indexKeywordResults: Array<{ id: string; score: number }> = [];
-      try {
-        indexKeywordResults = searchIndexEntriesByKeyword(
-          query,
-          hybridSearch.keywordSearchLimit,
-          projectFilter,
-          agentFilter,
-        );
-      } catch (error) {
-        log.warn('Index keyword search unavailable', {
-          error: (error as Error).message,
-        });
-      }
-
-      let indexSimilar = await indexVectorPromise;
-
-      if (agentFilter && !projectFilter) {
-        indexSimilar = indexSimilar.filter((s) => {
-          const agent = indexVectorStore.getChunkAgent(s.id);
-          return agent === agentFilter;
-        });
-        indexKeywordResults = indexKeywordResults.filter((r) => {
-          const agent = indexVectorStore.getChunkAgent(r.id);
-          return agent === agentFilter;
-        });
-      }
-
-      if (indexSimilar.length === 0 && indexKeywordResults.length === 0) {
-        return {
-          text: '',
-          tokenCount: 0,
-          chunks: [],
-          totalConsidered: 0,
-          durationMs: Date.now() - startTime,
-          queryEmbedding,
-          seedIds: [],
-        };
-      }
-
-      const indexVectorItems: RankedItem[] = indexSimilar.map((s) => ({
-        chunkId: s.id,
-        score: Math.max(0, 1 - s.distance),
-        source: 'vector' as const,
-      }));
-
-      const indexKeywordItems: RankedItem[] = indexKeywordResults.map((r) => ({
-        chunkId: r.id,
-        score: r.score,
-        source: 'keyword' as const,
-      }));
-
-      const indexFused = fuseRRF(
+function applyEntityBoost(
+  fusedResults: RankedItem[],
+  query: string,
+  projectFilter: string | string[] | undefined,
+  rrfK: number,
+): RankedItem[] {
+  try {
+    const entityItems = getEntityResults(query, projectFilter);
+    if (entityItems.length > 0) {
+      return fuseRRF(
         [
-          { items: indexVectorItems, weight: hybridSearch.vectorWeight },
-          ...(indexKeywordItems.length > 0
-            ? [{ items: indexKeywordItems, weight: hybridSearch.keywordWeight }]
-            : []),
+          { items: fusedResults, weight: 1.0 },
+          { items: entityItems, weight: ENTITY_RRF_BOOST },
         ],
-        hybridSearch.rrfK,
+        rrfK,
       );
+    }
+  } catch (error) {
+    log.warn('Entity search failed', { error: (error as Error).message });
+  }
+  return fusedResults;
+}
 
-      const indexEntryIds = indexFused.map((r) => r.chunkId);
-      const chunkIds = dereferenceToChunkIds(indexEntryIds);
+/** Return type for retrieval path functions. null signals empty results (early return). */
+interface RetrievalResult {
+  fusedResults: RankedItem[];
+  queryEmbedding: number[];
+  useIndexSearch: boolean;
+}
 
-      const chunkScoreMap = new Map<string, { score: number; source: RankedItem['source'] }>();
-      for (const item of indexFused) {
-        const entryChunkIds = dereferenceToChunkIds([item.chunkId]);
-        for (const cid of entryChunkIds) {
-          const existing = chunkScoreMap.get(cid);
-          if (!existing || item.score > existing.score) {
-            chunkScoreMap.set(cid, { score: item.score, source: item.source });
-          }
-        }
-      }
+/**
+ * Keyword-primary retrieval path.
+ *
+ * keyword → [optional vector enrichment] → entity boost
+ * No cluster expansion.
+ */
+async function keywordPrimarySearch(
+  query: string,
+  projectFilter: string | string[] | undefined,
+  agentFilter: string | undefined,
+  vectorSearchLimit: number,
+  config: MemoryConfig,
+): Promise<RetrievalResult | null> {
+  const { hybridSearch, embeddingModel } = config;
+  let queryEmbedding: number[] = [];
 
-      fusedResults = chunkIds.map((cid) => {
-        const entry = chunkScoreMap.get(cid);
-        return {
-          chunkId: cid,
-          score: entry?.score ?? 0,
-          source: entry?.source,
-        };
-      });
-    } else {
-      // ── Chunk-based search path (fallback) ─────────────────────────────
-      const vectorSearchPromise = projectFilter
+  let keywordResults: Array<{ id: string; score: number }> = [];
+  try {
+    const keywordStore = getKeywordStore();
+    keywordResults = projectFilter
+      ? keywordStore.searchByProject(
+          query,
+          projectFilter,
+          hybridSearch.keywordSearchLimit,
+          agentFilter,
+        )
+      : keywordStore.search(query, hybridSearch.keywordSearchLimit);
+  } catch (error) {
+    log.warn('Keyword search failed', { error: (error as Error).message });
+  }
+
+  // Post-filter by agent when no project filter was used
+  keywordResults = filterByAgent(keywordResults, agentFilter, projectFilter, (id) => {
+    const chunk = getChunkById(id);
+    return chunk?.agentId;
+  });
+
+  let fusedResults: RankedItem[] = keywordResults.map((r) => ({
+    chunkId: r.id,
+    score: r.score,
+    source: 'keyword' as const,
+  }));
+
+  // Optional vector enrichment: merge vector results via RRF
+  if (config.vectorEnrichment) {
+    try {
+      vectorStore.setModelId(embeddingModel);
+      const embedder = await getEmbedder(embeddingModel);
+      const queryResult = await embedder.embed(query, true);
+      queryEmbedding = queryResult.embedding;
+
+      let vectorResults = await (projectFilter
         ? vectorStore.searchByProject(
             queryResult.embedding,
             projectFilter,
             vectorSearchLimit,
             agentFilter,
           )
-        : vectorStore.search(queryResult.embedding, vectorSearchLimit);
+        : vectorStore.search(queryResult.embedding, vectorSearchLimit));
 
-      let keywordResults: Array<{ id: string; score: number }> = [];
-      try {
-        const keywordStore = getKeywordStore();
-        keywordResults = projectFilter
-          ? keywordStore.searchByProject(
-              query,
-              projectFilter,
-              hybridSearch.keywordSearchLimit,
-              agentFilter,
-            )
-          : keywordStore.search(query, hybridSearch.keywordSearchLimit);
-      } catch (error) {
-        log.warn('Keyword search unavailable, falling back to vector-only', {
-          error: (error as Error).message,
-        });
-      }
+      vectorResults = filterByAgent(vectorResults, agentFilter, projectFilter, (id) => {
+        const chunk = getChunkById(id);
+        return chunk?.agentId;
+      });
 
-      let similar = await vectorSearchPromise;
+      if (vectorResults.length > 0) {
+        const vectorItems: RankedItem[] = vectorResults.map((s) => ({
+          chunkId: s.id,
+          score: Math.max(0, 1 - s.distance),
+          source: 'vector' as const,
+        }));
 
-      if (agentFilter && !projectFilter) {
-        similar = similar.filter((s) => {
-          const chunk = getChunkById(s.id);
-          return chunk?.agentId === agentFilter;
-        });
-        keywordResults = keywordResults.filter((r) => {
-          const chunk = getChunkById(r.id);
-          return chunk?.agentId === agentFilter;
-        });
-      }
-
-      if (similar.length === 0 && keywordResults.length === 0) {
-        return {
-          text: '',
-          tokenCount: 0,
-          chunks: [],
-          totalConsidered: 0,
-          durationMs: Date.now() - startTime,
-          queryEmbedding,
-          seedIds: [],
-        };
-      }
-
-      const vectorItems: RankedItem[] = similar.map((s) => ({
-        chunkId: s.id,
-        score: Math.max(0, 1 - s.distance),
-        source: 'vector' as const,
-      }));
-
-      const keywordItems: RankedItem[] = keywordResults.map((r) => ({
-        chunkId: r.id,
-        score: r.score,
-        source: 'keyword' as const,
-      }));
-
-      fusedResults = fuseRRF(
-        [
-          { items: vectorItems, weight: hybridSearch.vectorWeight },
-          ...(keywordItems.length > 0
-            ? [{ items: keywordItems, weight: hybridSearch.keywordWeight }]
-            : []),
-        ],
-        hybridSearch.rrfK,
-      );
-    }
-
-    // Entity boost (hybrid/vector path)
-    try {
-      const entityItems = getEntityResults(query, projectFilter);
-      if (entityItems.length > 0) {
         fusedResults = fuseRRF(
           [
-            { items: fusedResults, weight: 1.0 },
-            { items: entityItems, weight: ENTITY_RRF_BOOST },
+            { items: fusedResults, weight: hybridSearch.keywordWeight },
+            { items: vectorItems, weight: hybridSearch.vectorWeight },
           ],
           hybridSearch.rrfK,
         );
       }
     } catch (error) {
-      log.warn('Entity search failed', { error: (error as Error).message });
-    }
-
-    // Cluster expansion (hybrid/vector path only)
-    if (!skipClusters) {
-      fusedResults = expandViaClusters(
-        fusedResults,
-        clusterExpansion,
-        projectFilter,
-        agentFilter,
-        config.feedbackWeight,
-      );
+      log.warn('Vector enrichment failed, using keyword results only', {
+        error: (error as Error).message,
+      });
     }
   }
 
-  // ── Shared post-processing ───────────────────────────────────────────
+  // Entity boost
+  fusedResults = applyEntityBoost(fusedResults, query, projectFilter, hybridSearch.rrfK);
+
+  if (fusedResults.length === 0) {
+    return null;
+  }
+
+  return { fusedResults, queryEmbedding, useIndexSearch: false };
+}
+
+/**
+ * Index-based hybrid retrieval path.
+ *
+ * Uses semantic index entries (vector + keyword) → RRF → dereference to chunks.
+ */
+async function indexBasedSearch(
+  queryEmbedding: number[],
+  query: string,
+  projectFilter: string | string[] | undefined,
+  agentFilter: string | undefined,
+  vectorSearchLimit: number,
+  config: MemoryConfig,
+): Promise<RetrievalResult | null> {
+  const { hybridSearch, embeddingModel } = config;
+
+  indexVectorStore.setModelId(embeddingModel);
+
+  const entryCount = getIndexEntryCount();
+  const indexedChunks = getIndexedChunkCount();
+  const entriesPerChunk = indexedChunks > 0 ? entryCount / indexedChunks : 1;
+  const indexSearchLimit = Math.ceil(vectorSearchLimit * entriesPerChunk);
+
+  const indexVectorPromise = projectFilter
+    ? indexVectorStore.searchByProject(queryEmbedding, projectFilter, indexSearchLimit, agentFilter)
+    : indexVectorStore.search(queryEmbedding, indexSearchLimit);
+
+  let indexKeywordResults: Array<{ id: string; score: number }> = [];
+  try {
+    indexKeywordResults = searchIndexEntriesByKeyword(
+      query,
+      hybridSearch.keywordSearchLimit,
+      projectFilter,
+      agentFilter,
+    );
+  } catch (error) {
+    log.warn('Index keyword search unavailable', {
+      error: (error as Error).message,
+    });
+  }
+
+  let indexSimilar = await indexVectorPromise;
+
+  indexSimilar = filterByAgent(indexSimilar, agentFilter, projectFilter, (id) =>
+    indexVectorStore.getChunkAgent(id),
+  );
+  indexKeywordResults = filterByAgent(indexKeywordResults, agentFilter, projectFilter, (id) =>
+    indexVectorStore.getChunkAgent(id),
+  );
+
+  if (indexSimilar.length === 0 && indexKeywordResults.length === 0) {
+    return null;
+  }
+
+  const indexVectorItems: RankedItem[] = indexSimilar.map((s) => ({
+    chunkId: s.id,
+    score: Math.max(0, 1 - s.distance),
+    source: 'vector' as const,
+  }));
+
+  const indexKeywordItems: RankedItem[] = indexKeywordResults.map((r) => ({
+    chunkId: r.id,
+    score: r.score,
+    source: 'keyword' as const,
+  }));
+
+  const indexFused = fuseRRF(
+    [
+      { items: indexVectorItems, weight: hybridSearch.vectorWeight },
+      ...(indexKeywordItems.length > 0
+        ? [{ items: indexKeywordItems, weight: hybridSearch.keywordWeight }]
+        : []),
+    ],
+    hybridSearch.rrfK,
+  );
+
+  const indexEntryIds = indexFused.map((r) => r.chunkId);
+  const chunkIds = dereferenceToChunkIds(indexEntryIds);
+
+  const chunkScoreMap = new Map<string, { score: number; source: RankedItem['source'] }>();
+  for (const item of indexFused) {
+    const entryChunkIds = dereferenceToChunkIds([item.chunkId]);
+    for (const cid of entryChunkIds) {
+      const existing = chunkScoreMap.get(cid);
+      if (!existing || item.score > existing.score) {
+        chunkScoreMap.set(cid, { score: item.score, source: item.source });
+      }
+    }
+  }
+
+  const fusedResults: RankedItem[] = chunkIds.map((cid) => {
+    const entry = chunkScoreMap.get(cid);
+    return {
+      chunkId: cid,
+      score: entry?.score ?? 0,
+      source: entry?.source,
+    };
+  });
+
+  return { fusedResults, queryEmbedding, useIndexSearch: true };
+}
+
+/**
+ * Chunk-based hybrid retrieval path (fallback when no semantic index).
+ *
+ * vector + keyword → RRF
+ */
+async function chunkBasedSearch(
+  queryEmbedding: number[],
+  query: string,
+  projectFilter: string | string[] | undefined,
+  agentFilter: string | undefined,
+  vectorSearchLimit: number,
+  config: MemoryConfig,
+): Promise<RetrievalResult | null> {
+  const { hybridSearch } = config;
+
+  const vectorSearchPromise = projectFilter
+    ? vectorStore.searchByProject(queryEmbedding, projectFilter, vectorSearchLimit, agentFilter)
+    : vectorStore.search(queryEmbedding, vectorSearchLimit);
+
+  let keywordResults: Array<{ id: string; score: number }> = [];
+  try {
+    const keywordStore = getKeywordStore();
+    keywordResults = projectFilter
+      ? keywordStore.searchByProject(
+          query,
+          projectFilter,
+          hybridSearch.keywordSearchLimit,
+          agentFilter,
+        )
+      : keywordStore.search(query, hybridSearch.keywordSearchLimit);
+  } catch (error) {
+    log.warn('Keyword search unavailable, falling back to vector-only', {
+      error: (error as Error).message,
+    });
+  }
+
+  let similar = await vectorSearchPromise;
+
+  similar = filterByAgent(similar, agentFilter, projectFilter, (id) => {
+    const chunk = getChunkById(id);
+    return chunk?.agentId;
+  });
+  keywordResults = filterByAgent(keywordResults, agentFilter, projectFilter, (id) => {
+    const chunk = getChunkById(id);
+    return chunk?.agentId;
+  });
+
+  if (similar.length === 0 && keywordResults.length === 0) {
+    return null;
+  }
+
+  const vectorItems: RankedItem[] = similar.map((s) => ({
+    chunkId: s.id,
+    score: Math.max(0, 1 - s.distance),
+    source: 'vector' as const,
+  }));
+
+  const keywordItems: RankedItem[] = keywordResults.map((r) => ({
+    chunkId: r.id,
+    score: r.score,
+    source: 'keyword' as const,
+  }));
+
+  const fusedResults = fuseRRF(
+    [
+      { items: vectorItems, weight: hybridSearch.vectorWeight },
+      ...(keywordItems.length > 0
+        ? [{ items: keywordItems, weight: hybridSearch.keywordWeight }]
+        : []),
+    ],
+    hybridSearch.rrfK,
+  );
+
+  return { fusedResults, queryEmbedding, useIndexSearch: false };
+}
+
+/**
+ * Shared post-processing pipeline that all retrieval paths converge on.
+ *
+ * source tracking → seed extraction → dedupe → recency boost + length penalty →
+ * size bounding → MMR reranking → score normalization → budget assembly
+ */
+async function postProcessResults(
+  fusedResults: RankedItem[],
+  opts: {
+    queryEmbedding: number[];
+    maxTokens: number;
+    currentSessionId?: string;
+    config: MemoryConfig;
+    useIndexSearch: boolean;
+  },
+): Promise<{
+  text: string;
+  tokenCount: number;
+  chunks: SearchResponse['chunks'];
+  totalConsidered: number;
+  seedIds: string[];
+}> {
+  const { queryEmbedding, maxTokens, currentSessionId, config, useIndexSearch } = opts;
 
   // Track sources
   type ChunkSource = 'vector' | 'keyword' | 'cluster' | 'entity';
@@ -557,7 +551,7 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
   });
 
   // MMR reranking (diversity-aware, budget-aware ordering)
-  const reordered = await reorderWithMMR(sizeBounded, queryEmbedding, mmrReranking, {
+  const reordered = await reorderWithMMR(sizeBounded, queryEmbedding, config.mmrReranking, {
     tokenBudget: maxTokens,
     chunkTokenCounts: chunkTokenMap,
   });
@@ -580,11 +574,144 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     tokenCount: assembled.tokenCount,
     chunks: assembled.includedChunks,
     totalConsidered: deduped.length,
-    durationMs: Date.now() - startTime,
-    queryEmbedding,
     seedIds,
   };
 }
+
+// ── Main orchestrator ────────────────────────────────────────────────────────
+
+/**
+ * Run the search pipeline.
+ *
+ * Keyword-primary mode: keyword → [optional vector enrichment] → recency → MMR → budget
+ * Hybrid mode:          embed → [vector, keyword] → RRF → cluster expand → recency → MMR → budget
+ */
+export async function searchContext(request: SearchRequest): Promise<SearchResponse> {
+  const startTime = Date.now();
+  const externalConfig = loadConfig();
+  const config = toRuntimeConfig(externalConfig);
+
+  const {
+    query,
+    currentSessionId,
+    projectFilter,
+    maxTokens = config.mcpMaxResponseTokens,
+    vectorSearchLimit = 20,
+    skipClusters = false,
+    agentFilter,
+  } = request;
+
+  const { embeddingModel } = config;
+  const retrievalMode = config.retrievalPrimary;
+
+  const emptyResponse: SearchResponse = {
+    text: '',
+    tokenCount: 0,
+    chunks: [],
+    totalConsidered: 0,
+    durationMs: Date.now() - startTime,
+    queryEmbedding: [],
+    seedIds: [],
+  };
+
+  let result: RetrievalResult | null;
+
+  if (retrievalMode === 'keyword') {
+    // ── Keyword-primary search path ──────────────────────────────────────
+    result = await keywordPrimarySearch(
+      query,
+      projectFilter,
+      agentFilter,
+      vectorSearchLimit,
+      config,
+    );
+
+    if (!result) {
+      emptyResponse.durationMs = Date.now() - startTime;
+      return emptyResponse;
+    }
+
+    // Skip cluster expansion for keyword-primary mode
+  } else {
+    // ── Hybrid/vector search path ────────────────────────────────────────
+    // Configure vector store for current model
+    vectorStore.setModelId(embeddingModel);
+
+    // 1. Embed query
+    const embedder = await getEmbedder(embeddingModel);
+    const queryResult = await embedder.embed(query, true);
+    const queryEmbedding = queryResult.embedding;
+
+    // Determine whether to use index-based search
+    const useIndexSearch = config.semanticIndex.useForSearch && getIndexEntryCount() > 0;
+
+    if (useIndexSearch) {
+      result = await indexBasedSearch(
+        queryEmbedding,
+        query,
+        projectFilter,
+        agentFilter,
+        vectorSearchLimit,
+        config,
+      );
+    } else {
+      result = await chunkBasedSearch(
+        queryEmbedding,
+        query,
+        projectFilter,
+        agentFilter,
+        vectorSearchLimit,
+        config,
+      );
+    }
+
+    if (!result) {
+      emptyResponse.queryEmbedding = queryEmbedding;
+      emptyResponse.durationMs = Date.now() - startTime;
+      return emptyResponse;
+    }
+
+    // Entity boost (hybrid/vector path)
+    result.fusedResults = applyEntityBoost(
+      result.fusedResults,
+      query,
+      projectFilter,
+      config.hybridSearch.rrfK,
+    );
+
+    // Cluster expansion (hybrid/vector path only)
+    if (!skipClusters) {
+      result.fusedResults = expandViaClusters(
+        result.fusedResults,
+        config.clusterExpansion,
+        projectFilter,
+        agentFilter,
+        config.feedbackWeight,
+      );
+    }
+  }
+
+  // ── Shared post-processing ───────────────────────────────────────────
+  const processed = await postProcessResults(result.fusedResults, {
+    queryEmbedding: result.queryEmbedding,
+    maxTokens,
+    currentSessionId,
+    config,
+    useIndexSearch: result.useIndexSearch,
+  });
+
+  return {
+    text: processed.text,
+    tokenCount: processed.tokenCount,
+    chunks: processed.chunks,
+    totalConsidered: processed.totalConsidered,
+    durationMs: Date.now() - startTime,
+    queryEmbedding: result.queryEmbedding,
+    seedIds: processed.seedIds,
+  };
+}
+
+// ── Budget assembly ──────────────────────────────────────────────────────────
 
 /**
  * Formatting overhead constants.
@@ -679,6 +806,8 @@ function truncateChunk(content: string, maxTokens: number): string {
   }
   return truncated + '\n...[truncated]';
 }
+
+// ── Additional exports ───────────────────────────────────────────────────────
 
 /**
  * Result from similarity search for semantic deletion.
