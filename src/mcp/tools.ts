@@ -77,6 +77,44 @@ function formatSearchResponse(response: SearchResponse): string {
 }
 
 /**
+ * Record retrieval feedback, suppressing errors since it's non-critical.
+ */
+function recordRetrievalSafe(
+  chunks: Array<{ id: string }>,
+  query: string,
+  type: 'search' | 'recall' | 'predict',
+): void {
+  if (chunks.length === 0) return;
+  try {
+    recordRetrieval(
+      chunks.map((c) => c.id),
+      query,
+      type,
+    );
+  } catch {
+    // Non-critical — don't fail the tool response
+  }
+}
+
+/**
+ * Extract common retrieval arguments from tool args.
+ */
+function extractRetrievalArgs(args: Record<string, unknown>): {
+  query: string;
+  project: string | undefined;
+  agent: string | undefined;
+  maxTokens: number;
+} {
+  const config = getConfig();
+  return {
+    query: (args.query ?? args.context) as string,
+    project: args.project as string | undefined,
+    agent: args.agent as string | undefined,
+    maxTokens: (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens,
+  };
+}
+
+/**
  * Search tool: semantic discovery across memory.
  */
 export const searchTool: ToolDefinition = {
@@ -107,11 +145,7 @@ export const searchTool: ToolDefinition = {
     required: ['query'],
   },
   handler: async (args) => {
-    const query = args.query as string;
-    const project = args.project as string | undefined;
-    const agent = args.agent as string | undefined;
-    const config = getConfig();
-    const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
+    const { query, project, agent, maxTokens } = extractRetrievalArgs(args);
 
     const response = await searchContext({
       query,
@@ -121,19 +155,7 @@ export const searchTool: ToolDefinition = {
     });
 
     const result = formatSearchResponse(response);
-
-    // Fire-and-forget feedback recording
-    if (response.chunks.length > 0) {
-      try {
-        recordRetrieval(
-          response.chunks.map((c) => c.id),
-          query,
-          'search',
-        );
-      } catch {
-        // Non-critical — don't fail the response
-      }
-    }
+    recordRetrievalSafe(response.chunks, query, 'search');
 
     return result;
   },
@@ -170,11 +192,7 @@ export const recallTool: ToolDefinition = {
     required: ['query'],
   },
   handler: async (args) => {
-    const query = args.query as string;
-    const project = args.project as string | undefined;
-    const agent = args.agent as string | undefined;
-    const config = getConfig();
-    const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
+    const { query, project, agent, maxTokens } = extractRetrievalArgs(args);
 
     // Search session summaries for supplementary context
     let summarySection = '';
@@ -201,18 +219,7 @@ export const recallTool: ToolDefinition = {
     });
 
     const result = formatResponse(response);
-
-    if (response.chunks.length > 0) {
-      try {
-        recordRetrieval(
-          response.chunks.map((c) => c.id),
-          query,
-          'recall',
-        );
-      } catch {
-        // Non-critical
-      }
-    }
+    recordRetrievalSafe(response.chunks, query, 'recall');
 
     return summarySection + result;
   },
@@ -249,11 +256,7 @@ export const predictTool: ToolDefinition = {
     required: ['context'],
   },
   handler: async (args) => {
-    const context = args.context as string;
-    const project = args.project as string | undefined;
-    const agent = args.agent as string | undefined;
-    const config = getConfig();
-    const maxTokens = (args.max_tokens as number | undefined) ?? config.mcpMaxResponseTokens;
+    const { query: context, project, agent, maxTokens } = extractRetrievalArgs(args);
 
     const response = await predict(context, {
       maxTokens,
@@ -274,17 +277,7 @@ export const predictTool: ToolDefinition = {
       result += `\n\n[Chain walk: fell back to search — ${d.fallbackReason}. Search found ${d.searchResultCount} chunks, ${d.seedCount} seeds, ${d.chainsAttempted} chain(s) attempted, lengths: ${lengths}]`;
     }
 
-    if (response.chunks.length > 0) {
-      try {
-        recordRetrieval(
-          response.chunks.map((c) => c.id),
-          context,
-          'predict',
-        );
-      } catch {
-        // Non-critical
-      }
-    }
+    recordRetrievalSafe(response.chunks, context, 'predict');
 
     return result;
   },
