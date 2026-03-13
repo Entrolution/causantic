@@ -128,7 +128,7 @@ async function crossEncoderRescore(
 
   for (const c of candidates) {
     const truncated = c.content.slice(0, CROSS_ENCODER_MAX_CHARS);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- HF pipeline() return type is untyped
     const result = await (pipe as any)({ text: query, text_pair: truncated }, { topk: 1 });
     const score = Array.isArray(result)
       ? (result[0] as { score: number }).score
