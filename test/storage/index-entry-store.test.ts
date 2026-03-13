@@ -204,7 +204,9 @@ describe('index-entry-store', () => {
       const id = insertIndexEntry(createSampleIndexEntry({ chunkIds: ['c1', 'c2'] }));
 
       const rows = db
-        .prepare('SELECT chunk_id FROM index_entry_chunks WHERE index_entry_id = ? ORDER BY chunk_id')
+        .prepare(
+          'SELECT chunk_id FROM index_entry_chunks WHERE index_entry_id = ? ORDER BY chunk_id',
+        )
         .all(id) as Array<{ chunk_id: string }>;
 
       expect(rows.map((r) => r.chunk_id)).toEqual(['c1', 'c2']);
@@ -250,9 +252,10 @@ describe('index-entry-store', () => {
 
       const ids = insertIndexEntries(inputs);
 
-      const rows = db
-        .prepare('SELECT * FROM index_entry_chunks ORDER BY chunk_id')
-        .all() as Array<{ index_entry_id: string; chunk_id: string }>;
+      const rows = db.prepare('SELECT * FROM index_entry_chunks ORDER BY chunk_id').all() as Array<{
+        index_entry_id: string;
+        chunk_id: string;
+      }>;
 
       expect(rows).toHaveLength(3);
       expect(rows.map((r) => r.chunk_id)).toEqual(['c1', 'c2', 'c3']);
@@ -531,9 +534,7 @@ describe('index-entry-store', () => {
 
       await deleteIndexEntriesForChunks(['c1', 'c2']);
 
-      expect(indexVectorStore.deleteBatch).toHaveBeenCalledWith(
-        expect.arrayContaining([id1, id2]),
-      );
+      expect(indexVectorStore.deleteBatch).toHaveBeenCalledWith(expect.arrayContaining([id1, id2]));
     });
 
     it('returns 0 when chunk IDs do not match any entries', async () => {
@@ -774,9 +775,7 @@ describe('index-entry-store', () => {
     });
 
     it('sanitizes FTS5 special operators from query', () => {
-      insertIndexEntry(
-        createSampleIndexEntry({ description: 'Testing search implementation' }),
-      );
+      insertIndexEntry(createSampleIndexEntry({ description: 'Testing search implementation' }));
 
       // These contain FTS5 operators that should be stripped
       const results = searchIndexEntriesByKeyword('AND OR NOT', 10);
@@ -784,9 +783,7 @@ describe('index-entry-store', () => {
     });
 
     it('sanitizes special characters from query', () => {
-      insertIndexEntry(
-        createSampleIndexEntry({ description: 'Implemented search feature' }),
-      );
+      insertIndexEntry(createSampleIndexEntry({ description: 'Implemented search feature' }));
 
       // Query with special FTS5 syntax characters
       const results = searchIndexEntriesByKeyword('search*"test"', 10);
@@ -802,9 +799,7 @@ describe('index-entry-store', () => {
 
     it('respects the limit parameter', () => {
       for (let i = 0; i < 5; i++) {
-        insertIndexEntry(
-          createSampleIndexEntry({ description: `Database operation number ${i}` }),
-        );
+        insertIndexEntry(createSampleIndexEntry({ description: `Database operation number ${i}` }));
       }
 
       const results = searchIndexEntriesByKeyword('database', 3);
@@ -812,9 +807,7 @@ describe('index-entry-store', () => {
     });
 
     it('returns positive scores (negated BM25)', () => {
-      insertIndexEntry(
-        createSampleIndexEntry({ description: 'Implemented search functionality' }),
-      );
+      insertIndexEntry(createSampleIndexEntry({ description: 'Implemented search functionality' }));
 
       const results = searchIndexEntriesByKeyword('search', 10);
       expect(results).toHaveLength(1);
@@ -832,9 +825,7 @@ describe('index-entry-store', () => {
     });
 
     it('returns no results when no entries match', () => {
-      insertIndexEntry(
-        createSampleIndexEntry({ description: 'Frontend styling changes' }),
-      );
+      insertIndexEntry(createSampleIndexEntry({ description: 'Frontend styling changes' }));
 
       const results = searchIndexEntriesByKeyword('database', 10);
       expect(results).toEqual([]);

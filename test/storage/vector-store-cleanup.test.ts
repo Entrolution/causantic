@@ -97,11 +97,7 @@ function createIndexTables(db: Database.Database): void {
 }
 
 /** Insert an index entry and its chunk mapping. */
-function insertIndexEntry(
-  db: Database.Database,
-  indexEntryId: string,
-  chunkIds: string[],
-): void {
+function insertIndexEntry(db: Database.Database, indexEntryId: string, chunkIds: string[]): void {
   db.prepare(
     `INSERT INTO index_entries (id, chunk_ids, session_slug, start_time, description)
      VALUES (?, ?, 'test-project', '2024-01-01T00:00:00Z', 'test description')`,
@@ -117,9 +113,10 @@ function insertIndexEntry(
 /** Insert an index vector (for the index_vectors table). */
 function insertIndexVector(db: Database.Database, id: string): void {
   const blob = serializeEmbedding(makeEmbedding());
-  db.prepare(
-    `INSERT INTO index_vectors (id, embedding, model_id) VALUES (?, ?, 'jina-small')`,
-  ).run(id, blob);
+  db.prepare(`INSERT INTO index_vectors (id, embedding, model_id) VALUES (?, ?, 'jina-small')`).run(
+    id,
+    blob,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

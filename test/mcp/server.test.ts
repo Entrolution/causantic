@@ -511,12 +511,7 @@ describe('McpServer', () => {
     });
 
     it('accepts all log levels', () => {
-      const levels: Array<'debug' | 'info' | 'warn' | 'error'> = [
-        'debug',
-        'info',
-        'warn',
-        'error',
-      ];
+      const levels: Array<'debug' | 'info' | 'warn' | 'error'> = ['debug', 'info', 'warn', 'error'];
 
       for (const level of levels) {
         const config: McpServerConfig = { logLevel: level };
