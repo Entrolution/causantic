@@ -37,7 +37,13 @@ afterEach(() => {
 
 describe('upsertSessionState', () => {
   it('inserts a new session state', () => {
-    upsertSessionState('sess-1', 'my-project', '/path/to/project', '2025-01-01T12:00:00Z', sampleState);
+    upsertSessionState(
+      'sess-1',
+      'my-project',
+      '/path/to/project',
+      '2025-01-01T12:00:00Z',
+      sampleState,
+    );
 
     const stored = getSessionState('sess-1');
     expect(stored).not.toBeNull();
@@ -55,7 +61,14 @@ describe('upsertSessionState', () => {
   });
 
   it('upserts with summary', () => {
-    upsertSessionState('sess-1', 'proj', null, '2025-01-01T12:00:00Z', sampleState, 'Fixed auth bug and committed.');
+    upsertSessionState(
+      'sess-1',
+      'proj',
+      null,
+      '2025-01-01T12:00:00Z',
+      sampleState,
+      'Fixed auth bug and committed.',
+    );
 
     const stored = getSessionState('sess-1');
     expect(stored!.summary).toBe('Fixed auth bug and committed.');
@@ -125,7 +138,11 @@ describe('getSessionStatesByTimeRange', () => {
     upsertSessionState('sess-2', 'proj', null, '2025-01-01T12:00:00Z', sampleState);
     upsertSessionState('sess-3', 'proj', null, '2025-01-01T14:00:00Z', sampleState);
 
-    const states = getSessionStatesByTimeRange('proj', '2025-01-01T11:00:00Z', '2025-01-01T13:00:00Z');
+    const states = getSessionStatesByTimeRange(
+      'proj',
+      '2025-01-01T11:00:00Z',
+      '2025-01-01T13:00:00Z',
+    );
     expect(states).toHaveLength(1);
     expect(states[0].sessionId).toBe('sess-2');
   });
@@ -175,8 +192,22 @@ describe('countSessionStates', () => {
 
 describe('searchSessionSummaries', () => {
   it('finds summaries matching query words', () => {
-    upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed authentication bug in login flow');
-    upsertSessionState('sess-2', 'proj', null, '2025-01-01T11:00:00Z', sampleState, 'Refactored database connection pooling');
+    upsertSessionState(
+      'sess-1',
+      'proj',
+      null,
+      '2025-01-01T10:00:00Z',
+      sampleState,
+      'Fixed authentication bug in login flow',
+    );
+    upsertSessionState(
+      'sess-2',
+      'proj',
+      null,
+      '2025-01-01T11:00:00Z',
+      sampleState,
+      'Refactored database connection pooling',
+    );
 
     const results = searchSessionSummaries('authentication login');
     expect(results).toHaveLength(1);
@@ -196,8 +227,22 @@ describe('searchSessionSummaries', () => {
   });
 
   it('filters by project', () => {
-    upsertSessionState('sess-1', 'proj-a', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed authentication');
-    upsertSessionState('sess-2', 'proj-b', null, '2025-01-01T11:00:00Z', sampleState, 'Fixed authentication');
+    upsertSessionState(
+      'sess-1',
+      'proj-a',
+      null,
+      '2025-01-01T10:00:00Z',
+      sampleState,
+      'Fixed authentication',
+    );
+    upsertSessionState(
+      'sess-2',
+      'proj-b',
+      null,
+      '2025-01-01T11:00:00Z',
+      sampleState,
+      'Fixed authentication',
+    );
 
     const results = searchSessionSummaries('authentication', 'proj-a');
     expect(results).toHaveLength(1);
@@ -206,7 +251,14 @@ describe('searchSessionSummaries', () => {
 
   it('skips sessions without summaries', () => {
     upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState);
-    upsertSessionState('sess-2', 'proj', null, '2025-01-01T11:00:00Z', sampleState, 'Fixed authentication');
+    upsertSessionState(
+      'sess-2',
+      'proj',
+      null,
+      '2025-01-01T11:00:00Z',
+      sampleState,
+      'Fixed authentication',
+    );
 
     const results = searchSessionSummaries('authentication');
     expect(results).toHaveLength(1);
@@ -214,7 +266,14 @@ describe('searchSessionSummaries', () => {
   });
 
   it('is case insensitive', () => {
-    upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed AUTHENTICATION Bug');
+    upsertSessionState(
+      'sess-1',
+      'proj',
+      null,
+      '2025-01-01T10:00:00Z',
+      sampleState,
+      'Fixed AUTHENTICATION Bug',
+    );
 
     const results = searchSessionSummaries('authentication');
     expect(results).toHaveLength(1);
@@ -222,7 +281,14 @@ describe('searchSessionSummaries', () => {
 
   it('respects limit', () => {
     for (let i = 0; i < 10; i++) {
-      upsertSessionState(`sess-${i}`, 'proj', null, `2025-01-01T${String(i + 10).padStart(2, '0')}:00:00Z`, sampleState, `Fixed authentication issue ${i}`);
+      upsertSessionState(
+        `sess-${i}`,
+        'proj',
+        null,
+        `2025-01-01T${String(i + 10).padStart(2, '0')}:00:00Z`,
+        sampleState,
+        `Fixed authentication issue ${i}`,
+      );
     }
 
     const results = searchSessionSummaries('authentication', undefined, 3);
@@ -230,9 +296,30 @@ describe('searchSessionSummaries', () => {
   });
 
   it('returns newest first', () => {
-    upsertSessionState('sess-1', 'proj', null, '2025-01-01T10:00:00Z', sampleState, 'Fixed authentication early');
-    upsertSessionState('sess-2', 'proj', null, '2025-01-01T14:00:00Z', sampleState, 'Fixed authentication later');
-    upsertSessionState('sess-3', 'proj', null, '2025-01-01T12:00:00Z', sampleState, 'Fixed authentication middle');
+    upsertSessionState(
+      'sess-1',
+      'proj',
+      null,
+      '2025-01-01T10:00:00Z',
+      sampleState,
+      'Fixed authentication early',
+    );
+    upsertSessionState(
+      'sess-2',
+      'proj',
+      null,
+      '2025-01-01T14:00:00Z',
+      sampleState,
+      'Fixed authentication later',
+    );
+    upsertSessionState(
+      'sess-3',
+      'proj',
+      null,
+      '2025-01-01T12:00:00Z',
+      sampleState,
+      'Fixed authentication middle',
+    );
 
     const results = searchSessionSummaries('authentication');
     expect(results[0].sessionId).toBe('sess-2');

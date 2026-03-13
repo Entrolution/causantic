@@ -210,7 +210,9 @@ async function runAnalysis() {
     console.log(`── K=${k} ──`);
     console.log(`  Recall: ${found}/${total} (${recall}%)`);
     if (found > 0) {
-      console.log(`  Rank distribution: median=${p50}, p90=${p90}, p99=${p99}, max=${sortedRanks[sortedRanks.length - 1]}`);
+      console.log(
+        `  Rank distribution: median=${p50}, p90=${p90}, p99=${p99}, max=${sortedRanks[sortedRanks.length - 1]}`,
+      );
     }
   }
 
@@ -245,7 +247,9 @@ async function runAnalysis() {
 
     const ceiling = ((fitsInBudget / total) * 100).toFixed(1);
     const currentBest = resultsByK.get(k)!;
-    console.log(`  K=${k}: ceiling=${ceiling}% (${fitsInBudget}/${total})  [recall=${((currentBest.ranks.length / total) * 100).toFixed(1)}%, oversized=${tooLarge}]`);
+    console.log(
+      `  K=${k}: ceiling=${ceiling}% (${fitsInBudget}/${total})  [recall=${((currentBest.ranks.length / total) * 100).toFixed(1)}%, oversized=${tooLarge}]`,
+    );
   }
 
   // 5. Rank bucket analysis — where do found targets cluster?
@@ -264,7 +268,7 @@ async function runAnalysis() {
 
     for (const { label, min, max } of buckets) {
       const count = best.ranks.filter((r) => r >= min && r <= max).length;
-      const bar = '█'.repeat(Math.ceil(count / queries.length * 50));
+      const bar = '█'.repeat(Math.ceil((count / queries.length) * 50));
       console.log(`  ${label.padStart(10)}: ${String(count).padStart(3)}  ${bar}`);
     }
     console.log(`  ${'miss'.padStart(10)}: ${String(best.misses).padStart(3)}`);

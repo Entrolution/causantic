@@ -71,7 +71,7 @@ export interface ExternalConfig {
     mmrLambda?: number;
     /** Feedback weight for cluster expansion scoring. Default: 0.1 */
     feedbackWeight?: number;
-    /** Primary retrieval method. Default: 'keyword'. */
+    /** Primary retrieval method. Default: 'hybrid'. */
     primary?: 'keyword' | 'vector' | 'hybrid';
     /** Use vector search to enrich keyword results when primary is 'keyword'. Default: false. */
     vectorEnrichment?: boolean;
@@ -144,7 +144,7 @@ const EXTERNAL_DEFAULTS: Required<ExternalConfig> = {
   retrieval: {
     mmrLambda: 0.7,
     feedbackWeight: 0.1,
-    primary: 'keyword',
+    primary: 'hybrid',
     vectorEnrichment: false,
   },
   recency: {
@@ -342,7 +342,8 @@ function loadEnvConfig(): ExternalConfig {
   }
   if (process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH) {
     config.semanticIndex = config.semanticIndex ?? {};
-    config.semanticIndex.useForSearch = process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH === 'true';
+    config.semanticIndex.useForSearch =
+      process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH === 'true';
   }
 
   return config;
@@ -613,8 +614,7 @@ export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfi
         external.semanticIndex?.targetDescriptionTokens ??
         DEFAULT_CONFIG.semanticIndex.targetDescriptionTokens,
       batchRefreshLimit:
-        external.semanticIndex?.batchRefreshLimit ??
-        DEFAULT_CONFIG.semanticIndex.batchRefreshLimit,
+        external.semanticIndex?.batchRefreshLimit ?? DEFAULT_CONFIG.semanticIndex.batchRefreshLimit,
       useForSearch:
         external.semanticIndex?.useForSearch ?? DEFAULT_CONFIG.semanticIndex.useForSearch,
     },

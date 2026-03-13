@@ -9,8 +9,4 @@ export {
   type GenerateOptions,
 } from './index-generator.js';
 
-export {
-  IndexRefresher,
-  indexRefresher,
-  type BackfillResult,
-} from './index-refresher.js';
+export { IndexRefresher, indexRefresher, type BackfillResult } from './index-refresher.js';

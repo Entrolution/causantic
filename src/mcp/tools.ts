@@ -82,7 +82,7 @@ function formatSearchResponse(response: SearchResponse): string {
 export const searchTool: ToolDefinition = {
   name: 'search',
   description:
-    'Search memory to discover relevant past context. Uses keyword-first (BM25) retrieval by default with optional vector enrichment. Returns ranked results by relevance. Use this for broad discovery — "what do I know about X?"',
+    'Search memory to discover relevant past context. Uses hybrid (BM25 + vector) retrieval with entity boosting. Returns ranked results by relevance. Use this for broad discovery — "what do I know about X?" For recent/latest session queries, use reconstruct instead.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -145,7 +145,7 @@ export const searchTool: ToolDefinition = {
 export const recallTool: ToolDefinition = {
   name: 'recall',
   description:
-    'Recall episodic memory — walk backward through causal chains to reconstruct narrative context. Also searches session summaries for supplementary context. Use for "how did we solve the auth bug?" or "what led to this decision?" Returns ordered narrative (problem → solution).',
+    'Recall episodic memory — walk backward through causal chains to reconstruct narrative context. Also searches session summaries for supplementary context. Use for "how did we solve the auth bug?" or "what led to this decision?" Returns ordered narrative (problem → solution). For recent/latest session queries, use reconstruct instead.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -401,7 +401,7 @@ export const listSessionsTool: ToolDefinition = {
 export const reconstructTool: ToolDefinition = {
   name: 'reconstruct',
   description:
-    'Rebuild session context for a project. Call with just project to get the most recent history up to the token budget. Optionally specify a time range with from/to, days_back, session_id, or previous_session. Use mode=briefing for a structured startup summary combining session state and project structure.',
+    'Use this for all recent/latest/last session queries. Rebuild session context for a project. Call with just project to get the most recent history up to the token budget. Optionally specify a time range with from/to, days_back, session_id, or previous_session. Use mode=briefing for a structured startup summary combining session state and project structure.',
   inputSchema: {
     type: 'object',
     properties: {
@@ -782,9 +782,7 @@ export const repomapTool: ToolDefinition = {
     const projectPath = (args.project as string | undefined) ?? process.cwd();
     const maxTokens = (args.max_tokens as number | undefined) ?? config.repomap.maxTokens;
     const focusFilesRaw = args.focus_files as string | undefined;
-    const focusFiles = focusFilesRaw
-      ? focusFilesRaw.split(',').map((f) => f.trim())
-      : undefined;
+    const focusFiles = focusFilesRaw ? focusFilesRaw.split(',').map((f) => f.trim()) : undefined;
 
     try {
       const result = await buildRepoMap(projectPath, {

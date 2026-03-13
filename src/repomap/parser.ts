@@ -220,12 +220,7 @@ const DEFINITION_TYPES_GO = new Set([
 ]);
 
 /** Ruby definition types. */
-const DEFINITION_TYPES_RUBY = new Set([
-  'class',
-  'module',
-  'method',
-  'singleton_method',
-]);
+const DEFINITION_TYPES_RUBY = new Set(['class', 'module', 'method', 'singleton_method']);
 
 /** C# definition types. */
 const DEFINITION_TYPES_CSHARP = new Set([
@@ -250,9 +245,7 @@ const DEFINITION_TYPES_PHP = new Set([
 ]);
 
 /** Bash definition types. */
-const DEFINITION_TYPES_BASH = new Set([
-  'function_definition',
-]);
+const DEFINITION_TYPES_BASH = new Set(['function_definition']);
 
 /** Lookup definition types by language. */
 const DEFINITION_TYPES_BY_LANGUAGE: Record<string, Set<string>> = {
@@ -397,7 +390,11 @@ function extractDefinitionName(node: TSNode, languageName: string): string | nul
  *          pointer_declarator → declarator → identifier, etc.
  */
 function extractFunctionDeclaratorName(node: TSNode): string | null {
-  if (node.type === 'identifier' || node.type === 'field_identifier' || node.type === 'type_identifier') {
+  if (
+    node.type === 'identifier' ||
+    node.type === 'field_identifier' ||
+    node.type === 'type_identifier'
+  ) {
     return node.text;
   }
   // Handle qualified identifiers in C++ (namespace::name)
@@ -728,7 +725,13 @@ export async function parseFile(filePath: string, relativePath: string): Promise
               break;
             }
           }
-          tags.push({ name, kind: 'def', line: node.startPosition.row + 1, file: relativePath, type: defType });
+          tags.push({
+            name,
+            kind: 'def',
+            line: node.startPosition.row + 1,
+            file: relativePath,
+            type: defType,
+          });
           definedNames.add(name);
         }
         return;
@@ -779,13 +782,25 @@ export async function parseFile(filePath: string, relativePath: string): Promise
             // Imported name (after 'from X import')
             const name = child.text;
             if (name && name.length > 1) {
-              tags.push({ name, kind: 'ref', line: child.startPosition.row + 1, file: relativePath, type: 'import' });
+              tags.push({
+                name,
+                kind: 'ref',
+                line: child.startPosition.row + 1,
+                file: relativePath,
+                type: 'import',
+              });
             }
           }
           if (child.type === 'aliased_import') {
             const nameChild = child.childForFieldName('name');
             if (nameChild && nameChild.text.length > 1) {
-              tags.push({ name: nameChild.text, kind: 'ref', line: nameChild.startPosition.row + 1, file: relativePath, type: 'import' });
+              tags.push({
+                name: nameChild.text,
+                kind: 'ref',
+                line: nameChild.startPosition.row + 1,
+                file: relativePath,
+                type: 'import',
+              });
             }
           }
         }
@@ -797,7 +812,13 @@ export async function parseFile(filePath: string, relativePath: string): Promise
       // import com.example.ClassName; — capture the last identifier
       const lastChild = findLastIdentifier(node);
       if (lastChild && lastChild.length > 1) {
-        tags.push({ name: lastChild, kind: 'ref', line: node.startPosition.row + 1, file: relativePath, type: 'import' });
+        tags.push({
+          name: lastChild,
+          kind: 'ref',
+          line: node.startPosition.row + 1,
+          file: relativePath,
+          type: 'import',
+        });
       }
     }
 
@@ -815,7 +836,13 @@ export async function parseFile(filePath: string, relativePath: string): Promise
     if (languageName === 'c-sharp' && node.type === 'using_directive') {
       const lastId = findLastNameInTree(node);
       if (lastId && lastId.length > 1) {
-        tags.push({ name: lastId, kind: 'ref', line: node.startPosition.row + 1, file: relativePath, type: 'import' });
+        tags.push({
+          name: lastId,
+          kind: 'ref',
+          line: node.startPosition.row + 1,
+          file: relativePath,
+          type: 'import',
+        });
       }
     }
 
@@ -889,9 +916,18 @@ function collectRustUseIdentifiers(node: TSNode, relativePath: string, tags: Tag
       let deepest: TSNode = child;
       while (deepest.childForFieldName('name')) {
         const next = deepest.childForFieldName('name')!;
-        if (next.type === 'scoped_identifier') { deepest = next; continue; }
+        if (next.type === 'scoped_identifier') {
+          deepest = next;
+          continue;
+        }
         if (next.text.length > 1) {
-          tags.push({ name: next.text, kind: 'ref', line: next.startPosition.row + 1, file: relativePath, type: 'import' });
+          tags.push({
+            name: next.text,
+            kind: 'ref',
+            line: next.startPosition.row + 1,
+            file: relativePath,
+            type: 'import',
+          });
         }
         break;
       }
@@ -904,7 +940,13 @@ function collectRustUseIdentifiers(node: TSNode, relativePath: string, tags: Tag
           for (let k = 0; k < listChild.childCount; k++) {
             const item = listChild.child(k)!;
             if (item.type === 'identifier' && item.text.length > 1) {
-              tags.push({ name: item.text, kind: 'ref', line: item.startPosition.row + 1, file: relativePath, type: 'import' });
+              tags.push({
+                name: item.text,
+                kind: 'ref',
+                line: item.startPosition.row + 1,
+                file: relativePath,
+                type: 'import',
+              });
             }
           }
         }
@@ -927,7 +969,13 @@ function collectGoImportIdentifiers(node: TSNode, relativePath: string, tags: Ta
         const parts = content.split('/');
         const name = parts[parts.length - 1];
         if (name && name.length > 1) {
-          tags.push({ name, kind: 'ref', line: child.startPosition.row + 1, file: relativePath, type: 'import' });
+          tags.push({
+            name,
+            kind: 'ref',
+            line: child.startPosition.row + 1,
+            file: relativePath,
+            type: 'import',
+          });
         }
       }
     }
@@ -961,10 +1009,19 @@ function collectPhpUseIdentifiers(node: TSNode, relativePath: string, tags: Tag[
           let lastLine = 0;
           for (let k = 0; k < qn.childCount; k++) {
             const part = qn.child(k)!;
-            if (part.type === 'name') { lastName = part.text; lastLine = part.startPosition.row + 1; }
+            if (part.type === 'name') {
+              lastName = part.text;
+              lastLine = part.startPosition.row + 1;
+            }
           }
           if (lastName && lastName.length > 1) {
-            tags.push({ name: lastName, kind: 'ref', line: lastLine, file: relativePath, type: 'import' });
+            tags.push({
+              name: lastName,
+              kind: 'ref',
+              line: lastLine,
+              file: relativePath,
+              type: 'import',
+            });
           }
         }
       }

@@ -97,13 +97,10 @@ Respond with queries grouped by chunk number:
       messages: [{ role: 'user', content: prompt }],
     });
 
-    const text =
-      response.content[0].type === 'text' ? response.content[0].text : '';
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
     return parseResponse(text, chunks);
   } catch (error) {
-    console.warn(
-      `  Jeopardy batch failed: ${(error as Error).message}`,
-    );
+    console.warn(`  Jeopardy batch failed: ${(error as Error).message}`);
     return [];
   }
 }

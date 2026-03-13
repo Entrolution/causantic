@@ -51,7 +51,9 @@ import { createLogger } from '../utils/logger.js';
 import { resolveCanonicalProjectPath } from '../utils/project-path.js';
 import { generateIndexEntriesForChunks } from './index-entry-hook.js';
 import { extractSessionState } from './session-state.js';
+import { extractEntities } from './entity-extractor.js';
 import { upsertSessionState } from '../storage/session-state-store.js';
+import { resolveEntity, insertEntityMention } from '../storage/entity-store.js';
 import { loadConfig, toRuntimeConfig } from '../config/loader.js';
 
 const log = createLogger('ingest-session');
@@ -259,10 +261,7 @@ export async function ingestSession(
 
   try {
     // Load model if using a local embedder (pool workers load their own)
-    if (
-      embedder &&
-      (!embedder.currentModel || embedder.currentModel.id !== embeddingModel)
-    ) {
+    if (embedder && (!embedder.currentModel || embedder.currentModel.id !== embeddingModel)) {
       await embedder.load(getModel(embeddingModel), { device: embeddingDevice });
     }
 
@@ -686,6 +685,16 @@ async function processMainSession(params: MainSessionParams): Promise<MainSessio
     }
   }
 
+  // Entity extraction (best-effort, non-blocking)
+  try {
+    saveEntityMentions(
+      mainChunks.map((c, i) => ({ id: mainChunkIds[i], content: c.text })),
+      projectSlug,
+    );
+  } catch (error) {
+    log.warn('Failed to extract entities', { error: String(error) });
+  }
+
   // Team edges (team sessions only)
   if (team && team.agentData.size > 0) {
     const mainChunkInputsForEdges = mainChunks.map((c, i) => ({
@@ -733,6 +742,27 @@ async function processMainSession(params: MainSessionParams): Promise<MainSessio
     cacheMisses,
     mainChunkIds,
   };
+}
+
+/**
+ * Extract and store entity mentions from chunks. Best-effort — failures are logged but don't block ingestion.
+ */
+function saveEntityMentions(
+  chunks: Array<{ id: string; content: string }>,
+  projectSlug: string,
+): void {
+  for (const chunk of chunks) {
+    const mentions = extractEntities(chunk.content);
+    for (const mention of mentions) {
+      const entityId = resolveEntity(
+        mention.normalizedName,
+        mention.entityType,
+        mention.mentionForm,
+        projectSlug,
+      );
+      insertEntityMention(chunk.id, entityId, mention.mentionForm, mention.confidence);
+    }
+  }
 }
 
 /**
@@ -911,9 +941,7 @@ function saveSessionState(
 ): void {
   try {
     const state = extractSessionState(turns);
-    const endedAt = turns.length > 0
-      ? turns[turns.length - 1].startTime
-      : new Date().toISOString();
+    const endedAt = turns.length > 0 ? turns[turns.length - 1].startTime : new Date().toISOString();
     upsertSessionState(sessionId, projectSlug, projectPath || null, endedAt, state);
   } catch (error) {
     log.warn('Failed to extract session state', { sessionId, error: String(error) });

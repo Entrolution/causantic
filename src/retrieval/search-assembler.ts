@@ -23,10 +23,15 @@ import { KeywordStore } from '../storage/keyword-store.js';
 import { fuseRRF, type RankedItem } from './rrf.js';
 import { expandViaClusters } from './cluster-expander.js';
 import { reorderWithMMR } from './mmr.js';
+import { extractEntities } from '../ingest/entity-extractor.js';
+import { findEntitiesByAlias, getChunkIdsForEntity } from '../storage/entity-store.js';
 import { createLogger } from '../utils/logger.js';
 import { formatSearchChunk } from './formatting.js';
 
 const log = createLogger('search-assembler');
+
+/** RRF weight for entity-boosted results. */
+const ENTITY_RRF_BOOST = 1.5;
 
 /**
  * Request for search-based context retrieval.
@@ -62,7 +67,7 @@ export interface SearchResponse {
     sessionSlug: string;
     weight: number;
     preview: string;
-    source?: 'vector' | 'keyword' | 'cluster';
+    source?: 'vector' | 'keyword' | 'cluster' | 'entity';
   }>;
   /** Total chunks considered */
   totalConsidered: number;
@@ -106,6 +111,34 @@ function getKeywordStore(): KeywordStore {
     sharedKeywordStore = new KeywordStore();
   }
   return sharedKeywordStore;
+}
+
+/**
+ * Extract entity mentions from the query and find matching chunks.
+ * Returns ranked items suitable for RRF fusion.
+ */
+function getEntityResults(query: string, projectFilter?: string | string[]): RankedItem[] {
+  const mentions = extractEntities(query);
+  if (mentions.length === 0) return [];
+
+  const project = typeof projectFilter === 'string' ? projectFilter : undefined;
+  if (!project) return []; // entity lookup requires project scope
+
+  const chunkIds = new Set<string>();
+  for (const mention of mentions) {
+    const entities = findEntitiesByAlias(mention.normalizedName, mention.entityType, project);
+    for (const entity of entities) {
+      for (const cid of getChunkIdsForEntity(entity.id, 100)) {
+        chunkIds.add(cid);
+      }
+    }
+  }
+
+  return [...chunkIds].map((id, i) => ({
+    chunkId: id,
+    score: 1.0 / (i + 1),
+    source: 'entity' as const,
+  }));
 }
 
 /**
@@ -215,6 +248,22 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
       }
     }
 
+    // Entity boost: merge entity-matched chunks via RRF
+    try {
+      const entityItems = getEntityResults(query, projectFilter);
+      if (entityItems.length > 0) {
+        fusedResults = fuseRRF(
+          [
+            { items: fusedResults, weight: 1.0 },
+            { items: entityItems, weight: ENTITY_RRF_BOOST },
+          ],
+          hybridSearch.rrfK,
+        );
+      }
+    } catch (error) {
+      log.warn('Entity search failed', { error: (error as Error).message });
+    }
+
     if (fusedResults.length === 0) {
       return {
         text: '',
@@ -228,7 +277,6 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     }
 
     // Skip cluster expansion for keyword-primary mode
-
   } else {
     // ── Hybrid/vector search path ────────────────────────────────────────
     // Configure vector store for current model
@@ -419,6 +467,22 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
       );
     }
 
+    // Entity boost (hybrid/vector path)
+    try {
+      const entityItems = getEntityResults(query, projectFilter);
+      if (entityItems.length > 0) {
+        fusedResults = fuseRRF(
+          [
+            { items: fusedResults, weight: 1.0 },
+            { items: entityItems, weight: ENTITY_RRF_BOOST },
+          ],
+          hybridSearch.rrfK,
+        );
+      }
+    } catch (error) {
+      log.warn('Entity search failed', { error: (error as Error).message });
+    }
+
     // Cluster expansion (hybrid/vector path only)
     if (!skipClusters) {
       fusedResults = expandViaClusters(
@@ -434,7 +498,7 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
   // ── Shared post-processing ───────────────────────────────────────────
 
   // Track sources
-  type ChunkSource = 'vector' | 'keyword' | 'cluster';
+  type ChunkSource = 'vector' | 'keyword' | 'cluster' | 'entity';
   const sourceMap = new Map<string, ChunkSource>();
   for (const item of fusedResults) {
     if (item.source && !sourceMap.has(item.chunkId)) {
@@ -469,8 +533,7 @@ export async function searchContext(request: SearchRequest): Promise<SearchRespo
     // Time-decay boost
     const ageMs = now - new Date(chunk.startTime).getTime();
     const ageHours = Math.max(0, ageMs / (1000 * 60 * 60));
-    const timeBoost =
-      1 + recency.decayFactor * Math.exp((-ageHours * ln2) / recency.halfLifeHours);
+    const timeBoost = 1 + recency.decayFactor * Math.exp((-ageHours * ln2) / recency.halfLifeHours);
 
     // Session boost: current session gets additional 1.2x
     const sessionBoost = currentSessionId && chunk.sessionId === currentSessionId ? 1.2 : 1.0;
@@ -538,7 +601,7 @@ const SEARCH_PER_CHUNK_OVERHEAD = 55;
 function assembleWithinBudget(
   ranked: RankedItem[],
   maxTokens: number,
-  sourceMap: Map<string, 'vector' | 'keyword' | 'cluster'>,
+  sourceMap: Map<string, 'vector' | 'keyword' | 'cluster' | 'entity'>,
 ): {
   text: string;
   tokenCount: number;
@@ -547,7 +610,7 @@ function assembleWithinBudget(
     sessionSlug: string;
     weight: number;
     preview: string;
-    source?: 'vector' | 'keyword' | 'cluster';
+    source?: 'vector' | 'keyword' | 'cluster' | 'entity';
   }>;
 } {
   const effectiveBudget = Math.max(0, maxTokens - SEARCH_FIXED_OVERHEAD);
@@ -558,7 +621,7 @@ function assembleWithinBudget(
     sessionSlug: string;
     weight: number;
     preview: string;
-    source?: 'vector' | 'keyword' | 'cluster';
+    source?: 'vector' | 'keyword' | 'cluster' | 'entity';
   }> = [];
   let budgetUsed = 0;
 

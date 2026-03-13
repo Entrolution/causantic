@@ -103,6 +103,12 @@ Controls the semantic index layer, which generates normalised index entries for 
 
 When enabled, each chunk gets an LLM-generated description (~130 tokens) at ingestion time. These descriptions are embedded and searched instead of raw chunks, providing uniform information density. See [How It Works](../guides/how-it-works.md#semantic-index) for details.
 
+## Entity Extraction
+
+Entity extraction runs automatically during ingestion with no configuration required. It uses deterministic regex patterns to identify people (`@mentions`, emails, "X said"), channels (`#channel`), meetings (standup, retro, 1:1), and URLs. Extracted entities are stored with alias resolution and used as an RRF boost source (weight 1.5) during search.
+
+Entity extraction skips code blocks and `[Thinking]` blocks to reduce false positives. The feature is always-on with no configuration knobs — it adds zero latency to queries that don't contain entity references.
+
 ## Length Penalty Settings
 
 ### `lengthPenalty`
@@ -138,10 +144,12 @@ Controls time-decay scoring for search results.
 
 Controls the search retrieval pipeline.
 
-| Property    | Type     | Default | Description                                                        |
-| ----------- | -------- | ------- | ------------------------------------------------------------------ |
-| `mmrLambda`      | `number` | `0.7`   | MMR (Maximal Marginal Relevance) lambda parameter (0-1)            |
-| `feedbackWeight` | `number` | `0.1`   | Weight applied to implicit relevance feedback signals (0-1)        |
+| Property           | Type     | Default    | Description                                                        |
+| ------------------ | -------- | ---------- | ------------------------------------------------------------------ |
+| `primary`          | `string` | `"hybrid"` | Primary retrieval method: `"keyword"`, `"vector"`, or `"hybrid"` (BM25 + vector + RRF) |
+| `vectorEnrichment` | `boolean`| `false`    | Use vector search to enrich keyword results when primary is `"keyword"`. No effect in hybrid mode. |
+| `mmrLambda`        | `number` | `0.7`      | MMR (Maximal Marginal Relevance) lambda parameter (0-1)            |
+| `feedbackWeight`   | `number` | `0.1`      | Weight applied to implicit relevance feedback signals (0-1)        |
 
 MMR reranks search results to balance relevance with diversity. After RRF fusion and cluster expansion, candidates are reordered so that semantically redundant chunks yield to novel ones.
 

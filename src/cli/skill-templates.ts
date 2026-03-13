@@ -101,8 +101,8 @@ Pass these to the \`search\` MCP tool:
 ## Guidelines
 
 - **Always pass the \`project\` parameter** scoped to the current project (derive from the working directory) unless the user explicitly asks for cross-project results
-- By default, search uses **keyword-first (BM25)** retrieval — great for exact matches on function names, error codes, and specific terms
-- Optional vector enrichment can be enabled in config for semantic similarity matching
+- By default, search uses **hybrid (BM25 + vector)** retrieval with entity boosting — combines exact keyword matching with semantic similarity
+- For recent/latest session queries, use \`reconstruct\` instead
 - Use \`search\` for discovery, \`recall\` for narrative reconstruction
 - Combine with \`/causantic-recall\` when you need causal chain context (how things led to outcomes)
 `,

@@ -41,9 +41,7 @@ describe('buildGraph', () => {
   });
 
   it('does not create self-referencing edges', () => {
-    const tagsByFile = new Map([
-      ['a.ts', [defTag('Foo', 'a.ts', 'class'), refTag('Foo', 'a.ts')]],
-    ]);
+    const tagsByFile = new Map([['a.ts', [defTag('Foo', 'a.ts', 'class'), refTag('Foo', 'a.ts')]]]);
 
     const graph = buildGraph(tagsByFile);
     expect(graph.edges.length).toBe(0);
@@ -85,14 +83,8 @@ describe('buildGraph', () => {
 
   it('accumulates edge weights for multiple references', () => {
     const tagsByFile = new Map([
-      [
-        'lib.ts',
-        [defTag('Alpha', 'lib.ts'), defTag('Beta', 'lib.ts'), defTag('Gamma', 'lib.ts')],
-      ],
-      [
-        'app.ts',
-        [refTag('Alpha', 'app.ts'), refTag('Beta', 'app.ts'), refTag('Gamma', 'app.ts')],
-      ],
+      ['lib.ts', [defTag('Alpha', 'lib.ts'), defTag('Beta', 'lib.ts'), defTag('Gamma', 'lib.ts')]],
+      ['app.ts', [refTag('Alpha', 'app.ts'), refTag('Beta', 'app.ts'), refTag('Gamma', 'app.ts')]],
     ]);
 
     const graph = buildGraph(tagsByFile);

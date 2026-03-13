@@ -7,10 +7,7 @@ import { extractSessionState } from '../../src/ingest/session-state.js';
 import type { Turn, ToolExchange, ContentBlock } from '../../src/parser/types.js';
 
 /** Helper to build a minimal turn with tool exchanges. */
-function makeTurn(
-  exchanges: Partial<ToolExchange>[],
-  assistantBlocks: ContentBlock[] = [],
-): Turn {
+function makeTurn(exchanges: Partial<ToolExchange>[], assistantBlocks: ContentBlock[] = []): Turn {
   return {
     index: 0,
     startTime: '2025-01-01T00:00:00Z',
@@ -32,9 +29,7 @@ describe('extractSessionState', () => {
   describe('file extraction', () => {
     it('extracts file paths from Read tool', () => {
       const turns = [
-        makeTurn([
-          { toolName: 'Read', input: { file_path: '/src/foo.ts' }, result: 'content' },
-        ]),
+        makeTurn([{ toolName: 'Read', input: { file_path: '/src/foo.ts' }, result: 'content' }]),
       ];
       const state = extractSessionState(turns);
       expect(state.filesTouched).toContain('/src/foo.ts');
@@ -42,9 +37,7 @@ describe('extractSessionState', () => {
 
     it('extracts file paths from Write tool', () => {
       const turns = [
-        makeTurn([
-          { toolName: 'Write', input: { file_path: '/src/bar.ts' }, result: 'ok' },
-        ]),
+        makeTurn([{ toolName: 'Write', input: { file_path: '/src/bar.ts' }, result: 'ok' }]),
       ];
       const state = extractSessionState(turns);
       expect(state.filesTouched).toContain('/src/bar.ts');
@@ -66,9 +59,7 @@ describe('extractSessionState', () => {
 
     it('extracts directory path from Glob tool', () => {
       const turns = [
-        makeTurn([
-          { toolName: 'Glob', input: { pattern: '*.ts', path: '/src' }, result: 'files' },
-        ]),
+        makeTurn([{ toolName: 'Glob', input: { pattern: '*.ts', path: '/src' }, result: 'files' }]),
       ];
       const state = extractSessionState(turns);
       expect(state.filesTouched).toContain('/src');
@@ -134,9 +125,7 @@ describe('extractSessionState', () => {
     it('truncates long error messages', () => {
       const longMessage = 'x'.repeat(300);
       const turns = [
-        makeTurn([
-          { toolName: 'Read', input: {}, result: longMessage, isError: true },
-        ]),
+        makeTurn([{ toolName: 'Read', input: {}, result: longMessage, isError: true }]),
       ];
       const state = extractSessionState(turns);
       expect(state.errors[0].message.length).toBeLessThanOrEqual(203); // 200 + '...'
@@ -237,9 +226,7 @@ describe('extractSessionState', () => {
 
     it('ignores non-Bash tools', () => {
       const turns = [
-        makeTurn([
-          { toolName: 'Read', input: { file_path: '/a' }, result: 'git commit' },
-        ]),
+        makeTurn([{ toolName: 'Read', input: { file_path: '/a' }, result: 'git commit' }]),
       ];
       const state = extractSessionState(turns);
       expect(state.outcomes).toHaveLength(0);
@@ -247,9 +234,7 @@ describe('extractSessionState', () => {
 
     it('ignores Bash commands without outcome patterns', () => {
       const turns = [
-        makeTurn([
-          { toolName: 'Bash', input: { command: 'npm test' }, result: 'passed' },
-        ]),
+        makeTurn([{ toolName: 'Bash', input: { command: 'npm test' }, result: 'passed' }]),
       ];
       const state = extractSessionState(turns);
       expect(state.outcomes).toHaveLength(0);

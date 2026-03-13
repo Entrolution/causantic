@@ -156,6 +156,47 @@ describe('rrf', () => {
       expect(result[0].source).toBeUndefined();
     });
 
+    it('entity source flows through fusion', () => {
+      const entitySource: RRFSource = {
+        items: [
+          { chunkId: 'e1', score: 1.0, source: 'entity' },
+          { chunkId: 'e2', score: 0.5, source: 'entity' },
+        ],
+        weight: 1.5,
+      };
+
+      const keywordSource: RRFSource = {
+        items: [
+          { chunkId: 'k1', score: 0.9, source: 'keyword' },
+          { chunkId: 'e1', score: 0.3, source: 'keyword' },
+        ],
+        weight: 1.0,
+      };
+
+      const result = fuseRRF([entitySource, keywordSource]);
+
+      // e1 appears in both sources, should be ranked highly
+      expect(result[0].chunkId).toBe('e1');
+      // entity has higher priority than keyword in source attribution
+      expect(result[0].source).toBe('entity');
+    });
+
+    it('entity source priority is between graph and cluster', () => {
+      const source: RRFSource = {
+        items: [
+          { chunkId: 'a', score: 0.9, source: 'entity' },
+          { chunkId: 'b', score: 0.5, source: 'graph' },
+          { chunkId: 'c', score: 0.2, source: 'cluster' },
+        ],
+        weight: 1.0,
+      };
+
+      const result = fuseRRF([source]);
+      expect(result[0].source).toBe('entity');
+      expect(result[1].source).toBe('graph');
+      expect(result[2].source).toBe('cluster');
+    });
+
     it('fused scores follow RRF formula', () => {
       const k = 60;
       const source: RRFSource = {

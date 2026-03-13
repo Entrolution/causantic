@@ -115,9 +115,7 @@ describe('renderMap', () => {
   });
 
   it('handles files with no definitions', () => {
-    const tagsByFile = new Map([
-      ['empty.ts', [refTag('SomeRef', 'empty.ts')]],
-    ]);
+    const tagsByFile = new Map([['empty.ts', [refTag('SomeRef', 'empty.ts')]]]);
     const graph = buildGraph(tagsByFile);
     const output = renderMap(graph);
     expect(output).toBe('(no definitions found)');

@@ -234,24 +234,44 @@ async function runAnalysis() {
 
   console.log(`══ Embedding Distance Comparison ══\n`);
   console.log('  Query → Chunk embedding (cosine similarity):');
-  console.log(`    Hits:   mean=${mean(hits.map((p) => p.queryToChunkSim)).toFixed(3)}  median=${median(hits.map((p) => p.queryToChunkSim)).toFixed(3)}`);
-  console.log(`    Misses: mean=${mean(misses.map((p) => p.queryToChunkSim)).toFixed(3)}  median=${median(misses.map((p) => p.queryToChunkSim)).toFixed(3)}`);
+  console.log(
+    `    Hits:   mean=${mean(hits.map((p) => p.queryToChunkSim)).toFixed(3)}  median=${median(hits.map((p) => p.queryToChunkSim)).toFixed(3)}`,
+  );
+  console.log(
+    `    Misses: mean=${mean(misses.map((p) => p.queryToChunkSim)).toFixed(3)}  median=${median(misses.map((p) => p.queryToChunkSim)).toFixed(3)}`,
+  );
 
   console.log('\n  Query → Best index entry embedding (cosine similarity):');
-  console.log(`    Hits:   mean=${mean(hits.map((p) => p.queryToBestEntrySim)).toFixed(3)}  median=${median(hits.map((p) => p.queryToBestEntrySim)).toFixed(3)}`);
-  console.log(`    Misses: mean=${mean(misses.map((p) => p.queryToBestEntrySim)).toFixed(3)}  median=${median(misses.map((p) => p.queryToBestEntrySim)).toFixed(3)}`);
+  console.log(
+    `    Hits:   mean=${mean(hits.map((p) => p.queryToBestEntrySim)).toFixed(3)}  median=${median(hits.map((p) => p.queryToBestEntrySim)).toFixed(3)}`,
+  );
+  console.log(
+    `    Misses: mean=${mean(misses.map((p) => p.queryToBestEntrySim)).toFixed(3)}  median=${median(misses.map((p) => p.queryToBestEntrySim)).toFixed(3)}`,
+  );
 
   console.log(`\n══ Index Entry Count ══\n`);
-  console.log(`    Hits:   mean=${mean(hits.map((p) => p.indexEntryCount)).toFixed(1)}  median=${median(hits.map((p) => p.indexEntryCount))}`);
-  console.log(`    Misses: mean=${mean(misses.map((p) => p.indexEntryCount)).toFixed(1)}  median=${median(misses.map((p) => p.indexEntryCount))}`);
+  console.log(
+    `    Hits:   mean=${mean(hits.map((p) => p.indexEntryCount)).toFixed(1)}  median=${median(hits.map((p) => p.indexEntryCount))}`,
+  );
+  console.log(
+    `    Misses: mean=${mean(misses.map((p) => p.indexEntryCount)).toFixed(1)}  median=${median(misses.map((p) => p.indexEntryCount))}`,
+  );
 
   console.log(`\n══ Chunk Size (tokens) ══\n`);
-  console.log(`    Hits:   mean=${mean(hits.map((p) => p.chunkTokens)).toFixed(0)}  median=${median(hits.map((p) => p.chunkTokens))}`);
-  console.log(`    Misses: mean=${mean(misses.map((p) => p.chunkTokens)).toFixed(0)}  median=${median(misses.map((p) => p.chunkTokens))}`);
+  console.log(
+    `    Hits:   mean=${mean(hits.map((p) => p.chunkTokens)).toFixed(0)}  median=${median(hits.map((p) => p.chunkTokens))}`,
+  );
+  console.log(
+    `    Misses: mean=${mean(misses.map((p) => p.chunkTokens)).toFixed(0)}  median=${median(misses.map((p) => p.chunkTokens))}`,
+  );
 
   console.log(`\n══ Cluster Size ══\n`);
-  console.log(`    Hits:   mean=${mean(hits.map((p) => p.clusterSize)).toFixed(1)}  median=${median(hits.map((p) => p.clusterSize))}`);
-  console.log(`    Misses: mean=${mean(misses.map((p) => p.clusterSize)).toFixed(1)}  median=${median(misses.map((p) => p.clusterSize))}`);
+  console.log(
+    `    Hits:   mean=${mean(hits.map((p) => p.clusterSize)).toFixed(1)}  median=${median(hits.map((p) => p.clusterSize))}`,
+  );
+  console.log(
+    `    Misses: mean=${mean(misses.map((p) => p.clusterSize)).toFixed(1)}  median=${median(misses.map((p) => p.clusterSize))}`,
+  );
 
   // 5. Similarity distribution buckets
   console.log(`\n══ Best Entry Similarity Distribution ══\n`);
@@ -262,15 +282,21 @@ async function runAnalysis() {
     { label: '0.6-0.7', min: 0.6, max: 0.7 },
     { label: '0.5-0.6', min: 0.5, max: 0.6 },
     { label: '0.4-0.5', min: 0.4, max: 0.5 },
-    { label: '<0.4',    min: -1,  max: 0.4 },
+    { label: '<0.4', min: -1, max: 0.4 },
   ];
 
   console.log('  Bucket      Hits  Misses');
   console.log('  ─────────────────────────');
   for (const { label, min, max } of simBuckets) {
-    const hitCount = hits.filter((p) => p.queryToBestEntrySim >= min && p.queryToBestEntrySim < max).length;
-    const missCount = misses.filter((p) => p.queryToBestEntrySim >= min && p.queryToBestEntrySim < max).length;
-    console.log(`  ${label.padStart(7)}    ${String(hitCount).padStart(4)}  ${String(missCount).padStart(6)}`);
+    const hitCount = hits.filter(
+      (p) => p.queryToBestEntrySim >= min && p.queryToBestEntrySim < max,
+    ).length;
+    const missCount = misses.filter(
+      (p) => p.queryToBestEntrySim >= min && p.queryToBestEntrySim < max,
+    ).length;
+    console.log(
+      `  ${label.padStart(7)}    ${String(hitCount).padStart(4)}  ${String(missCount).padStart(6)}`,
+    );
   }
 
   // 6. Sample misses for qualitative review
@@ -280,7 +306,9 @@ async function runAnalysis() {
 
   for (let i = 0; i < samplesToShow; i++) {
     const p = sortedMisses[i];
-    console.log(`  [${i + 1}] chunk=${p.chunkId.slice(0, 12)}… sim_chunk=${p.queryToChunkSim.toFixed(3)} sim_entry=${p.queryToBestEntrySim.toFixed(3)} entries=${p.indexEntryCount}`);
+    console.log(
+      `  [${i + 1}] chunk=${p.chunkId.slice(0, 12)}… sim_chunk=${p.queryToChunkSim.toFixed(3)} sim_entry=${p.queryToBestEntrySim.toFixed(3)} entries=${p.indexEntryCount}`,
+    );
     console.log(`      Query: ${p.query}`);
     console.log(`      Entry: ${p.bestEntryText}`);
     console.log(`      Chunk: ${p.contentPreview}…`);
@@ -294,7 +322,9 @@ async function runAnalysis() {
 
   for (let i = 0; i < hitSamplesToShow; i++) {
     const p = sortedHits[i];
-    console.log(`  [${i + 1}] chunk=${p.chunkId.slice(0, 12)}… sim_chunk=${p.queryToChunkSim.toFixed(3)} sim_entry=${p.queryToBestEntrySim.toFixed(3)} entries=${p.indexEntryCount}`);
+    console.log(
+      `  [${i + 1}] chunk=${p.chunkId.slice(0, 12)}… sim_chunk=${p.queryToChunkSim.toFixed(3)} sim_entry=${p.queryToBestEntrySim.toFixed(3)} entries=${p.indexEntryCount}`,
+    );
     console.log(`      Query: ${p.query}`);
     console.log(`      Entry: ${p.bestEntryText}`);
     console.log();

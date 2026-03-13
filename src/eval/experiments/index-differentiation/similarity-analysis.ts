@@ -57,8 +57,7 @@ export function analyseCluster(cluster: ClusterForAnalysis): ClusterSimilarityRe
     .filter((e) => e.length > 0);
   const chunkStats = pairwiseStats(chunkEmbeddings);
 
-  const compressionRatio =
-    chunkStats.mean > 0 ? entryStats.mean / chunkStats.mean : 1.0;
+  const compressionRatio = chunkStats.mean > 0 ? entryStats.mean / chunkStats.mean : 1.0;
 
   return {
     clusterId: cluster.clusterId,
@@ -75,8 +74,6 @@ export function analyseCluster(cluster: ClusterForAnalysis): ClusterSimilarityRe
 /**
  * Run similarity analysis across all eligible clusters.
  */
-export function runSimilarityAnalysis(
-  clusters: ClusterForAnalysis[],
-): ClusterSimilarityResult[] {
+export function runSimilarityAnalysis(clusters: ClusterForAnalysis[]): ClusterSimilarityResult[] {
   return clusters.map(analyseCluster);
 }

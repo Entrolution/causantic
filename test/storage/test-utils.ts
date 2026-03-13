@@ -149,8 +149,44 @@ export function createTestDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_session_states_ended ON session_states(ended_at);
     CREATE INDEX IF NOT EXISTS idx_session_states_slug_ended ON session_states(session_slug, ended_at);
 
+    -- Named entities extracted from chunks
+    CREATE TABLE IF NOT EXISTS entities (
+      id TEXT PRIMARY KEY,
+      entity_type TEXT NOT NULL,
+      canonical_name TEXT NOT NULL,
+      project_slug TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_entities_project ON entities(project_slug);
+    CREATE INDEX IF NOT EXISTS idx_entities_type_project ON entities(entity_type, project_slug);
+
+    -- Entity alias lookup
+    CREATE TABLE IF NOT EXISTS entity_aliases (
+      alias TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      project_slug TEXT NOT NULL,
+      PRIMARY KEY (alias, entity_type, project_slug),
+      FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_entity_aliases_entity ON entity_aliases(entity_id);
+
+    -- Entity mentions in chunks
+    CREATE TABLE IF NOT EXISTS entity_mentions (
+      chunk_id TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      mention_form TEXT NOT NULL,
+      confidence REAL NOT NULL DEFAULT 1.0,
+      PRIMARY KEY (chunk_id, entity_id, mention_form),
+      FOREIGN KEY (chunk_id) REFERENCES chunks(id) ON DELETE CASCADE,
+      FOREIGN KEY (entity_id) REFERENCES entities(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_entity_mentions_entity ON entity_mentions(entity_id);
+    CREATE INDEX IF NOT EXISTS idx_entity_mentions_chunk ON entity_mentions(chunk_id);
+
     -- Set schema version
-    INSERT OR REPLACE INTO schema_version (version) VALUES (15);
+    INSERT OR REPLACE INTO schema_version (version) VALUES (16);
   `);
 
   // Create FTS5 table and sync triggers (separate exec for virtual table)

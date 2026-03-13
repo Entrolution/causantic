@@ -640,9 +640,7 @@ export class ClusterManager {
    * Creates clusters in the `index_entry_clusters` table (parallel to `chunk_clusters`).
    * Each cluster elects a representative (entry closest to centroid) for browsing.
    */
-  async reclusterIndexEntries(
-    options: ClusteringOptions = {},
-  ): Promise<ClusteringResult> {
+  async reclusterIndexEntries(options: ClusteringOptions = {}): Promise<ClusteringResult> {
     const startTime = Date.now();
     const { minClusterSize = this.config.minClusterSize } = options;
 
@@ -657,9 +655,7 @@ export class ClusterManager {
         PRIMARY KEY (index_entry_id, cluster_id)
       )
     `);
-    db.exec(
-      'CREATE INDEX IF NOT EXISTS idx_iec_cluster ON index_entry_clusters(cluster_id)',
-    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_iec_cluster ON index_entry_clusters(cluster_id)');
 
     // Clear existing index entry cluster assignments
     db.exec('DELETE FROM index_entry_clusters');

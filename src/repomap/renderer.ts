@@ -100,7 +100,11 @@ function fitToTokenBudget(
 
     if (currentTokens + sectionTokens > maxTokens) {
       // Try a truncated version with fewer definitions
-      const truncated = renderFileSectionTruncated(file, maxTokens - currentTokens, showLineNumbers);
+      const truncated = renderFileSectionTruncated(
+        file,
+        maxTokens - currentTokens,
+        showLineNumbers,
+      );
       if (truncated) {
         sections.push(truncated);
       }

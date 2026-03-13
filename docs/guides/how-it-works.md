@@ -208,6 +208,19 @@ The pipeline automatically selects the index-based or chunk-based search path at
 
 Both paths converge at cluster expansion, which always operates on chunk IDs and their chunk-level cluster assignments.
 
+### Entity Boosting
+
+During ingestion, Causantic extracts named entities from chunk content using deterministic regex patterns (no LLM required):
+
+- **People**: `@mentions`, email addresses, "X said"/"with X" patterns
+- **Channels**: `#channel` references
+- **Meetings**: Keywords like standup, retro, 1:1, sync
+- **URLs**: Full URL patterns
+
+Entities are resolved to canonical forms with alias tracking (e.g., `@joel` and `Joel` map to the same entity). At query time, if the search query contains recognisable entity references, matching chunks are injected as an additional RRF source with a 1.5x boost weight. This means searching for "@joel" surfaces all chunks mentioning Joel alongside semantically relevant results, without requiring exact keyword matches in every chunk.
+
+Entity extraction skips code blocks and `[Thinking]` blocks to avoid false positives from speculative content.
+
 ### Recall/Predict (episodic)
 
 The `recall` and `predict` tools reconstruct narrative chains:

@@ -144,7 +144,11 @@ async function runAnalysis() {
   await embedder.load(getModel(embeddingModel));
 
   let keywordStore: KeywordStore | null = null;
-  try { keywordStore = new KeywordStore(); } catch { /* unavailable */ }
+  try {
+    keywordStore = new KeywordStore();
+  } catch {
+    /* unavailable */
+  }
 
   const vectorLimits = [20, 50, 100, 200];
   console.log(`Vector search limits: ${vectorLimits.join(', ')}`);
@@ -202,8 +206,13 @@ async function runAnalysis() {
 
         let indexKeywordResults: Array<{ id: string; score: number }> = [];
         try {
-          indexKeywordResults = searchIndexEntriesByKeyword(q.query, hybridSearch.keywordSearchLimit);
-        } catch { /* unavailable */ }
+          indexKeywordResults = searchIndexEntriesByKeyword(
+            q.query,
+            hybridSearch.keywordSearchLimit,
+          );
+        } catch {
+          /* unavailable */
+        }
 
         const indexVectorItems: RankedItem[] = indexSimilar.map((s) => ({
           chunkId: s.id,
@@ -252,8 +261,11 @@ async function runAnalysis() {
 
         let keywordResults: Array<{ id: string; score: number }> = [];
         if (keywordStore) {
-          try { keywordResults = keywordStore.search(q.query, hybridSearch.keywordSearchLimit); }
-          catch { /* */ }
+          try {
+            keywordResults = keywordStore.search(q.query, hybridSearch.keywordSearchLimit);
+          } catch {
+            /* */
+          }
         }
 
         const vectorItems: RankedItem[] = similar.map((s) => ({
@@ -325,9 +337,12 @@ async function runAnalysis() {
         const preRank = findIn(sizeBounded, targetId);
         const targetTokens = chunkTokenMap.get(targetId) ?? 0;
         const totalTokensInReordered = reordered.reduce(
-          (s, r) => s + (chunkTokenMap.get(r.chunkId) ?? 0), 0,
+          (s, r) => s + (chunkTokenMap.get(r.chunkId) ?? 0),
+          0,
         );
-        console.log(`    MMR DROP: pre-rank=${preRank}/${sizeBounded.length} target=${targetTokens}tok reordered=${reordered.length} reorderedTokens=${totalTokensInReordered} budget=${maxTokens}`);
+        console.log(
+          `    MMR DROP: pre-rank=${preRank}/${sizeBounded.length} target=${targetTokens}tok reordered=${reordered.length} reorderedTokens=${totalTokensInReordered} budget=${maxTokens}`,
+        );
       }
 
       // Budget assembly
@@ -356,7 +371,9 @@ async function runAnalysis() {
         if (bestChain && bestChain.chunkIds.includes(targetId)) {
           stages.chainOutput = true;
         }
-      } catch { /* chain walk failed */ }
+      } catch {
+        /* chain walk failed */
+      }
 
       let droppedAt: string | null = null;
       const stageOrder: [keyof StagePresence, string][] = [

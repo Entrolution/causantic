@@ -9,7 +9,7 @@
 export interface RankedItem {
   chunkId: string;
   score: number;
-  source?: 'vector' | 'keyword' | 'cluster' | 'graph';
+  source?: 'vector' | 'keyword' | 'cluster' | 'graph' | 'entity';
 }
 
 export interface RRFSource {
@@ -55,7 +55,7 @@ export function fuseRRF(sources: RRFSource[], k: number = DEFAULT_K): RankedItem
     // Credit the most informative source (graph > cluster > keyword > vector).
     // Vector is the baseline — rarer sources that also found this chunk
     // represent added value from the graph/keyword/cluster pipeline stages.
-    const priority = ['graph', 'cluster', 'keyword', 'vector'];
+    const priority = ['graph', 'entity', 'cluster', 'keyword', 'vector'];
     let bestSource: RankedItem['source'] = undefined;
     for (const p of priority) {
       if (sources.has(p)) {

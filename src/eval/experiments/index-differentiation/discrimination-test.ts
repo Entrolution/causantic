@@ -19,9 +19,7 @@ import type { DiscriminationResult } from './types.js';
 /**
  * Run discrimination test for a single cluster.
  */
-export function testClusterDiscrimination(
-  cluster: ClusterForAnalysis,
-): DiscriminationResult {
+export function testClusterDiscrimination(cluster: ClusterForAnalysis): DiscriminationResult {
   const entries = cluster.entries;
   const perEntry: DiscriminationResult['perEntry'] = [];
 
@@ -90,8 +88,6 @@ export function testClusterDiscrimination(
 /**
  * Run discrimination test across all eligible clusters.
  */
-export function runDiscriminationTest(
-  clusters: ClusterForAnalysis[],
-): DiscriminationResult[] {
+export function runDiscriminationTest(clusters: ClusterForAnalysis[]): DiscriminationResult[] {
   return clusters.map(testClusterDiscrimination);
 }

@@ -20,10 +20,7 @@
 import { getDb } from '../../../storage/db.js';
 import { vectorStore, indexVectorStore } from '../../../storage/vector-store.js';
 import { getClusterChunkIds, getAllClusters } from '../../../storage/cluster-store.js';
-import {
-  getIndexEntriesForChunk,
-  getIndexEntryCount,
-} from '../../../storage/index-entry-store.js';
+import { getIndexEntriesForChunk, getIndexEntryCount } from '../../../storage/index-entry-store.js';
 import { getChunkById } from '../../../storage/chunk-store.js';
 import type { IndexEntry } from '../../../storage/types.js';
 import type { ClusterForAnalysis } from './similarity-analysis.js';
@@ -129,9 +126,7 @@ async function runExperiment(): Promise<DifferentiationReport> {
   const args = process.argv.slice(2);
   const doRefine = args.includes('--refine');
   const maxClustersArg = args.find((a) => a.startsWith('--max-clusters='));
-  const maxClusters = maxClustersArg
-    ? parseInt(maxClustersArg.split('=')[1], 10)
-    : 5;
+  const maxClusters = maxClustersArg ? parseInt(maxClustersArg.split('=')[1], 10) : 5;
 
   console.log('=== Index Entry Differentiation Experiment ===\n');
 
@@ -169,17 +164,15 @@ async function runExperiment(): Promise<DifferentiationReport> {
   const similarityResults = runSimilarityAnalysis(clusters);
 
   const meanCompression =
-    similarityResults.reduce((s, r) => s + r.compressionRatio, 0) /
-    similarityResults.length;
-  const homogenized = similarityResults.filter(
-    (r) => r.compressionRatio > 1.0,
-  ).length;
+    similarityResults.reduce((s, r) => s + r.compressionRatio, 0) / similarityResults.length;
+  const homogenized = similarityResults.filter((r) => r.compressionRatio > 1.0).length;
 
   console.log('  Cluster                          Entries  Entry Sim  Chunk Sim  Ratio');
   console.log('  ' + '─'.repeat(75));
   for (const r of similarityResults.slice(0, 20)) {
     const name = (r.clusterName ?? r.clusterId).slice(0, 30).padEnd(32);
-    const ratio = r.compressionRatio > 1 ? `${fmt(r.compressionRatio)} ▲` : `${fmt(r.compressionRatio)} ▼`;
+    const ratio =
+      r.compressionRatio > 1 ? `${fmt(r.compressionRatio)} ▲` : `${fmt(r.compressionRatio)} ▼`;
     console.log(
       `  ${name} ${String(r.entryCount).padStart(4)}    ${fmt(r.meanEntryPairSim)}     ${fmt(r.meanChunkPairSim)}     ${ratio}`,
     );
@@ -266,7 +259,9 @@ async function runExperiment(): Promise<DifferentiationReport> {
   console.log(`\n  Overall self-alignment (entry ↔ own chunk):   ${fmt(overallSelfAlign)}`);
   console.log(`  Overall sibling alignment (entry ↔ other chunks): ${fmt(overallSibAlign)}`);
   console.log(`  Overall alignment gap (self - sibling):       ${fmt(overallGap)}`);
-  console.log(`  Uniquely aligned (self > max sibling):        ${fmt(overallUniquelyAligned * 100, 1)}%`);
+  console.log(
+    `  Uniquely aligned (self > max sibling):        ${fmt(overallUniquelyAligned * 100, 1)}%`,
+  );
 
   // ── Phase 3: Refinement (optional) ────────────────────────────────────────
 
@@ -289,10 +284,8 @@ async function runExperiment(): Promise<DifferentiationReport> {
 
     if (refinementResults && refinementResults.length > 0) {
       const meanMRRDelta =
-        refinementResults.reduce(
-          (s, r) => s + (r.refinedMRR - r.baselineMRR),
-          0,
-        ) / refinementResults.length;
+        refinementResults.reduce((s, r) => s + (r.refinedMRR - r.baselineMRR), 0) /
+        refinementResults.length;
       const meanCRDelta =
         refinementResults.reduce((s, r) => s + r.compressionRatioDelta, 0) /
         refinementResults.length;
@@ -309,7 +302,9 @@ async function runExperiment(): Promise<DifferentiationReport> {
       }
 
       console.log(`\n  Mean MRR delta: ${meanMRRDelta > 0 ? '+' : ''}${fmt(meanMRRDelta)}`);
-      console.log(`  Mean compression ratio delta: ${meanCRDelta > 0 ? '+' : ''}${fmt(meanCRDelta)}`);
+      console.log(
+        `  Mean compression ratio delta: ${meanCRDelta > 0 ? '+' : ''}${fmt(meanCRDelta)}`,
+      );
 
       // Show sample refinements
       const withSamples = refinementResults.filter((r) => r.sampleRefinements.length > 0);

@@ -152,13 +152,19 @@ export class VectorStore {
       db.exec(`ALTER TABLE ${this.tableName} ADD COLUMN orphaned_at TEXT DEFAULT NULL`);
     }
     if (!hasLastAccessed) {
-      db.exec(`ALTER TABLE ${this.tableName} ADD COLUMN last_accessed TEXT DEFAULT CURRENT_TIMESTAMP`);
-      db.exec(`UPDATE ${this.tableName} SET last_accessed = CURRENT_TIMESTAMP WHERE last_accessed IS NULL`);
+      db.exec(
+        `ALTER TABLE ${this.tableName} ADD COLUMN last_accessed TEXT DEFAULT CURRENT_TIMESTAMP`,
+      );
+      db.exec(
+        `UPDATE ${this.tableName} SET last_accessed = CURRENT_TIMESTAMP WHERE last_accessed IS NULL`,
+      );
     }
     if (!hasModelId) {
       db.exec(`ALTER TABLE ${this.tableName} ADD COLUMN model_id TEXT DEFAULT 'jina-small'`);
       db.exec(`UPDATE ${this.tableName} SET model_id = 'jina-small' WHERE model_id IS NULL`);
-      db.exec(`CREATE INDEX IF NOT EXISTS idx_${this.tableName}_model ON ${this.tableName}(model_id)`);
+      db.exec(
+        `CREATE INDEX IF NOT EXISTS idx_${this.tableName}_model ON ${this.tableName}(model_id)`,
+      );
     }
 
     // Load only vectors matching the active model_id
@@ -470,7 +476,9 @@ export class VectorStore {
 
     const db = getDb();
     const placeholders = sqlPlaceholders(ids.length);
-    const result = db.prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`).run(...ids);
+    const result = db
+      .prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`)
+      .run(...ids);
 
     for (const id of ids) {
       this.vectors.delete(id);
@@ -622,24 +630,26 @@ export class VectorStore {
       ).run(...expiredIds);
 
       // Delete orphaned index entries (no remaining chunk references)
-      const orphaned = db.prepare(
-        `SELECT id FROM index_entries WHERE id NOT IN (
+      const orphaned = db
+        .prepare(
+          `SELECT id FROM index_entries WHERE id NOT IN (
           SELECT DISTINCT index_entry_id FROM index_entry_chunks
         )`,
-      ).all() as Array<{ id: string }>;
+        )
+        .all() as Array<{ id: string }>;
 
       if (orphaned.length > 0) {
         const orphanIds = orphaned.map((r) => r.id);
         const orphanPlaceholders = sqlPlaceholders(orphanIds.length);
-        db.prepare(
-          `DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`,
-        ).run(...orphanIds);
+        db.prepare(`DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`).run(
+          ...orphanIds,
+        );
 
         // Remove from index vector store (if this is the chunk vector store)
         if (this.tableName === 'vectors') {
-          db.prepare(
-            `DELETE FROM index_vectors WHERE id IN (${orphanPlaceholders})`,
-          ).run(...orphanIds);
+          db.prepare(`DELETE FROM index_vectors WHERE id IN (${orphanPlaceholders})`).run(
+            ...orphanIds,
+          );
         }
       }
     } catch {
@@ -693,7 +703,9 @@ export class VectorStore {
     db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...evictIds);
 
     // Delete vectors
-    const result = db.prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`).run(...evictIds);
+    const result = db
+      .prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`)
+      .run(...evictIds);
 
     // Remove empty clusters
     db.prepare(
@@ -711,23 +723,25 @@ export class VectorStore {
         `DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholdersForCleanup})`,
       ).run(...evictIds);
 
-      const orphaned = db.prepare(
-        `SELECT id FROM index_entries WHERE id NOT IN (
+      const orphaned = db
+        .prepare(
+          `SELECT id FROM index_entries WHERE id NOT IN (
           SELECT DISTINCT index_entry_id FROM index_entry_chunks
         )`,
-      ).all() as Array<{ id: string }>;
+        )
+        .all() as Array<{ id: string }>;
 
       if (orphaned.length > 0) {
         const orphanIds = orphaned.map((r) => r.id);
         const orphanPlaceholders = sqlPlaceholders(orphanIds.length);
-        db.prepare(
-          `DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`,
-        ).run(...orphanIds);
+        db.prepare(`DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`).run(
+          ...orphanIds,
+        );
 
         if (this.tableName === 'vectors') {
-          db.prepare(
-            `DELETE FROM index_vectors WHERE id IN (${orphanPlaceholders})`,
-          ).run(...orphanIds);
+          db.prepare(`DELETE FROM index_vectors WHERE id IN (${orphanPlaceholders})`).run(
+            ...orphanIds,
+          );
         }
       }
     } catch {

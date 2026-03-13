@@ -50,9 +50,7 @@ export interface ClusterAlignmentResult {
 /**
  * Run alignment analysis for a single cluster.
  */
-export function analyseClusterAlignment(
-  cluster: ClusterForAnalysis,
-): ClusterAlignmentResult {
+export function analyseClusterAlignment(cluster: ClusterForAnalysis): ClusterAlignmentResult {
   const entries = cluster.entries;
   const perEntry: EntryAlignment[] = [];
 
@@ -101,18 +99,13 @@ export function analyseClusterAlignment(
   }
 
   const valid = perEntry.filter((e) => e.selfAlignment > 0);
-  const meanSelf = valid.length > 0
-    ? valid.reduce((s, e) => s + e.selfAlignment, 0) / valid.length
-    : 0;
-  const meanSib = valid.length > 0
-    ? valid.reduce((s, e) => s + e.meanSiblingAlignment, 0) / valid.length
-    : 0;
-  const meanGap = valid.length > 0
-    ? valid.reduce((s, e) => s + e.alignmentGap, 0) / valid.length
-    : 0;
-  const uniquelyAligned = valid.filter(
-    (e) => e.selfAlignment > e.maxSiblingAlignment,
-  ).length;
+  const meanSelf =
+    valid.length > 0 ? valid.reduce((s, e) => s + e.selfAlignment, 0) / valid.length : 0;
+  const meanSib =
+    valid.length > 0 ? valid.reduce((s, e) => s + e.meanSiblingAlignment, 0) / valid.length : 0;
+  const meanGap =
+    valid.length > 0 ? valid.reduce((s, e) => s + e.alignmentGap, 0) / valid.length : 0;
+  const uniquelyAligned = valid.filter((e) => e.selfAlignment > e.maxSiblingAlignment).length;
 
   return {
     clusterId: cluster.clusterId,
@@ -129,8 +122,6 @@ export function analyseClusterAlignment(
 /**
  * Run alignment analysis across all eligible clusters.
  */
-export function runAlignmentAnalysis(
-  clusters: ClusterForAnalysis[],
-): ClusterAlignmentResult[] {
+export function runAlignmentAnalysis(clusters: ClusterForAnalysis[]): ClusterAlignmentResult[] {
   return clusters.map(analyseClusterAlignment);
 }

@@ -192,7 +192,9 @@ export function getIndexEntryCount(): number {
  */
 export function getIndexedChunkCount(): number {
   const db = getDb();
-  const row = db.prepare('SELECT COUNT(DISTINCT chunk_id) as count FROM index_entry_chunks').get() as {
+  const row = db
+    .prepare('SELECT COUNT(DISTINCT chunk_id) as count FROM index_entry_chunks')
+    .get() as {
     count: number;
   };
   return row.count;
@@ -257,9 +259,7 @@ export async function deleteIndexEntriesForChunks(chunkIds: string[]): Promise<n
   const affectedIds = affectedRows.map((r) => r.index_entry_id);
 
   // Remove the chunk references
-  db.prepare(
-    `DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholders})`,
-  ).run(...chunkIds);
+  db.prepare(`DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholders})`).run(...chunkIds);
 
   // Find entries that now have no chunk references
   const orphanedIds: string[] = [];
@@ -286,9 +286,7 @@ export async function deleteIndexEntriesForChunks(chunkIds: string[]): Promise<n
   // Delete orphaned entries
   if (orphanedIds.length > 0) {
     const orphanPlaceholders = sqlPlaceholders(orphanedIds.length);
-    db.prepare(
-      `DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`,
-    ).run(...orphanedIds);
+    db.prepare(`DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`).run(...orphanedIds);
 
     // Clean up vectors
     await indexVectorStore.deleteBatch(orphanedIds);
@@ -309,9 +307,7 @@ export function dereferenceToChunkIds(indexEntryIds: string[]): string[] {
   const placeholders = sqlPlaceholders(indexEntryIds.length);
 
   const rows = db
-    .prepare(
-      `SELECT chunk_ids FROM index_entries WHERE id IN (${placeholders})`,
-    )
+    .prepare(`SELECT chunk_ids FROM index_entries WHERE id IN (${placeholders})`)
     .all(...indexEntryIds) as Array<{ chunk_ids: string }>;
 
   const seen = new Set<string>();

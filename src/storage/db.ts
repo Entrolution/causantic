@@ -281,6 +281,14 @@ export function clearAllData(database?: Database.Database): void {
   } catch {
     // Table may not exist yet
   }
+  // Clean up entity tables if they exist
+  try {
+    d.exec('DELETE FROM entity_mentions');
+    d.exec('DELETE FROM entity_aliases');
+    d.exec('DELETE FROM entities');
+  } catch {
+    // Tables may not exist yet
+  }
 }
 
 /**

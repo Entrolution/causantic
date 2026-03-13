@@ -175,7 +175,7 @@ export const DEFAULT_CONFIG: MemoryConfig = {
   incrementalClusterThreshold: 0.3,
 
   // Retrieval strategy
-  retrievalPrimary: 'keyword',
+  retrievalPrimary: 'hybrid',
   vectorEnrichment: false,
 
   // Embedding
@@ -199,10 +199,28 @@ export const DEFAULT_CONFIG: MemoryConfig = {
     enabled: true,
     maxTokens: 1024,
     languages: [
-      'typescript', 'javascript', 'python', 'java', 'c', 'cpp',
-      'rust', 'go', 'ruby', 'c-sharp', 'php', 'bash',
-      'scala', 'kotlin', 'swift', 'haskell', 'lua', 'dart',
-      'zig', 'elixir', 'perl', 'r',
+      'typescript',
+      'javascript',
+      'python',
+      'java',
+      'c',
+      'cpp',
+      'rust',
+      'go',
+      'ruby',
+      'c-sharp',
+      'php',
+      'bash',
+      'scala',
+      'kotlin',
+      'swift',
+      'haskell',
+      'lua',
+      'dart',
+      'zig',
+      'elixir',
+      'perl',
+      'r',
     ],
   },
 };
