@@ -77,6 +77,31 @@ describe('loadConfig', () => {
       expect(EXTERNAL_DEFAULTS.vectors).toBeDefined();
       expect(EXTERNAL_DEFAULTS.embedding).toBeDefined();
       expect(EXTERNAL_DEFAULTS.retrieval).toBeDefined();
+      expect(EXTERNAL_DEFAULTS.maintenance).toBeDefined();
+      expect(EXTERNAL_DEFAULTS.recency).toBeDefined();
+      expect(EXTERNAL_DEFAULTS.lengthPenalty).toBeDefined();
+      expect(EXTERNAL_DEFAULTS.semanticIndex).toBeDefined();
+    });
+
+    it('returns correct defaults for recency, lengthPenalty, semanticIndex, and maintenance', () => {
+      const config = loadConfig({
+        skipEnv: true,
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.recency.decayFactor).toBe(0.3);
+      expect(config.recency.halfLifeHours).toBe(48);
+      expect(config.lengthPenalty.enabled).toBe(true);
+      expect(config.lengthPenalty.referenceTokens).toBe(500);
+      expect(config.semanticIndex.enabled).toBe(false);
+      expect(config.semanticIndex.targetDescriptionTokens).toBe(130);
+      expect(config.semanticIndex.batchRefreshLimit).toBe(500);
+      expect(config.semanticIndex.useForSearch).toBe(true);
+      expect(config.maintenance.clusterHour).toBe(2);
+      expect(config.vectors.maxCount).toBe(0);
+      expect(config.embedding.eager).toBe(false);
+      expect(config.embedding.model).toBe('jina-small');
     });
   });
 
@@ -205,6 +230,138 @@ describe('loadConfig', () => {
       expect(config.retrieval.mmrLambda).toBe(0.5);
     });
 
+    it('overrides clustering incremental threshold from env', () => {
+      process.env.CAUSANTIC_CLUSTERING_INCREMENTAL_THRESHOLD = '0.5';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.clustering.incrementalThreshold).toBe(0.5);
+    });
+
+    it('overrides vectors maxCount from env', () => {
+      process.env.CAUSANTIC_VECTORS_MAX_COUNT = '10000';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.vectors.maxCount).toBe(10000);
+    });
+
+    it('overrides maintenance cluster hour from env', () => {
+      process.env.CAUSANTIC_MAINTENANCE_CLUSTER_HOUR = '14';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.maintenance.clusterHour).toBe(14);
+    });
+
+    it('overrides embedding model from env', () => {
+      process.env.CAUSANTIC_EMBEDDING_MODEL = 'jina-code';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.embedding.model).toBe('jina-code');
+    });
+
+    it('overrides embedding eager from env', () => {
+      process.env.CAUSANTIC_EMBEDDING_EAGER = 'true';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.embedding.eager).toBe(true);
+    });
+
+    it('overrides retrieval feedback weight from env', () => {
+      process.env.CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT = '0.25';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.retrieval.feedbackWeight).toBe(0.25);
+    });
+
+    it('overrides retrieval primary from env', () => {
+      process.env.CAUSANTIC_RETRIEVAL_PRIMARY = 'keyword';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.retrieval.primary).toBe('keyword');
+    });
+
+    it('overrides retrieval vector enrichment from env', () => {
+      process.env.CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT = 'true';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.retrieval.vectorEnrichment).toBe(true);
+    });
+
+    it('overrides recency decay factor from env', () => {
+      process.env.CAUSANTIC_RECENCY_DECAY_FACTOR = '0.6';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.recency.decayFactor).toBe(0.6);
+    });
+
+    it('overrides recency half life hours from env', () => {
+      process.env.CAUSANTIC_RECENCY_HALF_LIFE_HOURS = '72';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.recency.halfLifeHours).toBe(72);
+    });
+
+    it('overrides semantic index enabled from env', () => {
+      process.env.CAUSANTIC_SEMANTIC_INDEX_ENABLED = 'true';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.semanticIndex.enabled).toBe(true);
+    });
+
+    it('overrides semantic index useForSearch from env', () => {
+      process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH = 'false';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.semanticIndex.useForSearch).toBe(false);
+    });
+
     it('skips env vars when skipEnv is true', () => {
       process.env.CAUSANTIC_CLUSTERING_THRESHOLD = '0.99';
 
@@ -215,6 +372,92 @@ describe('loadConfig', () => {
       });
 
       expect(config.clustering.threshold).toBe(0.1); // Default
+    });
+  });
+
+  describe('type coercion edge cases', () => {
+    it('parses boolean "true" correctly for all boolean env vars', () => {
+      process.env.CAUSANTIC_ENCRYPTION_ENABLED = 'true';
+      process.env.CAUSANTIC_ENCRYPTION_AUDIT_LOG = 'true';
+      process.env.CAUSANTIC_EMBEDDING_EAGER = 'true';
+      process.env.CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT = 'true';
+      process.env.CAUSANTIC_LLM_ENABLE_LABELLING = 'true';
+      process.env.CAUSANTIC_SEMANTIC_INDEX_ENABLED = 'true';
+      process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH = 'true';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.encryption.enabled).toBe(true);
+      expect(config.encryption.auditLog).toBe(true);
+      expect(config.embedding.eager).toBe(true);
+      expect(config.retrieval.vectorEnrichment).toBe(true);
+      expect(config.llm.enableLabelling).toBe(true);
+      expect(config.semanticIndex.enabled).toBe(true);
+      expect(config.semanticIndex.useForSearch).toBe(true);
+    });
+
+    it('parses boolean "false" correctly for all boolean env vars', () => {
+      process.env.CAUSANTIC_ENCRYPTION_ENABLED = 'false';
+      process.env.CAUSANTIC_ENCRYPTION_AUDIT_LOG = 'false';
+      process.env.CAUSANTIC_EMBEDDING_EAGER = 'false';
+      process.env.CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT = 'false';
+      process.env.CAUSANTIC_LLM_ENABLE_LABELLING = 'false';
+      process.env.CAUSANTIC_SEMANTIC_INDEX_ENABLED = 'false';
+      process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH = 'false';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.encryption.enabled).toBe(false);
+      expect(config.encryption.auditLog).toBe(false);
+      expect(config.embedding.eager).toBe(false);
+      expect(config.retrieval.vectorEnrichment).toBe(false);
+      expect(config.llm.enableLabelling).toBe(false);
+      expect(config.semanticIndex.enabled).toBe(false);
+      expect(config.semanticIndex.useForSearch).toBe(false);
+    });
+
+    it('treats non-"true" strings as false for boolean env vars', () => {
+      process.env.CAUSANTIC_ENCRYPTION_ENABLED = 'yes';
+      process.env.CAUSANTIC_EMBEDDING_EAGER = '1';
+      process.env.CAUSANTIC_LLM_ENABLE_LABELLING = 'TRUE';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      // Only exact "true" is truthy; everything else is false
+      expect(config.encryption.enabled).toBe(false);
+      expect(config.embedding.eager).toBe(false);
+      expect(config.llm.enableLabelling).toBe(false);
+    });
+
+    it('produces NaN for non-numeric strings in integer fields', () => {
+      process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE = 'abc';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.clustering.minClusterSize).toBeNaN();
+    });
+
+    it('produces NaN for non-numeric strings in float fields', () => {
+      process.env.CAUSANTIC_CLUSTERING_THRESHOLD = 'not-a-number';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.clustering.threshold).toBeNaN();
     });
   });
 
@@ -270,6 +513,60 @@ describe('loadConfig', () => {
       });
 
       expect(config.clustering.threshold).toBe(0.1);
+    });
+  });
+
+  describe('deep merge behavior', () => {
+    it('CLI override of one nested field preserves other fields in same section', () => {
+      const config = loadConfig({
+        skipEnv: true,
+        skipProjectConfig: true,
+        skipUserConfig: true,
+        cliOverrides: {
+          retrieval: { mmrLambda: 0.9 },
+        },
+      });
+
+      // The overridden field
+      expect(config.retrieval.mmrLambda).toBe(0.9);
+      // Other fields in the same section preserved from defaults
+      expect(config.retrieval.feedbackWeight).toBe(0.1);
+      expect(config.retrieval.primary).toBe('hybrid');
+      expect(config.retrieval.vectorEnrichment).toBe(false);
+    });
+
+    it('env var override of one nested field preserves other fields in same section', () => {
+      process.env.CAUSANTIC_RECENCY_DECAY_FACTOR = '0.8';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+      });
+
+      expect(config.recency.decayFactor).toBe(0.8);
+      expect(config.recency.halfLifeHours).toBe(48); // Default preserved
+    });
+
+    it('multiple layers of overrides merge correctly', () => {
+      // Env sets one field, CLI sets another in the same section
+      process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA = '0.3';
+
+      const config = loadConfig({
+        skipProjectConfig: true,
+        skipUserConfig: true,
+        cliOverrides: {
+          retrieval: { primary: 'vector' },
+        },
+      });
+
+      // CLI override wins for primary
+      expect(config.retrieval.primary).toBe('vector');
+      // deepMerge spreads both target and source, so env-set mmrLambda survives
+      // because CLI only sets { primary: 'vector' } without mmrLambda
+      expect(config.retrieval.mmrLambda).toBe(0.3);
+      // Default preserved for fields neither env nor CLI touched
+      expect(config.retrieval.feedbackWeight).toBe(0.1);
+      expect(config.retrieval.vectorEnrichment).toBe(false);
     });
   });
 });
@@ -349,6 +646,89 @@ describe('validateExternalConfig', () => {
     expect(validateExternalConfig({ retrieval: { mmrLambda: 0 } })).toEqual([]);
     expect(validateExternalConfig({ retrieval: { mmrLambda: 1 } })).toEqual([]);
     expect(validateExternalConfig({ retrieval: { mmrLambda: 0.7 } })).toEqual([]);
+  });
+
+  it('reports vectors.maxCount negative', () => {
+    const errors = validateExternalConfig({
+      vectors: { maxCount: -1 },
+    });
+    expect(errors).toContain('vectors.maxCount must be >= 0 (0 = unlimited)');
+  });
+
+  it('accepts vectors.maxCount of 0 (unlimited)', () => {
+    const errors = validateExternalConfig({
+      vectors: { maxCount: 0 },
+    });
+    expect(errors).toEqual([]);
+  });
+
+  it('reports invalid embedding model', () => {
+    const errors = validateExternalConfig({
+      embedding: { model: 'nonexistent-model' },
+    });
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toContain("embedding.model 'nonexistent-model' is not a registered model");
+  });
+
+  it('accepts valid embedding model', () => {
+    const errors = validateExternalConfig({
+      embedding: { model: 'jina-small' },
+    });
+    expect(errors).toEqual([]);
+  });
+
+  it('reports lengthPenalty.referenceTokens <= 0', () => {
+    const errors = validateExternalConfig({
+      lengthPenalty: { referenceTokens: 0 },
+    });
+    expect(errors).toContain('lengthPenalty.referenceTokens must be greater than 0');
+  });
+
+  it('reports negative lengthPenalty.referenceTokens', () => {
+    const errors = validateExternalConfig({
+      lengthPenalty: { referenceTokens: -100 },
+    });
+    expect(errors).toContain('lengthPenalty.referenceTokens must be greater than 0');
+  });
+
+  it('accepts valid lengthPenalty.referenceTokens', () => {
+    const errors = validateExternalConfig({
+      lengthPenalty: { referenceTokens: 500 },
+    });
+    expect(errors).toEqual([]);
+  });
+
+  it('reports invalid retrieval.primary value', () => {
+    const errors = validateExternalConfig({
+      retrieval: { primary: 'invalid' as 'keyword' },
+    });
+    expect(errors).toContain("retrieval.primary must be 'keyword', 'vector', or 'hybrid'");
+  });
+
+  it('accepts all valid retrieval.primary values', () => {
+    expect(validateExternalConfig({ retrieval: { primary: 'keyword' } })).toEqual([]);
+    expect(validateExternalConfig({ retrieval: { primary: 'vector' } })).toEqual([]);
+    expect(validateExternalConfig({ retrieval: { primary: 'hybrid' } })).toEqual([]);
+  });
+
+  it('reports retrieval.feedbackWeight out of range (too low)', () => {
+    const errors = validateExternalConfig({
+      retrieval: { feedbackWeight: -0.1 },
+    });
+    expect(errors).toContain('retrieval.feedbackWeight must be between 0 and 1 (inclusive)');
+  });
+
+  it('reports retrieval.feedbackWeight out of range (too high)', () => {
+    const errors = validateExternalConfig({
+      retrieval: { feedbackWeight: 1.1 },
+    });
+    expect(errors).toContain('retrieval.feedbackWeight must be between 0 and 1 (inclusive)');
+  });
+
+  it('accepts valid retrieval.feedbackWeight boundary values', () => {
+    expect(validateExternalConfig({ retrieval: { feedbackWeight: 0 } })).toEqual([]);
+    expect(validateExternalConfig({ retrieval: { feedbackWeight: 1 } })).toEqual([]);
+    expect(validateExternalConfig({ retrieval: { feedbackWeight: 0.5 } })).toEqual([]);
   });
 
   it('reports multiple errors at once', () => {
@@ -493,6 +873,135 @@ describe('toRuntimeConfig', () => {
     const runtime = toRuntimeConfig(external);
 
     expect(runtime.retrievalPrimary).toBe('hybrid');
+  });
+
+  it('maps incrementalClusterThreshold from external config', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        clustering: { incrementalThreshold: 0.5 },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.incrementalClusterThreshold).toBe(0.5);
+  });
+
+  it('maps feedbackWeight from external config', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        retrieval: { feedbackWeight: 0.25 },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.feedbackWeight).toBe(0.25);
+  });
+
+  it('maps recency settings from external config', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        recency: { decayFactor: 0.5, halfLifeHours: 24 },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.recency.decayFactor).toBe(0.5);
+    expect(runtime.recency.halfLifeHours).toBe(24);
+  });
+
+  it('maps lengthPenalty settings from external config', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        lengthPenalty: { enabled: false, referenceTokens: 1000 },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.lengthPenalty.enabled).toBe(false);
+    expect(runtime.lengthPenalty.referenceTokens).toBe(1000);
+  });
+
+  it('maps semanticIndex settings from external config', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        semanticIndex: {
+          enabled: true,
+          targetDescriptionTokens: 200,
+          batchRefreshLimit: 100,
+          useForSearch: false,
+        },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.semanticIndex.enabled).toBe(true);
+    expect(runtime.semanticIndex.targetDescriptionTokens).toBe(200);
+    expect(runtime.semanticIndex.batchRefreshLimit).toBe(100);
+    expect(runtime.semanticIndex.useForSearch).toBe(false);
+  });
+
+  it('maps embeddingModel and embeddingEager from external config', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        embedding: { model: 'jina-code', eager: true },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.embeddingModel).toBe('jina-code');
+    expect(runtime.embeddingEager).toBe(true);
+  });
+
+  it('maps retrievalPrimary and vectorEnrichment from external config', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+      cliOverrides: {
+        retrieval: { primary: 'keyword', vectorEnrichment: true },
+      },
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.retrievalPrimary).toBe('keyword');
+    expect(runtime.vectorEnrichment).toBe(true);
+  });
+
+  it('preserves repomap from DEFAULT_CONFIG (no external mapping)', () => {
+    const external = loadConfig({
+      skipEnv: true,
+      skipProjectConfig: true,
+      skipUserConfig: true,
+    });
+
+    const runtime = toRuntimeConfig(external);
+
+    expect(runtime.repomap).toEqual(DEFAULT_CONFIG.repomap);
   });
 
   it('preserves hybridSearch and clusterExpansion from DEFAULT_CONFIG', () => {
