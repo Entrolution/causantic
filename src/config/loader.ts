@@ -181,171 +181,115 @@ function loadConfigFile(path: string): ExternalConfig | null {
   }
 }
 
+/** Mapping from an environment variable to a dot-path in ExternalConfig. */
+export type EnvMapping = {
+  env: string;
+  path: string; // dot-separated path into ExternalConfig
+  type: 'string' | 'int' | 'float' | 'boolean';
+};
+
+/** All CAUSANTIC_* environment variable mappings. */
+export const ENV_MAPPINGS: EnvMapping[] = [
+  // Clustering
+  { env: 'CAUSANTIC_CLUSTERING_THRESHOLD', path: 'clustering.threshold', type: 'float' },
+  { env: 'CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE', path: 'clustering.minClusterSize', type: 'int' },
+  {
+    env: 'CAUSANTIC_CLUSTERING_INCREMENTAL_THRESHOLD',
+    path: 'clustering.incrementalThreshold',
+    type: 'float',
+  },
+  // Traversal
+  { env: 'CAUSANTIC_TRAVERSAL_MAX_DEPTH', path: 'traversal.maxDepth', type: 'int' },
+  // Tokens
+  { env: 'CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET', path: 'tokens.claudeMdBudget', type: 'int' },
+  { env: 'CAUSANTIC_TOKENS_MCP_MAX_RESPONSE', path: 'tokens.mcpMaxResponse', type: 'int' },
+  // Storage
+  { env: 'CAUSANTIC_STORAGE_DB_PATH', path: 'storage.dbPath', type: 'string' },
+  { env: 'CAUSANTIC_STORAGE_VECTOR_PATH', path: 'storage.vectorPath', type: 'string' },
+  // LLM
+  { env: 'CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL', path: 'llm.clusterRefreshModel', type: 'string' },
+  { env: 'CAUSANTIC_LLM_REFRESH_RATE_LIMIT', path: 'llm.refreshRateLimitPerMin', type: 'int' },
+  { env: 'CAUSANTIC_LLM_ENABLE_LABELLING', path: 'llm.enableLabelling', type: 'boolean' },
+  // Encryption
+  { env: 'CAUSANTIC_ENCRYPTION_ENABLED', path: 'encryption.enabled', type: 'boolean' },
+  { env: 'CAUSANTIC_ENCRYPTION_CIPHER', path: 'encryption.cipher', type: 'string' },
+  { env: 'CAUSANTIC_ENCRYPTION_KEY_SOURCE', path: 'encryption.keySource', type: 'string' },
+  { env: 'CAUSANTIC_ENCRYPTION_AUDIT_LOG', path: 'encryption.auditLog', type: 'boolean' },
+  // Vectors
+  { env: 'CAUSANTIC_VECTORS_TTL_DAYS', path: 'vectors.ttlDays', type: 'int' },
+  { env: 'CAUSANTIC_VECTORS_MAX_COUNT', path: 'vectors.maxCount', type: 'int' },
+  // Maintenance
+  { env: 'CAUSANTIC_MAINTENANCE_CLUSTER_HOUR', path: 'maintenance.clusterHour', type: 'int' },
+  // Embedding
+  { env: 'CAUSANTIC_EMBEDDING_DEVICE', path: 'embedding.device', type: 'string' },
+  { env: 'CAUSANTIC_EMBEDDING_MODEL', path: 'embedding.model', type: 'string' },
+  { env: 'CAUSANTIC_EMBEDDING_EAGER', path: 'embedding.eager', type: 'boolean' },
+  // Retrieval
+  { env: 'CAUSANTIC_RETRIEVAL_MMR_LAMBDA', path: 'retrieval.mmrLambda', type: 'float' },
+  { env: 'CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT', path: 'retrieval.feedbackWeight', type: 'float' },
+  { env: 'CAUSANTIC_RETRIEVAL_PRIMARY', path: 'retrieval.primary', type: 'string' },
+  {
+    env: 'CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT',
+    path: 'retrieval.vectorEnrichment',
+    type: 'boolean',
+  },
+  // Recency
+  { env: 'CAUSANTIC_RECENCY_DECAY_FACTOR', path: 'recency.decayFactor', type: 'float' },
+  { env: 'CAUSANTIC_RECENCY_HALF_LIFE_HOURS', path: 'recency.halfLifeHours', type: 'float' },
+  // Semantic Index
+  { env: 'CAUSANTIC_SEMANTIC_INDEX_ENABLED', path: 'semanticIndex.enabled', type: 'boolean' },
+  {
+    env: 'CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH',
+    path: 'semanticIndex.useForSearch',
+    type: 'boolean',
+  },
+];
+
+/**
+ * Apply environment variable mappings to a config object.
+ * Parses values according to their declared type and sets them at the dot-path.
+ */
+function applyEnvMappings(config: ExternalConfig, mappings: EnvMapping[]): void {
+  for (const { env, path, type } of mappings) {
+    const value = process.env[env];
+    if (value === undefined) continue;
+
+    const parts = path.split('.');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let obj: any = config;
+    for (let i = 0; i < parts.length - 1; i++) {
+      obj[parts[i]] = obj[parts[i]] ?? {};
+      obj = obj[parts[i]];
+    }
+
+    const key = parts[parts.length - 1];
+    switch (type) {
+      case 'int':
+        obj[key] = parseInt(value, 10);
+        break;
+      case 'float':
+        obj[key] = parseFloat(value);
+        break;
+      case 'boolean':
+        obj[key] = value === 'true';
+        break;
+      case 'string':
+        obj[key] = value;
+        break;
+    }
+  }
+}
+
 /**
  * Load config from environment variables.
  * Variables are prefixed with CAUSANTIC_ and use underscores for nesting.
  * Examples:
- *   CAUSANTIC_DECAY_BACKWARD_TYPE=linear
  *   CAUSANTIC_CLUSTERING_THRESHOLD=0.09
  *   CAUSANTIC_STORAGE_DB_PATH=~/.causantic/memory.db
  */
 function loadEnvConfig(): ExternalConfig {
   const config: ExternalConfig = {};
-
-  // Clustering
-  if (process.env.CAUSANTIC_CLUSTERING_THRESHOLD) {
-    config.clustering = config.clustering ?? {};
-    config.clustering.threshold = parseFloat(process.env.CAUSANTIC_CLUSTERING_THRESHOLD);
-  }
-  if (process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE) {
-    config.clustering = config.clustering ?? {};
-    config.clustering.minClusterSize = parseInt(
-      process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE,
-      10,
-    );
-  }
-  if (process.env.CAUSANTIC_CLUSTERING_INCREMENTAL_THRESHOLD) {
-    config.clustering = config.clustering ?? {};
-    config.clustering.incrementalThreshold = parseFloat(
-      process.env.CAUSANTIC_CLUSTERING_INCREMENTAL_THRESHOLD,
-    );
-  }
-
-  // Traversal
-  if (process.env.CAUSANTIC_TRAVERSAL_MAX_DEPTH) {
-    config.traversal = config.traversal ?? {};
-    config.traversal.maxDepth = parseInt(process.env.CAUSANTIC_TRAVERSAL_MAX_DEPTH, 10);
-  }
-
-  // Tokens
-  if (process.env.CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET) {
-    config.tokens = config.tokens ?? {};
-    config.tokens.claudeMdBudget = parseInt(process.env.CAUSANTIC_TOKENS_CLAUDE_MD_BUDGET, 10);
-  }
-  if (process.env.CAUSANTIC_TOKENS_MCP_MAX_RESPONSE) {
-    config.tokens = config.tokens ?? {};
-    config.tokens.mcpMaxResponse = parseInt(process.env.CAUSANTIC_TOKENS_MCP_MAX_RESPONSE, 10);
-  }
-
-  // Storage
-  if (process.env.CAUSANTIC_STORAGE_DB_PATH) {
-    config.storage = config.storage ?? {};
-    config.storage.dbPath = process.env.CAUSANTIC_STORAGE_DB_PATH;
-  }
-  if (process.env.CAUSANTIC_STORAGE_VECTOR_PATH) {
-    config.storage = config.storage ?? {};
-    config.storage.vectorPath = process.env.CAUSANTIC_STORAGE_VECTOR_PATH;
-  }
-
-  // LLM
-  if (process.env.CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL) {
-    config.llm = config.llm ?? {};
-    config.llm.clusterRefreshModel = process.env.CAUSANTIC_LLM_CLUSTER_REFRESH_MODEL;
-  }
-  if (process.env.CAUSANTIC_LLM_REFRESH_RATE_LIMIT) {
-    config.llm = config.llm ?? {};
-    config.llm.refreshRateLimitPerMin = parseInt(process.env.CAUSANTIC_LLM_REFRESH_RATE_LIMIT, 10);
-  }
-
-  if (process.env.CAUSANTIC_LLM_ENABLE_LABELLING) {
-    config.llm = config.llm ?? {};
-    config.llm.enableLabelling = process.env.CAUSANTIC_LLM_ENABLE_LABELLING === 'true';
-  }
-
-  // Encryption
-  if (process.env.CAUSANTIC_ENCRYPTION_ENABLED) {
-    config.encryption = config.encryption ?? {};
-    config.encryption.enabled = process.env.CAUSANTIC_ENCRYPTION_ENABLED === 'true';
-  }
-  if (process.env.CAUSANTIC_ENCRYPTION_CIPHER) {
-    config.encryption = config.encryption ?? {};
-    config.encryption.cipher = process.env.CAUSANTIC_ENCRYPTION_CIPHER as 'chacha20' | 'sqlcipher';
-  }
-  if (process.env.CAUSANTIC_ENCRYPTION_KEY_SOURCE) {
-    config.encryption = config.encryption ?? {};
-    config.encryption.keySource = process.env.CAUSANTIC_ENCRYPTION_KEY_SOURCE as
-      | 'keychain'
-      | 'env'
-      | 'prompt';
-  }
-  if (process.env.CAUSANTIC_ENCRYPTION_AUDIT_LOG) {
-    config.encryption = config.encryption ?? {};
-    config.encryption.auditLog = process.env.CAUSANTIC_ENCRYPTION_AUDIT_LOG === 'true';
-  }
-
-  // Vectors
-  if (process.env.CAUSANTIC_VECTORS_TTL_DAYS) {
-    config.vectors = config.vectors ?? {};
-    config.vectors.ttlDays = parseInt(process.env.CAUSANTIC_VECTORS_TTL_DAYS, 10);
-  }
-  if (process.env.CAUSANTIC_VECTORS_MAX_COUNT) {
-    config.vectors = config.vectors ?? {};
-    config.vectors.maxCount = parseInt(process.env.CAUSANTIC_VECTORS_MAX_COUNT, 10);
-  }
-
-  // Maintenance
-  if (process.env.CAUSANTIC_MAINTENANCE_CLUSTER_HOUR) {
-    config.maintenance = config.maintenance ?? {};
-    config.maintenance.clusterHour = parseInt(process.env.CAUSANTIC_MAINTENANCE_CLUSTER_HOUR, 10);
-  }
-
-  // Embedding
-  if (process.env.CAUSANTIC_EMBEDDING_DEVICE) {
-    config.embedding = config.embedding ?? {};
-    config.embedding.device = process.env.CAUSANTIC_EMBEDDING_DEVICE;
-  }
-  if (process.env.CAUSANTIC_EMBEDDING_MODEL) {
-    config.embedding = config.embedding ?? {};
-    config.embedding.model = process.env.CAUSANTIC_EMBEDDING_MODEL;
-  }
-  if (process.env.CAUSANTIC_EMBEDDING_EAGER) {
-    config.embedding = config.embedding ?? {};
-    config.embedding.eager = process.env.CAUSANTIC_EMBEDDING_EAGER === 'true';
-  }
-
-  // Retrieval
-  if (process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA) {
-    config.retrieval = config.retrieval ?? {};
-    config.retrieval.mmrLambda = parseFloat(process.env.CAUSANTIC_RETRIEVAL_MMR_LAMBDA);
-  }
-  if (process.env.CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT) {
-    config.retrieval = config.retrieval ?? {};
-    config.retrieval.feedbackWeight = parseFloat(process.env.CAUSANTIC_RETRIEVAL_FEEDBACK_WEIGHT);
-  }
-  if (process.env.CAUSANTIC_RETRIEVAL_PRIMARY) {
-    config.retrieval = config.retrieval ?? {};
-    config.retrieval.primary = process.env.CAUSANTIC_RETRIEVAL_PRIMARY as
-      | 'keyword'
-      | 'vector'
-      | 'hybrid';
-  }
-  if (process.env.CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT) {
-    config.retrieval = config.retrieval ?? {};
-    config.retrieval.vectorEnrichment =
-      process.env.CAUSANTIC_RETRIEVAL_VECTOR_ENRICHMENT === 'true';
-  }
-
-  // Recency
-  if (process.env.CAUSANTIC_RECENCY_DECAY_FACTOR) {
-    config.recency = config.recency ?? {};
-    config.recency.decayFactor = parseFloat(process.env.CAUSANTIC_RECENCY_DECAY_FACTOR);
-  }
-  if (process.env.CAUSANTIC_RECENCY_HALF_LIFE_HOURS) {
-    config.recency = config.recency ?? {};
-    config.recency.halfLifeHours = parseFloat(process.env.CAUSANTIC_RECENCY_HALF_LIFE_HOURS);
-  }
-
-  // Semantic Index
-  if (process.env.CAUSANTIC_SEMANTIC_INDEX_ENABLED) {
-    config.semanticIndex = config.semanticIndex ?? {};
-    config.semanticIndex.enabled = process.env.CAUSANTIC_SEMANTIC_INDEX_ENABLED === 'true';
-  }
-  if (process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH) {
-    config.semanticIndex = config.semanticIndex ?? {};
-    config.semanticIndex.useForSearch =
-      process.env.CAUSANTIC_SEMANTIC_INDEX_USE_FOR_SEARCH === 'true';
-  }
-
+  applyEnvMappings(config, ENV_MAPPINGS);
   return config;
 }
 
@@ -543,6 +487,75 @@ export function getResolvedPaths(config: Required<ExternalConfig>): {
   };
 }
 
+/** Mapping from an ExternalConfig dot-path to a MemoryConfig dot-path. */
+export type ConfigMapping = {
+  from: string; // dot-path in ExternalConfig
+  to: string; // dot-path in MemoryConfig
+};
+
+/** All ExternalConfig -> MemoryConfig field mappings. */
+export const CONFIG_MAPPINGS: ConfigMapping[] = [
+  // Clustering
+  { from: 'clustering.threshold', to: 'clusterThreshold' },
+  { from: 'clustering.minClusterSize', to: 'minClusterSize' },
+  { from: 'clustering.incrementalThreshold', to: 'incrementalClusterThreshold' },
+  // Chain walking
+  { from: 'traversal.maxDepth', to: 'maxChainDepth' },
+  // Tokens
+  { from: 'tokens.claudeMdBudget', to: 'claudeMdBudgetTokens' },
+  { from: 'tokens.mcpMaxResponse', to: 'mcpMaxResponseTokens' },
+  // Storage
+  { from: 'storage.dbPath', to: 'dbPath' },
+  { from: 'storage.vectorPath', to: 'vectorStorePath' },
+  // LLM
+  { from: 'llm.clusterRefreshModel', to: 'clusterRefreshModel' },
+  { from: 'llm.refreshRateLimitPerMin', to: 'refreshRateLimitPerMin' },
+  // Retrieval strategy
+  { from: 'retrieval.primary', to: 'retrievalPrimary' },
+  { from: 'retrieval.vectorEnrichment', to: 'vectorEnrichment' },
+  // Embedding
+  { from: 'embedding.model', to: 'embeddingModel' },
+  { from: 'embedding.eager', to: 'embeddingEager' },
+  // Retrieval scoring
+  { from: 'retrieval.mmrLambda', to: 'mmrReranking.lambda' },
+  { from: 'retrieval.feedbackWeight', to: 'feedbackWeight' },
+  // Recency
+  { from: 'recency.decayFactor', to: 'recency.decayFactor' },
+  { from: 'recency.halfLifeHours', to: 'recency.halfLifeHours' },
+  // Length penalty
+  { from: 'lengthPenalty.enabled', to: 'lengthPenalty.enabled' },
+  { from: 'lengthPenalty.referenceTokens', to: 'lengthPenalty.referenceTokens' },
+  // Semantic index
+  { from: 'semanticIndex.enabled', to: 'semanticIndex.enabled' },
+  { from: 'semanticIndex.targetDescriptionTokens', to: 'semanticIndex.targetDescriptionTokens' },
+  { from: 'semanticIndex.batchRefreshLimit', to: 'semanticIndex.batchRefreshLimit' },
+  { from: 'semanticIndex.useForSearch', to: 'semanticIndex.useForSearch' },
+];
+
+/** Read a value from a nested object using a dot-separated path. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getPath(obj: any, path: string): unknown {
+  const parts = path.split('.');
+  let current = obj;
+  for (const part of parts) {
+    if (current === null || current === undefined) return undefined;
+    current = current[part];
+  }
+  return current;
+}
+
+/** Set a value on a nested object using a dot-separated path, creating intermediates as needed. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setPath(obj: any, path: string, value: unknown): void {
+  const parts = path.split('.');
+  let current = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    current[parts[i]] = current[parts[i]] ?? {};
+    current = current[parts[i]];
+  }
+  current[parts[parts.length - 1]] = value;
+}
+
 /**
  * Convert ExternalConfig to MemoryConfig (the runtime format).
  *
@@ -550,75 +563,27 @@ export function getResolvedPaths(config: Required<ExternalConfig>): {
  * DEFAULT_CONFIG so callers get a complete MemoryConfig.
  */
 export function toRuntimeConfig(external: Required<ExternalConfig>): MemoryConfig {
-  return {
+  // Start with a full copy of defaults
+  const runtime: MemoryConfig = {
     ...DEFAULT_CONFIG,
-
-    // Clustering
-    clusterThreshold: external.clustering.threshold ?? DEFAULT_CONFIG.clusterThreshold,
-    minClusterSize: external.clustering.minClusterSize ?? DEFAULT_CONFIG.minClusterSize,
-
-    // Clustering (incremental)
-    incrementalClusterThreshold:
-      external.clustering.incrementalThreshold ?? DEFAULT_CONFIG.incrementalClusterThreshold,
-
-    // Chain walking
-    maxChainDepth: external.traversal.maxDepth ?? DEFAULT_CONFIG.maxChainDepth,
-
-    // Tokens
-    claudeMdBudgetTokens: external.tokens.claudeMdBudget ?? DEFAULT_CONFIG.claudeMdBudgetTokens,
-    mcpMaxResponseTokens: external.tokens.mcpMaxResponse ?? DEFAULT_CONFIG.mcpMaxResponseTokens,
-
-    // Storage
-    dbPath: external.storage.dbPath ?? DEFAULT_CONFIG.dbPath,
-    vectorStorePath: external.storage.vectorPath ?? DEFAULT_CONFIG.vectorStorePath,
-
-    // LLM
-    clusterRefreshModel: external.llm.clusterRefreshModel ?? DEFAULT_CONFIG.clusterRefreshModel,
-    refreshRateLimitPerMin:
-      external.llm.refreshRateLimitPerMin ?? DEFAULT_CONFIG.refreshRateLimitPerMin,
-
-    // Retrieval strategy
-    retrievalPrimary: external.retrieval?.primary ?? DEFAULT_CONFIG.retrievalPrimary,
-    vectorEnrichment: external.retrieval?.vectorEnrichment ?? DEFAULT_CONFIG.vectorEnrichment,
-
-    // Embedding
-    embeddingModel: external.embedding?.model ?? DEFAULT_CONFIG.embeddingModel,
-    embeddingEager: external.embedding?.eager ?? DEFAULT_CONFIG.embeddingEager,
-
-    // Retrieval
-    mmrReranking: {
-      lambda: external.retrieval?.mmrLambda ?? DEFAULT_CONFIG.mmrReranking.lambda,
-    },
-    feedbackWeight: external.retrieval?.feedbackWeight ?? DEFAULT_CONFIG.feedbackWeight,
-
-    // Recency
-    recency: {
-      decayFactor: external.recency?.decayFactor ?? DEFAULT_CONFIG.recency.decayFactor,
-      halfLifeHours: external.recency?.halfLifeHours ?? DEFAULT_CONFIG.recency.halfLifeHours,
-    },
-
-    // Length penalty
-    lengthPenalty: {
-      enabled: external.lengthPenalty?.enabled ?? DEFAULT_CONFIG.lengthPenalty.enabled,
-      referenceTokens:
-        external.lengthPenalty?.referenceTokens ?? DEFAULT_CONFIG.lengthPenalty.referenceTokens,
-    },
-
-    // Repo map (uses DEFAULT_CONFIG defaults — no external config mapping yet)
-    repomap: DEFAULT_CONFIG.repomap,
-
-    // Semantic index
-    semanticIndex: {
-      enabled: external.semanticIndex?.enabled ?? DEFAULT_CONFIG.semanticIndex.enabled,
-      targetDescriptionTokens:
-        external.semanticIndex?.targetDescriptionTokens ??
-        DEFAULT_CONFIG.semanticIndex.targetDescriptionTokens,
-      batchRefreshLimit:
-        external.semanticIndex?.batchRefreshLimit ?? DEFAULT_CONFIG.semanticIndex.batchRefreshLimit,
-      useForSearch:
-        external.semanticIndex?.useForSearch ?? DEFAULT_CONFIG.semanticIndex.useForSearch,
-    },
+    hybridSearch: { ...DEFAULT_CONFIG.hybridSearch },
+    clusterExpansion: { ...DEFAULT_CONFIG.clusterExpansion },
+    mmrReranking: { ...DEFAULT_CONFIG.mmrReranking },
+    recency: { ...DEFAULT_CONFIG.recency },
+    lengthPenalty: { ...DEFAULT_CONFIG.lengthPenalty },
+    repomap: { ...DEFAULT_CONFIG.repomap, languages: [...DEFAULT_CONFIG.repomap.languages] },
+    semanticIndex: { ...DEFAULT_CONFIG.semanticIndex },
   };
+
+  // Apply table-driven mappings: external value wins over default
+  for (const { from, to } of CONFIG_MAPPINGS) {
+    const value = getPath(external, from);
+    if (value !== null && value !== undefined) {
+      setPath(runtime, to, value);
+    }
+  }
+
+  return runtime;
 }
 
 // Re-export for convenience
