@@ -575,42 +575,23 @@ export class VectorStore {
   }
 
   /**
-   * Clean up expired vectors and their corresponding chunks.
-   * Removes vectors that haven't been accessed within the TTL period.
-   * Also deletes the corresponding chunks (FK cascades handle cluster assignments and edges).
+   * Remove vectors and all related data (chunks, clusters, index entries) by ID.
+   * Handles DB deletions with FK cascades, orphan cleanup, and in-memory removal.
    *
-   * @param ttlDays - Number of days after which unaccessed vectors expire
-   * @returns Number of vectors deleted
+   * @param ids - Vector/chunk IDs to remove
+   * @returns Number of vectors deleted from the DB
    */
-  async cleanupExpired(ttlDays: number): Promise<number> {
-    await this.load();
-
+  private removeVectorsAndRelated(ids: string[]): number {
     const db = getDb();
-
-    // Find expired vectors (any vector not accessed within TTL)
-    const expiredRows = db
-      .prepare(
-        `
-      SELECT id FROM ${this.tableName}
-      WHERE last_accessed < datetime('now', '-' || ? || ' days')
-    `,
-      )
-      .all(ttlDays) as { id: string }[];
-
-    if (expiredRows.length === 0) {
-      return 0;
-    }
-
-    const expiredIds = expiredRows.map((r) => r.id);
-    const placeholders = sqlPlaceholders(expiredIds.length);
+    const placeholders = sqlPlaceholders(ids.length);
 
     // Delete chunks first (FK cascades handle chunk_clusters and edges)
-    db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...expiredIds);
+    db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...ids);
 
     // Delete vectors
     const result = db
       .prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`)
-      .run(...expiredIds);
+      .run(...ids);
 
     // Remove empty clusters (no remaining members after chunk deletion)
     db.prepare(
@@ -623,11 +604,10 @@ export class VectorStore {
 
     // Clean up index entries that referenced the deleted chunks
     try {
-      const placeholdersForCleanup = sqlPlaceholders(expiredIds.length);
-      // Remove reverse-lookup rows
+      const placeholdersForCleanup = sqlPlaceholders(ids.length);
       db.prepare(
         `DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholdersForCleanup})`,
-      ).run(...expiredIds);
+      ).run(...ids);
 
       // Delete orphaned index entries (no remaining chunk references)
       const orphaned = db
@@ -657,12 +637,43 @@ export class VectorStore {
     }
 
     // Remove from memory
-    for (const id of expiredIds) {
+    for (const id of ids) {
       this.vectors.delete(id);
       this.chunkProjectIndex.delete(id);
     }
 
     return result.changes;
+  }
+
+  /**
+   * Clean up expired vectors and their corresponding chunks.
+   * Removes vectors that haven't been accessed within the TTL period.
+   * Also deletes the corresponding chunks (FK cascades handle cluster assignments and edges).
+   *
+   * @param ttlDays - Number of days after which unaccessed vectors expire
+   * @returns Number of vectors deleted
+   */
+  async cleanupExpired(ttlDays: number): Promise<number> {
+    await this.load();
+
+    const db = getDb();
+
+    // Find expired vectors (any vector not accessed within TTL)
+    const expiredRows = db
+      .prepare(
+        `
+      SELECT id FROM ${this.tableName}
+      WHERE last_accessed < datetime('now', '-' || ? || ' days')
+    `,
+      )
+      .all(ttlDays) as { id: string }[];
+
+    if (expiredRows.length === 0) {
+      return 0;
+    }
+
+    const expiredIds = expiredRows.map((r) => r.id);
+    return this.removeVectorsAndRelated(expiredIds);
   }
 
   /**
@@ -697,64 +708,7 @@ export class VectorStore {
     if (toEvict.length === 0) return 0;
 
     const evictIds = toEvict.map((r) => r.id);
-    const placeholders = sqlPlaceholders(evictIds.length);
-
-    // Delete chunks first (FK cascades handle chunk_clusters and edges)
-    db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...evictIds);
-
-    // Delete vectors
-    const result = db
-      .prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`)
-      .run(...evictIds);
-
-    // Remove empty clusters
-    db.prepare(
-      `
-      DELETE FROM clusters WHERE id NOT IN (
-        SELECT DISTINCT cluster_id FROM chunk_clusters
-      )
-    `,
-    ).run();
-
-    // Clean up index entries that referenced the deleted chunks
-    try {
-      const placeholdersForCleanup = sqlPlaceholders(evictIds.length);
-      db.prepare(
-        `DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholdersForCleanup})`,
-      ).run(...evictIds);
-
-      const orphaned = db
-        .prepare(
-          `SELECT id FROM index_entries WHERE id NOT IN (
-          SELECT DISTINCT index_entry_id FROM index_entry_chunks
-        )`,
-        )
-        .all() as Array<{ id: string }>;
-
-      if (orphaned.length > 0) {
-        const orphanIds = orphaned.map((r) => r.id);
-        const orphanPlaceholders = sqlPlaceholders(orphanIds.length);
-        db.prepare(`DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`).run(
-          ...orphanIds,
-        );
-
-        if (this.tableName === 'vectors') {
-          db.prepare(`DELETE FROM index_vectors WHERE id IN (${orphanPlaceholders})`).run(
-            ...orphanIds,
-          );
-        }
-      }
-    } catch {
-      // index_entry_chunks table may not exist yet
-    }
-
-    // Remove from memory
-    for (const id of evictIds) {
-      this.vectors.delete(id);
-      this.chunkProjectIndex.delete(id);
-    }
-
-    return result.changes;
+    return this.removeVectorsAndRelated(evictIds);
   }
 }
 
