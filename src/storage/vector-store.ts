@@ -67,6 +67,11 @@ import { angularDistance } from '../utils/angular-distance.js';
 import type { VectorSearchResult } from './types.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
 import { getModel } from '../models/model-registry.js';
+import {
+  removeVectorsAndRelated,
+  findExpiredVectorIds,
+  findOldestVectorIds,
+} from './vector-store-cleanup.js';
 /**
  * In-memory vector index backed by SQLite for persistence.
  *
@@ -576,73 +581,23 @@ export class VectorStore {
 
   /**
    * Remove vectors and all related data (chunks, clusters, index entries) by ID.
-   * Handles DB deletions with FK cascades, orphan cleanup, and in-memory removal.
+   * Delegates DB operations to the extracted cleanup module, then updates in-memory indexes.
    *
    * @param ids - Vector/chunk IDs to remove
    * @returns Number of vectors deleted from the DB
    */
-  private removeVectorsAndRelated(ids: string[]): number {
-    const db = getDb();
-    const placeholders = sqlPlaceholders(ids.length);
+  private removeFromDb(ids: string[]): number {
+    return removeVectorsAndRelated(getDb(), this.tableName, ids);
+  }
 
-    // Delete chunks first (FK cascades handle chunk_clusters and edges)
-    db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...ids);
-
-    // Delete vectors
-    const result = db
-      .prepare(`DELETE FROM ${this.tableName} WHERE id IN (${placeholders})`)
-      .run(...ids);
-
-    // Remove empty clusters (no remaining members after chunk deletion)
-    db.prepare(
-      `
-      DELETE FROM clusters WHERE id NOT IN (
-        SELECT DISTINCT cluster_id FROM chunk_clusters
-      )
-    `,
-    ).run();
-
-    // Clean up index entries that referenced the deleted chunks
-    try {
-      const placeholdersForCleanup = sqlPlaceholders(ids.length);
-      db.prepare(
-        `DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholdersForCleanup})`,
-      ).run(...ids);
-
-      // Delete orphaned index entries (no remaining chunk references)
-      const orphaned = db
-        .prepare(
-          `SELECT id FROM index_entries WHERE id NOT IN (
-          SELECT DISTINCT index_entry_id FROM index_entry_chunks
-        )`,
-        )
-        .all() as Array<{ id: string }>;
-
-      if (orphaned.length > 0) {
-        const orphanIds = orphaned.map((r) => r.id);
-        const orphanPlaceholders = sqlPlaceholders(orphanIds.length);
-        db.prepare(`DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`).run(
-          ...orphanIds,
-        );
-
-        // Remove from index vector store (if this is the chunk vector store)
-        if (this.tableName === 'vectors') {
-          db.prepare(`DELETE FROM index_vectors WHERE id IN (${orphanPlaceholders})`).run(
-            ...orphanIds,
-          );
-        }
-      }
-    } catch {
-      // index_entry_chunks table may not exist yet
-    }
-
-    // Remove from memory
+  /**
+   * Remove IDs from all in-memory indexes.
+   */
+  private removeFromMemory(ids: string[]): void {
     for (const id of ids) {
       this.vectors.delete(id);
       this.chunkProjectIndex.delete(id);
     }
-
-    return result.changes;
   }
 
   /**
@@ -656,24 +611,12 @@ export class VectorStore {
   async cleanupExpired(ttlDays: number): Promise<number> {
     await this.load();
 
-    const db = getDb();
+    const expiredIds = findExpiredVectorIds(getDb(), this.tableName, ttlDays);
+    if (expiredIds.length === 0) return 0;
 
-    // Find expired vectors (any vector not accessed within TTL)
-    const expiredRows = db
-      .prepare(
-        `
-      SELECT id FROM ${this.tableName}
-      WHERE last_accessed < datetime('now', '-' || ? || ' days')
-    `,
-      )
-      .all(ttlDays) as { id: string }[];
-
-    if (expiredRows.length === 0) {
-      return 0;
-    }
-
-    const expiredIds = expiredRows.map((r) => r.id);
-    return this.removeVectorsAndRelated(expiredIds);
+    const deletedCount = this.removeFromDb(expiredIds);
+    this.removeFromMemory(expiredIds);
+    return deletedCount;
   }
 
   /**
@@ -692,23 +635,12 @@ export class VectorStore {
     if (currentCount <= maxCount) return 0;
 
     const overage = currentCount - maxCount;
-    const db = getDb();
+    const evictIds = findOldestVectorIds(getDb(), this.tableName, overage);
+    if (evictIds.length === 0) return 0;
 
-    // Select the oldest vectors by last_accessed
-    const toEvict = db
-      .prepare(
-        `
-      SELECT id FROM ${this.tableName}
-      ORDER BY last_accessed ASC
-      LIMIT ?
-    `,
-      )
-      .all(overage) as { id: string }[];
-
-    if (toEvict.length === 0) return 0;
-
-    const evictIds = toEvict.map((r) => r.id);
-    return this.removeVectorsAndRelated(evictIds);
+    const deletedCount = this.removeFromDb(evictIds);
+    this.removeFromMemory(evictIds);
+    return deletedCount;
   }
 }
 
