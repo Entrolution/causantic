@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-03-13
+
+### Added
+
+- **Shared `bootstrap()` function** (`src/config/bootstrap.ts`): Single entry point for configuration initialization — calls `loadConfig()` → `toRuntimeConfig()` → `initRuntimeConfig()`, returns the resolved config, idempotent. Eliminates the recurring pattern where entry points independently chain these calls (or forget to).
+- **`resetRuntimeConfig()`** in `memory-config.ts`: Test-only function to clear the runtime config cache.
+
+### Changed
+
+- **Entry point config initialization**: All 4 entry points (`src/mcp/server.ts`, `src/dashboard/server.ts`, `src/hooks/session-start.ts`, `src/cli/commands/init/ingest.ts`) now use `bootstrap()` instead of inline `initRuntimeConfig(toRuntimeConfig(loadConfig()))`. The ingest command was also missing `initRuntimeConfig()` entirely — `getConfig()` would have returned bare defaults instead of user config.
+- **SECURITY.md**: Updated supported versions to `>= 0.10.2`.
+
+### Tests
+
+- 32 new tests across 3 new/updated test files:
+  - `test/config/memory-config.test.ts` (13 tests): `initRuntimeConfig`/`getConfig` cache lifecycle, deep-merge for all 7 nested config objects, override immutability, idempotency.
+  - `test/config/loader.test.ts` (+15 tests): Empty string env vars, NaN handling, `clusterHour` range validation (−1, 0, 12, 23, 24), `halfLifeHours` validation (−1, 0, 48), `decayFactor` validation (−0.1, 0, 0.95).
+  - `test/config/bootstrap.test.ts` (4 tests): Config resolution, idempotency, return value, CLI override passthrough.
+- 2589 tests passing.
+
 ## [0.10.1] - 2026-03-13
 
 ### Added
