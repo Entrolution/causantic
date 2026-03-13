@@ -188,7 +188,6 @@ The Causantic skills that wrap MCP tools also support agent filtering:
 | `/causantic-predict` | Pass agent name in the context argument |
 | `/causantic-reconstruct` | Mention the agent name when invoking |
 | `/causantic-resume` | Automatically shows team session context when present |
-| `/causantic-summary` | Includes team session information in recaps |
 
 ## Checking Team Statistics
 

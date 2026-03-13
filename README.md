@@ -203,22 +203,17 @@ Or run `npx causantic init` to configure automatically.
 
 ## Skills
 
-Causantic installs 15 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
+Causantic installs 10 Claude Code slash commands (via `npx causantic init`) for natural-language interaction with memory:
 
 | Skill                           | Description                                                                                                          |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `/causantic-recall [query]`     | Reconstruct how something happened — walks backward through causal chains (how did we solve X?)                      |
 | `/causantic-search [query]`     | Broad discovery — find everything memory knows about a topic (what do I know about X?)                               |
 | `/causantic-predict <context>`  | Surface what came after similar past situations — walks forward through causal chains (what's likely relevant next?) |
-| `/causantic-explain [question]` | Answer "why" questions using memory + codebase (why does X work this way?)                                           |
-| `/causantic-debug [error]`      | Search for prior encounters with an error (auto-extracts from conversation if no argument)                           |
 | `/causantic-resume`             | Resume interrupted work — start-of-session briefing                                                                  |
 | `/causantic-reconstruct [time]` | Replay a past session chronologically, or get recent history (no args = timeline mode)                               |
-| `/causantic-summary [time]`     | Factual recap of what was done across recent sessions                                                                |
 | `/causantic-list-projects`      | Discover available projects in memory                                                                                |
 | `/causantic-status`             | Check system health and memory statistics                                                                            |
-| `/causantic-crossref [pattern]` | Search across all projects for reusable patterns                                                                     |
-| `/causantic-retro [scope]`      | Surface recurring patterns, problems, and decisions across sessions                                                  |
 | `/causantic-cleanup`            | Memory-informed codebase review and cleanup plan                                                                     |
 | `/causantic-roadmap [goal]`     | Gather deferred work and goals into a phased roadmap                                                                 |
 | `/causantic-forget [query]`     | Delete memory by topic, time range, or session (always previews first)                                               |
@@ -289,7 +284,7 @@ See [Security Guide](docs/guides/security.md).
 - [User Guides](docs/guides/) — Dashboard, benchmarking, integration, security, maintenance
 - [CLI Reference](docs/reference/cli-commands.md) — All commands and options
 - [MCP Tools Reference](docs/reference/mcp-tools.md) — Tool schemas and usage
-- [Skills Reference](docs/reference/skills.md) — All 15 slash commands
+- [Skills Reference](docs/reference/skills.md) — All 10 slash commands
 - [Configuration Reference](docs/reference/configuration.md) — All configuration options
 - [Research Documentation](docs/research/) — Experiment results and design decisions
 - [Design Decision Log](docs/research/decisions.md) — Why things are the way they are

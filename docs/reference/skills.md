@@ -58,40 +58,6 @@ Surface what came after similar past situations — walks forward through causal
 
 ---
 
-### Understanding & Analysis
-
-#### `/causantic-explain [question or area]`
-
-Answer "why" questions using memory + codebase ("why does X work this way?")
-
-| Parameter | Required | Description                          |
-| --------- | -------- | ------------------------------------ |
-| `query`   | Yes      | A "why" question or area/module name |
-| `project` | No       | Filter to a specific project slug    |
-
-**Modes**:
-
-- **Focused decision**: "Why does X..." / "What led to..." -- returns decision narrative (context, alternatives, rationale, trade-offs)
-- **Area briefing**: "Tell me about X" / area name / file path -- returns comprehensive briefing (purpose, key decisions, evolution, constraints)
-
-**Example**: `/causantic-explain why does the chunker split on tool boundaries?`
-
----
-
-#### `/causantic-debug [error message]`
-
-Search past sessions for prior encounters with the current error, bug pattern, or issue.
-
-| Parameter | Required | Description                                                         |
-| --------- | -------- | ------------------------------------------------------------------- |
-| `error`   | No       | Error text. If omitted, auto-extracts from the current conversation |
-
-**When to use**: When stuck on an error after 2 failed attempts, debugging a recurring problem, or encountering a familiar-looking issue.
-
-**Example**: `/causantic-debug SQLITE_BUSY database is locked`
-
----
-
 ### Session & Project Navigation
 
 #### `/causantic-resume [topic or time range]`
@@ -125,22 +91,6 @@ Replay a past session chronologically, or get recent history. Call with no argum
 
 ---
 
-#### `/causantic-summary [time range]`
-
-Factual recap of what was done across recent sessions.
-
-| Parameter    | Required | Description                                              |
-| ------------ | -------- | -------------------------------------------------------- |
-| `time range` | No       | Natural language time reference. Defaults to past 3 days |
-
-**When to use**: Sprint reviews, daily standups, tracking accomplishments and in-progress work.
-
-**Output includes**: Accomplishments, in-progress work, patterns, blockers, next steps.
-
-**Example**: `/causantic-summary this week`
-
----
-
 #### `/causantic-list-projects`
 
 Discover available projects in memory with chunk counts and date ranges.
@@ -163,37 +113,7 @@ Check system health and memory statistics.
 
 ---
 
-### Cross-cutting Analysis
-
-#### `/causantic-crossref [pattern]`
-
-Search across all projects for reusable patterns and solutions.
-
-| Parameter | Required | Description                                    |
-| --------- | -------- | ---------------------------------------------- |
-| `pattern` | Yes      | Pattern or topic to search for across projects |
-
-**When to use**: Looking for how something was solved in other projects, cross-project knowledge transfer, finding reusable patterns.
-
-**Example**: `/causantic-crossref rate limiting implementation`
-
----
-
-#### `/causantic-retro [time range or topic]`
-
-Surface recurring patterns, problems, and decisions across sessions.
-
-| Parameter | Required | Description                                   |
-| --------- | -------- | --------------------------------------------- |
-| `scope`   | No       | Time range or topic. Defaults to past 30 days |
-
-**When to use**: Sprint retrospectives, identifying recurring themes, reviewing work patterns.
-
-**Output includes**: Recurring patterns, decisions made, recurring issues, observations.
-
-**Example**: `/causantic-retro past month`
-
----
+### Planning & Analysis
 
 #### `/causantic-cleanup`
 
@@ -262,14 +182,11 @@ Delete memory by topic, time range, or session. Always previews before deleting.
 | ----------------------------------- | ------------- |
 | "What do I know about X?"           | `search`      |
 | "How did we solve X?"               | `recall`      |
-| "Why does X work this way?"         | `explain`     |
+| "Why does X work this way?"         | `recall`      |
 | "What might be relevant?"           | `predict`     |
 | "Where did I leave off?"            | `resume`      |
 | "What did I work on yesterday?"     | `reconstruct` |
 | "What happened recently?"           | `reconstruct` |
-| "Summarize this week"               | `summary`     |
-| "How did other projects handle X?"  | `crossref`    |
-| "What patterns do I see?"           | `retro`       |
 | "Review and clean up this codebase" | `cleanup`     |
 | "What should we work on next?"      | `roadmap`     |
 | "Build a roadmap"                   | `roadmap`     |
