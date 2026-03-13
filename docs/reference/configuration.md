@@ -2,6 +2,16 @@
 
 Complete reference for all Causantic configuration options.
 
+## Configuration Priority
+
+Causantic can be configured through multiple sources, applied in this priority order:
+
+1. **CLI flags** (highest priority)
+2. **Environment variables** (`CAUSANTIC_*`)
+3. **Project config** (`./causantic.config.json`)
+4. **User config** (`~/.causantic/config.json`)
+5. **Built-in defaults** (lowest priority)
+
 ## Configuration File
 
 Causantic uses JSON configuration files. Create `causantic.config.json`:

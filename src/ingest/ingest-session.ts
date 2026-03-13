@@ -51,7 +51,7 @@ import { createLogger } from '../utils/logger.js';
 import { resolveCanonicalProjectPath } from '../utils/project-path.js';
 import { generateIndexEntriesForChunks } from './index-entry-hook.js';
 import { extractSessionState } from './session-state.js';
-import { extractEntities } from './entity-extractor.js';
+import { extractEntities } from '../utils/entity-extractor.js';
 import { upsertSessionState } from '../storage/session-state-store.js';
 import { resolveEntity, insertEntityMention } from '../storage/entity-store.js';
 import { loadConfig, toRuntimeConfig } from '../config/loader.js';

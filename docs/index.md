@@ -8,7 +8,7 @@ New to Causantic? Start here:
 
 - [Installation](getting-started/installation.md) - How to install and set up Causantic
 - [Quick Start](getting-started/quick-start.md) - Get up and running in 5 minutes
-- [Configuration](getting-started/configuration.md) - Customize Causantic for your needs
+- [Configuration](reference/configuration.md) - Customize Causantic for your needs
 
 ## User Guides
 

@@ -87,9 +87,9 @@ const EXTENSION_TO_LANGUAGE: Record<string, string> = {
 };
 
 // Lazy-loaded tree-sitter module and languages
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic tree-sitter import lacks typed exports
 let ParserClass: any = null;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic tree-sitter import lacks typed exports
 let LanguageClass: any = null;
 let initPromise: Promise<void> | null = null;
 const languageCache = new Map<string, TSLanguage>();
@@ -103,7 +103,7 @@ async function ensureInit(): Promise<void> {
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamic import has no static type declarations
     const mod = (await import('web-tree-sitter')) as any;
     const P = mod.Parser ?? mod.default;
     const wasmPath = join(

@@ -146,6 +146,7 @@ Add to your Claude Code MCP config:
 | `hook-status`    | Check when hooks last ran and whether they succeeded         |
 | `stats`          | Memory statistics: chunks, edges, clusters, per-project      |
 | `forget`         | Delete memory by project, time range, session, or topic      |
+| `repomap`        | Compact structural summary of a project — files, definitions, and cross-file relationships |
 
 See [MCP Tools Reference](../reference/mcp-tools.md) for details.
 

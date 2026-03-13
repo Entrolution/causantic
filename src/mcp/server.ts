@@ -1,6 +1,6 @@
 /**
  * MCP (Model Context Protocol) server for memory tools.
- * Provides recall, explain, and predict tools for Claude Code integration.
+ * Provides recall, search, and predict tools for Claude Code integration.
  *
  * Features:
  * - Health check endpoint (ping)

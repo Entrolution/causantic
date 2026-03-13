@@ -302,7 +302,7 @@ These diagnostics help distinguish between "memory is empty" and "memory exists 
 
 ## Token Limits
 
-Response sizes are controlled by `tokens.mcpMaxResponse` in the configuration (default: 20000 tokens). The `predict` tool uses half this budget.
+Response sizes are controlled by `tokens.mcpMaxResponse` in the configuration (default: 20000 tokens).
 
 Budget enforcement is applied at multiple stages:
 

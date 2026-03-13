@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { extractEntities, type EntityMention } from '../../src/ingest/entity-extractor.js';
+import { extractEntities, type EntityMention } from '../../src/utils/entity-extractor.js';
 
 /** Helper: find mention by normalizedName. */
 function findByName(mentions: EntityMention[], name: string): EntityMention | undefined {

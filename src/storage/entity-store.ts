@@ -6,7 +6,7 @@
  */
 
 import { getDb, generateId } from './db.js';
-import type { EntityType } from '../ingest/entity-extractor.js';
+import type { EntityType } from '../utils/entity-extractor.js';
 
 /** A stored entity. */
 export interface StoredEntity {

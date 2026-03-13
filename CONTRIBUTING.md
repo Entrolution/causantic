@@ -94,11 +94,13 @@ src/
 ├── dashboard/     # Web dashboard server and client
 ├── eval/          # Benchmarking and evaluation
 ├── hooks/         # Claude Code integration hooks
+├── index-entries/ # Index entry generation and refresh
 ├── ingest/        # Session ingestion pipeline
 ├── maintenance/   # Scheduled maintenance tasks
 ├── mcp/           # MCP server and tools
 ├── models/        # Embedding models
 ├── parser/        # Session parsing
+├── repomap/       # Structural codebase map generation
 ├── retrieval/     # Query and context assembly
 ├── storage/       # Database and vector store
 └── utils/         # Shared utilities

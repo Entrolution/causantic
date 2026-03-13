@@ -23,7 +23,7 @@ import { KeywordStore } from '../storage/keyword-store.js';
 import { fuseRRF, type RankedItem } from './rrf.js';
 import { expandViaClusters } from './cluster-expander.js';
 import { reorderWithMMR } from './mmr.js';
-import { extractEntities } from '../ingest/entity-extractor.js';
+import { extractEntities } from '../utils/entity-extractor.js';
 import { findEntitiesByAlias, getChunkIdsForEntity } from '../storage/entity-store.js';
 import { createLogger } from '../utils/logger.js';
 import { formatSearchChunk } from './formatting.js';
