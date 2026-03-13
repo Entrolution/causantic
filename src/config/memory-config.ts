@@ -226,10 +226,44 @@ export const DEFAULT_CONFIG: MemoryConfig = {
 };
 
 /**
+ * Cached runtime config, populated by initRuntimeConfig().
+ * When set, getConfig() returns this instead of bare defaults,
+ * ensuring user config files and env vars are respected.
+ */
+let _runtimeConfig: MemoryConfig | null = null;
+
+/**
+ * Initialize the runtime config cache. Call once at startup (e.g., MCP server start).
+ * This ensures getConfig() respects user config files and env vars.
+ */
+export function initRuntimeConfig(config: MemoryConfig): void {
+  _runtimeConfig = config;
+}
+
+/**
  * Get configuration with overrides applied.
+ * Returns the cached runtime config (from initRuntimeConfig) if available,
+ * otherwise falls back to DEFAULT_CONFIG.
  */
 export function getConfig(overrides: Partial<MemoryConfig> = {}): MemoryConfig {
-  return { ...DEFAULT_CONFIG, ...overrides };
+  const base = _runtimeConfig ?? DEFAULT_CONFIG;
+  if (Object.keys(overrides).length === 0) return base;
+  return {
+    ...base,
+    ...overrides,
+    // Deep-merge nested objects to prevent shallow spread from destroying them
+    hybridSearch: { ...base.hybridSearch, ...overrides.hybridSearch },
+    clusterExpansion: { ...base.clusterExpansion, ...overrides.clusterExpansion },
+    mmrReranking: { ...base.mmrReranking, ...overrides.mmrReranking },
+    recency: { ...base.recency, ...overrides.recency },
+    lengthPenalty: { ...base.lengthPenalty, ...overrides.lengthPenalty },
+    repomap: {
+      ...base.repomap,
+      ...overrides.repomap,
+      languages: overrides.repomap?.languages ?? base.repomap.languages,
+    },
+    semanticIndex: { ...base.semanticIndex, ...overrides.semanticIndex },
+  };
 }
 
 /**

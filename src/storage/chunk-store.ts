@@ -211,6 +211,7 @@ export function isSessionIngested(sessionId: string): boolean {
 export function deleteChunk(id: string): boolean {
   const db = getDb();
   const result = db.prepare('DELETE FROM chunks WHERE id = ?').run(id);
+  invalidateProjectsCache();
   return result.changes > 0;
 }
 
@@ -225,6 +226,7 @@ export function deleteChunks(ids: string[]): number {
   const db = getDb();
   const placeholders = sqlPlaceholders(ids.length);
   const result = db.prepare(`DELETE FROM chunks WHERE id IN (${placeholders})`).run(...ids);
+  invalidateProjectsCache();
   return result.changes;
 }
 

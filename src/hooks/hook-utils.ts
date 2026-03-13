@@ -116,6 +116,7 @@ export async function withRetry<T>(
   hookName: string,
   fn: () => Promise<T>,
   options: RetryOptions = {},
+  metrics?: HookMetrics,
 ): Promise<T> {
   const {
     maxRetries = 3,
@@ -130,6 +131,7 @@ export async function withRetry<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       if (attempt > 0) {
+        if (metrics) metrics.retryCount = attempt;
         const delay = calculateBackoff(attempt - 1, initialDelayMs, maxDelayMs, backoffFactor);
 
         logHook({
@@ -229,7 +231,7 @@ export async function executeHook<T>(
     let result: T;
 
     if (options.retry) {
-      result = await withRetry(hookName, fn, options.retry);
+      result = await withRetry(hookName, fn, options.retry, metrics);
     } else {
       result = await fn();
     }

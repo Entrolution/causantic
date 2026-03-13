@@ -13,6 +13,7 @@ import { getDb, generateId, sqlPlaceholders } from './db.js';
 import { indexVectorStore } from './vector-store.js';
 import type { IndexEntry, IndexEntryInput } from './types.js';
 import { createLogger } from '../utils/logger.js';
+import { sanitizeQuery } from './keyword-store.js';
 
 const log = createLogger('index-entry-store');
 
@@ -247,48 +248,56 @@ export async function deleteIndexEntriesForChunks(chunkIds: string[]): Promise<n
   const db = getDb();
   const placeholders = sqlPlaceholders(chunkIds.length);
 
-  // Find affected index entry IDs
-  const affectedRows = db
-    .prepare(
-      `SELECT DISTINCT index_entry_id FROM index_entry_chunks WHERE chunk_id IN (${placeholders})`,
-    )
-    .all(...chunkIds) as Array<{ index_entry_id: string }>;
+  const orphanedIds = db.transaction(() => {
+    // Find affected index entry IDs
+    const affectedRows = db
+      .prepare(
+        `SELECT DISTINCT index_entry_id FROM index_entry_chunks WHERE chunk_id IN (${placeholders})`,
+      )
+      .all(...chunkIds) as Array<{ index_entry_id: string }>;
 
-  if (affectedRows.length === 0) return 0;
+    if (affectedRows.length === 0) return [];
 
-  const affectedIds = affectedRows.map((r) => r.index_entry_id);
+    const affectedIds = affectedRows.map((r) => r.index_entry_id);
 
-  // Remove the chunk references
-  db.prepare(`DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholders})`).run(...chunkIds);
+    // Remove the chunk references
+    db.prepare(`DELETE FROM index_entry_chunks WHERE chunk_id IN (${placeholders})`).run(
+      ...chunkIds,
+    );
 
-  // Find entries that now have no chunk references
-  const orphanedIds: string[] = [];
-  for (const entryId of affectedIds) {
-    const remaining = db
-      .prepare('SELECT COUNT(*) as count FROM index_entry_chunks WHERE index_entry_id = ?')
-      .get(entryId) as { count: number };
+    // Find entries that now have no chunk references
+    const orphaned: string[] = [];
+    for (const entryId of affectedIds) {
+      const remaining = db
+        .prepare('SELECT COUNT(*) as count FROM index_entry_chunks WHERE index_entry_id = ?')
+        .get(entryId) as { count: number };
 
-    if (remaining.count === 0) {
-      orphanedIds.push(entryId);
-    } else {
-      // Update the chunk_ids JSON to reflect removed references
-      const currentChunks = db
-        .prepare('SELECT chunk_id FROM index_entry_chunks WHERE index_entry_id = ?')
-        .all(entryId) as Array<{ chunk_id: string }>;
+      if (remaining.count === 0) {
+        orphaned.push(entryId);
+      } else {
+        // Update the chunk_ids JSON to reflect removed references
+        const currentChunks = db
+          .prepare('SELECT chunk_id FROM index_entry_chunks WHERE index_entry_id = ?')
+          .all(entryId) as Array<{ chunk_id: string }>;
 
-      db.prepare('UPDATE index_entries SET chunk_ids = ? WHERE id = ?').run(
-        JSON.stringify(currentChunks.map((c) => c.chunk_id)),
-        entryId,
-      );
+        db.prepare('UPDATE index_entries SET chunk_ids = ? WHERE id = ?').run(
+          JSON.stringify(currentChunks.map((c) => c.chunk_id)),
+          entryId,
+        );
+      }
     }
-  }
 
-  // Delete orphaned entries
+    // Delete orphaned entries
+    if (orphaned.length > 0) {
+      const orphanPlaceholders = sqlPlaceholders(orphaned.length);
+      db.prepare(`DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`).run(...orphaned);
+    }
+
+    return orphaned;
+  })();
+
+  // Clean up vectors (async, outside transaction)
   if (orphanedIds.length > 0) {
-    const orphanPlaceholders = sqlPlaceholders(orphanedIds.length);
-    db.prepare(`DELETE FROM index_entries WHERE id IN (${orphanPlaceholders})`).run(...orphanedIds);
-
-    // Clean up vectors
     await indexVectorStore.deleteBatch(orphanedIds);
   }
 
@@ -337,19 +346,8 @@ export function searchIndexEntriesByKeyword(
 ): Array<{ id: string; score: number }> {
   const db = getDb();
 
-  // Sanitize query for FTS5
-  const sanitized = query
-    .replace(/\b(AND|OR|NOT)\b/g, '')
-    .replace(/[*"(){}\^~\-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (!sanitized) return [];
-
-  const terms = sanitized.split(/\s+/).filter(Boolean);
-  if (terms.length === 0) return [];
-
-  const ftsQuery = terms.map((t) => `"${t}"`).join(' ');
+  const ftsQuery = sanitizeQuery(query);
+  if (!ftsQuery) return [];
 
   try {
     let sql = `

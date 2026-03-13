@@ -19,7 +19,7 @@ export interface KeywordSearchResult {
  * Sanitize a query string for FTS5 MATCH syntax.
  * Escapes special characters and strips FTS5 operators.
  */
-function sanitizeQuery(query: string): string {
+export function sanitizeQuery(query: string): string {
   if (!query || !query.trim()) return '';
 
   // Remove FTS5 special operators and characters

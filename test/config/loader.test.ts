@@ -438,7 +438,7 @@ describe('loadConfig', () => {
       expect(config.llm.enableLabelling).toBe(false);
     });
 
-    it('produces NaN for non-numeric strings in integer fields', () => {
+    it('ignores non-numeric strings in integer fields (keeps default)', () => {
       process.env.CAUSANTIC_CLUSTERING_MIN_CLUSTER_SIZE = 'abc';
 
       const config = loadConfig({
@@ -446,10 +446,11 @@ describe('loadConfig', () => {
         skipUserConfig: true,
       });
 
-      expect(config.clustering.minClusterSize).toBeNaN();
+      // Non-numeric values are skipped, default is preserved
+      expect(config.clustering.minClusterSize).toBe(4);
     });
 
-    it('produces NaN for non-numeric strings in float fields', () => {
+    it('ignores non-numeric strings in float fields (keeps default)', () => {
       process.env.CAUSANTIC_CLUSTERING_THRESHOLD = 'not-a-number';
 
       const config = loadConfig({
@@ -457,7 +458,8 @@ describe('loadConfig', () => {
         skipUserConfig: true,
       });
 
-      expect(config.clustering.threshold).toBeNaN();
+      // Non-numeric values are skipped, default is preserved
+      expect(config.clustering.threshold).toBe(0.1);
     });
   });
 

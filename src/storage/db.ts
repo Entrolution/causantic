@@ -272,22 +272,22 @@ export function clearAllData(database?: Database.Database): void {
   try {
     d.exec('DELETE FROM index_entry_chunks');
     d.exec('DELETE FROM index_entries');
-  } catch {
-    // Tables may not exist yet
+  } catch (e) {
+    if (!isTableNotFoundError(e)) throw e;
   }
   // Clean up session states if table exists
   try {
     d.exec('DELETE FROM session_states');
-  } catch {
-    // Table may not exist yet
+  } catch (e) {
+    if (!isTableNotFoundError(e)) throw e;
   }
   // Clean up entity tables if they exist
   try {
     d.exec('DELETE FROM entity_mentions');
     d.exec('DELETE FROM entity_aliases');
     d.exec('DELETE FROM entities');
-  } catch {
-    // Tables may not exist yet
+  } catch (e) {
+    if (!isTableNotFoundError(e)) throw e;
   }
 }
 
@@ -312,6 +312,16 @@ export function getDbStats(database?: Database.Database): {
   ).count;
 
   return { chunks, edges, clusters, assignments };
+}
+
+/**
+ * Check if an error is a SQLite "no such table" error.
+ *
+ * Used in catch blocks that should only tolerate missing tables
+ * (e.g. during migrations or when optional tables haven't been created yet).
+ */
+export function isTableNotFoundError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('no such table');
 }
 
 /**

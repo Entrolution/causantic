@@ -62,7 +62,7 @@
  * @module storage/vector-store
  */
 
-import { getDb, sqlPlaceholders } from './db.js';
+import { getDb, sqlPlaceholders, isTableNotFoundError } from './db.js';
 import { angularDistance } from '../utils/angular-distance.js';
 import type { VectorSearchResult } from './types.js';
 import { serializeEmbedding, deserializeEmbedding } from '../utils/embedding-utils.js';
@@ -98,11 +98,14 @@ export class VectorStore {
   private expectedDims: number = 512;
 
   /** SQL table name for persistence. Default: 'vectors'. */
-  private readonly tableName: string;
+  private readonly tableName: 'vectors' | 'index_vectors';
   /** Optional lookup table for resolving entity metadata (e.g. 'index_entries' for index vectors). */
   private readonly metadataTable: string | null;
 
-  constructor(options?: { tableName?: string; metadataTable?: string | null }) {
+  constructor(options?: {
+    tableName?: 'vectors' | 'index_vectors';
+    metadataTable?: string | null;
+  }) {
     this.tableName = options?.tableName ?? 'vectors';
     this.metadataTable = options?.metadataTable ?? null;
   }
@@ -195,8 +198,8 @@ export class VectorStore {
       for (const row of projectRows) {
         this.chunkProjectIndex.set(row.id, row.session_slug);
       }
-    } catch {
-      // metadata table may not exist yet (e.g., during migrations)
+    } catch (e) {
+      if (!isTableNotFoundError(e)) throw e;
     }
 
     try {
@@ -207,8 +210,8 @@ export class VectorStore {
       for (const row of agentRows) {
         this.chunkAgentIndex.set(row.id, row.agent_id);
       }
-    } catch {
-      // metadata table may not exist yet
+    } catch (e) {
+      if (!isTableNotFoundError(e)) throw e;
     }
 
     try {
@@ -219,8 +222,8 @@ export class VectorStore {
       for (const row of teamRows) {
         this.chunkTeamIndex.set(row.id, row.team_name);
       }
-    } catch {
-      // metadata table may not exist yet
+    } catch (e) {
+      if (!isTableNotFoundError(e)) throw e;
     }
 
     this.loaded = true;
@@ -265,8 +268,8 @@ export class VectorStore {
       if (row?.team_name) {
         this.chunkTeamIndex.set(id, row.team_name);
       }
-    } catch {
-      // metadata table may not exist
+    } catch (e) {
+      if (!isTableNotFoundError(e)) throw e;
     }
   }
 
@@ -328,8 +331,8 @@ export class VectorStore {
           }
         }
       }
-    } catch {
-      // metadata table may not exist
+    } catch (e) {
+      if (!isTableNotFoundError(e)) throw e;
     }
   }
 
@@ -468,6 +471,9 @@ export class VectorStore {
     const result = db.prepare(`DELETE FROM ${this.tableName} WHERE id = ?`).run(id);
 
     this.vectors.delete(id);
+    this.chunkProjectIndex.delete(id);
+    this.chunkAgentIndex.delete(id);
+    this.chunkTeamIndex.delete(id);
     return result.changes > 0;
   }
 
@@ -488,6 +494,8 @@ export class VectorStore {
     for (const id of ids) {
       this.vectors.delete(id);
       this.chunkProjectIndex.delete(id);
+      this.chunkAgentIndex.delete(id);
+      this.chunkTeamIndex.delete(id);
     }
 
     return result.changes;
@@ -597,6 +605,8 @@ export class VectorStore {
     for (const id of ids) {
       this.vectors.delete(id);
       this.chunkProjectIndex.delete(id);
+      this.chunkAgentIndex.delete(id);
+      this.chunkTeamIndex.delete(id);
     }
   }
 

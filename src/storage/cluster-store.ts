@@ -2,8 +2,13 @@
  * CRUD operations for clusters and chunk-cluster assignments.
  */
 
+import { createHash } from 'node:crypto';
 import { getDb, generateId } from './db.js';
 import type { StoredCluster, ClusterInput, ChunkClusterAssignment } from './types.js';
+import {
+  serializeEmbedding as serializeCentroid,
+  deserializeEmbedding as deserializeCentroid,
+} from '../utils/embedding-utils.js';
 
 /**
  * Create or update a cluster.
@@ -118,12 +123,12 @@ export function getStaleClusters(maxAge?: number): StoredCluster[] {
   const db = getDb();
 
   let query = 'SELECT * FROM clusters WHERE refreshed_at IS NULL';
-  const params: number[] = [];
+  const params: (string | number)[] = [];
 
   if (maxAge !== undefined) {
     const cutoff = new Date(Date.now() - maxAge).toISOString();
     query += ' OR refreshed_at < ?';
-    params.push(cutoff as unknown as number);
+    params.push(cutoff);
   }
 
   const rows = db.prepare(query).all(...params) as DbClusterRow[];
@@ -291,9 +296,7 @@ export function getClusterCount(): number {
  */
 export function computeMembershipHash(chunkIds: string[]): string {
   const sorted = [...chunkIds].sort();
-  // Simple hash: join and use first 16 chars of base64
-  const str = sorted.join(',');
-  return Buffer.from(str).toString('base64').slice(0, 16);
+  return createHash('sha256').update(sorted.join(',')).digest('hex').slice(0, 16);
 }
 
 // Internal types and helpers
@@ -326,18 +329,4 @@ function rowToCluster(row: DbClusterRow): StoredCluster {
     createdAt: row.created_at,
     refreshedAt: row.refreshed_at,
   };
-}
-
-function serializeCentroid(centroid: number[]): Buffer {
-  const float32 = new Float32Array(centroid);
-  return Buffer.from(float32.buffer);
-}
-
-function deserializeCentroid(buffer: Buffer): number[] {
-  const float32 = new Float32Array(
-    buffer.buffer,
-    buffer.byteOffset,
-    buffer.length / Float32Array.BYTES_PER_ELEMENT,
-  );
-  return Array.from(float32);
 }
