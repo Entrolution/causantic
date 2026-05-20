@@ -1,3 +1,7 @@
+> **This project is no longer maintained.**
+>
+> causantic is archived as of May 2026. Claude Code's native memory has since matured and covers the same ground for most use cases. The code remains available for reference but will not receive updates, fixes, or support.
+
 # Causantic
 
 [![npm version](https://img.shields.io/npm/v/causantic)](https://www.npmjs.com/package/causantic)
